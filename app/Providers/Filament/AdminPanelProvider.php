@@ -61,6 +61,8 @@ class AdminPanelProvider extends PanelProvider
                     ->icon('heroicon-o-users'),
                 NavigationGroup::make(__('app.nav.group.finance'))
                     ->icon('heroicon-o-banknotes'),
+                NavigationGroup::make('Banking')
+                    ->icon('heroicon-o-building-library'),
                 NavigationGroup::make(__('app.nav.group.reports'))
                     ->icon('heroicon-o-chart-bar'),
                 NavigationGroup::make(__('app.nav.group.settings'))
