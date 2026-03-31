@@ -20,7 +20,20 @@ class DelinquencyAlertNotification extends Notification
 
     public function via(mixed $notifiable): array
     {
-        return ['mail', TwilioChannel::class, TwilioWhatsAppChannel::class];
+        return ['mail', 'database', TwilioChannel::class, TwilioWhatsAppChannel::class];
+    }
+
+    public function toDatabase(mixed $notifiable): array
+    {
+        return [
+            'title'   => 'Overdue Installments Alert',
+            'body'    => 'You have ' . $this->overdueCount . ' overdue loan installment(s). Please settle them to maintain your membership standing.',
+            'icon'    => 'heroicon-o-exclamation-triangle',
+            'color'   => 'danger',
+            'actions' => [
+                ['label' => 'View Installments', 'url' => url('/member')],
+            ],
+        ];
     }
 
     public function toMail(mixed $notifiable): MailMessage

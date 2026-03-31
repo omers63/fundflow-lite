@@ -4,7 +4,6 @@ namespace App\Providers\Filament;
 
 use App\Filament\Member\Pages\Dashboard;
 use App\Filament\Member\Widgets\MemberStatsOverview;
-use BezhanSalleh\LanguageSwitch\Http\Middleware\SwitchLanguageLocale;
 use Filament\Http\Middleware\Authenticate;
 use Filament\Http\Middleware\AuthenticateSession;
 use Filament\Http\Middleware\DisableBladeIconComponents;
@@ -30,6 +29,8 @@ class MemberPanelProvider extends PanelProvider
             ->path('member')
             ->login()
             ->brandName('FundFlow Member')
+            ->databaseNotifications()
+            ->databaseNotificationsPolling('30s')
             ->colors([
                 'primary' => Color::Teal,
                 'gray' => Color::Slate,
@@ -58,7 +59,6 @@ class MemberPanelProvider extends PanelProvider
                 SubstituteBindings::class,
                 DisableBladeIconComponents::class,
                 DispatchServingFilamentEvent::class,
-                SwitchLanguageLocale::class,
             ])
             ->authMiddleware([
                 Authenticate::class,

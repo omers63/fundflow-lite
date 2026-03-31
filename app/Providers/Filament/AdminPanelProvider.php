@@ -4,7 +4,6 @@ namespace App\Providers\Filament;
 
 use App\Filament\Admin\Pages\Dashboard;
 use BezhanSalleh\FilamentShield\FilamentShieldPlugin;
-use BezhanSalleh\LanguageSwitch\Http\Middleware\SwitchLanguageLocale;
 use Filament\Http\Middleware\Authenticate;
 use Filament\Http\Middleware\AuthenticateSession;
 use Filament\Http\Middleware\DisableBladeIconComponents;
@@ -32,6 +31,8 @@ class AdminPanelProvider extends PanelProvider
             ->path('admin')
             ->login()
             ->brandName('FundFlow Admin')
+            ->databaseNotifications()
+            ->databaseNotificationsPolling('30s')
             ->colors([
                 'primary' => Color::Emerald,
                 'gray' => Color::Slate,
@@ -39,7 +40,6 @@ class AdminPanelProvider extends PanelProvider
             ->plugins([
                 FilamentShieldPlugin::make()
                     ->navigationGroup('Settings')
-                    ->navigationIcon(null)
                     ->navigationSort(1)
                     ->gridColumns([
                         'default' => 1,
@@ -64,7 +64,6 @@ class AdminPanelProvider extends PanelProvider
                 NavigationGroup::make(__('app.nav.group.reports'))
                     ->icon('heroicon-o-chart-bar'),
                 NavigationGroup::make(__('app.nav.group.settings'))
-                    ->icon('heroicon-o-cog-6-tooth')
                     ->collapsed(),
             ])
             ->discoverResources(in: app_path('Filament/Admin/Resources'), for: 'App\Filament\Admin\Resources')
@@ -85,7 +84,6 @@ class AdminPanelProvider extends PanelProvider
                 SubstituteBindings::class,
                 DisableBladeIconComponents::class,
                 DispatchServingFilamentEvent::class,
-                SwitchLanguageLocale::class,
             ])
             ->authMiddleware([
                 Authenticate::class,

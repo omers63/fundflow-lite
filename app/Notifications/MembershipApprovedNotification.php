@@ -20,7 +20,20 @@ class MembershipApprovedNotification extends Notification
 
     public function via(mixed $notifiable): array
     {
-        return ['mail', TwilioChannel::class, TwilioWhatsAppChannel::class];
+        return ['mail', 'database', TwilioChannel::class, TwilioWhatsAppChannel::class];
+    }
+
+    public function toDatabase(mixed $notifiable): array
+    {
+        return [
+            'title'   => 'Membership Approved',
+            'body'    => 'Welcome! Your membership has been approved. Member number: ' . $this->memberNumber,
+            'icon'    => 'heroicon-o-user-circle',
+            'color'   => 'success',
+            'actions' => [
+                ['label' => 'Go to Portal', 'url' => url('/member')],
+            ],
+        ];
     }
 
     public function toMail(mixed $notifiable): MailMessage

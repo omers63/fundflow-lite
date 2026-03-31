@@ -17,7 +17,19 @@ class MembershipRejectedNotification extends Notification
 
     public function via(mixed $notifiable): array
     {
-        return ['mail'];
+        return ['mail', 'database'];
+    }
+
+    public function toDatabase(mixed $notifiable): array
+    {
+        return [
+            'title'   => 'Membership Application Update',
+            'body'    => $this->reason
+                ? 'Your membership application was not approved. Reason: ' . $this->reason
+                : 'Your membership application could not be approved at this time.',
+            'icon'    => 'heroicon-o-x-circle',
+            'color'   => 'danger',
+        ];
     }
 
     public function toMail(mixed $notifiable): MailMessage

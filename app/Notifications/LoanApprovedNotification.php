@@ -23,7 +23,20 @@ class LoanApprovedNotification extends Notification
 
     public function via(mixed $notifiable): array
     {
-        return ['mail', TwilioChannel::class, TwilioWhatsAppChannel::class];
+        return ['mail', 'database', TwilioChannel::class, TwilioWhatsAppChannel::class];
+    }
+
+    public function toDatabase(mixed $notifiable): array
+    {
+        return [
+            'title'   => 'Loan Approved',
+            'body'    => 'Your loan of ﷼' . number_format($this->amount, 2) . ' has been approved with ' . $this->installments . ' monthly installments.',
+            'icon'    => 'heroicon-o-check-circle',
+            'color'   => 'success',
+            'actions' => [
+                ['label' => 'View Loans', 'url' => url('/member')],
+            ],
+        ];
     }
 
     public function toMail(mixed $notifiable): MailMessage

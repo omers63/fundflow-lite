@@ -27,7 +27,5 @@ class AppServiceProvider extends ServiceProvider
                 ->outsidePanelRoutes(['auth.login', 'auth.register'])
                 ->renderHook('panels::user-menu.before');
         });
-
-        LanguageSwitch::boot();
     }
 }
