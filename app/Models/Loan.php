@@ -50,6 +50,11 @@ class Loan extends Model
         return $this->hasMany(LoanInstallment::class);
     }
 
+    public function account(): ?Account
+    {
+        return Account::where('loan_id', $this->id)->where('type', Account::TYPE_LOAN)->first();
+    }
+
     public function getPaidInstallmentsCountAttribute(): int
     {
         return $this->installments()->where('status', 'paid')->count();

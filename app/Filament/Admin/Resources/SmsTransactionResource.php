@@ -4,15 +4,22 @@ namespace App\Filament\Admin\Resources;
 
 use App\Filament\Admin\Resources\SmsTransactionResource\Pages;
 use App\Models\Bank;
+use App\Models\Member;
 use App\Models\SmsImportSession;
 use App\Models\SmsTransaction;
+use App\Services\AccountingService;
+use Filament\Actions\Action;
+use Filament\Actions\BulkAction;
+use Filament\Actions\BulkActionGroup;
 use Filament\Actions\ViewAction;
 use Filament\Forms;
+use Filament\Notifications\Notification;
 use Filament\Resources\Resource;
 use Filament\Schemas\Components\Section;
 use Filament\Schemas\Schema;
 use Filament\Tables;
 use Filament\Tables\Table;
+use Illuminate\Database\Eloquent\Collection;
 
 class SmsTransactionResource extends Resource
 {
@@ -50,7 +57,11 @@ class SmsTransactionResource extends Resource
                 Forms\Components\TextInput::make('transaction_date')->disabled(),
                 Forms\Components\TextInput::make('amount')->disabled(),
                 Forms\Components\TextInput::make('transaction_type')->disabled(),
-                Forms\Components\TextInput::make('reference')->disabled(),
+                Forms\Components\TextInput::make('reference')->placeholder('—')->disabled(),
+                Forms\Components\TextInput::make('member.user.name')
+                    ->label('Auto-matched / Posted Member')
+                    ->placeholder('Not matched')
+                    ->disabled(),
             ])->columns(2),
 
             Section::make('Raw SMS')->schema([
@@ -72,6 +83,11 @@ class SmsTransactionResource extends Resource
 
     public static function table(Table $table): Table
     {
+        $memberOptions = fn () => Member::with('user')
+            ->active()
+            ->get()
+            ->mapWithKeys(fn ($m) => [$m->id => "{$m->member_number} – {$m->user->name}"]);
+
         return $table
             ->columns([
                 Tables\Columns\TextColumn::make('bank.name')->label('Bank')
@@ -84,25 +100,32 @@ class SmsTransactionResource extends Resource
                     ->color(fn (SmsTransaction $record) => $record->transaction_type === 'credit' ? 'success' : 'danger'),
                 Tables\Columns\BadgeColumn::make('transaction_type')
                     ->label('Type')
-                    ->colors([
-                        'success' => 'credit',
-                        'danger'  => 'debit',
-                    ]),
+                    ->colors(['success' => 'credit', 'danger' => 'debit']),
                 Tables\Columns\TextColumn::make('reference')->placeholder('—')->searchable(),
+                Tables\Columns\TextColumn::make('member.user.name')
+                    ->label('Member')
+                    ->placeholder('—')
+                    ->searchable(),
                 Tables\Columns\TextColumn::make('raw_sms')
                     ->label('SMS')
-                    ->limit(60)
+                    ->limit(55)
                     ->tooltip(fn (SmsTransaction $record) => $record->raw_sms)
                     ->searchable(),
+                Tables\Columns\IconColumn::make('posted_at')
+                    ->label('Posted')
+                    ->boolean()
+                    ->getStateUsing(fn (SmsTransaction $r) => $r->posted_at !== null)
+                    ->trueIcon('heroicon-o-check-badge')
+                    ->falseIcon('heroicon-o-clock')
+                    ->trueColor('success')
+                    ->falseColor('gray'),
                 Tables\Columns\IconColumn::make('is_duplicate')
-                    ->label('Duplicate')
+                    ->label('Dup.')
                     ->boolean()
                     ->trueColor('warning')
                     ->falseColor('success')
                     ->trueIcon('heroicon-o-exclamation-triangle')
                     ->falseIcon('heroicon-o-check-circle'),
-                Tables\Columns\TextColumn::make('importSession.created_at')
-                    ->label('Import Date')->date('d M Y')->sortable(),
             ])
             ->defaultSort('transaction_date', 'desc')
             ->filters([
@@ -112,34 +135,140 @@ class SmsTransactionResource extends Resource
                 Tables\Filters\SelectFilter::make('import_session_id')
                     ->label('Import Session')
                     ->options(
-                        SmsImportSession::with('bank')
-                            ->latest()
-                            ->get()
+                        SmsImportSession::with('bank')->latest()->get()
                             ->mapWithKeys(fn ($s) => [
                                 $s->id => ($s->bank?->name ?? 'No Bank') . ' — ' . $s->filename . ' (' . $s->created_at->format('d M Y') . ')',
                             ])
                     ),
                 Tables\Filters\SelectFilter::make('transaction_type')
                     ->options(['credit' => 'Credit', 'debit' => 'Debit']),
+                Tables\Filters\TernaryFilter::make('has_member')
+                    ->label('Member Matched')
+                    ->trueLabel('Matched only')
+                    ->falseLabel('Unmatched only')
+                    ->placeholder('All')
+                    ->queries(
+                        true:  fn ($q) => $q->whereNotNull('member_id'),
+                        false: fn ($q) => $q->whereNull('member_id'),
+                    ),
+                Tables\Filters\TernaryFilter::make('posted')
+                    ->label('Posting Status')
+                    ->trueLabel('Posted only')
+                    ->falseLabel('Unposted only')
+                    ->placeholder('All')
+                    ->queries(
+                        true:  fn ($q) => $q->whereNotNull('posted_at'),
+                        false: fn ($q) => $q->whereNull('posted_at'),
+                    ),
                 Tables\Filters\TernaryFilter::make('is_duplicate')
                     ->label('Duplicates')
                     ->trueLabel('Duplicates only')
                     ->falseLabel('Non-duplicates only')
-                    ->placeholder('All transactions'),
+                    ->placeholder('All'),
                 Tables\Filters\Filter::make('date_range')
                     ->schema([
                         Forms\Components\DatePicker::make('date_from')->label('From'),
                         Forms\Components\DatePicker::make('date_to')->label('To'),
                     ])
-                    ->query(function ($query, array $data) {
-                        return $query
-                            ->when($data['date_from'], fn ($q, $v) => $q->whereDate('transaction_date', '>=', $v))
-                            ->when($data['date_to'],   fn ($q, $v) => $q->whereDate('transaction_date', '<=', $v));
-                    })
+                    ->query(fn ($query, $data) => $query
+                        ->when($data['date_from'], fn ($q, $v) => $q->whereDate('transaction_date', '>=', $v))
+                        ->when($data['date_to'],   fn ($q, $v) => $q->whereDate('transaction_date', '<=', $v)))
                     ->columns(2),
             ])
             ->recordActions([
                 ViewAction::make(),
+                // Post a single transaction; member pre-filled if auto-matched
+                Action::make('post_to_cash')
+                    ->label('Post to Cash')
+                    ->icon('heroicon-o-arrow-right-circle')
+                    ->color('primary')
+                    ->visible(fn (SmsTransaction $r) => ! $r->isPosted())
+                    ->fillForm(fn (SmsTransaction $r) => ['member_id' => $r->member_id])
+                    ->schema([
+                        Forms\Components\Select::make('member_id')
+                            ->label('Post for Member')
+                            ->options($memberOptions)
+                            ->searchable()
+                            ->required()
+                            ->helperText('Auto-matched from SMS template, or select manually.'),
+                    ])
+                    ->action(function (SmsTransaction $record, array $data) {
+                        $member = Member::findOrFail($data['member_id']);
+                        app(AccountingService::class)->postSmsTransactionToCash($record, $member);
+
+                        Notification::make()
+                            ->title('Posted to Cash Account')
+                            ->body("SMS transaction posted for {$member->user->name}.")
+                            ->success()
+                            ->send();
+                    }),
+            ])
+            ->toolbarActions([
+                BulkActionGroup::make([
+                    // Auto-post all selected that have a matched member
+                    BulkAction::make('bulk_auto_post')
+                        ->label('Auto-post Matched Transactions')
+                        ->icon('heroicon-o-bolt')
+                        ->color('success')
+                        ->requiresConfirmation()
+                        ->modalDescription('This will post all selected transactions that already have an auto-matched member. Unmatched transactions will be skipped.')
+                        ->action(function (Collection $records) {
+                            $service = app(AccountingService::class);
+                            $posted  = 0;
+                            $skipped = 0;
+
+                            foreach ($records as $tx) {
+                                if ($tx->isPosted() || ! $tx->member_id) {
+                                    $skipped++;
+                                    continue;
+                                }
+                                $service->postSmsTransactionToCash($tx, $tx->member);
+                                $posted++;
+                            }
+
+                            Notification::make()
+                                ->title('Auto-post Complete')
+                                ->body("Posted: {$posted} | Skipped (no member or already posted): {$skipped}")
+                                ->success()
+                                ->send();
+                        })
+                        ->deselectRecordsAfterCompletion(),
+
+                    // Manual bulk post — all selected go to one selected member
+                    BulkAction::make('bulk_post_to_cash')
+                        ->label('Bulk Post to a Single Member')
+                        ->icon('heroicon-o-arrow-right-circle')
+                        ->color('primary')
+                        ->schema([
+                            Forms\Components\Select::make('member_id')
+                                ->label('Post all selected for Member')
+                                ->options($memberOptions)
+                                ->searchable()
+                                ->required(),
+                        ])
+                        ->action(function (Collection $records, array $data) {
+                            $member  = Member::findOrFail($data['member_id']);
+                            $service = app(AccountingService::class);
+                            $posted  = 0;
+                            $skipped = 0;
+
+                            foreach ($records as $tx) {
+                                if ($tx->isPosted()) {
+                                    $skipped++;
+                                    continue;
+                                }
+                                $service->postSmsTransactionToCash($tx, $member);
+                                $posted++;
+                            }
+
+                            Notification::make()
+                                ->title('Bulk Post Complete')
+                                ->body("Posted: {$posted} | Already posted (skipped): {$skipped}")
+                                ->success()
+                                ->send();
+                        })
+                        ->deselectRecordsAfterCompletion(),
+                ]),
             ]);
     }
 

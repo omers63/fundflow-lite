@@ -2,9 +2,11 @@
 
 namespace App\Services;
 
+use App\Models\Member;
 use App\Models\SmsImportSession;
 use App\Models\SmsImportTemplate;
 use App\Models\SmsTransaction;
+use App\Models\User;
 use Carbon\Carbon;
 use Illuminate\Support\Facades\Storage;
 use Throwable;
@@ -36,9 +38,13 @@ class SmsImportService
 
                     $duplicate = $this->findDuplicate($parsed, $template, $session->bank_id);
 
+                    // Auto-match member from SMS text if template has a member pattern
+                    $matchedMemberId = $this->matchMember($parsed['raw_sms'], $template);
+
                     SmsTransaction::create([
                         'bank_id'          => $session->bank_id,
                         'import_session_id'=> $session->id,
+                        'member_id'        => $matchedMemberId,
                         'transaction_date' => $parsed['date'],
                         'amount'           => $parsed['amount'],
                         'transaction_type' => $parsed['type'],
@@ -266,6 +272,37 @@ class SmsImportService
         }
 
         return $template->default_transaction_type ?? 'credit';
+    }
+
+    // -----------------------------------------------------------------------
+    // Member auto-matching
+    // -----------------------------------------------------------------------
+
+    private function matchMember(string $smsText, SmsImportTemplate $template): ?int
+    {
+        if (blank($template->member_match_pattern)) {
+            return null;
+        }
+
+        $value = $this->regexCapture($smsText, $template->member_match_pattern, 'member');
+
+        if (blank($value)) {
+            return null;
+        }
+
+        $field = $template->member_match_field ?? 'member_number';
+
+        if ($field === 'member_number') {
+            $member = Member::where('member_number', trim($value))->first();
+            return $member?->id;
+        }
+
+        if ($field === 'user_name') {
+            $user = User::whereRaw('LOWER(name) = ?', [mb_strtolower(trim($value))])->first();
+            return $user ? Member::where('user_id', $user->id)->value('id') : null;
+        }
+
+        return null;
     }
 
     // -----------------------------------------------------------------------

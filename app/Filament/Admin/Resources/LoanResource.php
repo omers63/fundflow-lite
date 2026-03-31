@@ -7,6 +7,7 @@ use App\Models\Loan;
 use App\Models\LoanInstallment;
 use App\Models\Member;
 use App\Notifications\LoanApprovedNotification;
+use App\Services\AccountingService;
 use Filament\Actions\Action;
 use Filament\Actions\ViewAction;
 use Filament\Forms;
@@ -161,6 +162,13 @@ class LoanResource extends Resource
                                 'due_date'           => now()->addMonths($i)->toDateString(),
                                 'status'             => 'pending',
                             ]);
+                        }
+
+                        // Post disbursement to Fund Account + member accounts + loan account
+                        try {
+                            app(AccountingService::class)->postLoanDisbursement($record);
+                        } catch (\Throwable $e) {
+                            logger()->error('Failed to post loan disbursement', ['loan_id' => $record->id, 'error' => $e->getMessage()]);
                         }
 
                         try {

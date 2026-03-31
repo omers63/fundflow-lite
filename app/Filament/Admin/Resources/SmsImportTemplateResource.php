@@ -158,7 +158,29 @@ class SmsImportTemplateResource extends Resource
                     ])->columns(2),
                 ]),
 
-                // ── Tab 5: Duplicate Detection ────────────────────────────
+                // ── Tab 5: Member Auto-match ──────────────────────────────
+                Tab::make('Member Auto-match')->schema([
+                    Section::make()->schema([
+                        Forms\Components\TextInput::make('member_match_pattern')
+                            ->label('Member regex pattern')
+                            ->placeholder('/Account[:\s]+(?P<member>\d+)/i')
+                            ->helperText('Regex with a named capture group called "member". The extracted value will be looked up against the field below.')
+                            ->columnSpanFull(),
+                        Forms\Components\Select::make('member_match_field')
+                            ->label('Match against')
+                            ->options([
+                                'member_number' => 'Member Number',
+                                'user_name'     => 'User Full Name',
+                            ])
+                            ->default('member_number')
+                            ->helperText('The extracted value will be compared to this field on the Member / User record.'),
+                        Forms\Components\Placeholder::make('member_match_hint')
+                            ->label('')
+                            ->content('Examples: /Account[:\s]+(?P<member>\d+)/i matches member by account/number · /Name[:\s]+(?P<member>[A-Za-z\s]+)/i matches by name'),
+                    ])->columns(2),
+                ]),
+
+                // ── Tab 6: Duplicate Detection ────────────────────────────
                 Tab::make('Duplicate Detection')->schema([
                     Forms\Components\CheckboxList::make('duplicate_match_fields')
                         ->label('Match duplicates on these fields')

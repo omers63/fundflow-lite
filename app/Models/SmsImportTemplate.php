@@ -15,6 +15,7 @@ class SmsImportTemplate extends Model
         'amount_pattern', 'date_pattern', 'date_pattern_format', 'reference_pattern',
         'credit_keywords', 'debit_keywords', 'default_transaction_type',
         'duplicate_match_fields', 'duplicate_date_tolerance',
+        'member_match_pattern', 'member_match_field',
     ];
 
     protected $casts = [
