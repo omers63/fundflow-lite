@@ -3,6 +3,7 @@
 namespace App\Filament\Admin\Resources;
 
 use App\Filament\Admin\Resources\SmsImportSessionResource\Pages;
+use App\Filament\Admin\Resources\SmsImportSessionResource\RelationManagers\TransactionsRelationManager;
 use App\Models\Bank;
 use App\Models\SmsImportSession;
 use App\Models\SmsImportTemplate;
@@ -177,6 +178,13 @@ class SmsImportSessionResource extends Resource
                             ->send();
                     }),
             ]);
+    }
+
+    public static function getRelations(): array
+    {
+        return [
+            TransactionsRelationManager::class,
+        ];
     }
 
     public static function getPages(): array

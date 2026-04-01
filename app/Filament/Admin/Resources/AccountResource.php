@@ -3,6 +3,7 @@
 namespace App\Filament\Admin\Resources;
 
 use App\Filament\Admin\Resources\AccountResource\Pages;
+use App\Filament\Admin\Resources\AccountResource\RelationManagers\TransactionsRelationManager;
 use App\Models\Account;
 use Filament\Actions\ViewAction;
 use Filament\Resources\Resource;
@@ -80,6 +81,13 @@ class AccountResource extends Resource
             ->recordActions([
                 ViewAction::make()->label('Ledger'),
             ]);
+    }
+
+    public static function getRelations(): array
+    {
+        return [
+            TransactionsRelationManager::class,
+        ];
     }
 
     public static function getPages(): array

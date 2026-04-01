@@ -3,6 +3,9 @@
 namespace App\Filament\Admin\Resources;
 
 use App\Filament\Admin\Resources\MemberResource\Pages;
+use App\Filament\Admin\Resources\MemberResource\RelationManagers\AccountsRelationManager;
+use App\Filament\Admin\Resources\MemberResource\RelationManagers\ContributionsRelationManager;
+use App\Filament\Admin\Resources\MemberResource\RelationManagers\LoansRelationManager;
 use App\Models\Member;
 use Filament\Actions\BulkActionGroup;
 use Filament\Actions\DeleteBulkAction;
@@ -105,7 +108,11 @@ class MemberResource extends Resource
 
     public static function getRelations(): array
     {
-        return [];
+        return [
+            ContributionsRelationManager::class,
+            LoansRelationManager::class,
+            AccountsRelationManager::class,
+        ];
     }
 
     public static function getPages(): array

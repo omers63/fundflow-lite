@@ -3,6 +3,7 @@
 namespace App\Filament\Admin\Resources;
 
 use App\Filament\Admin\Resources\LoanResource\Pages;
+use App\Filament\Admin\Resources\LoanResource\RelationManagers\InstallmentsRelationManager;
 use App\Models\Loan;
 use App\Models\LoanInstallment;
 use App\Models\Member;
@@ -209,6 +210,13 @@ class LoanResource extends Resource
                             ->send();
                     }),
             ]);
+    }
+
+    public static function getRelations(): array
+    {
+        return [
+            InstallmentsRelationManager::class,
+        ];
     }
 
     public static function getPages(): array

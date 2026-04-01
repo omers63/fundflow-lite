@@ -3,6 +3,7 @@
 namespace App\Filament\Admin\Resources;
 
 use App\Filament\Admin\Resources\BankImportSessionResource\Pages;
+use App\Filament\Admin\Resources\BankImportSessionResource\RelationManagers\TransactionsRelationManager;
 use App\Models\Bank;
 use App\Models\BankImportSession;
 use App\Models\BankImportTemplate;
@@ -179,6 +180,13 @@ class BankImportSessionResource extends Resource
                             ->send();
                     }),
             ]);
+    }
+
+    public static function getRelations(): array
+    {
+        return [
+            TransactionsRelationManager::class,
+        ];
     }
 
     public static function getPages(): array
