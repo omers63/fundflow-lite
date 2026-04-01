@@ -223,6 +223,49 @@ class AccountingService
     }
 
     // =========================================================================
+    // Parent → Dependent cash transfer
+    // =========================================================================
+
+    /**
+     * Transfer funds from a parent member's Cash Account to a dependent's Cash Account.
+     * Intended for funding contributions and loan repayments.
+     *
+     * @throws \RuntimeException when parent has insufficient balance.
+     */
+    public function fundDependentCashAccount(
+        Member $parent,
+        Member $dependent,
+        float  $amount,
+        string $note = '',
+    ): void {
+        $this->ensureMemberAccounts($parent);
+        $this->ensureMemberAccounts($dependent);
+
+        $parentCash = Account::where('type', Account::TYPE_MEMBER_CASH)
+            ->where('member_id', $parent->id)
+            ->firstOrFail();
+
+        $dependentCash = Account::where('type', Account::TYPE_MEMBER_CASH)
+            ->where('member_id', $dependent->id)
+            ->firstOrFail();
+
+        if ((float) $parentCash->balance < $amount) {
+            throw new \RuntimeException(
+                "Insufficient balance in {$parent->user->name}'s Cash Account. " .
+                "Available: SAR " . number_format((float) $parentCash->balance, 2)
+            );
+        }
+
+        $debitDesc  = trim("Transfer to {$dependent->user->name}'s cash account" . ($note ? " — {$note}" : ''));
+        $creditDesc = trim("Transfer from {$parent->user->name}'s cash account" . ($note ? " — {$note}" : ''));
+
+        DB::transaction(function () use ($parent, $dependent, $parentCash, $dependentCash, $amount, $debitDesc, $creditDesc) {
+            $this->postEntry($parentCash,    $amount, 'debit',  $debitDesc,  null, $parent->id);
+            $this->postEntry($dependentCash, $amount, 'credit', $creditDesc, null, $dependent->id);
+        });
+    }
+
+    // =========================================================================
     // Internal: create one ledger entry and update the account balance atomically
     // =========================================================================
 

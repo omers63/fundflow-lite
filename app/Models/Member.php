@@ -5,13 +5,17 @@ namespace App\Models;
 use Illuminate\Database\Eloquent\Model;
 use Illuminate\Database\Eloquent\Relations\BelongsTo;
 use Illuminate\Database\Eloquent\Relations\HasMany;
-// Account model resolved at runtime — no import needed (same namespace layer)
 
 class Member extends Model
 {
+    /** Allowed monthly contribution amounts (multiples of 500, 500–3000). */
+    public const CONTRIBUTION_STEPS = [500, 1000, 1500, 2000, 2500, 3000];
+
     protected $fillable = [
         'user_id',
+        'parent_id',
         'member_number',
+        'monthly_contribution_amount',
         'joined_at',
         'status',
     ];
@@ -19,13 +23,30 @@ class Member extends Model
     protected function casts(): array
     {
         return [
-            'joined_at' => 'date',
+            'joined_at'                   => 'date',
+            'monthly_contribution_amount' => 'integer',
         ];
     }
+
+    // -----------------------------------------------------------------------
+    // Relationships
+    // -----------------------------------------------------------------------
 
     public function user(): BelongsTo
     {
         return $this->belongsTo(User::class);
+    }
+
+    /** The member who sponsors/parents this member. */
+    public function parent(): BelongsTo
+    {
+        return $this->belongsTo(Member::class, 'parent_id');
+    }
+
+    /** Members for whom this member is the parent. */
+    public function dependents(): HasMany
+    {
+        return $this->hasMany(Member::class, 'parent_id');
     }
 
     public function contributions(): HasMany
@@ -48,6 +69,10 @@ class Member extends Model
         return $this->hasMany(Account::class);
     }
 
+    // -----------------------------------------------------------------------
+    // Account shortcuts
+    // -----------------------------------------------------------------------
+
     public function cashAccount(): ?Account
     {
         return $this->accounts()->where('type', Account::TYPE_MEMBER_CASH)->first();
@@ -57,6 +82,10 @@ class Member extends Model
     {
         return $this->accounts()->where('type', Account::TYPE_MEMBER_FUND)->first();
     }
+
+    // -----------------------------------------------------------------------
+    // Helpers
+    // -----------------------------------------------------------------------
 
     public function isActive(): bool
     {
@@ -68,6 +97,26 @@ class Member extends Model
         return $this->status === 'delinquent';
     }
 
+    public function isParent(): bool
+    {
+        return $this->dependents()->exists();
+    }
+
+    /** Validate that the given amount is an allowed contribution step. */
+    public static function isValidContributionAmount(int $amount): bool
+    {
+        return in_array($amount, self::CONTRIBUTION_STEPS, true);
+    }
+
+    /** Return the select-friendly options array for contribution amounts. */
+    public static function contributionAmountOptions(): array
+    {
+        return array_combine(
+            self::CONTRIBUTION_STEPS,
+            array_map(fn ($v) => 'SAR ' . number_format($v), self::CONTRIBUTION_STEPS)
+        );
+    }
+
     public function getTotalContributionsAttribute(): float
     {
         return (float) $this->contributions()->sum('amount');
@@ -76,6 +125,11 @@ class Member extends Model
     public function getActiveLoansAttribute()
     {
         return $this->loans()->where('status', 'active')->get();
+    }
+
+    public function getCashBalanceAttribute(): float
+    {
+        return (float) ($this->cashAccount()?->balance ?? 0);
     }
 
     public function scopeActive($query)
