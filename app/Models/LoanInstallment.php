@@ -14,14 +14,18 @@ class LoanInstallment extends Model
         'due_date',
         'paid_at',
         'status',
+        'is_late',
+        'paid_by_guarantor',
     ];
 
     protected function casts(): array
     {
         return [
-            'amount' => 'decimal:2',
-            'due_date' => 'date',
-            'paid_at' => 'datetime',
+            'amount'            => 'decimal:2',
+            'due_date'          => 'date',
+            'paid_at'           => 'datetime',
+            'is_late'           => 'boolean',
+            'paid_by_guarantor' => 'boolean',
         ];
     }
 

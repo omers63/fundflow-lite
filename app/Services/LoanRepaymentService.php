@@ -1,0 +1,225 @@
+<?php
+
+namespace App\Services;
+
+use App\Models\Account;
+use App\Models\Loan;
+use App\Models\LoanInstallment;
+use App\Models\Member;
+use App\Notifications\LoanRepaymentAppliedNotification;
+use App\Notifications\LoanRepaymentDueNotification;
+use Carbon\Carbon;
+use Illuminate\Support\Collection;
+use Illuminate\Support\Facades\DB;
+
+class LoanRepaymentService
+{
+    public function __construct(protected AccountingService $accounting) {}
+
+    // =========================================================================
+    // Deadline helpers (mirrors ContributionCycleService)
+    // =========================================================================
+
+    public function deadline(int $month, int $year): Carbon
+    {
+        return Carbon::create($year, $month, 1)
+            ->addMonthNoOverflow()
+            ->day(5)
+            ->endOfDay();
+    }
+
+    public function isLate(int $month, int $year): bool
+    {
+        return now()->greaterThan($this->deadline($month, $year));
+    }
+
+    public function periodLabel(int $month, int $year): string
+    {
+        return date('F', mktime(0, 0, 0, $month, 1)) . ' ' . $year;
+    }
+
+    // =========================================================================
+    // Due notifications (sent on 1st of month)
+    // =========================================================================
+
+    /**
+     * Notify all active borrowers whose repayment for the given period is due.
+     */
+    public function sendDueNotifications(int $month, int $year): int
+    {
+        $deadline = $this->deadline($month, $year);
+        $notified = 0;
+
+        Loan::active()
+            ->with(['member.user', 'installments'])
+            ->each(function (Loan $loan) use ($month, $year, $deadline, &$notified) {
+                // Find the installment due in this period
+                $installment = $this->installmentForPeriod($loan, $month, $year);
+                if (! $installment || $installment->isPaid()) {
+                    return;
+                }
+
+                $cashBalance = (float) ($loan->member->cashAccount()?->balance ?? 0);
+
+                try {
+                    $loan->member->user->notify(new LoanRepaymentDueNotification(
+                        loan:         $loan,
+                        installment:  $installment,
+                        deadline:     $deadline,
+                        cashBalance:  $cashBalance,
+                    ));
+                    $notified++;
+                } catch (\Throwable $e) {
+                    logger()->error('LoanRepaymentService: due notification failed', [
+                        'loan_id' => $loan->id, 'error' => $e->getMessage(),
+                    ]);
+                }
+            });
+
+        return $notified;
+    }
+
+    // =========================================================================
+    // Apply repayments for a given period
+    // =========================================================================
+
+    /**
+     * Apply loan repayments for all active loans for the given month/year period.
+     *
+     * Returns: ['applied' => Collection, 'insufficient' => Collection, 'skipped' => Collection]
+     */
+    public function applyRepayments(int $month, int $year): array
+    {
+        $isLate  = $this->isLate($month, $year);
+        $results = [
+            'applied'      => collect(),
+            'insufficient' => collect(),
+            'skipped'      => collect(),
+        ];
+
+        Loan::active()->with(['member.user', 'installments'])->each(
+            function (Loan $loan) use ($month, $year, $isLate, &$results) {
+                $this->applyOne($loan, $month, $year, $isLate, $results);
+            }
+        );
+
+        return $results;
+    }
+
+    /**
+     * Apply repayment for a single loan / period. Returns 'applied'|'insufficient'|'skipped'.
+     */
+    public function applyOne(Loan $loan, int $month, int $year, ?bool $isLate = null, array &$results = []): string
+    {
+        if ($isLate === null) {
+            $isLate = $this->isLate($month, $year);
+        }
+
+        $installment = $this->installmentForPeriod($loan, $month, $year);
+
+        if (! $installment || $installment->isPaid()) {
+            $results['skipped'][] = $loan;
+            return 'skipped';
+        }
+
+        $member      = $loan->member;
+        $amount      = (float) $installment->amount;
+        $cashAccount = Account::where('type', Account::TYPE_MEMBER_CASH)
+            ->where('member_id', $member->id)
+            ->first();
+
+        if (! $cashAccount || (float) $cashAccount->balance < $amount) {
+            $results['insufficient'][] = [
+                'loan'    => $loan,
+                'balance' => (float) ($cashAccount?->balance ?? 0),
+                'required'=> $amount,
+            ];
+            return 'insufficient';
+        }
+
+        DB::transaction(function () use ($loan, $installment, $member, $amount, $isLate) {
+            // 1. Debit member's cash account
+            $this->accounting->debitCashForRepayment($member, $installment);
+
+            // 2. Mark installment paid (observer posts to fund accounts + updates repaid_to_master)
+            $installment->update([
+                'status'  => 'paid',
+                'paid_at' => now(),
+                'is_late' => $isLate,
+            ]);
+
+            // 3. Track late stats
+            if ($isLate) {
+                $loan->increment('late_repayment_count');
+                $loan->increment('late_repayment_amount', $amount);
+                $member->increment('late_repayment_count');
+                $member->increment('late_repayment_amount', $amount);
+            }
+
+            // 4. Send account statement
+            try {
+                $freshCash = Account::where('type', Account::TYPE_MEMBER_CASH)
+                    ->where('member_id', $member->id)->first();
+
+                $loan->refresh();
+                $member->user->notify(new LoanRepaymentAppliedNotification(
+                    loan:        $loan,
+                    installment: $installment,
+                    cashBalance: (float) ($freshCash?->balance ?? 0),
+                    isLate:      $isLate,
+                ));
+            } catch (\Throwable $e) {
+                logger()->error('LoanRepaymentService: statement notification failed', [
+                    'loan_id' => $loan->id, 'error' => $e->getMessage(),
+                ]);
+            }
+        });
+
+        $results['applied'][] = $loan;
+        return 'applied';
+    }
+
+    // =========================================================================
+    // Helpers
+    // =========================================================================
+
+    /**
+     * Find the installment whose due_date falls within the given month/year period,
+     * matching on first_repayment schedule.
+     */
+    public function installmentForPeriod(Loan $loan, int $month, int $year): ?LoanInstallment
+    {
+        // Installment due_date month and year must match
+        return $loan->installments()
+            ->whereYear('due_date', $year)
+            ->whereMonth('due_date', $month)
+            ->whereIn('status', ['pending', 'overdue'])
+            ->first();
+    }
+
+    public function periodSummaries(int $limit = 12): Collection
+    {
+        return LoanInstallment::selectRaw(
+                "YEAR(due_date) as year, MONTH(due_date) as month,
+                 COUNT(*) as total_count,
+                 SUM(amount) as total_amount,
+                 SUM(CASE WHEN status='paid' THEN 1 ELSE 0 END) as paid_count,
+                 SUM(is_late) as late_count"
+            )
+            ->groupBy('year', 'month')
+            ->orderByDesc('year')
+            ->orderByDesc('month')
+            ->limit($limit)
+            ->get()
+            ->map(fn ($r) => [
+                'period_label' => $this->periodLabel((int) $r->month, (int) $r->year),
+                'month'        => (int) $r->month,
+                'year'         => (int) $r->year,
+                'total_count'  => (int) $r->total_count,
+                'total_amount' => (float) $r->total_amount,
+                'paid_count'   => (int) $r->paid_count,
+                'late_count'   => (int) $r->late_count,
+                'deadline'     => $this->deadline((int) $r->month, (int) $r->year)->format('d M Y'),
+            ]);
+    }
+}

@@ -159,9 +159,11 @@ class AccountingService
     }
 
     /**
-     * Post a loan disbursement to the master Fund Account (debit), the member's Fund Account (debit),
-     * and create/debit the loan's own account.
-     * Called after loan approval.
+     * Post a loan disbursement with split funding:
+     *  - Member's fund account is debited first (member_portion = min(fund_balance, loan_amount)).
+     *  - Master fund account is debited for the remainder (master_portion).
+     *  - Loan account records the total outstanding.
+     *  - Loan model is updated with the portion breakdown.
      */
     public function postLoanDisbursement(Loan $loan): void
     {
@@ -174,15 +176,29 @@ class AccountingService
             ->where('member_id', $member->id)
             ->firstOrFail();
 
-        $description = "Loan #{$loan->id} disbursement – {$member->user->name}";
-        $amount      = (float) $loan->amount_approved;
+        $totalAmount    = (float) $loan->amount_approved;
+        $memberPortion  = min((float) $memberFund->balance, $totalAmount);
+        $masterPortion  = $totalAmount - $memberPortion;
 
-        DB::transaction(function () use ($loan, $member, $masterFund, $memberFund, $loanAccount, $description, $amount) {
-            // Fund decreases (money goes out)
-            $this->postEntry($masterFund, $amount, 'debit', $description, $loan, $member->id);
-            $this->postEntry($memberFund, $amount, 'debit', $description, $loan, $member->id);
-            // Loan account: debit = money owed by member (balance goes negative = outstanding)
-            $this->postEntry($loanAccount, $amount, 'debit', $description, $loan, $member->id);
+        $description = "Loan #{$loan->id} disbursement – {$member->user->name}";
+
+        DB::transaction(function () use ($loan, $member, $masterFund, $memberFund, $loanAccount, $description, $totalAmount, $memberPortion, $masterPortion) {
+            // Debit member's fund (up to its full balance)
+            if ($memberPortion > 0) {
+                $this->postEntry($memberFund, $memberPortion, 'debit', $description . ' (member portion)', $loan, $member->id);
+            }
+            // Debit master fund for the remainder
+            if ($masterPortion > 0) {
+                $this->postEntry($masterFund, $masterPortion, 'debit', $description . ' (fund portion)', $loan, $member->id);
+            }
+            // Loan account tracks total outstanding
+            $this->postEntry($loanAccount, $totalAmount, 'debit', $description, $loan, $member->id);
+
+            // Snapshot portions onto the loan record
+            $loan->update([
+                'member_portion' => $memberPortion,
+                'master_portion' => $masterPortion,
+            ]);
         });
     }
 
@@ -213,13 +229,70 @@ class AccountingService
         $description = "Loan #{$loan->id} repayment (installment #{$installment->installment_number}) – {$member->user->name}";
         $amount      = (float) $installment->amount;
 
-        DB::transaction(function () use ($installment, $member, $masterFund, $memberFund, $loanAccount, $description, $amount) {
-            // Fund increases (repayment received)
+        DB::transaction(function () use ($installment, $loan, $member, $masterFund, $memberFund, $loanAccount, $description, $amount) {
+            // Fund and member fund both increase on every repayment
             $this->postEntry($masterFund, $amount, 'credit', $description, $installment, $member->id);
             $this->postEntry($memberFund, $amount, 'credit', $description, $installment, $member->id);
-            // Loan account: credit = reduces outstanding balance
+            // Loan account: credit reduces outstanding balance
             $this->postEntry($loanAccount, $amount, 'credit', $description, $installment, $member->id);
+
+            // Track how much has been credited back to the master fund (for guarantor release)
+            $loan->increment('repaid_to_master', $amount);
+            $loan->refresh();
+            $loan->releaseGuarantorIfDue();
         });
+    }
+
+    // =========================================================================
+    // Cash debit for loan repayment cycle
+    // =========================================================================
+
+    /**
+     * Debit a member's Cash Account for a loan repayment installment.
+     * Called by LoanRepaymentService before marking the installment as paid.
+     */
+    public function debitCashForRepayment(Member $member, LoanInstallment $installment): void
+    {
+        $cashAccount = Account::where('type', Account::TYPE_MEMBER_CASH)
+            ->where('member_id', $member->id)
+            ->firstOrFail();
+
+        $description = sprintf(
+            'Loan #%d repayment – installment %d of %d',
+            $installment->loan_id,
+            $installment->installment_number,
+            $installment->loan->installments_count
+        );
+
+        $this->postEntry($cashAccount, (float) $installment->amount, 'debit', $description, $installment, $member->id);
+    }
+
+    // =========================================================================
+    // Guarantor fund debit (on member default)
+    // =========================================================================
+
+    /**
+     * Debit the guarantor's Fund Account for a defaulted installment.
+     * Called by LoanDefaultService.
+     */
+    public function debitGuarantorFundForDefault(Member $guarantor, LoanInstallment $installment): void
+    {
+        $this->ensureMemberAccounts($guarantor);
+
+        $guarantorFund = Account::where('type', Account::TYPE_MEMBER_FUND)
+            ->where('member_id', $guarantor->id)
+            ->firstOrFail();
+
+        $description = sprintf(
+            'Guarantor debit – Loan #%d installment %d (borrower: %s)',
+            $installment->loan_id,
+            $installment->installment_number,
+            $installment->loan->member->user->name
+        );
+
+        $this->postEntry($guarantorFund, (float) $installment->amount, 'debit', $description, $installment, $guarantor->id);
+
+        $installment->update(['paid_by_guarantor' => true]);
     }
 
     // =========================================================================

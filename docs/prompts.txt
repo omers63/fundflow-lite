@@ -1,0 +1,112 @@
+Design and implement a web application using the latest filament php and livewire to accomplish the following:
+1. Present a beautiful, modern style/theme and appropriate public web site to manage family funds
+   (membership, monthly contributions, interest-free loans, repayment installments, monthly statements, loan eligibility, delinquency handling, alerts/notifications, etc.)
+2. There are 2 portals: admin and member.
+3. From the public website, both admin/member can login to the system.
+4. From the public website, a user may request membership by filling out necessary information and uploading a signed application form.
+5. New user may not be able to login until their membership application is approved by an admin.
+6. Upon approval of a membership application, user will receive the following notifications (email, SMS, and WhatsApp message).
+7. Attempt to login before approval of a member, will display approval status information.
+-----------------------------
+System maintains one or more external banks information. Admin is able to add as many banks as needed.
+Periodically, the admin uploads a bank transaction file (in .csv) format.
+The format of the data in the file need to be customizable via a setting template page. 
+I need to maintain a history of import session.
+During imports, duplicates need to be identified. Duplicate matching need to be customizable via a setting template page.
+------------------------------
+Similarly, periodically, the admin may upload a bulk SMS file. 
+The format of the SMS contained in the uploaded file need to be customizable via a setting SMS template page.
+I need to maintain a history of import session.
+During imports, duplicates need to be identified. Duplicate matching need to be customizable via a setting SMS template page.
+An SMS is basically a bank debit/credit transaction.
+-------------------------------
+The application maintains 2 master virtual accounts: Cash Account, Fund Account.
+Cash Account contains transactions posted from bank/sms imports.
+Fund Account contains transactions posted from contributions/loan repayments/loan disbursements.
+Application maintains these 2 accounts at all times.
+Admin must select (single/bulk) transactions to be posted to the cash account.
+All collections transactions made (monthly contributions, monthly repayments, and any disbursements) from/to members are posted to the fund account. 
+Each member also maintains 2 member's virtual accounts: (Member Cash Account, Member Fund Account), as well as an account for each loan taken.
+Transactions posted to the master cash account, need also be posted to a particular member. For bank imports, the selection of the member is done by the admin. For Sms imports, the selection is done automatically as the member name/account is matched and is part of the SMS template.
+--------------------------------
+Each member defines the monthly contribution amount he/she wants to contribute in multiple of SAR 500 from the range of (500-3000). It defaults to 500.
+The member is able to change the allocated contribution amount anytime via the Admin/Member portals.
+A member can be set the parent of one or more other members. A member can only have one parent. A parent member can fund the cash accounts of his/her dependents for purposes of contributions/loan repayments of the dependent members.
+The parent member defines the allocated contribution amounts of all of his dependent members.
+Both the parent/dependent member can changes their allocated contribution amount anytime via the Admin/Member portals.
+Any additional funds received above the allocated contribution amount of any member will remain in the member's cash account after applying the monthly contribution cycle.
+---------------------------------
+When applying the dependent members fund allocations, the parent's cash account is debited and the dependent's cash account is credited. 
+This is done before applying the contributions.
+Applying contributions always debits the member's cash account and credits the master fund account which is also mirrored in the member's fund account.
+Collecting members Contributions for a given month is due by the 5th of the following month. The amount of contribution equals the allocated member's monthly contribution amount.
+I need also to track a count of late contribution along with total late contribution amount for each member.
+At the beginning of a contribution cycle (1st day of the month following the cycle month), a notification is sent to each member. Example: Contribution for June is due by 5th of July, notification is sent on the 1st of July,
+When a member's contribution amount is applied, an account statement is sent to the member.
+----------------------------------
+A member may apply for one or more loans from the admin/member portal. A member may have one or more active loans at any given time.
+A member may cancel a pending loan request prior to approval/disbursement. After approval/disbursement the member can only do repayments for the loan schedule period or choice to do early settlement. 
+When a loan request is received, approved, rejected, disbursed, or early settled, a notification is sent to the member. 
+A member is eligible for a loan after one full year from the date of his membership, and his fund account balance shall not be less than 6000 SAR.
+A member may borrow up to double his fund account balance.
+When wishing to borrow, the member completes a loan application form and submits along with the request.
+The borrowing member is exempt from paying the monthly contribution installment; repayment of loan installments to the Fund’s account begins in the month following receipt of the loan disbursement. For example, if the loan is disbursed before the due date of the July 5th for the contribution cycle of June and he has not made the contribution; he is except from the contribution of June and Repayment starts for the Contribution cycle of July. Another example, if the loan is disbursed after the due date of the July 5th for the contribution cycle of July is exempted and repayments starts for the cycle of August.
+A member may borrow up to double the balance of his fund account. When disbursing the loan from the fund's master account, it is thought of in two parts: member's portion and master fund portion. The Disbursement is funded from the member's fund account until it is exhausted then from the master fund account for what remains. 
+Disbursing a loan will debit the master fund account and the member's fund account equally.
+The borrowing member completes his loan after paying all that is due to the Master Fund and when his new fund account balance reaches 16% of the total amount he borrowed.
+The loan is considered paid off when the master fund account portion is paid off and topped of with another 16% of the original loan amount. The percentage needs to be configurable via a setting page.
+The borrowing member must complete the loan application form; the guarantor must be only from among other members with income, plus two witnesses. The guarantor member is released from his guarantee when the borrower has fully settled what is due to the Master Fund.
+The parent member of a borrowing dependent provide the loan repayment installments similar to the contribution allocation to dependents.
+If the guarantor member withdraws or his membership is cancelled, his guarantee continues for the borrowing member until the borrowing member settles the Fund’s dues, or the borrowing member is required to name another guarantor member.
+If the borrowing member defaults on repayment for two repayment cycles (consecutive or not), he is notified that his membership will be cancelled, and the installment may be debited from his guarantor if he defaults a third cycle; the guarantor is notified accordingly.
+If the borrowing member defaults three cycles (consecutive or not), the guarantor is notified, then the amount is debited from his fund account (the guarantor’s fund account); each subsequent installment the borrower fails to pay on that same loan is handled the same way.
+System needs to implement the concept of loan tiers via a loan tiers table (configurable via a settings page). The following is the default loan tiers table:
+-----------------------------------------------------------------------
+| Tier | Loan amount (SAR) From — To | Min. monthly installment (SAR) |
+|------|----------------------------|---------------------------------|
+| 1    | 1,000 — 30,000             | 1,000                           |
+| 2    | 31,000 — 60,000            | 1,500                           |
+| 3    | 61,000 — 90,000            | 2,000                           |
+| 4    | 91,000 — 120,000           | 2,500                           |
+| 5    | 121,000 — 150,000          | 3,000                           |
+| 6    | 151,000 — 180,000          | 3,500                           |
+| 7    | 181,000 — 210,000          | 4,000                           |
+| 8    | 211,000 — 240,000          | 4,500                           |
+| 9    | 241,000 — 270,000          | 5,000                           |
+| 10   | 271,000 — 300,000          | 5,500                           |
+-----------------------------------------------------------------------
+System needs to implement the concept of a Fund Tiers table (configurable via a settings page). It basically defines each tier as a percentage of available master account funds, allocated to the tier and available for loan requests. The table should automatically computes the available funds for each tier in realtime, based on the defined percentage. The following is the default fund tiers table:
+------------------------------------------------------------------------------------------------------
+| Tier | Loan Tier | Tier (%) of Total Fund | Available funds (SAR) | Current number of active loans |
+|------|-----------|------------------------|-----------------------|--------------------------------|
+| 0    | Emergency |100%                    |                       |                                |
+| 2    | 2         |100%                    |                       |                                |
+| 3    | 3         |100%                    |                       |                                |
+| 4    | 4         |100%                    |                       |                                |
+| 5    | 5         |100%                    |                       |                                |
+| 6    | 6         |100%                    |                       |                                |
+| 7    | 7         |100%                    |                       |                                |
+| 8    | 8         |100%                    |                       |                                |
+| 9    | 9         |100%                    |                       |                                |
+| 10   | 10        |100%                    |                       |                                |
+------------------------------------------------------------------------------------------------------
+System needs to implement, manage, visualize, and control a Loan Request Queue. There will be a loan queue for each loan tier, including the exceptional "Emergency" tier. Loan requests from members are placed, based on eligibility check and in the order they are submitted.
+Loan repayment cycle for a given cycle is due by the 5th of the following month, for the monthly installment amount.
+I need to track a count of late loan repayments along with late total amount of late installments for each member.
+When applying a loan repayment of a member, the member's cash account is debited, the master fund account is credited which also reflects on the member's fund account.
+At the beginning of a repayment cycle a notification is sent to the borrowing member.
+At the end of a repayment cycle, an account statement is sent to the borrowing member.
+--------------------------------------
+Generate a full and complete Admin Operational manual of the system and also generate a full and complete User Operational manual.
+Are there any useful and relevant analytical/insightful Widgets you can add to the dashboard of both the admin and member portals and/or any other group pages/resources?
+
+
+
+ 
+
+
+ 
+
+
+
+

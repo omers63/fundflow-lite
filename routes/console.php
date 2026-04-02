@@ -16,3 +16,15 @@ Schedule::command('contributions:notify')->monthlyOn(1, '09:00');
 
 // 5th of each month at 09:00 — auto-apply contributions for the previous month.
 Schedule::command('contributions:apply')->monthlyOn(5, '09:00');
+
+// 1st of each month at 09:30 — notify active borrowers of upcoming repayment.
+Schedule::command('loans:notify')->monthlyOn(1, '09:30');
+
+// 5th of each month at 09:30 — auto-apply loan repayments.
+Schedule::command('loans:apply')->monthlyOn(5, '09:30');
+
+// 6th of each month — check for defaults (after repayment deadline).
+Schedule::command('loans:check-defaults')->monthlyOn(6, '08:00');
+
+// Daily — auto-settle loans whose conditions are fully met.
+Schedule::command('loans:check-settlements')->dailyAt('10:00');

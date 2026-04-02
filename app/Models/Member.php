@@ -18,6 +18,8 @@ class Member extends Model
         'monthly_contribution_amount',
         'late_contributions_count',
         'late_contributions_amount',
+        'late_repayment_count',
+        'late_repayment_amount',
         'joined_at',
         'status',
     ];
@@ -29,6 +31,8 @@ class Member extends Model
             'monthly_contribution_amount' => 'integer',
             'late_contributions_count'    => 'integer',
             'late_contributions_amount'   => 'decimal:2',
+            'late_repayment_count'        => 'integer',
+            'late_repayment_amount'       => 'decimal:2',
         ];
     }
 
@@ -129,6 +133,18 @@ class Member extends Model
     public function getActiveLoansAttribute()
     {
         return $this->loans()->where('status', 'active')->get();
+    }
+
+    /** True if the member has any in-progress loan (pending / approved / active). */
+    public function hasActiveLoan(): bool
+    {
+        return $this->loans()->whereIn('status', ['pending', 'approved', 'active'])->exists();
+    }
+
+    /** True if the member is currently exempt from contributions (active loan in progress). */
+    public function isExemptFromContributions(): bool
+    {
+        return $this->loans()->whereIn('status', ['approved', 'active'])->exists();
     }
 
     public function getCashBalanceAttribute(): float

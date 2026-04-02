@@ -2,6 +2,9 @@
 
 namespace App\Filament\Member\Pages;
 
+use App\Filament\Member\Widgets\AccountBalancesWidget;
+use App\Filament\Member\Widgets\ContributionHistoryWidget;
+use App\Filament\Member\Widgets\LoanRepaymentProgressWidget;
 use App\Filament\Member\Widgets\MemberStatsOverview;
 use Filament\Pages\Dashboard as BaseDashboard;
 
@@ -14,9 +17,18 @@ class Dashboard extends BaseDashboard
     {
         return [
             MemberStatsOverview::class,
+            AccountBalancesWidget::class,
+            LoanRepaymentProgressWidget::class,
+            ContributionHistoryWidget::class,
+        ];
+    }
+
+    public function getColumns(): int|array
+    {
+        return [
+            'default' => 1,
+            'sm'      => 2,
+            'xl'      => 2,
         ];
     }
 }
-
-
-

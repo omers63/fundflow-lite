@@ -1,0 +1,759 @@
+Everything is set up. Here's a full summary of what was done:
+
+What was installed & configured:
+
+Step	Detail
+Packages	bezhansalleh/filament-shield v4.2 + spatie/laravel-permission v7.2
+Migrations	Permission tables created and migrated
+User model	HasRoles trait added from Spatie
+Panel provider	FilamentShieldPlugin registered under the Settings nav group
+Policies	7 policies generated for all resources (Contribution, Loan, LoanInstallment, Member, MembershipApplication, MonthlyStatement, Role)
+Permissions	86 permissions generated across 9 entities
+Super admin	admin@fundflow.sa (ID 1) assigned the super_admin role
+How it works going forward:
+
+super_admin bypasses all policy checks — the existing admin user has full access.
+In the admin panel you'll now see a Settings → Roles section where you can create new roles and toggle permissions per resource, page, and widget.
+To create additional admin users with limited permissions, create a new role in the UI, assign specific permissions, then assign that role to the user via $user->assignRole('your-role').
+To regenerate permissions after adding new resources, run php artisan shield:generate --all --panel=admin --no-interaction.
+-------------------------------
+Everything is wired up. Here's a summary of all the changes:
+
+Panel providers (AdminPanelProvider & MemberPanelProvider)
+
+Added ->databaseNotifications() — enables the bell icon in the top nav with a slide-over drawer showing unread notifications
+Added ->databaseNotificationsPolling('30s') — automatically checks for new notifications every 30 seconds without a page refresh
+Database — created and ran the notifications table migration (Laravel's built-in polymorphic notifications table)
+
+All 4 notification classes — added 'database' to via() and a toDatabase() method returning:
+
+title — shown as the notification heading
+body — the notification message
+icon + color — visual styling in the drawer
+actions — optional link button (e.g. "View Loans", "Go to Portal")
+Notification	Bell icon	Color
+LoanApprovedNotification	check-circle	success (green)
+MembershipApprovedNotification	user-circle	success (green)
+MembershipRejectedNotification	x-circle	danger (red)
+DelinquencyAlertNotification	exclamation-triangle	danger (red)
+-------------------------------------
+Everything is implemented and all migrations ran successfully. Here's a summary of what was built:
+
+Banking Module — What Was Built
+Database (4 new tables)
+Table	Purpose
+banks	Bank registry (name, code, SWIFT, account #, active flag)
+bank_import_templates	Per-bank CSV format + duplicate detection config
+bank_import_sessions	History of every import run with counters
+bank_transactions	All imported rows, with a duplicate flag + reference to the original
+Admin Panel — "Banking" navigation group
+Banks — simple CRUD for registering any number of banks.
+
+Import Templates — a tabbed settings page per bank with four sections:
+
+General — name, default flag
+CSV Format — delimiter, encoding, has-header toggle, skip rows
+Column Mapping — date column + date format; single/split amount columns; optional type-indicator column; description & reference columns (all by header name or 0-based index)
+Duplicate Detection — checkbox list of fields to match (date, amount, type, reference, description) + a date-tolerance setting (±N days)
+Import History — table showing all past import sessions (bank, filename, template, status, row counts). Includes:
+
+"Import CSV" header action — select bank → select template → upload file → runs immediately and shows result notification
+Re-import action on failed/partial sessions
+"Transactions" action — links directly to that session's rows
+Transactions — read-only table of all imported rows with filters by bank, session, type, date range, and a duplicate toggle. Duplicate rows are visually flagged with a warning icon, and the nav badge shows the count of flagged duplicates.
+
+BankImportService
+Handles CSV parsing (encoding conversion, configurable delimiter, header/index column resolution, date format parsing, split/single amount columns) and duplicate detection (queries existing non-duplicate transactions matching whichever fields are configured in the template, with date tolerance).
+-------------------------------------
+Everything is complete. Here's what was built:
+
+SMS Banking Module — What Was Built
+3 new tables
+Table	Purpose
+sms_import_templates	Per-bank parsing rules for raw SMS files
+sms_import_sessions	History of every SMS file import
+sms_transactions	Parsed SMS records stored as debit/credit transactions
+Admin Panel — added to "Banking" navigation group
+SMS Templates — a 5-tab settings page:
+
+Tab	What you configure
+General	Bank association, template name, default flag, fallback transaction type
+CSV Format	Delimiter, encoding, has-header toggle, skip rows
+Column Mapping	Which column holds the SMS text; optional separate date column + its format
+SMS Parsing Rules	Regex patterns for amount, date (when no date column), and reference — each uses a PHP named capture group (?P<amount>, ?P<date>, ?P<reference>). Plus credit/debit keyword lists (tags input)
+Duplicate Detection	Fields to match (date, amount, type, reference, exact SMS text) + date tolerance
+SMS Import History — same pattern as bank CSV: table of all past sessions, "Import SMS File" header action (select bank → select template → upload), view transactions per session, re-import on failure.
+
+SMS Transactions — read-only table with filters by bank, session, type, date range, and duplicate flag. Nav badge counts flagged duplicates.
+
+SmsImportService
+The key difference from the bank CSV service is the regex extraction pipeline: for each row it reads the raw SMS text, applies the configurable patterns to pull out amount, date, and reference, then detects transaction type by scanning the text for credit/debit keywords. Patterns can be written bare (SAR\s*(?P<amount>[\d,]+)) or with explicit delimiters (/SAR.../i) — the service handles both.
+
+-------------------------------------------------------------------------------------
+This is a complex accounting/ledger system. Let me carefully analyze what's needed:
+
+Understanding the Requirements
+Master Virtual Accounts (2):
+Cash Account - receives transactions from bank/SMS imports (when admin posts them)
+Fund Account - receives transactions from contributions, loan repayments, loan disbursements
+Member Virtual Accounts (per member):
+Member Cash Account - mirror of transactions posted to master cash account for that member
+
+Member Fund Account - mirror of transactions posted to master fund account for that member
+
+Loan Accounts - one per loan taken by the member
+
+Transaction Flow: Bank and SMS imports flow through the master cash account to individual member accounts, while contributions and loan activity automatically post across the fund account, member fund account, and relevant loan accounts.
+
+For the database structure, I'll need an accounts table that tracks all these virtual accounts by type—distinguishing between master cash, master fund, member-level cash and fund accounts, and individual loan accounts—with references to their owners.
+
+On the ledger side, I'm leaning toward a simpler single-entry approach rather than full double-entry accounting, since the user's language around "posting" and "virtual accounts" suggests they want straightforward tracking rather than complex journal entries. I'll structure this with account IDs, amounts, transaction types, and source references to keep it flexible. I'm refining the transaction flow—when bank or SMS transactions post, I'll create entries for both the master Cash Account and the member's Cash Account, while contributions and loan activity will hit the Fund and Loan accounts accordingly. For SMS matching, I need to add a regex pattern to extract the member identifier from the message text so the service can look up the right account. Now I'm thinking through the Filament resources needed to manage these accounts.
+
+Building out the implementation roadmap...
+
+Now I'm thinking through the auto-posting logic for fund transactions—contributions, repayments, and disbursements all need to flow into the fund account automatically. I'll need to hook into those existing creation flows to trigger the posting. For balance calculations, I'm weighing the tradeoffs between storing running balances for fast reads versus calculating from transactions on demand, and I'm leaning toward a hybrid approach with periodic updates.
+
+Actually, I'll store the balance directly on the account and update it atomically with each transaction using database transactions and increment/decrement operations to handle concurrency safely in this small-scale Laravel app. The account structure will have two master accounts—one for cash and one for funds—plus per-member accounts created when they're approved, each with their own cash and fund variants.
+
+For posting flows, when bank or SMS transactions come in, the service creates matching account transactions for both the master cash account and the member's cash account, then marks the source transaction as posted. Contributions trigger automatically and post to both the master fund account and the member's fund account.
+
+When a loan is approved, the system debits the master fund and member fund accounts while also creating a corresponding debit to the member's loan account to track what they owe. Loan repayments work in reverse—crediting the master fund, member fund, and reducing the loan account balance as installments are paid.
+
+Now I'm looking at how SMS messages get matched to members...
+
+I need to add fields to the SMS import template for pattern matching, like a regex with a named group to extract the member identifier and specify which field to match against. For the admin interface, I'm planning Filament resources for accounts and their transactions, plus bulk actions on bank and SMS transaction resources that let staff manually post transactions to a member's cash account, with SMS having the added benefit of auto-matching when possible. I'm also considering whether to use Eloquent observers or event listeners to automatically post contributions and loan repayments.
+
+I think the cleanest approach is to use a dedicated AccountingService with Model observers handling the auto-posting logic, while Filament actions manage the manual posting flows for bank and SMS transactions. I should also add idempotency checks—a posted flag on both transaction tables to prevent duplicate postings.
+
+Looking at the schema, I need to add posted_at and posted_by fields to bank_transactions and sms_transactions tables via migration. I'll also create the new accounts and account_transactions tables for the ledger, along with corresponding models and the AccountingService. For the Filament layer, I'm planning an AccountResource that's mostly read-only to display balances and transaction links.
+
+The observers will handle auto-posting: contributions go to the fund on creation, loan repayments post when installments are marked paid, and disbursements post when loans are approved. I'll add bulk and single actions to post transactions to the cash account, plus an auto-match feature for SMS transactions. The two master accounts (cash and fund) can be created in a seeder.
+
+Now I need to review the existing models—Members, Contributions, Loans, and LoanInstallments—to understand their current structure before integrating the accounting system.
+
+Looking at the implementation plan, I'll start with the database layer: creating the accounts and account_transactions tables, adding posted_at and posted_by fields to bank and SMS transactions, and updating SMS import templates with member matching fields. Then I'll build the Account and AccountTransaction models, seed the master accounts, and create the AccountingService with methods to ensure member and loan accounts exist.
+
+For the service layer, I need to implement posting methods that handle bank transactions, SMS transactions, contributions, loan disbursements, and repayments to their respective accounts. Finally, I'll set up observers on Member, Loan, Contribution, and LoanInstallment models to automatically trigger account creation and transaction posting when these entities are created or approved.
+
+For Phase 4, I'm planning to add a Filament resource to display account balances, create actions on the transaction resources for posting, and update the SMS import service to automatically match members based on their phone numbers.
+
+This is a substantial feature, so I need to prioritize what to build first. Let me start by examining the existing model structure to understand what I'm working with, then focus on the most critical pieces to implement efficiently.
+
+Defining the accounts table schema...
+
+Defining the account_transactions table schema...
+
+Still defining schemas...
+
+Now I'm thinking through the implementation approach—I could use observers to handle the posting logic automatically when transactions are created, which would be cleaner than modifying existing action code. I should check if there's already an approve_loan action in LoanResource that I need to hook into.
+
+For member accounts, I'm leaning toward lazy creation—only creating them when needed rather than upfront—through an idempotent service method that ensures accounts exist when transactions are posted.
+
+Planning the migration files and code structure... I need to review the existing models and resources to understand the current structure before implementing all these changes. Let me check what fields Contribution and LoanInstallment already have, and how the Member model is structured so I can properly set up the member matching logic. per member plus one per loan), with account transactions serving as a general ledger using morphic references to track the source. I'll centralize all accounting operations through an AccountingService and use observers to automatically post fund transactions, seeding the master accounts directly in a migration rather than a seeder. For SMS member matching, I need to add pattern and field columns to the import templates so the service can look up members during parsing. The "post to cash" action will be a bulk operation on bank and SMS transactions that routes funds to the cash account.
+
+Now I'm working through the UX for bulk posting—the challenge is that bank imports without auto-matching would require selecting a member for each transaction, which gets unwieldy. I think the cleanest approach is to let bulk actions assign all selected transactions to a single member, or if it's an SMS import with auto-matched members, use those automatically. Single transactions get their own member selection dropdown. I need to add member_id and is_posted fields to both transaction tables via migration, then examine the existing models to understand the structure before implementing the full solution.
+
+This is a significant accounting feature — virtual ledger, member account management, and automatic posting flows. Let me examine the existing model structure first before building anything.
+---------------------------------------------------------
+Everything is implemented and clean. Here's a complete summary:
+
+Virtual Accounting Module — What Was Built
+4 new tables
+Table	Purpose
+accounts	All virtual accounts (master × 2, member × 2 per member, loan × 1 per loan)
+account_transactions	General ledger — every entry with amount, credit/debit type, polymorphic source link
+bank_transactions (altered)	Added member_id, posted_at, posted_by
+sms_transactions (altered)	Added member_id, posted_at, posted_by
+sms_import_templates (altered)	Added member_match_pattern, member_match_field
+The two master accounts (Cash + Fund) are seeded automatically in the migration.
+
+Account hierarchy
+Master Cash Account          ← bank/SMS imports
+Master Fund Account          ← contributions, loan disbursements, repayments
+  └─ Per Member:
+      Member Cash Account    ← mirrors master cash for that member
+      Member Fund Account    ← mirrors master fund for that member
+  └─ Per Loan:
+      Loan Account           ← outstanding balance tracker
+Automatic postings (no admin action needed)
+Event	What gets posted
+Contribution created	Credit to Master Fund + Member Fund
+Loan approved	Debit to Master Fund + Member Fund + Loan Account (disbursement)
+Installment status → paid	Credit to Master Fund + Member Fund + Loan Account (repayment)
+These fire via ContributionObserver and LoanInstallmentObserver, registered in AppServiceProvider.
+
+Manual posting — Cash Account
+Bank Transactions table now has:
+
+"Post to Cash" single-record action → member selection → posts to Master Cash + Member Cash
+"Post Selected to Cash Account" bulk action → one member for all selected
+SMS Transactions table now has:
+
+"Post to Cash" single-record action → member pre-filled from auto-match (editable)
+"Auto-post Matched Transactions" bulk action → posts all selected that already have a matched member (no prompt)
+"Bulk Post to a Single Member" bulk action → manual member selection for all selected
+Both actions stamp posted_at, posted_by, and member_id on the transaction and prevent double-posting.
+
+SMS Member Auto-matching
+The SMS template now has a "Member Auto-match" tab where you configure:
+
+Member regex pattern — regex with named group (?P<member>...) to extract the identifier from the SMS text
+Match against — Member Number or User Full Name
+During import, SmsImportService applies the pattern to each SMS and sets member_id on the transaction automatically.
+
+Virtual Accounts page (Finance group)
+Virtual Accounts resource under the Finance nav group shows every account, its type badge, linked member/loan, and live balance (green = positive, red = negative). Clicking "Ledger" on any account opens a full paginated ledger showing every entry with date, type, amount, description, source, and who posted it.
+-------------------------------------------------------
+Let me analyze the requirements carefully:
+
+Monthly Contribution Amount (Allocation):
+
+Each member has a "allocated contribution amount" in multiples of SAR 500 (500, 1000, 1500, 2000, 2500, 3000)
+Defaults to SAR 500
+Can be changed anytime by admin or member via their portals
+Parent-Dependent Relationship:
+
+A member can be a parent of one or more other members
+A member can only have one parent
+This is a self-referential relationship on the members table
+Parent Funding:
+
+Parents can fund their dependents' cash accounts to cover contributions and loan repayments
+The parent sets the allocated contribution amounts for all their dependents, though both parent and dependent can modify these amounts
+Any surplus funds beyond the allocated contribution amount stay in the member's cash account after each monthly cycle
+Now I'm thinking through the database schema changes needed, starting with adding a parent_id field to the members table as a self-referential foreign key.
+
+I'll need to update the Member model with relationships for parent and dependents, plus validation to ensure contribution amounts are in 500-unit increments between 500 and 3000.
+
+For the admin portal, I need to add parent selection and contribution amount fields to the member form, and display dependents on the member view page.
+
+In the member portal, members should be able to adjust their own contribution amounts, and parents should be able to modify their dependents' amounts as well.
+
+The funding mechanism works through account transactions—when a parent funds a dependent, it debits from the parent's cash account and credits the dependent's.
+
+For the implementation, I'm starting with the database migration to add parent_id and monthly_contribution_amount to the members table, then updating the model relationships and validations, followed by the admin and member portal UI changes.
+
+The member portal needs to let members adjust their own allocations, and if they're a parent, manage their dependents' allocations too. I'll add a "Fund Dependent Cash Account" action in both the admin panel and member portal so parents can transfer funds to dependents' cash accounts before the contribution cycle processes.
+
+Looking at the flow more carefully: when a parent funds a dependent's cash account with SAR 1000 and the monthly cycle runs, it deducts only the allocated contribution amount (say SAR 500) as a contribution, leaving the remainder in the cash account. So I need to build the data model with parent relationships and contribution amounts, create the admin UI to manage these settings, and set up the member portal interface for parents to fund dependents.
+
+Now I'm checking what already exists in the member panel resources to understand what I'm working with, then planning out the necessary migrations, model updates, and admin panel changes to support this parent-dependent structure.
+
+-----------------------------------------------
+Everything is clean. Here's a summary of what was built:
+
+What was implemented
+Database
+
+Added parent_id (self-referential FK, nullable) and monthly_contribution_amount (default 500, range 500–3000) to the members table.
+Model — Member
+
+New constant CONTRIBUTION_STEPS = [500, 1000, 1500, 2000, 2500, 3000]
+parent() / dependents() self-referential relationships
+isParent(), isValidContributionAmount(), contributionAmountOptions() helpers
+cash_balance computed attribute for convenient balance display
+Service — AccountingService
+
+New fundDependentCashAccount(parent, dependent, amount, note) method — debits the parent's cash account and credits the dependent's cash account atomically, with an insufficient-balance guard.
+Admin Panel — MemberResource
+
+New "Contribution & Sponsorship" section on the form with:
+Monthly Contribution Amount — dropdown of SAR 500 multiples
+Parent Member — searchable select (excluding self)
+Table now shows Monthly Alloc. and Parent columns
+New Dependents relation manager tab on the member view page with:
+Set Allocation action — parent changes a dependent's monthly amount
+Fund Cash Account action — parent transfers SAR from their cash account to the dependent's
+Member Portal
+
+Contribution Settings page (under Account group): member can see their current allocation highlighted and update it at any time via a modal action
+My Dependents resource (under Account group, only visible to members who have dependents): lists all dependents with their balance, and provides the same Set Allocation and Fund Cash Account actions
+------------------------------------------
+This is a significant feature request. Let me break it down carefully:
+
+Contribution Cycle Logic:
+
+At the start of month M+1 (1st day), send notification to each member that their contribution for month M is due by the 5th of M+1
+By the 5th of M+1, contributions should be collected
+Collection process: debit member's cash account → credit master fund account (also mirrored in member's fund account)
+If a member's cash account doesn't have enough funds by the 5th, it's a late contribution
+Late Contribution Tracking:
+
+I need to track late contributions by counting occurrences and summing amounts for each member, where a contribution is considered late if it's applied after the 5th or if insufficient funds prevented timely collection
+Notifications:
+
+On 1st of each month: "Your contribution for [previous month] is due by [5th]"
+When contribution is applied: "Account statement" notification
+Technical Components:
+
+I'll add late_contributions_count and late_contributions_amount fields to the members table, create a ContributionService to handle the cycle logic and late tracking, and potentially use a ContributionCycle model or enhance the existing Contributions model with the necessary business logic
+Two scheduled jobs will run: one on the 1st to send due notifications, another on the 5th to apply contributions and mark any as late
+I'll need ContributionDueNotification and ContributionAppliedNotification classes, plus admin UI features to manually trigger cycles and display late contribution statistics per member
+Now I'm thinking through the database schema and service architecture. I'll add the late tracking fields to members, then build out the ContributionCycleService to handle the core logic of determining when contributions are late and applying them correctly.
+
+The service will check each member's cash balance against their required contribution amount, debit from cash and credit to the appropriate funds if they have sufficient balance, or mark the contribution as late if they don't. I'll also need to handle the scheduled tasks that trigger these operations automatically.
+
+Looking at the timing requirements more carefully, contributions for a given month are due by the 5th of the following month, with notifications sent on the 1st. The admin should be able to manually trigger the contribution cycle from the portal, while the scheduler handles the automated notification on the 1st and potentially the auto-collection on the 5th.
+
+For handling insufficient funds, I need to clarify the behavior: when a contribution is applied after the 5th deadline or when the cash account lacks sufficient funds, the system should mark it as late and either apply whatever funds are available or flag the full amount as outstanding.
+
+Actually, reconsidering the flow—the parent funds the dependent's cash account before the cycle runs, so ideally everyone has enough by the 5th. If they don't, that's a late contribution. When the cycle executes, I'll check each member's balance: if it covers the monthly amount, apply it normally; if not, mark it as late, increment the late count, and track the shortfall amount. Then the admin can follow up on those late contributions.
+
+But I should simplify the definition: a contribution is late if it's applied after the 5th of the due month, regardless of who applies it. The cycle can run anytime, but anything applied after the 5th gets marked as late.
+
+Now I need to examine the existing Contribution model and migration to understand the current structure, then plan out the database changes and model updates required.
+
+For the implementation, I'm looking at creating database migrations to track late contributions on members, updating the models to handle the is_late field, building a service to manage the contribution cycle logic, setting up notifications for when contributions are due and when they're applied, modifying the observer to send notifications alongside the existing posting logic, and creating console commands with scheduler integration to handle the monthly notifications and contribution application.
+
+Now I need to check the existing Contribution model and ContributionObserver to understand what's already in place before adding the admin UI features for manually triggering cycles and displaying late contribution stats in the member resource.
+
+Let me read the existing contribution and accounting structures before designing anything.
+---------------------------------------------
+Now I have a complete picture. Let me plan the full implementation:
+
+Summary of what needs to be built:
+Database changes:
+
+add_is_late_to_contributions - add is_late boolean (default false) to contributions table
+add_late_stats_to_members - add late_contributions_count (int, default 0) and late_contributions_amount (decimal, default 0) to members table
+Model updates:
+
+Contribution - add is_late to fillable and casts
+Member - add late_contributions_count and late_contributions_amount to fillable and casts
+Service: ContributionCycleService
+
+applyContributions(int $month, int $year, bool $dryRun = false): For each active member, check cash account balance, apply contribution if sufficient, mark as late if after 5th, update member late stats
+sendDueNotifications(int $month, int $year): Send ContributionDueNotification to all active members
+Notifications:
+
+ContributionDueNotification - notify members about their upcoming contribution deadline
+ContributionAppliedNotification - send account statement confirming the contribution was processed
+Console Commands:
+
+SendContributionNotifications - scheduled for the 1st of each month to send due reminders
+ApplyMonthlyContributions - scheduled for the 5th of each month to process contributions
+Scheduler update (routes/console.php):
+
+1st of each month: contributions:notify
+5th of each month: contributions:apply
+Admin UI:
+
+Building a Filament page under Finance that lets me run the contribution cycle with month/year selection, member preview, and apply functionality
+Show a summary of which contributions succeeded and which failed
+Update the member resource to display late contribution counts and amounts
+Update ContributionObserver:
+
+After posting to accounts, trigger the applied notification
+Now I'm thinking through the key design decisions. A contribution counts as late if it's applied after the 5th of the due month. For members with insufficient funds, the cycle skips them and reports it in the summary rather than marking them delinquent automatically—that's handled separately by the existing delinquency process. Actually, let me reconsider how this should work.
+
+The user wants to track late contributions by count and amount, which suggests we're tracking when contributions aren't applied on time due to insufficient funds. But if we don't apply it, we can't mark a Contribution record as late—we'd need separate tracking for missed contributions. Re-reading the requirements though, the flow seems to be: members fund the account before the 5th, then on the 5th the system processes each member's contribution, applying it if the cash balance covers it.
+
+For the next part, I'm working through what happens when there aren't enough funds—whether we skip the contribution entirely or create a record marked as late anyway. I think the contribution cycle runs once monthly, and if a member lacks sufficient funds, we still create a Contribution record but mark it as late. So the logic is: if funds are available, create the contribution normally; if not, create it with is_late=true to track both the count and amount of late contributions.
+
+Actually, I'm simplifying this: when the cycle runs, members with sufficient funds get their contribution applied immediately, while those without funds are skipped and the admin gets notified—they'll need to fund their account and re-run the cycle. For the is_late flag, I'll define it cleanly: a contribution is late if it's applied after the 5th of the month following the contribution month. So a June contribution due July 5th would be marked late if applied July 6th or later. This way the cycle can run anytime and the flag just tracks whether it hit the deadline.
+
+Since there's a unique constraint on ['member_id', 'month', 'year'], running the cycle twice for the same month automatically skips already-processed members, so the flow is straightforward: first run processes whoever has funds, second run (after they fund) picks up the rest, and the is_late flag captures whether each attempt beat the deadline.
+
+I'm tracking late contributions with denormalized counters on the Member model for performance, then starting to outline the implementation with the database migrations and files I need to create.
+
+Now I'm listing out the specific files to create for the contribution cycle service, notifications, console commands, and the admin interface, along with the existing files I'll need to modify to wire everything together.
+
+Looking at the postContribution method in AccountingService, I realize there's a gap in the current implementation—it only credits the funds but doesn't debit the member's cash account. According to the new requirement, I need to update this to debit cash, credit the master fund, and mirror that in the member's fund account. The ContributionCycleService will handle the cash debit before the Contribution is created, so I need to adjust the posting logic accordingly.
+
+But now I'm questioning whether postContribution should include the cash debit or if ContributionCycleService should handle it separately. The cleanest approach would be for ContributionCycleService to manage the entire cycle—checking cash balance, debiting cash, crediting funds, and creating the record—but that creates a problem: the ContributionObserver would also trigger posting when the Contribution is created, causing double posting. I could either remove the auto-posting from the observer or add an idempotency check to postContribution. Option (b) is safer since contributions can also be created manually through the admin interface, so I need to ensure both paths work correctly.
+
+The solution is to separate concerns: ContributionCycleService handles the cash debit exclusively for cycle-based contributions, while postContribution only posts to fund accounts. This way, manual contributions get fund posting without a cash debit (since they might be paid through other means), and cycle contributions get both the cash debit and fund posting through the observer.
+
+For the implementation, I'm iterating through members without contributions for the period, checking their cash balance against the allocation amount, and if sufficient, debiting the cash account and creating the Contribution record within a transaction—the observer fires synchronously during creation and handles the fund posting. I need to verify that having the observer fire inside the transaction doesn't cause issues with the transaction scope.
+
+Actually, I realize the ContributionObserver itself wraps its fund posting in a nested transaction, which Laravel handles with savepoints, so that's fine. Now I'm thinking through the manual contribution flow—when admins create contributions directly through the resource, I want to make sure the cash account isn't automatically debited since those might be external payments, but the observer correctly only posts to fund accounts regardless of how the contribution was created. The cash debit only happens in the cycle service. One more consideration: the ContributionAppliedNotification should probably be sent for manually created contributions too, so I need to decide where to trigger that.
+
+Actually, re-reading the requirement, "account statement sent when a member's contribution amount is applied" sounds like it's specifically tied to the cycle application, not manual creation. So I'll put that notification in the ContributionCycleService instead of the observer. The account statement itself should include the member name, contribution month/year, amount contributed, cash account balance after deduction, and fund account balance.
+
+Now I'm ready to write the code. For the admin UI, I'm building a Filament Page for the Contribution Cycle under Finance that lets admins select a month/year, preview which members will be affected, apply the cycle, and see the results in a table.
+
+Actually, I can simplify this with Filament Actions—I'll add a header action to run the contribution cycle that opens a modal for month/year selection, shows a summary notification after running, and displays a table of contribution history by period with counts and amounts. Let me also check what navigation group the ContributionResource uses.
+
+-------------------------------------------
+Now I have a complete picture. Let me plan and implement all the components.
+
+Here's my implementation plan:
+
+Migrations:
+
+Add is_late to contributions
+Add late_contributions_count and late_contributions_amount to members
+Models:
+
+Update Contribution: add is_late to fillable/casts
+Update Member: add late fields to fillable/casts
+AccountingService:
+
+Update postContribution to also debit the member's cash account (when called from the cycle)
+Actually, I need to reconsider the separation of concerns here. If I add cash debit logic to postContribution, it'll affect manual contributions too, which shouldn't trigger cash debits. Instead, I should keep the cycle service handling both the cash debit and contribution creation, while manual contributions only create the contribution record and let the observer handle fund posting.
+
+Now I'm mapping out the ContributionCycleService methods...
+
+I need to define notifications for when contributions are due and when they've been applied, then set up console commands that run on the 1st and 5th of each month to handle notifications and actual contribution processing. For the admin interface, I'll create a Filament page showing contribution cycles with a month-by-month summary table.
+
+Now I'm adding actions to the admin page so users can manually run a cycle or send notifications for a specific month and year. I also need to update the MemberResource to display late contribution counts and amounts, plus add an is_late badge to the ContributionResource table.
+
+Writing the service logic... Writing the transaction logic...
+
+After the contribution is created, I need to update the member's late contribution stats if this payment was late, then send a notification to the member about the applied contribution. There's a potential issue I'm noticing though—after debiting the cash account, if I query it again later, I'll get the updated balance, which should be fine for the notification.
+
+To avoid querying the cash account twice, I can fetch it once upfront and pass it through the transaction rather than calling the method again. For the accounting service integration, I'm deciding whether to expose the postEntry method or create a dedicated public method for debiting cash contributions—I'm leaning toward making it public or creating a wrapper method to keep the interface clear. I'll add a public method to AccountingService that handles the cash debit for contributions, fetching the member's cash account and posting the entry with the formatted month and year in the description. This keeps ContributionCycleService clean by delegating all accounting logic to AccountingService.
+
+Now I'm building the admin UI page with Filament, which will have header actions to run the contribution cycle and send notifications for a selected month and year, plus a section displaying contribution results grouped by period with relevant statistics. Checking how AdminPanelProvider discovers pages, I see they're auto-discovered from the Filament/Admin/Pages directory. For the contribution cycle page, I'll create a Page class that implements HasTable and uses InteractsWithTable to display pending members and provide actions for running the cycle and sending notifications.
+
+Now I'm ready to start implementing everything systematically.
+
+Now I have the full picture. Let me plan the complete implementation before writing any code.
+
+---------------------------------------
+Everything is complete and clean. Here's a full summary of everything built:
+
+What was implemented
+Database
+contributions.is_late — boolean, auto-set by the cycle service based on whether the application date is past the 5th of the due month
+members.late_contributions_count — denormalized integer counter
+members.late_contributions_amount — denormalized decimal total of late contribution amounts
+ContributionCycleService
+The central orchestrator for the contribution cycle:
+
+Method	Purpose
+deadline(month, year)	Returns the 5th of the following month (23:59:59)
+isLate(month, year)	True if today is past the deadline
+sendDueNotifications(month, year)	Notifies all active members who haven't contributed yet (skips those who already did)
+applyContributions(month, year)	Processes all active members — returns applied, insufficient, skipped
+applyOne(member, month, year)	Per-member: checks balance → debits cash → creates Contribution → updates late stats → sends account statement
+periodSummaries(limit)	Aggregated history for the UI dashboard
+Transaction flow per member: debit cash account → Contribution::create() (observer fires and credits master fund + member fund) → update late counters → send ContributionAppliedNotification
+
+AccountingService addition
+debitCashForContribution(member, amount, month, year) — dedicated method called by the cycle service to debit the member cash account with a clear description
+Notifications
+ContributionDueNotification — sent on the 1st of each month; shows amount due, deadline, current cash balance, and highlights a shortfall if funds are insufficient. Delivered via mail, database, SMS, and WhatsApp.
+ContributionAppliedNotification — account statement sent after each contribution is applied; shows period, amount, applied timestamp, remaining cash balance, and a late flag if applicable.
+Artisan commands
+contributions:notify [month] [year] — sends due notifications (defaults to previous month)
+contributions:apply [month] [year] — applies contributions; prints a summary table of insufficient members
+Scheduler (routes/console.php)
+1st of month at 09:00 → contributions:notify
+5th of month at 09:00 → contributions:apply
+Admin UI — Contribution Cycles page (Finance group)
+Send Due Notifications action — pick month/year, notify all pending members
+Run Contribution Cycle action — pick month/year, processes all eligible members with a result summary (applied / insufficient / already processed / late flag)
+Pending Members table — shows active members who haven't contributed for the current open period, with their allocation, current cash balance, and shortfall. Each row has an Apply Now action (disabled if insufficient balance)
+Recent Periods summary — cards showing the last 6 months with total collected, member count, and late count
+Updated tables
+ContributionResource table — new Late? icon column (⚠ warning / ✓ success)
+MemberResource table — new Late # badge and Late Amount columns
+-----------------------------------------------------------------------------------------------
+This is an extremely comprehensive loan management system. Let me carefully analyze all the requirements and plan the implementation systematically.
+
+Key Requirements Analysis
+1. Basic Loan Lifecycle
+Member applies for loan (from admin or member portal)
+States: pending → approved → disbursed → active (repaying) → settled | rejected | cancelled
+Member can cancel a pending loan before approval/disbursement
+After disbursement: only repayments or early settlement
+Notifications at: received, approved, rejected, disbursed, early settled
+2. Loan Eligibility
+Member must be active for at least 1 full year from joining date
+
+Fund account balance must meet a minimum threshold (likely SAR 6,000 but possibly configurable)
+
+Borrowing capacity is capped at 2x the member's fund account balance
+
+3. Loan Amount & Tiers
+Loan tiers (configurable): define min/max amount and min monthly installment
+Fund tiers (configurable): each tier has a percentage of total master fund available for that loan tier
+Max borrowable = 2 × member's fund account balance
+4. Loan Application Form
+Borrowing member fills application
+Must include: guarantor (member with income), 2 witnesses
+Guarantor must be another member
+5. Disbursement Logic
+I'm working through how the disbursement actually works—there seem to be two different descriptions that might be contradictory. One says the member's fund account gets drawn down first until exhausted, then the master fund covers the remainder, but another statement suggests both accounts are debited equally. Let me clarify this based on the full context provided.
+
+Looking more carefully at the language, I think the logic is that a loan amount gets split into two portions: what comes from the member's own fund balance and what comes from the master fund. Both accounts get debited, but not necessarily in equal amounts—the member's portion is capped by their available balance, and the master fund covers whatever's left. The word "equally" might be a translation artifact or refer to how the accounting entries balance rather than the actual amounts debited. ited by the same amount). It might be a translation artifact.
+
+I'll go with the first description: the member's fund account is debited first (up to its balance), then the master fund covers the rest.
+
+Wait, but then how does "debit the master fund account and the member's fund account equally" make sense?
+
+Let me think differently. Maybe "equally" means they're both debited (as opposed to one being credited). The loan disbursal is:
+
+Debit: member's fund account (for member's portion = min(fund_balance, loan_amount))
+Debit: master fund account (for master's portion = loan_amount - member's portion)
+The member's fund account goes to zero (or close to it), and the master fund covers the rest.
+
+So if the member starts with fund balance X and borrows L (where L ≤ 2X), their own fund gets exhausted first for X, then the master fund covers the remaining L - X. After disbursement, the member's fund drops to zero and the master fund decreases by the difference. This works because the member can borrow up to twice their fund balance—their own contribution plus an equal amount from the master fund.
+
+For loan settlement, the member needs to repay the master fund portion and rebuild their fund account to at least 16% of the original loan amount before the loan is considered complete.
+
+Now looking at the repayment structure: repayments are split between crediting back the master fund and rebuilding the member's fund account. The repayment is due by the 5th of the following month, and the member is exempt from regular contributions while the loan is active. The timing of the exemption depends on when the loan was disbursed relative to the contribution deadline—if it was before the deadline, they skip that month's contribution; if after, they skip the next month's.
+
+For defaults, there's a escalating process: after two missed payments the member gets a cancellation notice, on the third missed payment the guarantor is notified and can have the amount debited from their fund, and this continues for each subsequent missed payment. The guarantor's obligation ends once the master fund portion is fully repaid, though if the guarantor leaves the system, they remain liable until the borrower settles.
+
+The system also includes configurable loan tiers with corresponding fund tiers that show real-time available funds and active loans, plus a queue mechanism per tier.
+
+Now I'm thinking through the database schema I need to build this out—starting with tables for loan tiers, fund tiers, member loan records, and tracking late repayments and guarantor relationships. Now I'm adding several fields to the loans table itself—loan and fund tier references, guarantor and witness information, tracking how much each funding source contributed, repayment history metrics, and details about contribution exemptions and repayment schedules.
+
+I also need to capture the settlement threshold percentage as it was at loan origination, along with timestamps for when the loan was actually disbursed and fully settled, plus fields for rejection and cancellation reasons. The application form data should be stored as JSON, and I'll expand the status field to cover the full lifecycle from pending through early settlement.
+
+Let me verify what's already in the existing loans table structure before finalizing these additions.
+
+I'm also thinking about the LoanQueue—each tier will maintain its own queue ordered by submission time, so new requests get added to the appropriate tier's queue. For the settings, I could use either a simple key-value table or a dedicated loan_settings table depending on what makes sense given the existing schema.
+
+I should focus on what's most critical to implement first: getting the loan tiers table and settings page working, then moving on to fund tiers. Now I'm mapping out the database migrations I need to create for the loan tiers, fund tiers, settings, and queue system, plus updating the loans and members tables with all the new fields. For the models and services, I'll need to create the tier and queue classes, update the existing loan and member models, and refactor the accounting and repayment services to handle the member/master portion split and eligibility checks.
+
+For notifications, I need to cover the full loan lifecycle—from submission through approval, disbursement, repayment tracking, and default escalation with separate alerts for guarantors.
+
+On the admin side, I'm setting up resource pages for managing loan tiers and fund availability, updating the loan resource to track guarantors and queue position, and creating a visual queue management interface per tier.
+
+The member portal needs an enhanced loan application form that captures guarantor and witness information. For eligibility, members must have been with the group for at least a year and maintain a minimum fund balance of 6000.
+
+When a loan is disbursed, I'm splitting it between what the member can cover from their fund account and what comes from the master fund, then tracking repayments against both portions. Settlement happens once the master fund is fully repaid and the member's fund balance stays above the 16% threshold of the original loan amount.
+
+For repayments, I need to clarify the accounting: the member's cash account gets debited for the full installment, while both the master fund account and the member's fund account get credited—this dual credit reflects that each repayment increases the total fund pool and simultaneously grows the member's stake in it. Once the master portion is fully repaid, subsequent repayments flow entirely to the member's fund account.
+
+Now for the contribution exemption logic when a loan is disbursed: I need to identify the current open contribution cycle (which runs from the 1st to 5th of the month following the contribution month), then determine exemption based on when disbursement occurs—if it's before the 5th, the member is exempt from the previous month's contribution with their first repayment due in the current month, but if it's after the 5th, they're exempt from the current month instead with repayment starting the following month. Looking at the second example more carefully—when a loan is disbursed after July 5th, the July contribution cycle gets exempted and repayments start in August. So I need to identify the next open contribution cycle based on the disbursement date, then exempt that cycle and begin repayments from the following one. , first_repayment_year = year
+
+Now I'm working through the logic for when disbursement happens after the 5th—in that case, the previous cycle is already closed, so the member gets exempted from the current open cycle instead, pushing their first repayment to the following month. I'm sketching out the algorithm to handle both scenarios: checking the disbursement day to determine which contribution cycle to exempt and when repayments should begin.
+
+For guarantor defaults, I need to track when a member misses payments—after two defaults I notify them about membership cancellation, and starting with the third default, I debit the guarantor's fund account for each missed installment. The loan itself already has a late repayment counter I can use to track this.
+
+I'm also thinking through the loan queue structure where each tier maintains its own queue ordered by submission time, and loans move through based on available funds.
+
+Now I'm working through the fund tier calculations—the available funds should be the total master fund multiplied by the tier's percentage allocation, minus the sum of all active loans in that tier. Looking at the data, all tiers are currently at 100%, which suggests there's no initial cap, but the system is designed to be configurable so a tier at 50% would only have access to half the total fund. Now I'm reviewing the existing Loan model fields and identifying what needs to be added—things like loan and fund tier references, guarantor and witness information, tracking how much comes from each fund source, repayment history, exemption and settlement dates, and additional status values to capture the full loan lifecycle from disbursement through early settlement.
+
+I need to verify the current status enum values and make sure I'm not duplicating anything, then think through how the LoanInstallment table should work with the new system—the installment amount needs to respect tier minimums, and the count should be calculated based on the loan amount and monthly installment.
+
+For tracking repayment to the master fund specifically, I'll need a separate field in the Loan model since that determines when the guarantor gets released. Rather than diving into code right away, I should map out the existing models first to understand what I'm working with, then tackle this systematically: settings infrastructure, loan and fund tier management, model enhancements for guarantors and tracking, eligibility checks, and the updated disbursement logic that splits funds between member and master portions.
+
+This is a comprehensive loan management system. Let me first read all existing loan-related code before writing anything.
+
+--------------------------------------------------------
+Now I have a complete picture. This is a MASSIVE feature set. Let me plan carefully and implement it systematically.
+
+Given the complexity, I'll create a todo list with all the components and implement them one by one.
+
+Key Design Decisions:
+Settings Table: Simple key-value table for system settings (16% threshold, min fund balance, eligibility period)
+
+Loan Tiers: Configurable table with tier number, min/max amount, min monthly installment
+
+Fund Tiers: Configurable table mapping to loan tiers with percentage of master fund
+
+Loan Status Extension: Add 'disbursed', 'early_settled', 'cancelled' to the enum
+
+Loan Fields to Add: I need to extend the loans table with tier references, guarantor and witness information, and tracking fields for how much comes from the member's fund versus the master fund, plus a running total of repayments to the master and exemption tracking.
+
+Member Fields to Add: Members also need late repayment counters to track their overall payment history.
+
+Loan Queue Items Table: I'm creating a separate table to manage the queue, storing which loan is at what position in which tier queue along with timing information for when it was queued and disbursed.
+
+Now I'm reconsidering the requirements to make sure I'm capturing everything correctly.
+
+The queue is essentially the loans table filtered by pending status and ordered by application date within each tier, so I might not need a separate queue table at all. Instead, I'll add queue_position and loan_tier_id directly to the loans table—the queue becomes a view of pending and approved loans grouped by tier.
+
+Disbursement Logic: The member's portion comes from their fund account balance up to the approved loan amount, with the master account covering the remainder.
+
+Repayment Logic: Each installment payment debits the member's cash account and credits both the master and member fund accounts. The loan completes once the master portion is fully repaid and the member's fund account reaches at least 16% of the original loan amount.
+
+Settlement Conditions: I need to track repaid_to_master separately to know when the guarantor can be released, which happens when repayments to master meet or exceed the master's portion AND the member's fund balance hits the 16% threshold.
+
+Contribution Exemption: When the loan is disbursed...
+
+Actually, I'm realizing the exemption works differently than I initially thought. The member isn't just exempt for one month—they're exempt from ALL monthly contributions while the loan is active, since they're making loan repayments instead. The contributions pause entirely during the loan period. So when a loan transitions to completed status, the member needs to resume their normal contribution obligations. I'll add a check in the ContributionCycleService to skip members with active loans, and ensure that once a loan is marked completed, they're no longer exempt. For parent-dependent loan repayments, the parent funds the dependent's cash account which then covers the repayment installments—this flow is already in place through the existing funding mechanism.
+
+Now I'm mapping out the default handling logic: after 2 missed payments I'll warn the member, on the 3rd default the guarantor's fund account gets debited and they're notified, and any subsequent defaults on that same loan continue hitting the guarantor's account. For early settlement, when a member pays off the remaining balance early, all unpaid installments get marked as paid, accounting entries are posted, the loan status changes to early_settled, and a notification goes out. I'm also planning out the database migrations and files that need to be created or modified to support all these features. I need to flesh out the eligibility service with the 1-year rule, fund balance validation, and borrowing limits, then create new services for handling repayments and defaults. For notifications, I'm setting up a comprehensive system covering the full loan lifecycle—from submission through disbursement, repayment tracking, default warnings, and early settlement.
+
+Now I'm mapping out the console commands to automate repayment processing, send notifications on schedule, detect defaults, and mark loans as complete. On the admin side, I need to build out the tier management interfaces, enhance the loan resource with tier selection and guarantor fields, add a visual queue page organized by tier, and update the installments manager.
+
+For the member portal, I'll enhance the loan application form to include guarantor and witness fields while calculating max borrowing based on tier. I also need to update the contribution cycle service to skip members with active loans, modify the installment observer to track repayment progress, and adjust the accounting service to handle the new disbursement and repayment flows.
+
+This is a substantial undertaking, but I'll tackle it systematically starting with migrations, then models, and working through the rest of the implementation.
+
+Now I'm laying out the database schema with a settings table for configuration values and loan tiers table for tier definitions. Adding more loan-specific fields to track witness information, payment portions, repayment timing, settlement thresholds, and late payment metrics along with cancellation reasons and queue positioning.
+
+Now I'm working through the status enum modifications and realizing that changing enums in MySQL requires careful handling, so I'll use a direct database statement approach. I also need to add fields to the LoanInstallment table to track whether payments were late or made by the guarantor.
+
+The core logic hinges on the repaid_to_master field—once it reaches the master portion threshold, the guarantor gets released, and the loan settles when the member's fund account balance also meets the settlement threshold. For the admin interface, I'm planning to build resources for loan and fund tiers with full CRUD capabilities, plus a settings page to manage these configurations.
+
+The loan resource itself needs significant expansion: I'll add guarantor and witness fields to the form, display the tier in the table, and implement separate actions for disbursement, cancellation, and early settlement, along with showing queue position. I'm also creating a dedicated queue page to visualize the loan queue per tier.
+
+On the member side, I'll enhance the loans resource to let members select a guarantor from available members, add witness names, display eligibility constraints, and allow cancellation of pending loans.
+
+Modifying the loan status enum... I need to clarify how the repayment posting works—when an installment is credited to the master fund, I should track that amount separately on the loan record so I can determine when the guarantor should be released. The logic is straightforward: once the total repaid to master reaches the master portion threshold, the guarantor is released and notified, and the loan itself is settled once the member's fund account also reaches 16% of the approved amount. I'll update the AccountingService's repayment method to handle this tracking.
+
+Now I'm thinking through the loan tier assignment logic—the member's maximum borrowing capacity is constrained by both their fund balance (capped at 2× their balance) and the tier's maximum limit, so the actual max they can borrow is the minimum of those two values. The system should auto-assign the appropriate tier based on their requested amount, checking that it falls within the tier's range, doesn't exceed their fund-based limit, and that sufficient funds are available in that tier.
+
+Querying for the tier...
+
+Now I need to plan out the implementation systematically. I'll start with migrations to handle the loan status enum changes—since MySQL doesn't easily allow adding values to existing enums with data present, I'll use a raw database statement for safety. Then I'll move through models, services, notifications, and commands before tackling the UI. For the cancellation flow, members can cancel pending loans while admins have their own cancellation logic.
+
+On the disbursement side, I'm reconsidering the flow. The requirements mention separate notification events for approval, disbursement, and settlement, which suggests these should be distinct steps rather than combined. So I'll implement it as: admin approves first (setting amount_approved, installments, and tier validation), then disburses separately—though I should check if approval can trigger automatic disbursement or if they're always manual steps.
+
+For the fund tiers, I'm looking at the tier structure now...
+
+All tiers are set to 100% by default, which means each tier can access the full master fund balance. The percentage acts as a cap on how much of the master fund can be lent to that specific tier—so if an admin later reduces tier 1 to 50%, only half the master fund becomes available for tier 1 loans. The available funds for each tier would be calculated as the allocated percentage of the master fund minus whatever's already been lent out in active loans.
+
+For outstanding loan amounts, I'm treating the original approved amount as the fund's exposure rather than the remaining unpaid balance. There's also a special Emergency tier (tier 0) that seems designed for urgent loans with its own 100% allocation, which might operate independently or map to the standard loan tier structure.
+
+Looking at the fund tier table more carefully, I notice tier 1 is missing—it jumps from tier 0 (Emergency) directly to tier 2. This suggests tier 1 loans might be classified as Emergency loans, so I'll implement fund tier 0 with special handling and map fund tiers 2-10 to their corresponding loan tiers, with tier 1 loans routing through the Emergency tier.
+
+Rather than overthinking the relationship between fund and loan tiers, I'll just implement the tables as configured and let the admin manage the mapping. The core system needs to track loan tiers, display available funds per tier, queue loans by tier, and allow manual disbursement from the queue.
+
+Now I'm ready to start building this out. I'll need to create several new database tables including settings for configuration, loan_tiers with min/max amounts and installment requirements, and fund...
+
+Building the database schema... iersResource
+- CRUD for loan tiers 3.
+FundTiersResource` - CRUD for fund tiers with live computations
+
+New Admin Pages/Resources (Finance group):
+LoanQueuePage - visual queue management per tier
+Updated Admin Resources:
+LoanResource - major overhaul (approve/disburse/cancel/early-settle actions, guarantor, witnesses, tier)
+Updated Member Portal:
+MyLoansResource - enhanced application with guarantor, witnesses, eligibility display, cancel action
+New Notifications:
+LoanSubmittedNotification
+LoanDisbursedNotification
+LoanRepaymentDueNotification
+LoanRepaymentAppliedNotification
+LoanDefaultWarningNotification
+LoanDefaultGuarantorNotification
+LoanCancelledNotification
+LoanEarlySettledNotification
+New Commands:
+SendLoanRepaymentNotifications
+ApplyLoanRepayments
+CheckLoanDefaults
+CheckLoanSettlements
+Now I need to prioritize what to build first. The migrations are critical since they can't be easily changed, and I need to get the accounting and eligibility logic right from the start. I'll begin with the database migrations, then move through the models and business logic.
+
+Writing migration files...
+
+Now I have the full picture. This is a large, multi-faceted feature. Let me plan and implement it completely.
+---------------------------------------
+All 13 tasks are complete, migrations applied cleanly, and no linter errors. Here's a summary of everything that was built:
+
+What was implemented
+Database (6 new migrations)
+settings — key-value store for all configurable loan rules (settlement threshold, min fund balance, eligibility period, grace cycles)
+loan_tiers — 10 default tiers (SAR 1K–300K) with min monthly installment; fully configurable
+fund_tiers — 10 fund allocation tiers (including Emergency) with percentage of master fund; real-time available amount computed
+loans additions — guarantor, witnesses, member/master portions, repaid_to_master, contribution exemption fields, queue position, late repayment stats, new statuses (approved, disbursed, cancelled, early_settled)
+loan_installments additions — is_late, paid_by_guarantor
+members additions — late_repayment_count, late_repayment_amount
+Core Business Logic
+Disbursement split — member's fund account is debited first (up to its balance), master fund covers the remainder; portions stored on the loan
+repaid_to_master tracking — every repayment increments this; guarantor auto-released when master portion is fully repaid
+Contribution exemption — members with an approved/active loan are automatically skipped in the contribution cycle (both notifications and auto-application)
+Exemption timing — disbursed on/before 5th of month → previous month's contribution exempted; disbursed after 5th → current month exempted; first repayment starts the cycle after
+Services
+LoanEligibilityService — 1-year membership, SAR 6,000 fund balance, no overdue installments, max = 2× fund balance
+LoanRepaymentService — apply repayments cycle-by-cycle (like ContributionCycleService), send due notifications, track late installments
+LoanDefaultService — 2-miss warning → 3rd miss debits guarantor's fund + notifies; auto-checks settlements daily
+Notifications (8)
+LoanSubmitted, LoanDisbursed, LoanCancelled, LoanEarlySettled, LoanSettled, LoanRepaymentDue, LoanRepaymentApplied, LoanDefaultWarning, LoanDefaultGuarantor
+
+Commands + Scheduler
+loans:notify → 1st of month 09:30
+loans:apply → 5th of month 09:30
+loans:check-defaults → 6th of month 08:00
+loans:check-settlements → daily 10:00
+Admin UI
+Settings group: Loan Settings page, Loan Tiers (CRUD), Fund Tiers (CRUD with live available amounts)
+Finance group: Loan Queue page (per fund tier with queue positions), enhanced LoanResource with Approve → Disburse → Cancel/Reject/Early Settle workflow
+Member Portal
+Enhanced MyLoansResource with full loan application form: eligibility display, max amount, guarantor selection, 2 witnesses, cancel pending loan action
+----------------------------------------------------------------
+Both manuals have been generated and saved to the docs/ folder:
+
+docs/admin-manual.md — Administrator Operational Manual
+docs/user-manual.md — Member User Operational Manual
+Admin Manual Covers (14 sections):
+System Overview — architecture of the five virtual account types and the fund's financial model
+Accessing the Portal — navigation groups and role access
+Dashboard — real-time stats widget
+Membership Management — reviewing/approving applications, direct member creation, editing members, parent-dependent restrictions
+Contribution Management — full cycle logic with timeline, running cycles manually vs automatically, late contribution tracking
+Loan Management — eligibility rules, approval workflow, disbursement split (member portion vs fund portion), repayment cycle, default cascade (warnings → guarantor debit), early settlement, automatic settlement conditions, loan queue
+Banking & Transaction Import — bank config, CSV import templates, import sessions, posting to cash accounts, SMS import
+Virtual Accounts & Ledger — all 5 account types with ledger viewer
+Parent–Dependent Relationships — rules, admin workflow, funding dependents
+Monthly Statements — generation and member access
+Settings — Loan Settings (all configurable parameters), Loan Tiers table, Fund Tiers with live SAR computations
+Scheduled Automation — cron setup and all 7 scheduled tasks
+Notifications Reference — all 15 notification types with trigger and recipient
+Artisan Commands Reference — all manual CLI commands with idempotency notes
+User Manual Covers (10 sections):
+Welcome & system overview in plain language
+Getting Started — applying, logging in, portal navigation
+Dashboard — what each card means
+Contributions — how they work, setting amounts, cash account funding, exemption during loans
+Loans — eligibility checklist, borrowing limits, the full application form, lifecycle stages, cancellation, disbursement split explained in plain terms
+Repayments — timeline, what each payment does to accounts, the settlement condition (16% threshold) explained simply
+Installments — reading the schedule, overdue badge
+Monthly Statements — downloading PDFs
+Dependents — for parent members: setting allocations, funding dependent accounts
+FAQ — 13 common questions answered in plain language
+--------------------------------------------
+Now I have a clear picture of what exists and what's needed. Let me think about what useful analytical widgets to add.
+
+Admin Dashboard Widgets:
+Fund Health Overview (chart widget) - Master fund balance trend over last 12 months
+
+Contribution Compliance Chart - Bar chart showing monthly contribution compliance % over last 12 months (how many members contributed vs total)
+
+Loan Portfolio Summary - Pie/donut chart showing loan status distribution + total outstanding
+
+Cash Flow Widget - Incoming cash (bank postings) vs outgoing (contributions applied, loans disbursed) over last 6 months
+
+Pending Actions Widget - Quick-action checklist surfacing pending applications, loans awaiting approval, members with cash shortfalls, and upcoming deadline alerts
+
+For the member-facing side, I want to focus on personal account visibility and action items: a balance summary showing their cash and fund positions, a contribution history heatmap spanning the past year, loan repayment progress with estimated payoff dates, and a widget highlighting their next upcoming obligations with countdown timers.
+
+I'm also sketching out resource-level widgets for admins to monitor at a more granular level.
+
+Now I'm thinking about how to actually build these in Filament. I'll leverage their built-in StatsOverviewWidget for metric cards, ChartWidget for visualizations, and custom widgets where I need table layouts for lists.
+
+The real question is what data I can meaningfully surface. Looking at the fund health angle, I could track the master fund balance over the past year as a line chart, which would require aggregating transactions by month. I'm examining what's available in the existing schema—the contributions table has month, year, and amount fields, the loans table tracks status and disbursement timing, and there's loan installment data I can work with to show repayment trends.
+
+For the admin dashboard specifically, I'm thinking about three core widgets: a contribution trend showing the last 12 months of totals alongside active member counts, a loan portfolio donut chart breaking down status distribution, and a cash flow summary card displaying the master fund balance, master cash balance, total active loan exposure, and the fund coverage ratio.
+
+I also want a pending actions widget that surfaces items needing immediate attention—things like loans awaiting approval, members with zero cash, or those short on funds for upcoming contributions. And a loan repayment compliance chart tracking on-time versus late repayments over the past six months.
+
+For members, I'm planning a financial summary widget showing their cash balance, fund balance, and progress toward the minimum required for loan eligibility, plus a loan repayment progress bar that visualizes total borrowed, amount repaid, remaining balance, and the guarantor release threshold. I'm also adding a contribution history chart to show their payment patterns over time.
+
+Now I'm mapping out the actual implementation—I'll need to create separate widgets for the admin dashboard and member views, leveraging Filament's ChartWidget for the graphs and custom widgets for the tables and progress indicators. I'm planning out the widget structure for both dashboards—admin needs fund health stats, contribution trends, loan status, and pending actions, while members need their account balances, loan progress, and contribution history. Now I'm thinking through the data queries I can efficiently pull without expensive operations, starting with the master fund and cash balances, then loan exposure metrics.
+
+Writing database queries...
+
+Now I'm structuring the widgets to display member loan progress with repayment tracking and settlement thresholds, plus a separate widget for upcoming deadlines.
+
+For the admin dashboard, I'm planning KPI stats, contribution trends, loan portfolio breakdown, and repayment performance charts. On the member side, I'll build account summary cards, individual loan progress tracking, and contribution history visualization. I'll need to update the dashboard to integrate these new components.
+
+I'm also considering adding resource-level widgets to the list pages using Filament's getHeaderWidgets() method—things like member status distribution on the members list and loan portfolio stats on the loans list—but the dashboard improvements are the priority right now.
+
+Since the user specifically asked about dashboards and other group pages, I should build out all the widgets comprehensively. I'm planning to create a series of widgets across both admin and member portals: fund health stats, contribution trends, loan portfolio breakdown, and loan repayment tracking for admins, plus account balance summaries and repayment progress views for members.
+
+Writing widget classes... Writing the widget classes...
+
+Now I'm mapping out which widgets belong on each dashboard—the admin side needs fund health, contribution trends, and loan portfolio views, while the member dashboard should display account balances and loan repayment progress. Writing the widget components... Writing the widget classes...
+
+Good, I have a clear picture of what exists. Let me design a full suite of meaningful widgets for both portals.
+
+Admin: FundHealthWidget (6 KPI stats)
+------------------------------------------
+
+
+
+
+
+
+
