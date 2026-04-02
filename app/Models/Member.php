@@ -16,6 +16,8 @@ class Member extends Model
         'parent_id',
         'member_number',
         'monthly_contribution_amount',
+        'late_contributions_count',
+        'late_contributions_amount',
         'joined_at',
         'status',
     ];
@@ -25,6 +27,8 @@ class Member extends Model
         return [
             'joined_at'                   => 'date',
             'monthly_contribution_amount' => 'integer',
+            'late_contributions_count'    => 'integer',
+            'late_contributions_amount'   => 'decimal:2',
         ];
     }
 

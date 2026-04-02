@@ -223,6 +223,26 @@ class AccountingService
     }
 
     // =========================================================================
+    // Cash debit for contribution cycle
+    // =========================================================================
+
+    /**
+     * Debit a member's Cash Account as part of the contribution cycle.
+     * Called by ContributionCycleService before creating the Contribution record.
+     */
+    public function debitCashForContribution(Member $member, float $amount, int $month, int $year): void
+    {
+        $cashAccount = Account::where('type', Account::TYPE_MEMBER_CASH)
+            ->where('member_id', $member->id)
+            ->firstOrFail();
+
+        $monthName   = date('F', mktime(0, 0, 0, $month, 1));
+        $description = "Contribution deduction – {$monthName} {$year}";
+
+        $this->postEntry($cashAccount, $amount, 'debit', $description, null, $member->id);
+    }
+
+    // =========================================================================
     // Parent → Dependent cash transfer
     // =========================================================================
 

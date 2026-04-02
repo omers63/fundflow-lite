@@ -16,13 +16,15 @@ class Contribution extends Model
         'payment_method',
         'reference_number',
         'notes',
+        'is_late',
     ];
 
     protected function casts(): array
     {
         return [
-            'amount' => 'decimal:2',
+            'amount'  => 'decimal:2',
             'paid_at' => 'datetime',
+            'is_late' => 'boolean',
         ];
     }
 

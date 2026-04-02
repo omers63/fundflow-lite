@@ -94,6 +94,13 @@ class ContributionResource extends Resource
                 Tables\Columns\TextColumn::make('paid_at')
                     ->dateTime('d M Y')
                     ->sortable(),
+                Tables\Columns\IconColumn::make('is_late')
+                    ->label('Late?')
+                    ->boolean()
+                    ->trueIcon('heroicon-o-exclamation-triangle')
+                    ->falseIcon('heroicon-o-check-circle')
+                    ->trueColor('warning')
+                    ->falseColor('success'),
             ])
             ->defaultSort('paid_at', 'desc')
             ->filters([

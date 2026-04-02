@@ -122,6 +122,16 @@ class MemberResource extends Resource
                     ->money('SAR')
                     ->sortable()
                     ->getStateUsing(fn ($record) => $record->contributions()->sum('amount')),
+                Tables\Columns\TextColumn::make('late_contributions_count')
+                    ->label('Late #')
+                    ->sortable()
+                    ->badge()
+                    ->color(fn ($state) => $state > 0 ? 'warning' : 'success'),
+                Tables\Columns\TextColumn::make('late_contributions_amount')
+                    ->label('Late Amount')
+                    ->money('SAR')
+                    ->sortable()
+                    ->color(fn ($state) => $state > 0 ? 'warning' : 'gray'),
             ])
             ->filters([
                 Tables\Filters\SelectFilter::make('status')
