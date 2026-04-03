@@ -80,6 +80,7 @@ System needs to implement the concept of a Fund Tiers table (configurable via a 
 | Tier | Loan Tier | Tier (%) of Total Fund | Available funds (SAR) | Current number of active loans |
 |------|-----------|------------------------|-----------------------|--------------------------------|
 | 0    | Emergency |100%                    |                       |                                |
+| 1    | 1         |100%                    |                       |                                |
 | 2    | 2         |100%                    |                       |                                |
 | 3    | 3         |100%                    |                       |                                |
 | 4    | 4         |100%                    |                       |                                |
@@ -99,6 +100,16 @@ At the end of a repayment cycle, an account statement is sent to the borrowing m
 --------------------------------------
 Generate a full and complete Admin Operational manual of the system and also generate a full and complete User Operational manual.
 Are there any useful and relevant analytical/insightful Widgets you can add to the dashboard of both the admin and member portals and/or any other group pages/resources?
+Repayment Period of a loan should not be user decided. System must compute the repayment period and build loan repayment schedule. The Repayment Period is calculated as: (master fund portion of the loan amount + 16% of the requested loan amount) / monthly installed amount of the loan tier.
+The assignment to Fund Tier should be determined automatically by the System. If the loan request was flagged as emergency, the fund tier is set to emergency fund tier; otherwise it is set based on the determined loan tier.
+Loan Eligibility check must be done at the time of applying for loan and submission. A member should not be able to submit a loan if he is not eligible. 
+I need to be able to edit a member's membership date from the admin portal.
+In the admin view/edit member page, I want to get summary cards of account balances, late contributions, outstanding loans amount, active loans count.
+In the admin view/edit member page, I want to seem full member information: name, grantee member, Witnesses, address, etc.
+I want to be able to edit a member's application from the admin.
+I want to be able to create a new Membership Applications in the admin portal.
+Add the following fields to a member's application: Application Type(New, Resume, Renew), gender, marital status, Home phone, work phone, mobile phone, Work Place, Residency Place, Bank Account Number, IBAN, Membership date, 
+The account phone and the mobile phone are the same. Keep just the mobile phone.
 
 
 

@@ -2,6 +2,7 @@
 
 namespace App\Models;
 
+use Carbon\Carbon;
 use Illuminate\Database\Eloquent\Model;
 use Illuminate\Database\Eloquent\Relations\BelongsTo;
 use Illuminate\Database\Eloquent\Relations\HasMany;
@@ -42,24 +43,26 @@ class Loan extends Model
         'late_repayment_amount',
         'rejection_reason',
         'cancellation_reason',
+        'is_emergency',
     ];
 
     protected function casts(): array
     {
         return [
-            'amount_requested'     => 'decimal:2',
-            'amount_approved'      => 'decimal:2',
-            'member_portion'       => 'decimal:2',
-            'master_portion'       => 'decimal:2',
-            'repaid_to_master'     => 'decimal:2',
-            'late_repayment_amount'=> 'decimal:2',
+            'amount_requested' => 'decimal:2',
+            'amount_approved' => 'decimal:2',
+            'member_portion' => 'decimal:2',
+            'master_portion' => 'decimal:2',
+            'repaid_to_master' => 'decimal:2',
+            'late_repayment_amount' => 'decimal:2',
             'settlement_threshold' => 'decimal:4',
-            'applied_at'           => 'datetime',
-            'approved_at'          => 'datetime',
-            'disbursed_at'         => 'datetime',
-            'settled_at'           => 'datetime',
-            'guarantor_released_at'=> 'datetime',
-            'due_date'             => 'date',
+            'is_emergency' => 'boolean',
+            'applied_at' => 'datetime',
+            'approved_at' => 'datetime',
+            'disbursed_at' => 'datetime',
+            'settled_at' => 'datetime',
+            'guarantor_released_at' => 'datetime',
+            'due_date' => 'date',
         ];
     }
 
@@ -106,11 +109,30 @@ class Loan extends Model
     // Status helpers
     // -----------------------------------------------------------------------
 
-    public function isPending(): bool   { return $this->status === 'pending'; }
-    public function isApproved(): bool  { return $this->status === 'approved'; }
-    public function isActive(): bool    { return $this->status === 'active'; }
-    public function isCompleted(): bool { return in_array($this->status, ['completed', 'early_settled']); }
-    public function isCancelled(): bool { return in_array($this->status, ['cancelled', 'rejected']); }
+    public function isPending(): bool
+    {
+        return $this->status === 'pending';
+    }
+
+    public function isApproved(): bool
+    {
+        return $this->status === 'approved';
+    }
+
+    public function isActive(): bool
+    {
+        return $this->status === 'active';
+    }
+
+    public function isCompleted(): bool
+    {
+        return in_array($this->status, ['completed', 'early_settled']);
+    }
+
+    public function isCancelled(): bool
+    {
+        return in_array($this->status, ['cancelled', 'rejected']);
+    }
 
     /** True when this loan exempts the member from monthly contributions. */
     public function isExemptingContributions(): bool
@@ -155,7 +177,7 @@ class Loan extends Model
         }
 
         $fundBalance = (float) ($this->member->fundAccount()?->balance ?? 0);
-        $required    = (float) $this->amount_approved * (float) $this->settlement_threshold;
+        $required = (float) $this->amount_approved * (float) $this->settlement_threshold;
 
         return $fundBalance >= $required;
     }
@@ -184,25 +206,51 @@ class Loan extends Model
     // -----------------------------------------------------------------------
 
     /**
+     * Compute the number of monthly installments needed to fully repay the loan.
+     *
+     * Formula:
+     *   installments = ceil( (master_portion + settlement_threshold × loan_amount)
+     *                        / min_monthly_installment )
+     *
+     * Where:
+     *   master_portion  = loan_amount − min(member_fund_balance, loan_amount)
+     *   settlement_threshold × loan_amount = the extra 16% (configurable) the
+     *     member must accumulate in their fund account to achieve full settlement.
+     */
+    public static function computeInstallmentsCount(
+        float $loanAmount,
+        float $memberFundBalance,
+        float $minMonthlyInstallment,
+        float $settlementThresholdPct,
+    ): int {
+        $memberPortion = min($memberFundBalance, $loanAmount);
+        $masterPortion = $loanAmount - $memberPortion;
+        $settlementAmt = $loanAmount * $settlementThresholdPct;
+        $totalToRepay = $masterPortion + $settlementAmt;
+
+        return max(1, (int) ceil($totalToRepay / max(1, $minMonthlyInstallment)));
+    }
+
+    /**
      * Determine which contribution cycle is exempted and when repayments start
      * based on the disbursement date.
      */
-    public static function computeExemptionAndFirstRepayment(\Carbon\Carbon $disbursedAt): array
+    public static function computeExemptionAndFirstRepayment(Carbon $disbursedAt): array
     {
         // If disbursed on or before the 5th: exempt PREVIOUS month's contribution
         // If disbursed after the 5th: exempt CURRENT month's contribution
         if ($disbursedAt->day <= 5) {
             $exempted = $disbursedAt->copy()->subMonthNoOverflow();
-            $first    = $disbursedAt->copy(); // repayment starts this month
+            $first = $disbursedAt->copy(); // repayment starts this month
         } else {
             $exempted = $disbursedAt->copy();
-            $first    = $disbursedAt->copy()->addMonthNoOverflow();
+            $first = $disbursedAt->copy()->addMonthNoOverflow();
         }
 
         return [
-            'exempted_month'       => (int) $exempted->month,
-            'exempted_year'        => (int) $exempted->year,
-            'first_repayment_month'=> (int) $first->month,
+            'exempted_month' => (int) $exempted->month,
+            'exempted_year' => (int) $exempted->year,
+            'first_repayment_month' => (int) $first->month,
             'first_repayment_year' => (int) $first->year,
         ];
     }

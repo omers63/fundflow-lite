@@ -750,6 +750,381 @@ Good, I have a clear picture of what exists. Let me design a full suite of meani
 
 Admin: FundHealthWidget (6 KPI stats)
 ------------------------------------------
+Clean. Now run lints on all new widget files:
+
+All clean. Here's a summary of every widget added and what it does:
+
+Admin Dashboard — 4 New Widgets
+FundHealthWidget (row 2 — 6 KPI cards)
+Real-time fund vitals that the existing overview was missing:
+
+Card	What it shows
+Master Fund Balance	Live investable capital of the fund
+Cash on Hand	Total member cash deposited
+Loan Exposure	SAR committed to approved/active loans
+Fund Coverage Ratio	Master fund ÷ loan exposure — green ≥1.5×, amber ≥1.0×, red below
+Contribution Compliance	% of active members who paid this calendar month
+Overdue Loan Amount	Total SAR in overdue installments
+ContributionTrendWidget (full-width bar chart)
+12-month stacked bar + line overlay showing both total SAR collected (bars, left axis) and number of contributing members (line, right axis) — instantly shows if collection rate is growing or shrinking.
+
+LoanPortfolioWidget (doughnut chart)
+Distribution of all loans by status (Pending / Approved / Active / Completed / Early Settled / Rejected / Cancelled) with counts in the legend — shows how mature the loan book is.
+
+LoanRepaymentTrendWidget (full-width stacked bar chart)
+12 months of loan repayments split into three stacks: On-time (green), Late (amber), Still Overdue (red) — the key risk chart for monitoring repayment discipline.
+
+Member Dashboard — 3 New Widgets
+AccountBalancesWidget (4 KPI cards)
+Personal finance context that the existing MemberStatsOverview lacked:
+
+Card	What it shows
+Cash Balance	With warning if it won't cover the next due amount
+Fund Balance	With progress toward the SAR 6,000 loan eligibility minimum
+Max Borrowable	2× fund balance, or "Not yet eligible" with reason
+Monthly Allocation	Configured contribution amount
+LoanRepaymentProgressWidget (full-width — only visible if active loan)
+Three progress bars per active loan, giving complete repayment transparency:
+
+Installments paid (e.g., 7/24) — overall payment progress
+Fund portion repaid — tracks guarantor release threshold (turns blue + badge when released)
+Fund balance vs settlement threshold — shows how close the member is to the 16% condition for loan closure
+Also shows remaining balance and late repayment warnings inline.
+
+ContributionHistoryWidget (full-width bar chart)
+12-month personal contribution history with colour-coded bars: green = on-time, amber = paid late, light grey = missed — gives members immediate visual accountability over their payment record.
+
+------------------------------------
+The user wants to change the loan repayment period calculation. Instead of the user selecting the number of installments, the system should automatically compute it based on:
+
+Formula: Repayment Period (months) = ceil((master_portion + 16% × loan_amount) / min_monthly_installment_of_tier)
+
+Let me think about this:
+
+master_portion = the fund's portion of the loan (total loan - member's fund portion)
+
+16% of loan_amount = the settlement threshold amount (configurable, currently 16%)
+
+min_monthly_installment = the minimum monthly installment for the loan's tier
+
+The total amount to repay combines the master fund's portion with the settlement threshold percentage of the loan amount, then divides by the tier's minimum monthly installment to get the number of months needed.
+
+Now I'm realizing the member's fund account grows with each repayment, so the 16% settlement threshold gets naturally satisfied as installments are made over time. The formula essentially calculates how many minimum monthly payments are required to cover both the master fund's contribution and the settlement premium that rebuilds the fund.
+
+This calculation needs to happen in two places: when the admin approves a loan (instead of manually setting installment count), and during loan disbursement.
+
+But there's a timing issue—at approval time we don't yet know the member's fund balance since it could change before the loan is actually disbursed, so I need to think about whether to compute this upfront or defer it until disbursement.
+
+The practical approach is to show an estimated repayment period at approval using the current fund balance, then recalculate and finalize the actual installment schedule when the loan is disbursed with the real member and master portions.
+
+Now I'm identifying the specific files that need updates: the loan approval and disbursement actions in the admin and member resources, the Loan model itself, and potentially the eligibility service. I'll create a static helper method in the Loan model to handle the installments count calculation.
+
+Writing the helper method...
+
+For the member application form, I'll display a live preview of the computed installment period using a placeholder field, and in the admin approval flow, I'll remove the manual installments_count input entirely and show the computed value as read-only instead. The implementation plan involves adding the static method to the Loan model, updating both the approve and disburse actions to use this computed value automatically.
+
+Now I'm thinking through the monthly installment amount itself—it's fixed at the loan tier's minimum monthly installment, so members can't adjust their payment amount per month, though they could potentially settle early if needed. During disbursement, I need to pull the tier's minimum monthly installment value to finalize the calculation. All installments will be set to min_monthly_installment SAR, with the excess from rounding up naturally accumulating in the member's fund account—no special handling needed for the last payment. I'll store installments_count on the loan record so the schedule builds correctly, then update the approve action to compute this value instead of accepting it as form input.
+
+For the disburse action, I'll fetch the loan tier to get the minimum installment amount, look up the member's current fund balance, calculate the three key values (member portion, master portion, and installment count), then create all the installments at the standard amount. On the member application side, I'll remove the installments field and show a placeholder indicating the repayment period will be determined at approval time, or optionally display an estimate based on their current fund balance.
+
+Writing the implementation code...
+
+Actually, since the application form doesn't recalculate dynamically as users input values, I'll keep it simple and just display a message that the repayment period gets computed when the loan is approved.
+
+Let me read the current approval and disburse code before modifying it.
+
+Now I have
+
+----------------------------
+New formula — Loan::computeInstallmentsCount()
+Installments = ceil( (master_portion + settlement_threshold × loan_amount)
+                     / min_monthly_installment_of_tier )
+Where:
+
+master_portion = loan_amount − min(member_fund_balance, loan_amount) — what the fund must get back
+settlement_threshold × loan_amount = the 16% (configurable) top-up the member's fund must accumulate
+min_monthly_installment = fixed installment amount from the Loan Tier table
+Each installment is exactly the tier's minimum — no division of loan amount
+Example: Member borrows SAR 50,000 with a fund balance of SAR 20,000 (Tier 1 @ SAR 1,000/mo):
+
+member_portion = 20,000 → master_portion = 30,000
+settlement top-up = 16% × 50,000 = 8,000
+total to repay = 38,000
+installments = ceil(38,000 / 1,000) = 38 months at SAR 1,000/month
+Admin — Approve Action
+installments_count select field removed — no longer a user input
+Repayment Schedule Preview placeholder computed live at modal open, showing: tier, installment amount, number of months, member portion, fund portion, settlement top-up
+Installments count stored on loan at approval (using member's fund balance at that moment as an estimate)
+Admin — Disburse Action
+Recomputes installments_count at actual disbursement time using the member's real fund balance at that instant (balance may have changed since approval)
+Installment schedule built with every installment = tier's min_monthly_installment — no remainder adjustment
+Confirmation modal shows the exact breakdown: member portion, fund portion, SAR X/month × N months
+Member Portal — Apply for Loan
+installments_count field removed from the application form
+Estimated Repayment Period placeholder shows a table of estimates across all tiers the member can afford, based on their current fund balance
+Actual period is confirmed at admin approval
+------------------------------------
+The user wants the Fund Tier assignment to be automatic:
+
+If the loan is flagged as an emergency → assign to the Emergency fund tier (tier_number = 0)
+Otherwise → assign to the Fund Tier that corresponds to the Loan Tier
+I need to:
+
+Add an is_emergency boolean field to the loans table (or the loan application form)
+
+Update the FundTier model to have a helper to find the fund tier for a loan tier
+
+Update the Loan model with the is_emergency field
+
+Modify the Approve action in LoanResource to remove the manual fund tier selection and instead auto-assign based on the emergency flag
+
+Add an is_emergency checkbox to the member portal's loan application form
+
+Update the admin loan form to display the is_emergency field
+
+Now I'm looking at the FundTier model structure to understand how to match fund tiers to loan tiers. The fund_tiers table stores a tier_number where 0 represents Emergency and 2-10 map to corresponding loan tiers, with a loan_tier_id foreign key relationship.
+
+The matching logic is straightforward: if the loan is marked as emergency, I'll fetch the FundTier with tier_number = 0, otherwise I'll find the one linked to the loan's tier. I need to add the is_emergency column to the loans table via migration, update the Loan model with the new field in fillable and casts, create helper methods on FundTier to retrieve the appropriate tier, then update the approve action and both forms accordingly.
+
+Adding helper methods to FundTier... Writing the approval logic...
+
+I need to: add an is_emergency flag to loans, add auto-resolution helpers to FundTier, remove the manual Fund Tier select from the Approve action, and expose the flag in both application forms.
+----------------------
+All clean. Here's what changed and how it works end-to-end:
+
+What Changed
+New is_emergency boolean on loans (default false)
+Added via migration. Captured at application time (member or admin), carried through approval and disbursement.
+
+FundTier — three new static helpers
+Method	Returns
+FundTier::emergency()	The active fund tier with tier_number = 0
+FundTier::forLoanTier(int $loanTierId)	Fund tier linked to that loan tier; falls back to emergency if none configured
+FundTier::resolveForLoan(Loan $loan)	The authoritative resolver — emergency tier if is_emergency, otherwise forLoanTier()
+Approve Action — fully automatic fund tier assignment
+The manual "Assign to Fund Tier" select is gone. The action now:
+
+Detects the loan tier from the approved amount (LoanTier::forAmount())
+Resolves the fund tier automatically:
+is_emergency = true → FundTier::emergency() (tier 0)
+is_emergency = false → FundTier::forLoanTier(loanTier->id) (matching tier, falls back to emergency if unconfigured)
+If no valid fund tier exists → shows a danger notification and aborts
+The Computed Schedule & Fund Tier preview placeholder now also shows which fund tier will be assigned (standard path)
+The admin can override the emergency flag in the approval modal (toggle shown in the form) to escalate or de-escalate the tier assignment
+Member Application Form
+New "Request as Emergency Loan" toggle with explanatory helper text
+Emergency flag stored on submission, pre-populated into the admin approval modal
+Both loan tables
+New ⚡ bolt icon column (Emg.) — shows only on emergency loans, hidden/blank otherwise
+--------------------------------------------
+The user wants to ensure that the eligibility check is enforced at submission time in both the admin and member portals. Let me look at the current state of eligibility checking in the application forms.
+
+From what I know:
+
+In MyLoansResource, the apply_loan action has a check:
+$eligService = app(LoanEligibilityService::class);
+if (! $eligService->isEligible($member)) {
+    Notification::make()
+        ->title('Not Eligible')
+        ->body($eligService->getIneligibilityReason($member))
+        ->warning()->send();
+    return;
+}
+But this check happens AFTER the form is submitted (inside the action handler). The real problem is that the "Apply for Loan" button should be disabled or hidden upfront if the member isn't eligible, and the eligibility status needs to be visible before they even attempt to submit. The max amount validation is also happening in the action rather than at the form level, which means users don't get feedback until after they've already tried to submit.
+
+Looking at the current implementation, the member portal checks eligibility in the action handler after form submission, while the admin portal doesn't enforce eligibility checks at all when creating loans for members.
+
+The eligibility information does display as a placeholder in the form, but it doesn't actually prevent submission. I need to prevent form submission entirely if the member isn't eligible—either by hiding the "Apply for Loan" button before the modal opens or by disabling it with a clear explanation of why they can't proceed. For Filament v4, I should check eligibility before triggering the action modal, and if they're ineligible, show a notification instead of opening the form. have a disabled() method that can conditionally disable the button. But the issue is we need to check eligibility dynamically.
+
+Let me think about the best approach:
+
+Member portal - MyLoansResource:
+
+Add disabled() check on the header action: ->disabled(fn () => ! $eligService->isEligible($member))
+But this doesn't show WHY they're disabled
+Or use ->before() callback to validate before opening the modal
+Filament v4 actions have ->before() which can halt the action
+Or prevent the modal from opening by using a ->authorize() method
+Or add a visible condition to hide the button and show a warning card instead
+Actually, the most user-friendly approach for the member portal:
+
+Show the "Apply for Loan" button only if eligible
+If not eligible, show a clear info/warning card explaining why
+When eligible but form is submitted, do the eligibility check again as a server-side safeguard
+For Filament actions, I can use ->visible() with a complex eligibility check, or ->disabled() with a tooltip explaining the reason. The cleanest approach is probably keeping the button visible but disabled when ineligible, paired with a helpful message card that explains what needs to happen for them to qualify. Looking at the current implementation, the eligibility check happens after form submission with a warning notification, but the user wants it enforced at the point of applying. I should add the eligibility validation earlier—either by hiding the button entirely when ineligible using ->visible(), or by checking eligibility before the form modal even opens using ->before(). The second approach gives better UX since it prevents users from seeing a form they can't submit.
+
+I'm adding a ->before() hook that runs eligibility checks and halts the action if the member isn't eligible, displaying a clear notification about why they can't apply. This prevents the modal from opening at all, and I'll keep the server-side validation on submit as a safety measure.
+
+For the admin portal, I'm taking a different approach—admins should be able to override eligibility restrictions since they're creating loans on behalf of members, so the check there is less strict. But in the member portal, the eligibility gate needs to be enforced consistently, both before the modal opens and when the form submits.
+
+I'm thinking about disabling the apply loan action button when the member isn't eligible and adding a tooltip to explain why, which gives them immediate visual feedback. I could also use a Placeholder or Section component in the form to display the eligibility status more prominently, though Filament v4 doesn't have a built-in alert component for action schemas.
+
+The most straightforward approach is to add a ->before() check that stops the action and shows a notification if they're ineligible, keep the eligibility info visible in the form, and maintain a server-side validation in ->action() as the final gate. I should verify whether Filament v4 has a ->disabled() method available for actions.
+
+Now I'm going to implement this across both resources—adding the before-hook validation and disabled state to the apply loan action in MyLoansResource, and potentially showing an eligibility warning in LoanResource when admins select members. Let me start by reviewing the current MyLoansResource structure.
+
+---------------------------------
+Clean. Here's a summary of what was implemented:
+
+Loan Eligibility Enforcement
+Member Portal (MyLoansResource)
+Three layers of protection:
+
+Pre-modal gate — "Apply for Loan" button state
+
+When not eligible: the button shows as gray with a lock icon. Clicking it opens an informational modal that explains exactly why the member cannot apply (e.g., "Membership must be at least 1 year old", "Fund balance below SAR 6,000", etc.). There is no application form — just the reason and a "I Understand" close button.
+When eligible: the button is blue/primary and opens the full application form.
+->before() hook — gate at modal-open time
+
+Even when the button is in the eligible state, a re-check fires before the modal opens. This guards against the rare case where eligibility changed between page load and button click (e.g., another action ran in a different tab). If the member is no longer eligible, a danger notification fires and the modal is halted.
+->action() final guard — server-side on submission
+
+Re-validates eligibility and the requested amount at the point of creating the loan record. Produces a clear danger notification with the specific rejection reason if anything fails.
+Admin Portal (LoanResource creation form)
+The Member select is now ->live(), causing a live "Member Eligibility" placeholder to update whenever the admin picks a member.
+Shows ✅ Eligible | Fund balance: SAR X | Max loan: SAR Y or ⚠ Not eligible: <reason> so admins have full visibility before approving (the admin is not hard-blocked, as they may need to create emergency or exceptional cases).
+-------------------------------------
+Clean. Here's what was added:
+
+Member Account Summary Cards
+A new MemberAccountStatsWidget now appears at the top of both the View and Edit member pages in the admin portal, displaying 5 stat cards:
+
+Card	Shows	Color logic
+Cash Balance	Member's cash account balance	Green ≥ 1,000 · Yellow > 0 · Red = 0
+Fund Balance	Member's fund account balance	Green ≥ 6,000 (loan-eligible) · Yellow > 0 · Red = 0
+Late Contributions	Count of occurrences + total SAR amount	Green if 0, Yellow if any
+Active Loans	Count of active/approved loans + total outstanding installment SAR	Blue if loans exist, Green if none
+Late Loan Repayments	Count of late repayments + total SAR	Green if 0, Red if any
+The widget is registered as a getHeaderWidgets() on both EditMember and ViewMember pages, and the member record is passed via getWidgetsData() so it always reflects the member being viewed/edited.
+------------------------------
+Comprehensive Member Info on View/Edit Page
+The admin member View and Edit pages now show six organized sections:
+
+1. Membership
+Member number (read-only), status (editable), membership date (editable).
+
+2. User Account
+Full name and phone are now editable — changes are saved back to the User record via afterSave(). Email is shown read-only (it's the login credential; changing it has auth implications).
+
+3. Personal Information (collapsible)
+All fields from the original membership application: National ID, Date of Birth, City, Address, Occupation, Employer, Monthly Income — all read-only display from the membership_applications table.
+
+4. Next of Kin (collapsible)
+Next-of-kin name and phone from the membership application.
+
+5. Contribution & Sponsorship
+Monthly contribution amount (editable) and parent/sponsor assignment (editable).
+
+6. Active Loan — Guarantor & Witnesses (collapsible)
+Shows the most recent active/approved loan's: Loan reference, Guarantor (member number + name + phone), Guarantor release status, Witness 1, Witness 2. Shows "No active loan" if none.
+
+The "Personal Information", "Next of Kin", and "Guarantor & Witnesses" sections are collapsed by default to keep the page tidy — click to expand when needed.
+
+-----------------------------
+All clean. Here's what changed:
+
+What was done
+Personal Information and Next of Kin sections are now fully editable. Every field was converted from a read-only Placeholder to a proper input control:
+
+Field	Control
+National ID	Text input (max 20 chars)
+Date of Birth	Date picker, max 18 years ago
+City	Text input
+Address	Textarea
+Occupation	Text input
+Employer	Text input
+Monthly Income	Numeric input with SAR prefix
+Next of Kin — Name	Text input
+Next of Kin — Phone	Tel input
+How saving works (three-model save in one form submit):
+
+mutateFormDataBeforeFill() — on page load, populates the _app_* virtual fields from user → membershipApplication
+mutateFormDataBeforeSave() — strips all _user_* and _app_* keys before Eloquent touches the Member row, stashing the values
+afterSave() — uses updateOrCreate to save application changes, so it works even for admin-created members who have no existing application record
+---------------------------------
+Here’s what was added and how to use it.
+
+Where to edit
+Admin → Membership group → Applications (navigation label Applications).
+On a row, use the Edit action (pencil), or open View and click Edit in the header.
+What was implemented
+EditMembershipApplication page at /admin/.../membership-applications/{id}/edit.
+Form fields are editable for everything the member submitted:
+National ID, date of birth, city, address
+Occupation, employer, monthly income
+Next of kin name and phone
+Application document (replace PDF/image on public disk under membership-applications/)
+Applicant account
+Name and email: read-only (login identity).
+Phone: saved on the related User after the application is saved.
+Review
+Status is read-only (still use Approve / Reject on the list).
+Rejection reason can be edited (e.g. wording fixes).
+Permissions
+Editing is allowed only if the admin has the Update:MembershipApplication ability (Spatie permission used in MembershipApplicationPolicy). If Edit does not show, grant that permission for the admin role in your roles/permissions UI.
+
+Member edit page
+The Membership application sections on Members → Edit are unchanged, so you can still correct data from the member screen if you want both entry points.
+----------------------------------------
+Here’s what was added.
+
+What you get
+Applications list in the admin panel now has a Create action in the header.
+New page CreateMembershipApplication at /admin/.../membership-applications/create that:
+Creates a pending User (member role, same as /apply).
+Creates a pending MembershipApplication linked to that user.
+Uses the same field groups as the public apply flow (account, identity, employment, next of kin, optional PDF/image upload under membership-applications on the public disk).
+Files touched
+New: app/Filament/Admin/Resources/MembershipApplicationResource/Pages/CreateMembershipApplication.php
+MembershipApplicationResource.php — registered the create route.
+ListMembershipApplications.php — CreateAction::make() in header actions.
+Access
+Creation is allowed only if MembershipApplicationPolicy::create passes — i.e. the admin user must have the Create:MembershipApplication permission (Spatie), same pattern as your other admin resources.
+
+If you want a second path later (e.g. only link an application to an existing user who has no application yet), that can be added as an extra section or a separate action.
+
+------------------------------------------
+Here is what was implemented.
+
+Database
+New migration database/migrations/2026_04_03_120000_add_profile_fields_to_membership_applications_table.php adds:
+
+Column	Notes
+application_type
+new / resume / renew, default new
+gender
+nullable
+marital_status
+nullable
+home_phone, work_phone, mobile_phone
+nullable
+work_place, residency_place
+nullable text
+bank_account_number, iban
+nullable
+membership_date
+nullable date
+Migration has been run successfully on your machine.
+
+Model
+MembershipApplication now includes these in $fillable, casts membership_date as date, and exposes applicationTypeOptions(), genderOptions(), and maritalStatusOptions() for reuse in Filament.
+
+Admin
+Applications resource (create / edit / view): sections for application type & profile, contact numbers, work & residency, and banking.
+Applications table: optional Type column (from application_type).
+Create application page: same fields; if mobile phone is empty, it is filled from the account phone you enter.
+Members → edit: extended “Membership application” blocks and a collapsible contact & banking section; EditMember syncs all new _app_* fields to membership_applications.
+Public /apply (step 2)
+Step 2 now collects the same data (application type required; gender/marital optional; phones/places/banking/membership date optional). If mobile phone is left blank, the value from step 1 is stored as mobile_phone. IBAN is normalized to uppercase on submit.
+
+Note: Login phone stays on users.phone; the three application phones are stored only on the application record, so you can keep them distinct or mirror mobile from step 1 as above.
+
+
+
+
+
+
+
 
 
 

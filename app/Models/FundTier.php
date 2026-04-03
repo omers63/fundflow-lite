@@ -20,7 +20,7 @@ class FundTier extends Model
     {
         return [
             'percentage' => 'decimal:2',
-            'is_active'  => 'boolean',
+            'is_active' => 'boolean',
         ];
     }
 
@@ -44,6 +44,40 @@ class FundTier extends Model
         return $this->tier_number === 0;
     }
 
+    /** Return the active emergency fund tier. */
+    public static function emergency(): ?self
+    {
+        return static::where('tier_number', 0)->where('is_active', true)->first();
+    }
+
+    /**
+     * Return the active fund tier linked to the given loan tier.
+     * Falls back to emergency if no specific fund tier is configured.
+     */
+    public static function forLoanTier(int $loanTierId): ?self
+    {
+        return static::where('loan_tier_id', $loanTierId)->where('is_active', true)->first()
+            ?? static::emergency();
+    }
+
+    /**
+     * Resolve the correct fund tier for a loan:
+     *  - Emergency flag  → emergency fund tier
+     *  - Otherwise       → fund tier linked to the loan's loan tier
+     */
+    public static function resolveForLoan(Loan $loan): ?self
+    {
+        if ($loan->is_emergency) {
+            return static::emergency();
+        }
+
+        if ($loan->loan_tier_id) {
+            return static::forLoanTier($loan->loan_tier_id);
+        }
+
+        return null;
+    }
+
     /**
      * Allocated amount = master fund balance × (percentage / 100).
      * Available = allocated - active exposure.
@@ -51,6 +85,7 @@ class FundTier extends Model
     public function getAllocatedAmountAttribute(): float
     {
         $masterBalance = (float) (Account::masterFund()?->balance ?? 0);
+
         return $masterBalance * ($this->percentage / 100);
     }
 

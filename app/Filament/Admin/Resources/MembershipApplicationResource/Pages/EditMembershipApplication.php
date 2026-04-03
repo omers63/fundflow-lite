@@ -3,19 +3,11 @@
 namespace App\Filament\Admin\Resources\MembershipApplicationResource\Pages;
 
 use App\Filament\Admin\Resources\MembershipApplicationResource;
-use Filament\Actions\EditAction;
-use Filament\Resources\Pages\ViewRecord;
+use Filament\Resources\Pages\EditRecord;
 
-class ViewMembershipApplication extends ViewRecord
+class EditMembershipApplication extends EditRecord
 {
     protected static string $resource = MembershipApplicationResource::class;
-
-    protected function getHeaderActions(): array
-    {
-        return [
-            EditAction::make(),
-        ];
-    }
 
     protected function mutateFormDataBeforeFill(array $data): array
     {
@@ -31,5 +23,23 @@ class ViewMembershipApplication extends ViewRecord
         }
 
         return $data;
+    }
+
+    protected function mutateFormDataBeforeSave(array $data): array
+    {
+        unset($data['_display_user_name'], $data['_display_user_email']);
+
+        return $data;
+    }
+
+    protected function afterSave(): void
+    {
+        if ($this->record->user) {
+            $this->record->user->update([
+                'phone' => $this->record->mobile_phone !== '' && $this->record->mobile_phone !== null
+                    ? $this->record->mobile_phone
+                    : null,
+            ]);
+        }
     }
 }

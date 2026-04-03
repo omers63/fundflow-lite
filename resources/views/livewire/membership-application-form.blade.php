@@ -61,17 +61,10 @@
                 {{-- Step 1: Personal Info --}}
                 @if($currentStep === 1)
                 <div class="space-y-5">
-                    <div class="grid sm:grid-cols-2 gap-5">
-                        <div>
-                            <label class="block text-sm font-semibold text-slate-700 mb-2">Full Name *</label>
-                            <input wire:model="name" type="text" placeholder="Ahmed Al-Saudi" class="w-full px-4 py-3 border border-slate-200 rounded-xl text-sm focus:outline-none focus:ring-2 focus:ring-emerald-500 @error('name') border-red-400 @enderror">
-                            @error('name')<p class="text-red-500 text-xs mt-1">{{ $message }}</p>@enderror
-                        </div>
-                        <div>
-                            <label class="block text-sm font-semibold text-slate-700 mb-2">Phone Number *</label>
-                            <input wire:model="phone" type="tel" placeholder="+966 50 000 0000" class="w-full px-4 py-3 border border-slate-200 rounded-xl text-sm focus:outline-none focus:ring-2 focus:ring-emerald-500 @error('phone') border-red-400 @enderror">
-                            @error('phone')<p class="text-red-500 text-xs mt-1">{{ $message }}</p>@enderror
-                        </div>
+                    <div>
+                        <label class="block text-sm font-semibold text-slate-700 mb-2">Full Name *</label>
+                        <input wire:model="name" type="text" placeholder="Ahmed Al-Saudi" class="w-full px-4 py-3 border border-slate-200 rounded-xl text-sm focus:outline-none focus:ring-2 focus:ring-emerald-500 @error('name') border-red-400 @enderror">
+                        @error('name')<p class="text-red-500 text-xs mt-1">{{ $message }}</p>@enderror
                     </div>
                     <div>
                         <label class="block text-sm font-semibold text-slate-700 mb-2">Email Address *</label>
@@ -95,6 +88,39 @@
                 {{-- Step 2: Identity & Address --}}
                 @if($currentStep === 2)
                 <div class="space-y-5">
+                    <div>
+                        <label class="block text-sm font-semibold text-slate-700 mb-2">Application type *</label>
+                        <select wire:model="application_type" class="w-full px-4 py-3 border border-slate-200 rounded-xl text-sm focus:outline-none focus:ring-2 focus:ring-emerald-500 @error('application_type') border-red-400 @enderror">
+                            <option value="new">New</option>
+                            <option value="resume">Resume</option>
+                            <option value="renew">Renew</option>
+                        </select>
+                        @error('application_type')<p class="text-red-500 text-xs mt-1">{{ $message }}</p>@enderror
+                    </div>
+                    <div class="grid sm:grid-cols-2 gap-5">
+                        <div>
+                            <label class="block text-sm font-semibold text-slate-700 mb-2">Gender</label>
+                            <select wire:model="gender" class="w-full px-4 py-3 border border-slate-200 rounded-xl text-sm focus:outline-none focus:ring-2 focus:ring-emerald-500">
+                                <option value="">—</option>
+                                <option value="male">Male</option>
+                                <option value="female">Female</option>
+                                <option value="other">Other</option>
+                            </select>
+                            @error('gender')<p class="text-red-500 text-xs mt-1">{{ $message }}</p>@enderror
+                        </div>
+                        <div>
+                            <label class="block text-sm font-semibold text-slate-700 mb-2">Marital status</label>
+                            <select wire:model="marital_status" class="w-full px-4 py-3 border border-slate-200 rounded-xl text-sm focus:outline-none focus:ring-2 focus:ring-emerald-500">
+                                <option value="">—</option>
+                                <option value="single">Single</option>
+                                <option value="married">Married</option>
+                                <option value="divorced">Divorced</option>
+                                <option value="widowed">Widowed</option>
+                                <option value="other">Other</option>
+                            </select>
+                            @error('marital_status')<p class="text-red-500 text-xs mt-1">{{ $message }}</p>@enderror
+                        </div>
+                    </div>
                     <div class="grid sm:grid-cols-2 gap-5">
                         <div>
                             <label class="block text-sm font-semibold text-slate-700 mb-2">National ID *</label>
@@ -116,6 +142,54 @@
                         <label class="block text-sm font-semibold text-slate-700 mb-2">City *</label>
                         <input wire:model="city" type="text" placeholder="Riyadh" class="w-full px-4 py-3 border border-slate-200 rounded-xl text-sm focus:outline-none focus:ring-2 focus:ring-emerald-500 @error('city') border-red-400 @enderror">
                         @error('city')<p class="text-red-500 text-xs mt-1">{{ $message }}</p>@enderror
+                    </div>
+                    <p class="text-xs text-slate-400 uppercase font-semibold tracking-wide">Contact numbers</p>
+                    <div class="grid sm:grid-cols-1 gap-5">
+                        <div>
+                            <label class="block text-sm font-semibold text-slate-700 mb-2">Mobile phone *</label>
+                            <input wire:model="mobile_phone" type="tel" placeholder="+966 50 000 0000" class="w-full px-4 py-3 border border-slate-200 rounded-xl text-sm focus:outline-none focus:ring-2 focus:ring-emerald-500 @error('mobile_phone') border-red-400 @enderror">
+                            <p class="text-xs text-slate-500 mt-1">Used for SMS and WhatsApp and saved on your account.</p>
+                            @error('mobile_phone')<p class="text-red-500 text-xs mt-1">{{ $message }}</p>@enderror
+                        </div>
+                    </div>
+                    <div class="grid sm:grid-cols-2 gap-5">
+                        <div>
+                            <label class="block text-sm font-semibold text-slate-700 mb-2">Home phone</label>
+                            <input wire:model="home_phone" type="tel" class="w-full px-4 py-3 border border-slate-200 rounded-xl text-sm focus:outline-none focus:ring-2 focus:ring-emerald-500 @error('home_phone') border-red-400 @enderror">
+                            @error('home_phone')<p class="text-red-500 text-xs mt-1">{{ $message }}</p>@enderror
+                        </div>
+                        <div>
+                            <label class="block text-sm font-semibold text-slate-700 mb-2">Work phone</label>
+                            <input wire:model="work_phone" type="tel" class="w-full px-4 py-3 border border-slate-200 rounded-xl text-sm focus:outline-none focus:ring-2 focus:ring-emerald-500 @error('work_phone') border-red-400 @enderror">
+                            @error('work_phone')<p class="text-red-500 text-xs mt-1">{{ $message }}</p>@enderror
+                        </div>
+                    </div>
+                    <div>
+                        <label class="block text-sm font-semibold text-slate-700 mb-2">Work place</label>
+                        <input wire:model="work_place" type="text" class="w-full px-4 py-3 border border-slate-200 rounded-xl text-sm focus:outline-none focus:ring-2 focus:ring-emerald-500 @error('work_place') border-red-400 @enderror">
+                        @error('work_place')<p class="text-red-500 text-xs mt-1">{{ $message }}</p>@enderror
+                    </div>
+                    <div>
+                        <label class="block text-sm font-semibold text-slate-700 mb-2">Residency place</label>
+                        <input wire:model="residency_place" type="text" class="w-full px-4 py-3 border border-slate-200 rounded-xl text-sm focus:outline-none focus:ring-2 focus:ring-emerald-500 @error('residency_place') border-red-400 @enderror">
+                        @error('residency_place')<p class="text-red-500 text-xs mt-1">{{ $message }}</p>@enderror
+                    </div>
+                    <div class="grid sm:grid-cols-2 gap-5">
+                        <div>
+                            <label class="block text-sm font-semibold text-slate-700 mb-2">Bank account number</label>
+                            <input wire:model="bank_account_number" type="text" class="w-full px-4 py-3 border border-slate-200 rounded-xl text-sm focus:outline-none focus:ring-2 focus:ring-emerald-500 font-mono @error('bank_account_number') border-red-400 @enderror">
+                            @error('bank_account_number')<p class="text-red-500 text-xs mt-1">{{ $message }}</p>@enderror
+                        </div>
+                        <div>
+                            <label class="block text-sm font-semibold text-slate-700 mb-2">IBAN</label>
+                            <input wire:model="iban" type="text" dir="ltr" class="w-full px-4 py-3 border border-slate-200 rounded-xl text-sm focus:outline-none focus:ring-2 focus:ring-emerald-500 font-mono @error('iban') border-red-400 @enderror">
+                            @error('iban')<p class="text-red-500 text-xs mt-1">{{ $message }}</p>@enderror
+                        </div>
+                    </div>
+                    <div>
+                        <label class="block text-sm font-semibold text-slate-700 mb-2">Membership date</label>
+                        <input wire:model="membership_date" type="date" class="w-full px-4 py-3 border border-slate-200 rounded-xl text-sm focus:outline-none focus:ring-2 focus:ring-emerald-500 @error('membership_date') border-red-400 @enderror">
+                        @error('membership_date')<p class="text-red-500 text-xs mt-1">{{ $message }}</p>@enderror
                     </div>
                 </div>
                 @endif
