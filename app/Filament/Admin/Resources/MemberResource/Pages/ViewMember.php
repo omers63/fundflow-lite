@@ -21,4 +21,16 @@ class ViewMember extends ViewRecord
             'record' => $this->record,
         ];
     }
+
+    protected function mutateFormDataBeforeFill(array $data): array
+    {
+        $this->record->loadMissing('user.membershipApplication');
+        $app = $this->record->user?->membershipApplication;
+
+        if ($app?->membership_date) {
+            $data['joined_at'] = $app->membership_date->toDateString();
+        }
+
+        return $data;
+    }
 }

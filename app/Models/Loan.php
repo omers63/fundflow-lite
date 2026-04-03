@@ -232,6 +232,22 @@ class Loan extends Model
     }
 
     /**
+     * Same repayment horizon as {@see computeInstallmentsCount} but using known portions (e.g. CSV import).
+     */
+    public static function computeInstallmentsCountFromPortions(
+        float $loanAmount,
+        float $memberPortion,
+        float $minMonthlyInstallment,
+        float $settlementThresholdPct,
+    ): int {
+        $masterPortion = $loanAmount - $memberPortion;
+        $settlementAmt = $loanAmount * $settlementThresholdPct;
+        $totalToRepay = $masterPortion + $settlementAmt;
+
+        return max(1, (int) ceil($totalToRepay / max(1, $minMonthlyInstallment)));
+    }
+
+    /**
      * Determine which contribution cycle is exempted and when repayments start
      * based on the disbursement date.
      */

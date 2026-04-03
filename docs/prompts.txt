@@ -110,8 +110,11 @@ I want to be able to edit a member's application from the admin.
 I want to be able to create a new Membership Applications in the admin portal.
 Add the following fields to a member's application: Application Type(New, Resume, Renew), gender, marital status, Home phone, work phone, mobile phone, Work Place, Residency Place, Bank Account Number, IBAN, Membership date, 
 The account phone and the mobile phone are the same. Keep just the mobile phone.
-
-
+I would like to be able to import a file containing member's information.
+I want to be able to import the member's cash account balance and fund account balance. Check if importing these balances has any impact on account treatment and handle it properly. Ask for any clarifications.
+I would like to be able to import a file containing members loans information. Check if importing these loans has any impact on account treatment and handle it properly. Ask for any clarifications.
+-----------------------------------
+Yes, I want to be able to import non‑disbursed loans. Further, I want to be able to import fully paid off loans (old loans).
 
  
 

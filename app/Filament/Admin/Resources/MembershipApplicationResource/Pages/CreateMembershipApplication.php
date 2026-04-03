@@ -77,7 +77,7 @@ class CreateMembershipApplication extends CreateRecord
                         ->label('Date of Birth')
                         ->required()
                         ->native(false)
-                        ->maxDate(now()->subYears(18)),
+                        ->maxDate(now()),
                     Forms\Components\TextInput::make('city')
                         ->label('City')
                         ->required()

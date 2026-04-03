@@ -104,7 +104,7 @@ class MemberResource extends Resource
                     Forms\Components\DatePicker::make('_app_date_of_birth')
                         ->label('Date of Birth')
                         ->native(false)
-                        ->maxDate(now()->subYears(18)),
+                        ->maxDate(now()),
                     Forms\Components\TextInput::make('_app_city')
                         ->label('City')
                         ->maxLength(100),

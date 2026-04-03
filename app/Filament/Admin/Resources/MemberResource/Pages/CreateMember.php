@@ -63,8 +63,8 @@ class CreateMember extends CreateRecord
                         ->required(),
                     Forms\Components\Select::make('status')
                         ->options([
-                            'active'     => 'Active',
-                            'suspended'  => 'Suspended',
+                            'active' => 'Active',
+                            'suspended' => 'Suspended',
                             'delinquent' => 'Delinquent',
                         ])
                         ->default('active')
@@ -90,6 +90,25 @@ class CreateMember extends CreateRecord
                         ->placeholder('None (independent member)')
                         ->helperText('The parent member can fund this member\'s cash account.'),
                 ])->columns(2),
+
+            Section::make('Opening balances')
+                ->description('Optional. Same paired master + member postings as CSV import (ledger transactions). Cash cannot be negative; fund may be negative.')
+                ->schema([
+                    Forms\Components\TextInput::make('opening_cash_balance')
+                        ->label('Cash account (SAR)')
+                        ->numeric()
+                        ->default(0)
+                        ->minValue(0)
+                        ->step(0.01)
+                        ->suffix('SAR'),
+                    Forms\Components\TextInput::make('opening_fund_balance')
+                        ->label('Fund account (SAR)')
+                        ->numeric()
+                        ->default(0)
+                        ->step(0.01)
+                        ->suffix('SAR')
+                        ->helperText('Negative values debit master and member fund together (e.g. master-funded loan).'),
+                ])->columns(2),
         ]);
     }
 
@@ -100,15 +119,22 @@ class CreateMember extends CreateRecord
      */
     protected function handleRecordCreation(array $data): Member
     {
-        return DB::transaction(function () use ($data) {
+        $openingCash = round((float) ($data['opening_cash_balance'] ?? 0), 2);
+        $openingFund = round((float) ($data['opening_fund_balance'] ?? 0), 2);
+
+        if ($openingCash < 0) {
+            throw new \InvalidArgumentException('Opening cash balance cannot be negative.');
+        }
+
+        return DB::transaction(function () use ($data, $openingCash, $openingFund) {
             // 1. Create the User account
             $user = User::create([
-                'name'     => $data['name'],
-                'email'    => $data['email'],
-                'phone'    => $data['phone'] ?? null,
+                'name' => $data['name'],
+                'email' => $data['email'],
+                'phone' => $data['phone'] ?? null,
                 'password' => Hash::make($data['password']),
-                'role'     => 'member',
-                'status'   => 'approved',
+                'role' => 'member',
+                'status' => 'approved',
             ]);
 
             // 2. Auto-generate the member number
@@ -116,16 +142,19 @@ class CreateMember extends CreateRecord
 
             // 3. Create the Member record
             $member = Member::create([
-                'user_id'                      => $user->id,
-                'member_number'                => $memberNumber,
-                'joined_at'                    => $data['joined_at'],
-                'status'                       => $data['status'],
-                'monthly_contribution_amount'  => $data['monthly_contribution_amount'],
-                'parent_id'                    => $data['parent_id'] ?? null,
+                'user_id' => $user->id,
+                'member_number' => $memberNumber,
+                'joined_at' => $data['joined_at'],
+                'status' => $data['status'],
+                'monthly_contribution_amount' => $data['monthly_contribution_amount'],
+                'parent_id' => $data['parent_id'] ?? null,
             ]);
 
             // 4. Ensure the member's virtual accounts are provisioned
             app(AccountingService::class)->ensureMemberAccounts($member);
+
+            // 5. Opening balances (same as CSV import)
+            app(AccountingService::class)->applyImportedBalanceAdjustments($member, $openingCash, $openingFund);
 
             return $member;
         });

@@ -22,10 +22,12 @@ use Carbon\Carbon;
 use Filament\Actions\Action;
 use Filament\Actions\ViewAction;
 use Filament\Forms;
+use Filament\Infolists\Components\TextEntry;
 use Filament\Notifications\Notification;
 use Filament\Resources\Resource;
 use Filament\Schemas\Components\Section;
 use Filament\Schemas\Schema;
+use Filament\Support\Enums\FontWeight;
 use Filament\Tables;
 use Filament\Tables\Table;
 use Illuminate\Support\Facades\DB;
@@ -425,6 +427,147 @@ class LoanResource extends Resource
 
                         Notification::make()->title('Loan Early Settled')->success()->send();
                     }),
+            ]);
+    }
+
+    public static function infolist(Schema $schema): Schema
+    {
+        return $schema
+            ->columns(2)
+            ->components([
+                Section::make('Loan request')
+                    ->icon('heroicon-o-banknotes')
+                    ->schema([
+                        TextEntry::make('borrower')
+                            ->label('Member')
+                            ->state(fn (Loan $record): ?string => $record->member
+                                ? "{$record->member->member_number} – {$record->member->user->name}"
+                                : null)
+                            ->url(function (Loan $record): ?string {
+                                $member = $record->member;
+                                if ($member === null || ! MemberResource::canView($member)) {
+                                    return null;
+                                }
+
+                                return MemberResource::getUrl('view', ['record' => $member]);
+                            })
+                            ->color('primary')
+                            ->weight(FontWeight::Medium),
+                        TextEntry::make('member_eligibility')
+                            ->label('Member eligibility')
+                            ->state(function (Loan $record): string {
+                                $member = $record->member;
+                                if ($member === null) {
+                                    return '—';
+                                }
+                                $ctx = app(LoanEligibilityService::class)->context($member);
+                                if ($ctx['eligible']) {
+                                    return '✅ Eligible '
+                                        .'| Fund balance: SAR '.number_format($ctx['fund_balance'], 2)
+                                        .' | Max loan: SAR '.number_format($ctx['max_loan_amount']);
+                                }
+
+                                return '⚠ Not eligible: '.$ctx['reason'];
+                            })
+                            ->columnSpanFull(),
+                        TextEntry::make('status')
+                            ->badge()
+                            ->color(fn (string $state): string => match ($state) {
+                                'pending' => 'warning',
+                                'approved' => 'info',
+                                'active' => 'success',
+                                'completed' => 'gray',
+                                'early_settled' => 'success',
+                                'rejected' => 'danger',
+                                'cancelled' => 'gray',
+                                default => 'gray',
+                            }),
+                        TextEntry::make('amount_requested')
+                            ->label('Requested amount')
+                            ->money('SAR'),
+                        TextEntry::make('amount_approved')
+                            ->label('Approved amount')
+                            ->money('SAR')
+                            ->placeholder('—'),
+                        TextEntry::make('installments_count')
+                            ->label('Installments (months)'),
+                        TextEntry::make('is_emergency')
+                            ->label('Emergency loan')
+                            ->formatStateUsing(fn (?bool $state): string => $state ? 'Yes' : 'No'),
+                        TextEntry::make('purpose')
+                            ->columnSpanFull(),
+                    ])->columns(2),
+                Section::make('Fund & schedule')
+                    ->icon('heroicon-o-calendar-days')
+                    ->schema([
+                        TextEntry::make('loanTier.label')
+                            ->label('Loan tier')
+                            ->placeholder('—'),
+                        TextEntry::make('fundTier.label')
+                            ->label('Fund tier')
+                            ->placeholder('—'),
+                        TextEntry::make('queue_position')
+                            ->label('Queue #')
+                            ->placeholder('—'),
+                        TextEntry::make('applied_at')
+                            ->dateTime('d M Y H:i'),
+                        TextEntry::make('approved_at')
+                            ->dateTime('d M Y H:i')
+                            ->placeholder('—'),
+                        TextEntry::make('disbursed_at')
+                            ->dateTime('d M Y H:i')
+                            ->placeholder('—'),
+                        TextEntry::make('due_date')
+                            ->date('d M Y')
+                            ->placeholder('—'),
+                        TextEntry::make('settled_at')
+                            ->dateTime('d M Y H:i')
+                            ->placeholder('—'),
+                        TextEntry::make('member_portion')
+                            ->label('Member portion')
+                            ->money('SAR')
+                            ->placeholder('—'),
+                        TextEntry::make('master_portion')
+                            ->label('Master / fund portion')
+                            ->money('SAR')
+                            ->placeholder('—'),
+                        TextEntry::make('repaid_to_master')
+                            ->label('Repaid (master track)')
+                            ->money('SAR'),
+                    ])->columns(2)
+                    ->collapsible(),
+                Section::make('Guarantor & witnesses')
+                    ->icon('heroicon-o-user-group')
+                    ->schema([
+                        TextEntry::make('guarantor_display')
+                            ->label('Guarantor')
+                            ->state(fn (Loan $record): ?string => $record->guarantor
+                                ? "{$record->guarantor->member_number} – {$record->guarantor->user->name}"
+                                : null)
+                            ->url(function (Loan $record): ?string {
+                                $guarantor = $record->guarantor;
+                                if ($guarantor === null || ! MemberResource::canView($guarantor)) {
+                                    return null;
+                                }
+
+                                return MemberResource::getUrl('view', ['record' => $guarantor]);
+                            })
+                            ->color('primary')
+                            ->weight(FontWeight::Medium)
+                            ->placeholder('—'),
+                        TextEntry::make('witness1_name')
+                            ->label('Witness 1 — name')
+                            ->placeholder('—'),
+                        TextEntry::make('witness1_phone')
+                            ->label('Witness 1 — phone')
+                            ->placeholder('—'),
+                        TextEntry::make('witness2_name')
+                            ->label('Witness 2 — name')
+                            ->placeholder('—'),
+                        TextEntry::make('witness2_phone')
+                            ->label('Witness 2 — phone')
+                            ->placeholder('—'),
+                    ])->columns(2),
             ]);
     }
 

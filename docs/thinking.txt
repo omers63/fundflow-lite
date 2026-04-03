@@ -1119,6 +1119,245 @@ Step 2 now collects the same data (application type required; gender/marital opt
 
 Note: Login phone stays on users.phone; the three application phones are stored only on the application record, so you can keep them distinct or mirror mobile from step 1 as above.
 
+-----------------------------
+Here is what changed:
+
+Behaviour
+Single number: membership_applications.mobile_phone is the only “main” phone on an application.
+users.phone: Still used for SMS/Twilio/notifications, but it is always set from mobile_phone when you create or save an application (admin create/edit) or submit the public form.
+Admin – membership applications
+Removed the extra Phone field on the applicant account block (only name + email there now).
+Mobile phone stays under Contact numbers, is required, and is listed first; helper text explains SMS/account sync.
+Edit: Dropped _user_phone; legacy rows with empty mobile_phone are prefilled from user.phone once. After save, user.phone is updated from mobile_phone.
+View: Same fallback so old data still displays.
+Table: “Phone” column now uses mobile_phone (not user.phone).
+Admin – create application
+Removed Phone from the account section; Mobile phone (required) is in Contact numbers; new users get users.phone from that value.
+Admin – member edit
+User account now has Mobile phone (_app_mobile_phone) only—no separate account phone.
+Removed duplicate Mobile phone from the contact & banking section.
+Saving still updates users.phone from that field and writes mobile_phone on the linked application.
+Public /apply
+Step 1 no longer asks for a phone.
+Step 2: Mobile phone is required (with home/work still optional below it).
+Submit runs full validation so mobile and all other steps are checked before create.
+CreateMember (adding an already-approved member) still has its own phone field; that path is separate from membership applications.
+------------------------------
+Where it lives
+Members list in the admin panel: header button Import CSV (same permission as Create — Create:Member / Filament Shield).
+Flow
+Upload a CSV (UTF‑8, first row = headers).
+Set a default password (min 8 characters). Rows without a valid password column use this value. Imported users are approved members, same as manual create.
+Columns
+Column	Required	Notes
+name
+Yes
+email
+Yes
+Unique; existing emails are skipped
+password
+No
+If missing or < 8 chars → default password
+phone
+No
+joined_at
+No
+Any date Carbon accepts; default today
+status
+No
+active (default), suspended, delinquent
+monthly_contribution_amount
+No
+500–3000 in steps of 500; default 500
+parent_member_number
+No
+Must match an existing independent member (FF-YYYY-####)
+Header names are case-insensitive.
+Parents must already exist before dependents in the file (or run a second import for dependents).
+
+Code
+app/Services/MemberImportService.php — parses CSV, creates User + Member, runs AccountingService::ensureMemberAccounts, uses MemberNumberService for numbers.
+app/Filament/Admin/Resources/MemberResource/Pages/ListMembers.php — modal import action; uploaded file is removed from storage/app/member-imports after the run.
+Result notification
+Shows Created, Skipped (duplicate email), Failed, and up to 8 error lines (with a count if there are more).
+
+Note: Only CSV is supported (no .xlsx). Export from Excel with “CSV UTF-8” if needed.
+
+-----------------------------------------
+Here’s what was wrong if we only changed member account rows, what we did instead, and what you may still want to decide.
+
+Why “just set member balances” is risky
+In your app, member cash and master cash move together (e.g. bank/SMS import), and member fund and master fund move together (e.g. contributions).
+If the import only wrote accounts.balance on the member side, master cash / master fund would no longer match the pooled sub-ledgers, and fund health, loan logic, and reporting that use master balances would be wrong.
+
+What we implemented
+AccountingService::applyImportedOpeningBalances(Member $member, float $cashAmount, float $fundAmount)
+After ensureMemberAccounts, for each amount > 0 it:
+
+Cash: credits master cash and member cash by the same amount (same pattern as postBankTransactionToCash).
+Fund: credits master fund and member fund by the same amount (same pattern as postContribution).
+Each leg uses existing postEntry, so you get account_transactions and correct balance updates.
+MemberImportService
+Optional CSV columns:
+
+cash_balance — SAR, numeric, ≥ 0, 2 decimal places after rounding
+fund_balance — same
+Empty = 0 (no posting).
+Import modal copy updated to describe these columns and the paired master/member treatment.
+
+Clarifications you may care about
+Negative balances are rejected (validation error on the row). If you need “opening debt” or similar, that would need a separate design (and different accounting entries).
+
+This is an opening / migration-style posting, not a Contribution record. The fund leg does not create a contributions row, so monthly contribution history will not show those amounts unless you add contributions separately. If you want imports to also create contribution history, say so and we can scope it (month/year, late flags, etc.).
+
+Duplicate emails are still skipped whole-row: you cannot use CSV import to adjust balances for existing members with this flow. If you need “update balances only” for existing members, that would be a different feature.
+
+Assumption: The imported amounts represent real pooled cash/fund you are bringing into the system so increasing master + member together is correct. If your file is only “per-member targets” and master totals are adjusted elsewhere, say so — the implementation would need to change.
+
+If you want member_cash_balance / member_fund_balance as alternate header names for the same fields, that’s easy to add.
+
+---------------------------
+Here’s what was implemented.
+
+1. Negative fund_balance
+AccountingService now exposes applyImportedBalanceAdjustments (replacing applyImportedOpeningBalances).
+Fund > 0: credit master fund and member fund (unchanged).
+Fund < 0: debit both by |fund| (same pattern as disbursement drawing from member + master fund).
+Fund = 0: no fund leg.
+cash_balance: still ≥ 0 only; > 0 credits master + member cash.
+Early exit when cash <= 0 and fund is effectively zero uses abs($fund) < 0.00001 to avoid float noise.
+
+2. Existing email → balance-only updates
+If email exists and the user has a member row:
+Gate::authorize('update', $member) (needs Update:Member / policy).
+Applies applyImportedBalanceAdjustments from cash_balance / fund_balance only.
+Password, phone, joined_at, status, contribution, parent, name are not changed.
+If cash is 0 and fund is 0 → row is skipped (same as before for “no-op” duplicates).
+If the email exists but there is no member → error: User exists but has no member record.
+New rows still use Gate::authorize('create', Member::class) after duplicate check.
+3. Import UI & counts
+Import CSV is shown if Create:Member or Update:Member (Spatie-style ability).
+Result notification includes Updated (balances): N.
+Modal text describes negative fund, existing-email behavior, and that name is optional for existing-email / balance-only rows (still required for new members).
+Clarification (unchanged from before)
+Negative fund import still does not create Contribution or loan rows; it only posts ledger movements. Loan outstanding should stay aligned with your real loan records if you use this for migration.
+
+-----------------------------
+Here’s what was implemented and how it interacts with accounts.
+
+What you have now
+AccountingService
+
+postLoanDisbursementWithPortions: Same economic idea as normal disbursement (debit member fund, debit master fund, debit loan account for amount_approved), but uses the CSV member_portion / master_portion instead of min(member fund balance, amount). That avoids wrong splits when the member’s current fund balance is not the same as at historical disbursement.
+postImportedLoanRepayments: One bulk posting that matches postLoanRepayment (credit master fund, member fund, loan account; increment repaid_to_master; guarantor release if due). Used for already paid installments on migration.
+Loan::computeInstallmentsCountFromPortions: Same formula as computeInstallmentsCount, but uses the imported member portion instead of live fund balance.
+
+LoanImportService: UTF‑8 CSV with header; creates an active loan, runs disbursement + optional bulk repayments, then creates LoanInstallment rows (first N marked paid without using the observer, so no double posting).
+
+Admin UI: Loans → Import CSV on the loans list (ListLoans), visible when Create:Loan is allowed.
+
+Sample: samples/loans-import-sample.csv.
+
+Account impact (same as live flows)
+Disbursement: debits member fund / master fund by your portions; loan account shows outstanding.
+Paid installments: credits master fund, member fund, and loan account by paid_installments_count × min_monthly_installment (tier minimum), same pattern as real repayments.
+Important ordering: If member opening balances already include this loan and repayments, running this import will post those movements again unless you’ve set balances before that loan or you offset manually. The modal text calls this out.
+
+CSV columns
+Required	Optional
+amount_approved, member_portion, master_portion (sum = amount within 0.02)
+purpose, disbursed_at, is_emergency (1/true/yes), loan_tier_number, fund_tier_number, settlement_threshold, installments_count, paid_installments_count
+member_email or member_number
+Tier resolution mirrors approve/disburse: emergency → emergency fund tier; else loan_tier_number or amount-based tier; fund tier from fund_tier_number or FundTier::forLoanTier.
+
+Clarifications that would let us extend this cleanly
+Do you need imports for non‑disbursed loans (pending / approved only, no ledger), or is active-only enough for now?
+Partial payments: today, paid_installments_count assumes full monthly installments equal to the tier’s min_monthly_installment. Do you need a column for exact amount_repaid (possibly uneven across months)?
+Idempotency: should rows be keyed (e.g. external loan id) to skip or update duplicates?
+Guarantor / witnesses: include in CSV or always set later in Filament?
+The existing ExampleTest failure (no such table: members on /) is unrelated to this work; the suite doesn’t migrate the full schema for that test.
+
+----------------------------
+Here’s what was added and how to use it.
+
+loan_status column
+Value	Behaviour
+pending
+No accounting. Requires amount_requested or amount_approved (requested amount). Optional amount_approved if you already know it. fund_tier_id / queue_position stay empty.
+approved
+No accounting. amount_approved required; tiers and queue match the normal “approved, not disbursed” case. installments_count optional (else computed from the member’s current fund balance, same idea as the approve action).
+active
+Same as before (default if loan_status is blank): disbursement + optional repayments.
+completed / early_settled
+Full disbursement + bulk repayments for the closed loan, then all installments are created as paid. Final status and settled_at are set (defaults to disbursed_at if settled_at is empty).
+Fully paid / historical loans
+completed and early_settled always treat paid_installments_count as “all months” (it is ignored for those statuses).
+Bulk repayment total is:
+total_amount_repaid if the column is set (use this when the real cash total is not installments_count × min_monthly_installment), or
+else installments_count × min_monthly_installment (with installments_count from the CSV or from computeInstallmentsCountFromPortions).
+There must be a positive repayment total for terminal statuses (so the loan gets repayment postings, not only disbursement).
+Other optional columns
+applied_at, approved_at, disbursed_at, settled_at — parsed when present.
+amount_requested on disbursed rows — defaults to amount_approved if omitted.
+Files touched
+1:380:app/Services/LoanImportService.php — branching import logic.
+20:32:app/Filament/Admin/Resources/LoanResource/Pages/ListLoans.php — updated modal copy.
+samples/loans-import-sample.csv — one row per status.
+Reminder: Ledger rules are unchanged: disbursement still debits member/master funds and the loan account; repayments still credit all three. Align member import / opening balances with whether you are introducing these movements or records only (already in the books).
+
+If you want post_accounting=0 for archived loans (DB-only, no postings), say so and we can add it with clear safeguards.
+
+------------------------
+Here’s what’s in samples/loans-import-sample.csv:
+
+Members (from members-import-sample.csv)
+Rows use member001@fundflow-import.example … member010@fundflow-import.example. Import that member CSV first (same passwords as the sample) so those users exist; member_number is left blank because numbers are generated on member import.
+
+10 scenarios (one row each)
+#	Status	Member	Scenario
+1
+pending
+member001
+New application, requested amount only
+2
+pending
+member002
+Pending with optional amount_approved filled in
+3
+approved
+member003
+Standard approved, fixed installments_count
+4
+approved
+member004
+Emergency (is_emergency=1), small amount
+5
+active
+member005
+Disbursed, 0 repayments
+6
+active
+member006
+Disbursed, 5 repayments (split 12k/8k)
+7
+completed
+member007
+Historical closed loan; total_amount_repaid = amount_approved (10k) so the loan account nets cleanly
+8
+early_settled
+member008
+Same idea with 9k
+9
+active
+member009
+Emergency disbursed; member-only portion (4k/0); 1 payment
+10
+approved
+member010
+Custom settlement_threshold (0.14) and 16 months
+Note: Installment rows still use each tier’s min_monthly_installment; total_amount_repaid on closed loans is set equal to amount_approved so the bulk repayment matches principal. If your tier minimums don’t divide evenly, tweak installments_count / total_amount_repaid or tiers after you see a failed import.
+
+
 
 
 

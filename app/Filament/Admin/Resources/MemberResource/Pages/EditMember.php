@@ -64,6 +64,10 @@ class EditMember extends EditRecord
         $data['_app_next_of_kin_name'] = $app?->next_of_kin_name;
         $data['_app_next_of_kin_phone'] = $app?->next_of_kin_phone;
 
+        if ($app?->membership_date) {
+            $data['joined_at'] = $app->membership_date->toDateString();
+        }
+
         return $data;
     }
 
