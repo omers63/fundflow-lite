@@ -1,30 +1,26 @@
 @import '../../../../vendor/filament/filament/resources/css/theme.css';
 
-@source '../../../../app/Filament/Admin/**/*';
-@source '../../../../resources/views/filament/admin/**/*';
+@source '../../../../app/Filament/Member/**/*';
+@source '../../../../resources/views/filament/member/**/*';
 
 /* ─── Table enhancements ─────────────────────────────────────────────────── */
 
-/* Smooth row hover */
 .fi-ta-row {
     @apply transition-colors duration-150;
 }
 
-/* Tighten up table header text */
 .fi-ta-header-cell {
     @apply text-xs font-semibold tracking-wide uppercase;
 }
 
 /* ─── Stats overview cards ───────────────────────────────────────────────── */
 
-/* Add a left-accent line to each stat tile using the existing color variable */
 .fi-wi-stats-overview-stat {
     @apply relative overflow-hidden;
 }
 
 /* ─── Section / panel polish ─────────────────────────────────────────────── */
 
-/* Slightly more pronounced section shadow */
 .fi-section {
     @apply shadow-sm;
 }
@@ -43,7 +39,6 @@
 
 /* ─── Sidebar navigation ─────────────────────────────────────────────────── */
 
-/* Active nav item — slightly bolder text */
 .fi-sidebar-item-active .fi-sidebar-item-label {
     @apply font-semibold;
 }

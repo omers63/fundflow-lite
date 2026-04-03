@@ -41,6 +41,7 @@ class MemberPanelProvider extends PanelProvider
                 NavigationGroup::make(__('app.nav.group.account'))
                     ->icon('heroicon-o-user-circle'),
             ])
+            ->viteTheme('resources/css/filament/member/theme.css')
             ->discoverResources(in: app_path('Filament/Member/Resources'), for: 'App\Filament\Member\Resources')
             ->discoverPages(in: app_path('Filament/Member/Pages'), for: 'App\Filament\Member\Pages')
             ->pages([Dashboard::class])

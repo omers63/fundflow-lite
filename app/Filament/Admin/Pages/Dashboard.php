@@ -7,6 +7,7 @@ use App\Filament\Admin\Widgets\ContributionTrendWidget;
 use App\Filament\Admin\Widgets\FundHealthWidget;
 use App\Filament\Admin\Widgets\LoanPortfolioWidget;
 use App\Filament\Admin\Widgets\LoanRepaymentTrendWidget;
+use App\Filament\Admin\Widgets\MemberPipelineWidget;
 use Filament\Pages\Dashboard as BaseDashboard;
 
 class Dashboard extends BaseDashboard
@@ -18,6 +19,7 @@ class Dashboard extends BaseDashboard
         return [
             AdminStatsOverview::class,
             FundHealthWidget::class,
+            MemberPipelineWidget::class,
             LoanPortfolioWidget::class,
             ContributionTrendWidget::class,
             LoanRepaymentTrendWidget::class,
@@ -28,8 +30,8 @@ class Dashboard extends BaseDashboard
     {
         return [
             'default' => 1,
-            'sm'      => 2,
-            'xl'      => 3,
+            'sm' => 2,
+            'xl' => 3,
         ];
     }
 }

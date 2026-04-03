@@ -1356,7 +1356,38 @@ approved
 member010
 Custom settlement_threshold (0.14) and 16 months
 Note: Installment rows still use each tier’s min_monthly_installment; total_amount_repaid on closed loans is set equal to amount_approved so the bulk repayment matches principal. If your tier minimums don’t divide evenly, tweak installments_count / total_amount_repaid or tiers after you see a failed import.
+-------------------------------------------------
+The user wants to apply similar beautiful, modern styling across:
 
+Admin portal - main dashboard + all subpages/resources
+Member portal - main dashboard + all subpages/resources
+Add analytics/informative widgets
+Let me explore the codebase to understand what currently exists before creating a plan. I need to look at:
+
+Admin dashboard and widgets
+Member dashboard and widgets
+Current theme setup (we just set up the admin theme)
+All existing pages and resources structure
+Let me do parallel exploration.
+-----------------------------------------
+All todos complete. Here's a summary of everything that was done:
+
+Member panel theme infrastructure — The member portal now has its own compiled Filament theme (resources/css/filament/member/theme.css), registered via ->viteTheme() in MemberPanelProvider.php and added to vite.config.js. This was the root cause of all custom Tailwind classes being silently ignored in the member portal (exactly the same issue that made the Loan Queue ugly before). Both portals now compile correctly.
+
+Global CSS polish — Both theme files now include smooth row hover transitions, tighter table header typography, consistent section shadows, nav active-state weight, and input focus polish — applied across all standard Filament components in both portals without touching individual PHP resources.
+
+Admin custom blade pages:
+
+contribution-cycle.blade.php — Hero summary bar (active members, latest compliance %, 6-month total, late count) + period cards with compliance progress bars and on-time/late breakdowns matching the Loan Queue aesthetic
+loan-settings.blade.php — Icon-accented setting cards with color-coded left borders and human-readable descriptions, replacing the plain <dl> grid
+Member portal blade pages:
+
+my-contribution-settings.blade.php — Full gradient hero card with the current allocation prominently displayed, range progress bar, month-paid context stats, and a visual amount selector grid with a check badge on the active option
+loan-repayment-progress.blade.php — Polished card with a per-loan circular progress badge, distinct metric sub-cards (installments / fund portion / settlement readiness) with icons and colored progress bars, and a highlighted overdue warning row when applicable
+New analytics widgets:
+
+MemberPipelineWidget (admin dashboard) — A funnel-style panel showing Applications → Approved → Active Members with click-through links, new-member indicators, and red-flag badges for delinquent/suspended members
+UpcomingPaymentsWidget (member dashboard) — A 3-column calendar panel for the next 3 months showing each expected contribution and loan installment, color-coded by status (paid/pending/overdue) with per-month totals
 
 
 

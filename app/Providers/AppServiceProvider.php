@@ -2,16 +2,21 @@
 
 namespace App\Providers;
 
+use App\Http\Responses\FilamentLogoutResponse;
 use App\Models\Contribution;
 use App\Models\LoanInstallment;
 use App\Observers\ContributionObserver;
 use App\Observers\LoanInstallmentObserver;
 use BezhanSalleh\LanguageSwitch\LanguageSwitch;
+use Filament\Auth\Http\Responses\Contracts\LogoutResponse as LogoutResponseContract;
 use Illuminate\Support\ServiceProvider;
 
 class AppServiceProvider extends ServiceProvider
 {
-    public function register(): void {}
+    public function register(): void
+    {
+        $this->app->bind(LogoutResponseContract::class, FilamentLogoutResponse::class);
+    }
 
     public function boot(): void
     {

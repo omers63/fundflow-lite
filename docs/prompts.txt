@@ -115,6 +115,8 @@ I want to be able to import the member's cash account balance and fund account b
 I would like to be able to import a file containing members loans information. Check if importing these loans has any impact on account treatment and handle it properly. Ask for any clarifications.
 -----------------------------------
 Yes, I want to be able to import non‑disbursed loans. Further, I want to be able to import fully paid off loans (old loans).
+I want a modern-style beautiful layout page for the loan queue, please.
+The  loan queue is now  very modern and beautiful. Apply similar theming/styling possibly with nicely relevant analytics/informative widgets added as well. I am referring to the main dashboard of admin and member portals as well as all subpages/filament resource.
 
  
 
