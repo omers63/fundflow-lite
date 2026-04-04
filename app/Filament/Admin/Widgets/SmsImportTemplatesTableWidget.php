@@ -26,9 +26,12 @@ class SmsImportTemplatesTableWidget extends TableWidget
         SmsImportTemplateResource::configureTable($table);
 
         return $table
-            ->recordUrl(fn (SmsImportTemplate $record): string => SmsImportTemplateResource::getUrl('edit', ['record' => $record]))
+            ->recordUrl(fn(SmsImportTemplate $record): string => SmsImportTemplateResource::getUrl('edit', ['record' => $record]))
             ->headerActions([
-                CreateAction::make()->url(SmsImportTemplateResource::getUrl('create')),
+                CreateAction::make()
+                    ->label('New SMS template')
+                    ->icon('heroicon-o-chat-bubble-bottom-center-text')
+                    ->url(SmsImportTemplateResource::getUrl('create')),
             ]);
     }
 

@@ -2,15 +2,15 @@
 
 namespace App\Filament\Admin\Widgets;
 
-use App\Filament\Admin\Resources\BankImportTemplateResource;
-use App\Models\BankImportTemplate;
+use App\Filament\Admin\Resources\BankResource;
+use App\Models\Bank;
 use Filament\Actions\CreateAction;
 use Filament\Tables\Enums\PaginationMode;
 use Filament\Tables\Table;
 use Filament\Widgets\TableWidget;
 use Illuminate\Database\Eloquent\Builder;
 
-class BankImportTemplatesTableWidget extends TableWidget
+class BanksTableWidget extends TableWidget
 {
     protected static bool $isDiscovered = false;
 
@@ -18,20 +18,20 @@ class BankImportTemplatesTableWidget extends TableWidget
 
     protected function getTableQuery(): Builder
     {
-        return BankImportTemplateResource::getEloquentQuery();
+        return BankResource::getEloquentQuery();
     }
 
     public function table(Table $table): Table
     {
-        BankImportTemplateResource::configureTable($table);
+        BankResource::configureTable($table);
 
         return $table
-            ->recordUrl(fn(BankImportTemplate $record): string => BankImportTemplateResource::getUrl('edit', ['record' => $record]))
+            ->recordUrl(fn(Bank $record): string => BankResource::getUrl('edit', ['record' => $record]))
             ->headerActions([
                 CreateAction::make()
-                    ->label('New CSV template')
-                    ->icon('heroicon-o-table-cells')
-                    ->url(BankImportTemplateResource::getUrl('create')),
+                    ->label('New bank')
+                    ->icon('heroicon-o-building-office-2')
+                    ->url(BankResource::getUrl('create')),
             ]);
     }
 

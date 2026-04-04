@@ -28,6 +28,11 @@ class BankImportSessionResource extends Resource
 
     protected static ?int $navigationSort = 13;
 
+    public static function shouldRegisterNavigation(): bool
+    {
+        return false;
+    }
+
     public static function getNavigationGroup(): ?string
     {
         return 'Banking';
@@ -108,7 +113,7 @@ class BankImportSessionResource extends Resource
                                 ->pluck('name', 'id'))
                             ->required()
                             ->live()
-                            ->helperText('Configure templates under Banking → Import Templates'),
+                            ->helperText('Configure CSV templates under Finance → Banking → Templates.'),
                         Forms\Components\FileUpload::make('csv_file')
                             ->label('CSV File')
                             ->disk('local')

@@ -31,6 +31,11 @@ class BankTransactionResource extends Resource
 
     protected static ?int $navigationSort = 12;
 
+    public static function shouldRegisterNavigation(): bool
+    {
+        return false;
+    }
+
     public static function getNavigationGroup(): ?string
     {
         return 'Banking';
@@ -74,10 +79,10 @@ class BankTransactionResource extends Resource
 
     public static function table(Table $table): Table
     {
-        $memberOptions = fn () => Member::with('user')
+        $memberOptions = fn() => Member::with('user')
             ->active()
             ->get()
-            ->mapWithKeys(fn ($m) => [$m->id => "{$m->member_number} – {$m->user->name}"]);
+            ->mapWithKeys(fn($m) => [$m->id => "{$m->member_number} – {$m->user->name}"]);
 
         return $table
             ->columns([
@@ -87,7 +92,7 @@ class BankTransactionResource extends Resource
                 Tables\Columns\TextColumn::make('amount')
                     ->money('SAR')
                     ->sortable()
-                    ->color(fn (BankTransaction $record) => $record->transaction_type === 'credit' ? 'success' : 'danger'),
+                    ->color(fn(BankTransaction $record) => $record->transaction_type === 'credit' ? 'success' : 'danger'),
                 Tables\Columns\BadgeColumn::make('transaction_type')
                     ->label('Type')
                     ->colors(['success' => 'credit', 'danger' => 'debit']),
@@ -100,7 +105,7 @@ class BankTransactionResource extends Resource
                 Tables\Columns\IconColumn::make('posted_at')
                     ->label('Posted')
                     ->boolean()
-                    ->getStateUsing(fn (BankTransaction $r) => $r->posted_at !== null)
+                    ->getStateUsing(fn(BankTransaction $r) => $r->posted_at !== null)
                     ->trueIcon('heroicon-o-check-badge')
                     ->falseIcon('heroicon-o-clock')
                     ->trueColor('success')
@@ -122,7 +127,7 @@ class BankTransactionResource extends Resource
                     ->label('Import Session')
                     ->options(
                         BankImportSession::with('bank')->latest()->get()
-                            ->mapWithKeys(fn ($s) => [$s->id => "{$s->bank->name} — {$s->filename} ({$s->created_at->format('d M Y')})"])
+                            ->mapWithKeys(fn($s) => [$s->id => "{$s->bank->name} — {$s->filename} ({$s->created_at->format('d M Y')})"])
                     ),
                 Tables\Filters\SelectFilter::make('transaction_type')
                     ->options(['credit' => 'Credit', 'debit' => 'Debit']),
@@ -137,17 +142,17 @@ class BankTransactionResource extends Resource
                     ->falseLabel('Unposted only')
                     ->placeholder('All')
                     ->queries(
-                        true: fn ($q) => $q->whereNotNull('posted_at'),
-                        false: fn ($q) => $q->whereNull('posted_at'),
+                        true: fn($q) => $q->whereNotNull('posted_at'),
+                        false: fn($q) => $q->whereNull('posted_at'),
                     ),
                 Tables\Filters\Filter::make('date_range')
                     ->schema([
                         Forms\Components\DatePicker::make('date_from')->label('From'),
                         Forms\Components\DatePicker::make('date_to')->label('To'),
                     ])
-                    ->query(fn ($query, $data) => $query
-                        ->when($data['date_from'], fn ($q, $v) => $q->whereDate('transaction_date', '>=', $v))
-                        ->when($data['date_to'], fn ($q, $v) => $q->whereDate('transaction_date', '<=', $v)))
+                    ->query(fn($query, $data) => $query
+                        ->when($data['date_from'], fn($q, $v) => $q->whereDate('transaction_date', '>=', $v))
+                        ->when($data['date_to'], fn($q, $v) => $q->whereDate('transaction_date', '<=', $v)))
                     ->columns(2),
             ])
             ->recordActions([
@@ -156,7 +161,7 @@ class BankTransactionResource extends Resource
                     ->label('Post to Cash')
                     ->icon('heroicon-o-arrow-right-circle')
                     ->color('primary')
-                    ->visible(fn (BankTransaction $r) => ! $r->isPosted())
+                    ->visible(fn(BankTransaction $r) => !$r->isPosted())
                     ->schema([
                         Forms\Components\Select::make('member_id')
                             ->label('Post for Member')
@@ -221,6 +226,7 @@ class BankTransactionResource extends Resource
     {
         return [
             'index' => Pages\ListBankTransactions::route('/'),
+            'create' => Pages\CreateBankTransaction::route('/create'),
             'view' => Pages\ViewBankTransaction::route('/{record}'),
         ];
     }

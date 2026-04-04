@@ -59,7 +59,6 @@ class AdminPanelProvider extends PanelProvider
             ->navigationGroups([
                 NavigationGroup::make(__('app.nav.group.membership')),
                 NavigationGroup::make(__('app.nav.group.finance')),
-                NavigationGroup::make('Banking'),
                 NavigationGroup::make(__('app.nav.group.reports')),
                 NavigationGroup::make(__('app.nav.group.settings'))
                     ->collapsed(),

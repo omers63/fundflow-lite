@@ -2,9 +2,6 @@
 
 namespace App\Filament\Admin\Pages;
 
-use App\Filament\Admin\Resources\BankImportTemplateResource;
-use App\Filament\Admin\Resources\SmsImportTemplateResource;
-use Filament\Actions\Action;
 use Filament\Pages\Page;
 use Livewire\Attributes\Url;
 
@@ -16,55 +13,59 @@ class BankingPage extends Page
 
     protected static string|\BackedEnum|null $navigationIcon = 'heroicon-o-building-library';
 
-    protected static ?int $navigationSort = 1;
+    protected static ?int $navigationSort = 0;
 
-    /** @var 'overview'|'bank-templates'|'sms-templates' */
+    /** @var 'banks'|'sms' */
     #[Url]
-    public string $activeTab = 'overview';
+    public string $activeTab = 'banks';
+
+    /** @var 'banks'|'templates'|'transactions'|'history' */
+    #[Url]
+    public string $banksSubTab = 'banks';
+
+    /** @var 'templates'|'transactions'|'history' */
+    #[Url]
+    public string $smsSubTab = 'transactions';
 
     public static function getNavigationGroup(): ?string
     {
-        return 'Banking';
+        return __('app.nav.group.finance');
     }
 
     /**
-     * Keep this item active when the user navigates to the bank/sms template create/edit routes.
-     *
      * @return array<int, string>|string
      */
     public static function getNavigationItemActiveRoutePattern(): string|array
     {
         return [
             static::getRouteName(),
+            'filament.admin.resources.banks.*',
             'filament.admin.resources.bank-import-templates.*',
+            'filament.admin.resources.bank-transactions.*',
+            'filament.admin.resources.bank-import-sessions.*',
             'filament.admin.resources.sms-import-templates.*',
+            'filament.admin.resources.sms-transactions.*',
+            'filament.admin.resources.sms-import-sessions.*',
         ];
     }
 
     public function mount(): void
     {
-        if (! in_array($this->activeTab, ['overview', 'bank-templates', 'sms-templates'], true)) {
-            $this->activeTab = 'overview';
+        if ($this->activeTab === 'overview') {
+            $this->activeTab = 'banks';
         }
-    }
 
-    public function getHeaderActions(): array
-    {
-        return [
-            Action::make('new_bank_template')
-                ->label('New bank template')
-                ->icon('heroicon-o-plus-circle')
-                ->color('primary')
-                ->visible(fn (): bool => $this->activeTab === 'bank-templates')
-                ->url(BankImportTemplateResource::getUrl('create')),
+        if (! in_array($this->activeTab, ['banks', 'sms'], true)) {
+            $this->activeTab = 'banks';
+        }
 
-            Action::make('new_sms_template')
-                ->label('New SMS template')
-                ->icon('heroicon-o-plus-circle')
-                ->color('primary')
-                ->visible(fn (): bool => $this->activeTab === 'sms-templates')
-                ->url(SmsImportTemplateResource::getUrl('create')),
-        ];
+        if (! in_array($this->banksSubTab, ['banks', 'templates', 'transactions', 'history'], true)) {
+            $this->banksSubTab = 'banks';
+        }
+
+        if (! in_array($this->smsSubTab, ['templates', 'transactions', 'history'], true)) {
+            $this->smsSubTab = 'transactions';
+        }
     }
 
     public function getTitle(): string
@@ -74,6 +75,6 @@ class BankingPage extends Page
 
     public function getSubheading(): ?string
     {
-        return 'Manage banks, import templates, and transaction import activity across bank CSV and SMS channels.';
+        return 'Manage banks, CSV and SMS imports, transactions, and import history.';
     }
 }

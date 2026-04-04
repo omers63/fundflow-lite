@@ -28,6 +28,11 @@ class SmsImportSessionResource extends Resource
 
     protected static ?int $navigationSort = 23;
 
+    public static function shouldRegisterNavigation(): bool
+    {
+        return false;
+    }
+
     public static function getNavigationGroup(): ?string
     {
         return 'Banking';
@@ -58,7 +63,7 @@ class SmsImportSessionResource extends Resource
                 Tables\Columns\TextColumn::make('template.name')->label('Template')->limit(30),
                 Tables\Columns\TextColumn::make('status')
                     ->badge()
-                    ->color(fn (string $state) => match ($state) {
+                    ->color(fn(string $state) => match ($state) {
                         'completed' => 'success',
                         'processing' => 'warning',
                         'partially_completed' => 'warning',
@@ -99,16 +104,16 @@ class SmsImportSessionResource extends Resource
                             ->options(Bank::active()->pluck('name', 'id'))
                             ->nullable()
                             ->live()
-                            ->afterStateUpdated(fn ($set) => $set('template_id', null)),
+                            ->afterStateUpdated(fn($set) => $set('template_id', null)),
                         Forms\Components\Select::make('template_id')
                             ->label('SMS Template')
-                            ->options(fn ($get) => SmsImportTemplate::when(
+                            ->options(fn($get) => SmsImportTemplate::when(
                                 $get('bank_id'),
-                                fn ($q, $id) => $q->where('bank_id', $id)
+                                fn($q, $id) => $q->where('bank_id', $id)
                             )->pluck('name', 'id'))
                             ->required()
                             ->live()
-                            ->helperText('Configure templates under Banking → SMS Templates'),
+                            ->helperText('Configure SMS templates under Finance → Banking → SMS → Templates.'),
                         Forms\Components\FileUpload::make('csv_file')
                             ->label('CSV / Text File')
                             ->disk('local')
@@ -137,10 +142,10 @@ class SmsImportSessionResource extends Resource
                         $session->refresh();
 
                         Notification::make()
-                            ->title('SMS Import '.ucfirst(str_replace('_', ' ', $session->status)))
+                            ->title('SMS Import ' . ucfirst(str_replace('_', ' ', $session->status)))
                             ->body(
-                                "Imported: {$session->imported_count} | ".
-                                "Duplicates: {$session->duplicate_count} | ".
+                                "Imported: {$session->imported_count} | " .
+                                "Duplicates: {$session->duplicate_count} | " .
                                 "Errors: {$session->error_count}"
                             )
                             ->color($session->status === 'completed' ? 'success' : 'warning')
@@ -152,14 +157,14 @@ class SmsImportSessionResource extends Resource
                 Action::make('view_transactions')
                     ->label('Transactions')
                     ->icon('heroicon-o-table-cells')
-                    ->url(fn (SmsImportSession $record) => SmsTransactionResource::getUrl('index', [
+                    ->url(fn(SmsImportSession $record) => SmsTransactionResource::getUrl('index', [
                         'tableFilters[import_session_id][value]' => $record->id,
                     ])),
                 Action::make('retry')
                     ->label('Re-import')
                     ->icon('heroicon-o-arrow-path')
                     ->color('warning')
-                    ->visible(fn (SmsImportSession $record) => in_array($record->status, ['failed', 'partially_completed']))
+                    ->visible(fn(SmsImportSession $record) => in_array($record->status, ['failed', 'partially_completed']))
                     ->requiresConfirmation()
                     ->action(function (SmsImportSession $record) {
                         $record->transactions()->delete();
@@ -175,7 +180,7 @@ class SmsImportSessionResource extends Resource
                         $record->refresh();
 
                         Notification::make()
-                            ->title('Re-import '.ucfirst(str_replace('_', ' ', $record->status)))
+                            ->title('Re-import ' . ucfirst(str_replace('_', ' ', $record->status)))
                             ->body("Imported: {$record->imported_count} | Duplicates: {$record->duplicate_count}")
                             ->success()
                             ->send();
