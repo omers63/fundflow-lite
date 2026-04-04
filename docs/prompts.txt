@@ -120,6 +120,17 @@ The  loan queue is now  very modern and beautiful. Apply similar theming/styling
 Modernize and beautify the "Accounts: page similar to the way you did the "Loan Queue". Add any useful and informative analytical widgets as you see fit.
 Modernize and beautify the "Loans", "Contributions", "Members", and "Applications" pages similar to the way you did the "Loan Queue". Add any useful and informative analytical widgets as you see fit. Use beautify and proper layout scheme and Theming/Styling.
 Combine all the pages in the sidebar under the Banking group in a sensible manner. Modernize and beautify each page similar to the way you beautified the "Loan Queue". Add any useful and informative analytical widgets as you see fit. Use beautiful and proper layout scheme and proper Theming/Styling.
+-----------------------------------
+I want a quick action button within a group action card that triggers the following workflow:
+1, Create a Bank/SMS transaction.
+2. Posts the transaction to the Master Bank Account.
+3. If the new Master Bank Account Transaction is credit, it results in posted to a Member's Bank Account.
+4. Member's allocations to dependents is applied.
+5. Contributions/Loan Installment repayments for member and all of his dependents are applied.
+6. If the new Master Bank Account Transaction is debit (i.e., loan disbursement), nothing else is done. 
+Also add a welcome banner to the dashboard of both the admin and member (with gradients and modern theming). 
+Finally, Modernize and beautify both dashboard pages similar to the way you did the "Loan Queue". Add any useful and informative analytical widgets as you see fit. Use beautiful and proper layout scheme and Theming/Styling.
+Modernize and beautify the remaining widgets in the admin/member dashboard similar to the way you did the "Loan Queue". Add any useful and informative analytical styling as you see fit. Use beautiful and proper layout scheme and Theming/Styling.
 
  
 

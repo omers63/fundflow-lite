@@ -6,8 +6,11 @@ use App\Filament\Member\Widgets\AccountBalancesWidget;
 use App\Filament\Member\Widgets\ContributionHistoryWidget;
 use App\Filament\Member\Widgets\LoanRepaymentProgressWidget;
 use App\Filament\Member\Widgets\MemberStatsOverview;
+use App\Filament\Member\Widgets\MemberWelcomeBannerWidget;
 use App\Filament\Member\Widgets\UpcomingPaymentsWidget;
 use Filament\Pages\Dashboard as BaseDashboard;
+use Filament\Schemas\Components\Grid;
+use Filament\Schemas\Schema;
 
 class Dashboard extends BaseDashboard
 {
@@ -15,7 +18,21 @@ class Dashboard extends BaseDashboard
 
     protected static ?string $title = 'My Dashboard';
 
+    /**
+     * @return array<class-string>
+     */
     public function getWidgets(): array
+    {
+        return [
+            MemberWelcomeBannerWidget::class,
+            ...$this->getMainDashboardWidgets(),
+        ];
+    }
+
+    /**
+     * @return array<class-string>
+     */
+    protected function getMainDashboardWidgets(): array
     {
         return [
             MemberStatsOverview::class,
@@ -26,12 +43,22 @@ class Dashboard extends BaseDashboard
         ];
     }
 
+    public function content(Schema $schema): Schema
+    {
+        return $schema
+            ->components([
+                Grid::make(1)
+                    ->schema(fn(): array => $this->getWidgetsSchemaComponents($this->getWidgets())),
+            ]);
+    }
+
+    /**
+     * Single-column dashboard: every widget is full width on its own row.
+     *
+     * @return int | array<string, ?int>
+     */
     public function getColumns(): int|array
     {
-        return [
-            'default' => 1,
-            'sm' => 2,
-            'xl' => 2,
-        ];
+        return 1;
     }
 }

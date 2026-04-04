@@ -4,87 +4,67 @@ namespace App\Filament\Member\Widgets;
 
 use App\Models\LoanInstallment;
 use App\Models\Setting;
-use Filament\Widgets\StatsOverviewWidget as BaseWidget;
-use Filament\Widgets\StatsOverviewWidget\Stat;
+use Filament\Widgets\Widget;
 
-class AccountBalancesWidget extends BaseWidget
+class AccountBalancesWidget extends Widget
 {
+    protected string $view = 'filament.member.widgets.account-balances';
+
     protected static ?int $sort = 2;
 
-    protected function getStats(): array
+    protected int|string|array $columnSpan = 'full';
+
+    public function getColumnSpan(): int|string|array
+    {
+        return 'full';
+    }
+
+    public function getData(): array
     {
         $member = auth()->user()?->member;
-        if (! $member) {
-            return [Stat::make('Error', 'No member record found')->color('danger')];
+        if (!$member) {
+            return ['hasMember' => false];
         }
 
         $cash = (float) ($member->cashAccount()?->balance ?? 0);
         $fund = (float) ($member->fundAccount()?->balance ?? 0);
-
-        // Loan eligibility context
         $minFund = Setting::loanMinFundBalance();
         $fundToGo = max(0, $minFund - $fund);
-        $fundColor = match (true) {
-            $fund >= $minFund => 'success',
-            $fund >= $minFund * 0.75 => 'warning',
-            default => 'danger',
-        };
+        $fundPct = $minFund > 0 ? min(100, round($fund / $minFund * 100)) : 100;
 
-        // Cash sufficiency for next due amount
-        $nextInstallment = LoanInstallment::whereHas('loan', fn ($q) => $q->where('member_id', $member->id))
-            ->where('status', 'pending')
-            ->orderBy('due_date')
-            ->first();
+        $nextInstallment = LoanInstallment::whereHas('loan', fn($q) => $q->where('member_id', $member->id))
+            ->where('status', 'pending')->orderBy('due_date')->first();
 
-        $nextContribAmount = $member->monthly_contribution_amount ?? 500;
+        $nextContribAmount = (float) ($member->monthly_contribution_amount ?? 500);
         $nextDue = $nextInstallment ? (float) $nextInstallment->amount : $nextContribAmount;
-        $nextLabel = $nextInstallment
-            ? 'next installment due '.$nextInstallment->due_date->format('d M Y')
+        $nextDueLabel = $nextInstallment
+            ? 'installment due ' . $nextInstallment->due_date->format('d M')
             : 'monthly contribution';
-        $cashColor = $cash >= $nextDue ? 'success' : 'danger';
-        $cashDesc = $cash >= $nextDue
-            ? "Covers {$nextLabel}"
-            : "⚠ Insufficient for {$nextLabel} (SAR ".number_format($nextDue).')';
+        $cashCovers = $cash >= $nextDue;
+        $cashPct = $nextDue > 0 ? min(100, round($cash / $nextDue * 100)) : 100;
 
-        // Max borrowable
         $maxBorrow = $fund * Setting::loanMaxBorrowMultiplier();
         $loanMonths = Setting::loanEligibilityMonths();
         $eligible = $member->joined_at->addMonths($loanMonths)->isPast() && $fund >= $minFund;
+        $eligibleDate = $member->joined_at->addMonths($loanMonths)->format('d M Y');
+
+        $monthlyAlloc = (float) ($member->monthly_contribution_amount ?? 500);
 
         return [
-            Stat::make('Cash Balance', '﷼ '.number_format($cash, 2))
-                ->description($cashDesc)
-                ->descriptionIcon($cash >= $nextDue ? 'heroicon-o-check-circle' : 'heroicon-o-exclamation-triangle')
-                ->icon('heroicon-o-banknotes')
-                ->color($cashColor),
-
-            Stat::make('Fund Balance', '﷼ '.number_format($fund, 2))
-                ->description(
-                    $fundToGo > 0
-                        ? 'SAR '.number_format($fundToGo).' more needed for loan eligibility'
-                        : 'Above loan eligibility threshold'
-                )
-                ->descriptionIcon($fundToGo > 0 ? 'heroicon-o-arrow-trending-up' : 'heroicon-o-shield-check')
-                ->icon('heroicon-o-building-library')
-                ->color($fundColor),
-
-            Stat::make('Max Borrowable', $eligible ? '﷼ '.number_format($maxBorrow, 2) : 'Not yet eligible')
-                ->description(
-                    $eligible
-                        ? 'Based on 2× your fund balance'
-                        : ($fund < $minFund
-                            ? 'Fund balance below SAR '.number_format($minFund).' minimum'
-                            : 'Eligibility: '.$member->joined_at->addMonths($loanMonths)->format('d M Y'))
-                )
-                ->descriptionIcon($eligible ? 'heroicon-o-credit-card' : 'heroicon-o-lock-closed')
-                ->icon('heroicon-o-credit-card')
-                ->color($eligible ? 'info' : 'gray'),
-
-            Stat::make('Monthly Allocation', '﷼ '.number_format($member->monthly_contribution_amount ?? 500))
-                ->description('Your configured monthly contribution')
-                ->descriptionIcon('heroicon-o-calendar')
-                ->icon('heroicon-o-cog-6-tooth')
-                ->color('primary'),
+            'hasMember' => true,
+            'cash' => $cash,
+            'cash_pct' => $cashPct,
+            'cash_covers' => $cashCovers,
+            'next_due' => $nextDue,
+            'next_due_label' => $nextDueLabel,
+            'fund' => $fund,
+            'fund_pct' => $fundPct,
+            'fund_to_go' => $fundToGo,
+            'min_fund' => $minFund,
+            'max_borrow' => $maxBorrow,
+            'eligible' => $eligible,
+            'eligible_date' => $eligibleDate,
+            'monthly_alloc' => $monthlyAlloc,
         ];
     }
 }

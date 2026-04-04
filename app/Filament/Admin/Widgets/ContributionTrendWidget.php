@@ -5,50 +5,43 @@ namespace App\Filament\Admin\Widgets;
 use App\Models\Contribution;
 use App\Models\Member;
 use Carbon\Carbon;
-use Filament\Widgets\ChartWidget;
+use Filament\Widgets\Widget;
 
-class ContributionTrendWidget extends ChartWidget
+class ContributionTrendWidget extends Widget
 {
-    protected ?string $heading = 'Contribution Trend — Last 12 Months';
+    protected string $view = 'filament.admin.widgets.contribution-trend';
 
-    protected static ?int $sort = 3;
+    protected static ?int $sort = 5;
 
     protected int|string|array $columnSpan = 'full';
 
-    protected function getData(): array
+    public function getColumnSpan(): int|string|array
+    {
+        return 'full';
+    }
+
+    public function getData(): array
     {
         $months = [];
         $labels = [];
         $totals = [];
-        $lateTotals = [];
         $memberCounts = [];
-        $compliance = [];
 
-        // Build 12 months going backwards from last month
         for ($i = 11; $i >= 0; $i--) {
             $date = Carbon::now()->subMonths($i)->startOfMonth();
-            $m = (int) $date->month;
-            $y = (int) $date->year;
-            $months[] = ['month' => $m, 'year' => $y, 'label' => $date->format('M Y')];
+            $months[] = ['month' => (int) $date->month, 'year' => (int) $date->year, 'label' => $date->format('M Y')];
         }
 
-        // Fetch all contributions for the 12-month window in one query
         $startDate = Carbon::now()->subMonths(11)->startOfMonth();
         $rows = Contribution::selectRaw(
-            'month, year, SUM(amount) as total, SUM(is_late) as late_count, COUNT(DISTINCT member_id) as member_count'
+            'month, year, SUM(amount) as total, COUNT(DISTINCT member_id) as member_count'
         )
-            ->where(function ($q) use ($startDate) {
-                $q->where('year', '>', $startDate->year)
-                    ->orWhere(function ($q2) use ($startDate) {
-                        $q2->where('year', $startDate->year)
-                            ->where('month', '>=', $startDate->month);
-                    });
-            })
+            ->where(fn($q) => $q->where('year', '>', $startDate->year)
+                ->orWhere(fn($q2) => $q2->where('year', $startDate->year)->where('month', '>=', $startDate->month)))
             ->groupBy('year', 'month')
             ->get()
-            ->keyBy(fn ($r) => sprintf('%04d-%02d', $r->year, $r->month));
+            ->keyBy(fn($r) => sprintf('%04d-%02d', $r->year, $r->month));
 
-        // Active member count at reporting time (approximation: current active count)
         $totalActive = max(1, Member::active()->count());
 
         foreach ($months as $m) {
@@ -56,55 +49,67 @@ class ContributionTrendWidget extends ChartWidget
             $row = $rows->get($key);
             $labels[] = $m['label'];
             $totals[] = $row ? (float) $row->total : 0;
-            $lateTotals[] = $row ? (float) ($row->total - ($row->total - ($row->late_count > 0 ? $row->late_count * 500 : 0))) : 0;
             $memberCounts[] = $row ? (int) $row->member_count : 0;
-            $compliance[] = $row ? round($row->member_count / $totalActive * 100) : 0;
         }
 
+        $total12m = array_sum($totals);
+        $avg12m = count(array_filter($totals)) > 0
+            ? $total12m / max(1, count(array_filter($totals)))
+            : 0;
+        $bestMonth = max($totals);
+        $bestLabel = $bestMonth > 0 ? $labels[array_search($bestMonth, $totals)] : 'N/A';
+        $lastTotal = end($totals) ?: 0;
+        $prevTotal = count($totals) >= 2 ? $totals[count($totals) - 2] : 0;
+        $trend = $prevTotal > 0 ? round(($lastTotal - $prevTotal) / $prevTotal * 100) : 0;
+
         return [
-            'datasets' => [
-                [
-                    'label' => 'Total Contributions (SAR)',
-                    'data' => $totals,
-                    'backgroundColor' => 'rgba(16, 185, 129, 0.75)',
-                    'borderColor' => 'rgba(16, 185, 129, 1)',
-                    'borderWidth' => 1,
-                    'yAxisID' => 'y',
-                    'order' => 1,
+            'chart' => [
+                'datasets' => [
+                    [
+                        'label' => 'Total Contributions (SAR)',
+                        'data' => $totals,
+                        'backgroundColor' => 'rgba(16,185,129,0.7)',
+                        'borderColor' => 'rgba(16,185,129,1)',
+                        'borderWidth' => 1,
+                        'borderRadius' => 4,
+                        'yAxisID' => 'y',
+                        'order' => 1,
+                    ],
+                    [
+                        'label' => 'Members Who Contributed',
+                        'data' => $memberCounts,
+                        'type' => 'line',
+                        'borderColor' => 'rgba(99,102,241,1)',
+                        'backgroundColor' => 'rgba(99,102,241,0.1)',
+                        'borderWidth' => 2,
+                        'pointRadius' => 4,
+                        'tension' => 0.3,
+                        'fill' => false,
+                        'yAxisID' => 'y1',
+                        'order' => 0,
+                    ],
                 ],
-                [
-                    'label' => 'Members Who Contributed',
-                    'data' => $memberCounts,
-                    'type' => 'line',
-                    'borderColor' => 'rgba(99, 102, 241, 1)',
-                    'backgroundColor' => 'rgba(99, 102, 241, 0.1)',
-                    'borderWidth' => 2,
-                    'pointRadius' => 4,
-                    'tension' => 0.3,
-                    'fill' => false,
-                    'yAxisID' => 'y1',
-                    'order' => 0,
+                'labels' => $labels,
+            ],
+            'options' => [
+                'responsive' => true,
+                'maintainAspectRatio' => false,
+                'scales' => [
+                    'y' => ['position' => 'left', 'title' => ['display' => true, 'text' => 'SAR'], 'beginAtZero' => true],
+                    'y1' => ['position' => 'right', 'title' => ['display' => true, 'text' => 'Members'], 'grid' => ['drawOnChartArea' => false], 'beginAtZero' => true],
+                ],
+                'plugins' => [
+                    'legend' => ['position' => 'top'],
+                    'tooltip' => ['mode' => 'index', 'intersect' => false],
                 ],
             ],
-            'labels' => $labels,
-        ];
-    }
-
-    protected function getType(): string
-    {
-        return 'bar';
-    }
-
-    protected function getOptions(): array
-    {
-        return [
-            'scales' => [
-                'y' => ['position' => 'left',  'title' => ['display' => true, 'text' => 'SAR']],
-                'y1' => ['position' => 'right', 'title' => ['display' => true, 'text' => 'Members'], 'grid' => ['drawOnChartArea' => false]],
-            ],
-            'plugins' => [
-                'legend' => ['position' => 'top'],
-                'tooltip' => ['mode' => 'index', 'intersect' => false],
+            'summary' => [
+                'total_12m' => $total12m,
+                'avg_monthly' => $avg12m,
+                'best_month' => $bestMonth,
+                'best_label' => $bestLabel,
+                'trend' => $trend,
+                'last_total' => $lastTotal,
             ],
         ];
     }

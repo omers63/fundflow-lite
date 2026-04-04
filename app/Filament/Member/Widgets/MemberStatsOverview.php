@@ -5,54 +5,75 @@ namespace App\Filament\Member\Widgets;
 use App\Models\Contribution;
 use App\Models\Loan;
 use App\Models\LoanInstallment;
-use Filament\Widgets\StatsOverviewWidget as BaseWidget;
-use Filament\Widgets\StatsOverviewWidget\Stat;
+use Carbon\Carbon;
+use Filament\Widgets\Widget;
 
-class MemberStatsOverview extends BaseWidget
+class MemberStatsOverview extends Widget
 {
+    protected string $view = 'filament.member.widgets.member-stats-overview';
+
     protected static ?int $sort = 1;
 
-    protected function getStats(): array
+    protected int|string|array $columnSpan = 'full';
+
+    public function getColumnSpan(): int|string|array
+    {
+        return 'full';
+    }
+
+    public function getData(): array
     {
         $member = auth()->user()?->member;
 
-        if (! $member) {
-            return [
-                Stat::make('Status', 'No member record')->color('warning'),
-            ];
+        if (!$member) {
+            return ['hasMember' => false];
         }
 
-        $totalContributions = Contribution::where('member_id', $member->id)->sum('amount');
-        $activeLoan = Loan::where('member_id', $member->id)->where('status', 'active')->first();
-        $overdueCount = LoanInstallment::whereHas('loan', fn ($q) => $q->where('member_id', $member->id))
-            ->where('status', 'overdue')
-            ->count();
+        $now = Carbon::now();
 
-        $nextInstallment = LoanInstallment::whereHas('loan', fn ($q) => $q->where('member_id', $member->id))
-            ->where('status', 'pending')
-            ->orderBy('due_date')
-            ->first();
+        $totalContributions = (float) Contribution::where('member_id', $member->id)->sum('amount');
+        $contribCount = Contribution::where('member_id', $member->id)->count();
+
+        $activeLoan = Loan::where('member_id', $member->id)->where('status', 'active')->first();
+
+        $overdueCount = LoanInstallment::whereHas('loan', fn($q) => $q->where('member_id', $member->id))
+            ->where('status', 'overdue')->count();
+
+        $nextInstallment = LoanInstallment::whereHas('loan', fn($q) => $q->where('member_id', $member->id))
+            ->where('status', 'pending')->orderBy('due_date')->first();
+
+        $paidThisMonth = Contribution::where('member_id', $member->id)
+            ->where('month', $now->month)->where('year', $now->year)->exists();
+
+        // Contribution streak: consecutive months paid ending now
+        $streak = 0;
+        for ($i = 0; $i < 24; $i++) {
+            $d = $now->copy()->subMonths($i);
+            $ok = Contribution::where('member_id', $member->id)
+                ->where('month', $d->month)->where('year', $d->year)->exists();
+            if (!$ok) {
+                break;
+            }
+            $streak++;
+        }
+
+        $monthsActive = $member->joined_at ? (int) $member->joined_at->diffInMonths($now) + 1 : 1;
+        $complianceRate = $monthsActive > 0
+            ? min(100, round($contribCount / $monthsActive * 100))
+            : 0;
 
         return [
-            Stat::make('Member Number', $member->member_number)
-                ->icon('heroicon-o-identification')
-                ->color('primary'),
-
-            Stat::make('Total Contributions', '﷼'.number_format($totalContributions, 2))
-                ->icon('heroicon-o-banknotes')
-                ->color('success'),
-
-            Stat::make('Active Loan', $activeLoan
-                ? '﷼'.number_format($activeLoan->amount_approved, 2)
-                : 'None')
-                ->icon('heroicon-o-credit-card')
-                ->color($activeLoan ? 'info' : 'gray'),
-
-            Stat::make('Next Installment', $nextInstallment
-                ? '﷼'.number_format($nextInstallment->amount, 2).' due '.$nextInstallment->due_date->format('d M Y')
-                : 'No pending installments')
-                ->icon('heroicon-o-calendar-days')
-                ->color($overdueCount > 0 ? 'danger' : 'success'),
+            'hasMember' => true,
+            'member_number' => $member->member_number,
+            'joined_at' => $member->joined_at?->format('d M Y') ?? '—',
+            'total_contributions' => $totalContributions,
+            'contrib_count' => $contribCount,
+            'compliance_rate' => $complianceRate,
+            'streak' => $streak,
+            'active_loan' => $activeLoan,
+            'overdue_count' => $overdueCount,
+            'next_installment' => $nextInstallment,
+            'paid_this_month' => $paidThisMonth,
         ];
     }
 }
