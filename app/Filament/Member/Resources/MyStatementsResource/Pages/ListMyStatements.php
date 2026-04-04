@@ -9,6 +9,3 @@ class ListMyStatements extends ListRecords
 {
     protected static string $resource = MyStatementsResource::class;
 }
-
-
-

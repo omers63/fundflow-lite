@@ -26,7 +26,7 @@ class BankImportTemplatesTableWidget extends TableWidget
         BankImportTemplateResource::configureTable($table);
 
         return $table
-            ->recordUrl(fn(BankImportTemplate $record): string => BankImportTemplateResource::getUrl('edit', ['record' => $record]))
+            ->recordUrl(fn (BankImportTemplate $record): string => BankImportTemplateResource::getUrl('edit', ['record' => $record]))
             ->headerActions([
                 CreateAction::make()->url(BankImportTemplateResource::getUrl('create')),
             ]);

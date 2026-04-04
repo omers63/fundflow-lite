@@ -5,7 +5,6 @@ namespace App\Filament\Member\Widgets;
 use App\Models\Contribution;
 use App\Models\Loan;
 use App\Models\LoanInstallment;
-use App\Models\Member;
 use Filament\Widgets\StatsOverviewWidget as BaseWidget;
 use Filament\Widgets\StatsOverviewWidget\Stat;
 
@@ -39,24 +38,21 @@ class MemberStatsOverview extends BaseWidget
                 ->icon('heroicon-o-identification')
                 ->color('primary'),
 
-            Stat::make('Total Contributions', '﷼' . number_format($totalContributions, 2))
+            Stat::make('Total Contributions', '﷼'.number_format($totalContributions, 2))
                 ->icon('heroicon-o-banknotes')
                 ->color('success'),
 
             Stat::make('Active Loan', $activeLoan
-                ? '﷼' . number_format($activeLoan->amount_approved, 2)
+                ? '﷼'.number_format($activeLoan->amount_approved, 2)
                 : 'None')
                 ->icon('heroicon-o-credit-card')
                 ->color($activeLoan ? 'info' : 'gray'),
 
             Stat::make('Next Installment', $nextInstallment
-                ? '﷼' . number_format($nextInstallment->amount, 2) . ' due ' . $nextInstallment->due_date->format('d M Y')
+                ? '﷼'.number_format($nextInstallment->amount, 2).' due '.$nextInstallment->due_date->format('d M Y')
                 : 'No pending installments')
                 ->icon('heroicon-o-calendar-days')
                 ->color($overdueCount > 0 ? 'danger' : 'success'),
         ];
     }
 }
-
-
-

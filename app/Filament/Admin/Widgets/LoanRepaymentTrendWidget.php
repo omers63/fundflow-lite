@@ -9,20 +9,22 @@ use Filament\Widgets\ChartWidget;
 class LoanRepaymentTrendWidget extends ChartWidget
 {
     protected ?string $heading = 'Loan Repayment Trend — Last 12 Months';
+
     protected static ?int $sort = 5;
+
     protected int|string|array $columnSpan = 'full';
 
     protected function getData(): array
     {
-        $labels   = [];
-        $onTime   = [];
-        $late     = [];
-        $overdue  = [];
+        $labels = [];
+        $onTime = [];
+        $late = [];
+        $overdue = [];
 
         for ($i = 11; $i >= 0; $i--) {
-            $date  = Carbon::now()->subMonths($i)->startOfMonth();
-            $m     = (int) $date->month;
-            $y     = (int) $date->year;
+            $date = Carbon::now()->subMonths($i)->startOfMonth();
+            $m = (int) $date->month;
+            $y = (int) $date->year;
             $labels[] = $date->format('M Y');
 
             $paid = LoanInstallment::whereYear('due_date', $y)
@@ -37,30 +39,30 @@ class LoanRepaymentTrendWidget extends ChartWidget
                 ->where('status', 'overdue')
                 ->sum('amount');
 
-            $onTime[]  = $paid ? (float) $paid->on_time_amount : 0;
-            $late[]    = $paid ? (float) $paid->late_amount : 0;
+            $onTime[] = $paid ? (float) $paid->on_time_amount : 0;
+            $late[] = $paid ? (float) $paid->late_amount : 0;
             $overdue[] = (float) $overdueAmt;
         }
 
         return [
             'datasets' => [
                 [
-                    'label'           => 'On-time (SAR)',
-                    'data'            => $onTime,
+                    'label' => 'On-time (SAR)',
+                    'data' => $onTime,
                     'backgroundColor' => 'rgba(16, 185, 129, 0.8)',
-                    'stack'           => 'repayments',
+                    'stack' => 'repayments',
                 ],
                 [
-                    'label'           => 'Late (SAR)',
-                    'data'            => $late,
+                    'label' => 'Late (SAR)',
+                    'data' => $late,
                     'backgroundColor' => 'rgba(251, 191, 36, 0.8)',
-                    'stack'           => 'repayments',
+                    'stack' => 'repayments',
                 ],
                 [
-                    'label'           => 'Still Overdue (SAR)',
-                    'data'            => $overdue,
+                    'label' => 'Still Overdue (SAR)',
+                    'data' => $overdue,
                     'backgroundColor' => 'rgba(239, 68, 68, 0.8)',
-                    'stack'           => 'repayments',
+                    'stack' => 'repayments',
                 ],
             ],
             'labels' => $labels,

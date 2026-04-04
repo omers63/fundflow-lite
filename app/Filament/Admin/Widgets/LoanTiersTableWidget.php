@@ -26,7 +26,7 @@ class LoanTiersTableWidget extends TableWidget
         LoanTiersResource::configureTable($table);
 
         return $table
-            ->recordUrl(fn(LoanTier $record): string => LoanTiersResource::getUrl('edit', ['record' => $record]))
+            ->recordUrl(fn (LoanTier $record): string => LoanTiersResource::getUrl('edit', ['record' => $record]))
             ->headerActions([
                 CreateAction::make()
                     ->url(LoanTiersResource::getUrl('create')),

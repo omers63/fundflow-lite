@@ -26,7 +26,7 @@ class FundTiersTableWidget extends TableWidget
         FundTiersResource::configureTable($table);
 
         return $table
-            ->recordUrl(fn(FundTier $record): string => FundTiersResource::getUrl('edit', ['record' => $record]))
+            ->recordUrl(fn (FundTier $record): string => FundTiersResource::getUrl('edit', ['record' => $record]))
             ->headerActions([
                 CreateAction::make()
                     ->url(FundTiersResource::getUrl('create')),

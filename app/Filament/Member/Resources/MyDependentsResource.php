@@ -16,8 +16,11 @@ use Filament\Tables\Table;
 class MyDependentsResource extends Resource
 {
     protected static ?string $model = Member::class;
+
     protected static string|\BackedEnum|null $navigationIcon = 'heroicon-o-users';
+
     protected static ?string $navigationLabel = 'My Dependents';
+
     protected static ?int $navigationSort = 11;
 
     public static function getNavigationGroup(): ?string
@@ -29,6 +32,7 @@ class MyDependentsResource extends Resource
     public static function shouldRegisterNavigation(): bool
     {
         $member = Member::where('user_id', auth()->id())->first();
+
         return $member && $member->dependents()->exists();
     }
 
@@ -39,11 +43,12 @@ class MyDependentsResource extends Resource
 
     public static function table(Table $table): Table
     {
-        $parentMember = fn() => Member::where('user_id', auth()->id())->first();
+        $parentMember = fn () => Member::where('user_id', auth()->id())->first();
 
         return $table
             ->query(function () use ($parentMember) {
                 $member = $parentMember();
+
                 return Member::where('parent_id', $member?->id ?? 0);
             })
             ->columns([
@@ -57,8 +62,8 @@ class MyDependentsResource extends Resource
                 Tables\Columns\TextColumn::make('cash_balance')
                     ->label('Cash Balance')
                     ->money('SAR')
-                    ->getStateUsing(fn(Member $r) => $r->cash_balance)
-                    ->color(fn(Member $r) => $r->cash_balance >= 0 ? 'success' : 'danger'),
+                    ->getStateUsing(fn (Member $r) => $r->cash_balance)
+                    ->color(fn (Member $r) => $r->cash_balance >= 0 ? 'success' : 'danger'),
             ])
             ->recordActions([
                 // Parent changes the dependent's allocation
@@ -66,7 +71,7 @@ class MyDependentsResource extends Resource
                     ->label('Set Allocation')
                     ->icon('heroicon-o-adjustments-horizontal')
                     ->color('warning')
-                    ->fillForm(fn(Member $record) => [
+                    ->fillForm(fn (Member $record) => [
                         'monthly_contribution_amount' => $record->monthly_contribution_amount,
                     ])
                     ->schema([
@@ -82,7 +87,7 @@ class MyDependentsResource extends Resource
 
                         Notification::make()
                             ->title('Allocation Updated')
-                            ->body("Monthly allocation for {$record->user->name} set to SAR " . number_format($data['monthly_contribution_amount']))
+                            ->body("Monthly allocation for {$record->user->name} set to SAR ".number_format($data['monthly_contribution_amount']))
                             ->success()
                             ->send();
                     }),
@@ -94,12 +99,13 @@ class MyDependentsResource extends Resource
                     ->color('success')
                     ->schema(function (Member $record) use ($parentMember) {
                         $parent = $parentMember();
+
                         return [
                             Forms\Components\Placeholder::make('balances')
                                 ->label('Balances')
                                 ->content(
-                                    "Your cash balance: SAR " . number_format($parent?->cash_balance ?? 0, 2) .
-                                    " | {$record->user->name}'s cash balance: SAR " . number_format($record->cash_balance, 2)
+                                    'Your cash balance: SAR '.number_format($parent?->cash_balance ?? 0, 2).
+                                    " | {$record->user->name}'s cash balance: SAR ".number_format($record->cash_balance, 2)
                                 ),
                             Forms\Components\TextInput::make('amount')
                                 ->label('Amount to Transfer (SAR)')
@@ -115,8 +121,9 @@ class MyDependentsResource extends Resource
                     ->action(function (Member $record, array $data) use ($parentMember) {
                         $parent = $parentMember();
 
-                        if (!$parent) {
+                        if (! $parent) {
                             Notification::make()->title('Your member record was not found.')->danger()->send();
+
                             return;
                         }
 
@@ -130,7 +137,7 @@ class MyDependentsResource extends Resource
 
                             Notification::make()
                                 ->title('Transfer Successful')
-                                ->body("SAR " . number_format($data['amount'], 2) . " transferred to {$record->user->name}'s cash account.")
+                                ->body('SAR '.number_format($data['amount'], 2)." transferred to {$record->user->name}'s cash account.")
                                 ->success()
                                 ->send();
                         } catch (\Throwable $e) {

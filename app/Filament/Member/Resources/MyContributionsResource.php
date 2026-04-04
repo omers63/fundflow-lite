@@ -11,8 +11,11 @@ use Filament\Tables\Table;
 class MyContributionsResource extends Resource
 {
     protected static ?string $model = Contribution::class;
+
     protected static string|\BackedEnum|null $navigationIcon = 'heroicon-o-banknotes';
+
     protected static ?string $navigationLabel = 'My Contributions';
+
     protected static ?int $navigationSort = 1;
 
     public static function getNavigationGroup(): ?string
@@ -23,17 +26,17 @@ class MyContributionsResource extends Resource
     public static function table(Table $table): Table
     {
         return $table
-            ->query(fn() => Contribution::whereHas('member', fn($q) => $q->where('user_id', auth()->id())))
+            ->query(fn () => Contribution::whereHas('member', fn ($q) => $q->where('user_id', auth()->id())))
             ->columns([
                 Tables\Columns\TextColumn::make('amount')
                     ->money('SAR')
                     ->weight('bold'),
                 Tables\Columns\TextColumn::make('month')
-                    ->formatStateUsing(fn($state) => date('F', mktime(0, 0, 0, $state, 1))),
+                    ->formatStateUsing(fn ($state) => date('F', mktime(0, 0, 0, $state, 1))),
                 Tables\Columns\TextColumn::make('year'),
                 Tables\Columns\TextColumn::make('payment_method')
                     ->badge()
-                    ->formatStateUsing(fn($state) => match ($state) {
+                    ->formatStateUsing(fn ($state) => match ($state) {
                         'cash' => 'Cash',
                         'bank_transfer' => 'Bank Transfer',
                         'online' => 'Online',

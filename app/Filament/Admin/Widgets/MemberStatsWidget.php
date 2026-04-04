@@ -26,11 +26,11 @@ class MemberStatsWidget extends Widget
             ->whereYear('joined_at', $now->year)
             ->count();
 
-        $withActiveLoans = Member::whereHas('loans', fn($q) => $q->where('status', 'active'))->count();
+        $withActiveLoans = Member::whereHas('loans', fn ($q) => $q->where('status', 'active'))->count();
 
         $withOverdue = Member::whereHas(
             'loans',
-            fn($q) => $q->whereHas('installments', fn($i) => $i->where('status', 'overdue'))
+            fn ($q) => $q->whereHas('installments', fn ($i) => $i->where('status', 'overdue'))
         )->count();
 
         $avgContribution = (float) Member::active()
@@ -38,13 +38,13 @@ class MemberStatsWidget extends Widget
 
         // Top 5 members by contribution amount this year
         $topContributors = Member::withSum([
-            'contributions as year_total' => fn($q) => $q->whereYear('paid_at', $now->year),
+            'contributions as year_total' => fn ($q) => $q->whereYear('paid_at', $now->year),
         ], 'amount')
             ->with('user')
             ->orderByDesc('year_total')
             ->limit(5)
             ->get()
-            ->map(fn($m) => [
+            ->map(fn ($m) => [
                 'name' => $m->user?->name ?? '—',
                 'number' => $m->member_number,
                 'total' => (float) ($m->year_total ?? 0),

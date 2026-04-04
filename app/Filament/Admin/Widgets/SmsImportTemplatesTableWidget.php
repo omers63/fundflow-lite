@@ -26,7 +26,7 @@ class SmsImportTemplatesTableWidget extends TableWidget
         SmsImportTemplateResource::configureTable($table);
 
         return $table
-            ->recordUrl(fn(SmsImportTemplate $record): string => SmsImportTemplateResource::getUrl('edit', ['record' => $record]))
+            ->recordUrl(fn (SmsImportTemplate $record): string => SmsImportTemplateResource::getUrl('edit', ['record' => $record]))
             ->headerActions([
                 CreateAction::make()->url(SmsImportTemplateResource::getUrl('create')),
             ]);

@@ -9,6 +9,3 @@ class ListMyInstallments extends ListRecords
 {
     protected static string $resource = MyInstallmentsResource::class;
 }
-
-
-

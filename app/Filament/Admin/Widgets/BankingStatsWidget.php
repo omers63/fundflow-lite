@@ -75,7 +75,7 @@ class BankingStatsWidget extends Widget
             ->orderByDesc('created_at')
             ->limit(5)
             ->get()
-            ->map(fn($s) => [
+            ->map(fn ($s) => [
                 'bank' => $s->bank?->name ?? '—',
                 'filename' => $s->filename,
                 'status' => $s->status,

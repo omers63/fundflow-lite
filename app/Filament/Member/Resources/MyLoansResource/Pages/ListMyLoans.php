@@ -9,6 +9,3 @@ class ListMyLoans extends ListRecords
 {
     protected static string $resource = MyLoansResource::class;
 }
-
-
-
