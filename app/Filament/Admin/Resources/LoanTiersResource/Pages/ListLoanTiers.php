@@ -9,5 +9,9 @@ use Filament\Resources\Pages\ListRecords;
 class ListLoanTiers extends ListRecords
 {
     protected static string $resource = LoanTiersResource::class;
-    protected function getHeaderActions(): array { return [CreateAction::make()]; }
+
+    protected function getHeaderActions(): array
+    {
+        return [CreateAction::make()];
+    }
 }

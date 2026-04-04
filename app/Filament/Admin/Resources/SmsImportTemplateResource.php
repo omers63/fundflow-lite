@@ -19,9 +19,17 @@ use Filament\Tables\Table;
 class SmsImportTemplateResource extends Resource
 {
     protected static ?string $model = SmsImportTemplate::class;
-    protected static string|\BackedEnum|null $navigationIcon = null;
+
+    protected static string|\BackedEnum|null $navigationIcon = 'heroicon-o-chat-bubble-bottom-center-text';
+
     protected static ?string $navigationLabel = 'SMS Templates';
+
     protected static ?int $navigationSort = 21;
+
+    public static function shouldRegisterNavigation(): bool
+    {
+        return false;
+    }
 
     public static function getNavigationGroup(): ?string
     {
@@ -58,17 +66,17 @@ class SmsImportTemplateResource extends Resource
                 Tab::make('CSV Format')->schema([
                     Forms\Components\Select::make('delimiter')
                         ->options([
-                            ','  => 'Comma  ( , )',
-                            ';'  => 'Semicolon  ( ; )',
+                            ',' => 'Comma  ( , )',
+                            ';' => 'Semicolon  ( ; )',
                             "\t" => 'Tab',
-                            '|'  => 'Pipe  ( | )',
+                            '|' => 'Pipe  ( | )',
                         ])
                         ->required()
                         ->default(','),
                     Forms\Components\Select::make('encoding')
                         ->options([
-                            'UTF-8'        => 'UTF-8',
-                            'ISO-8859-1'   => 'ISO-8859-1 (Latin-1)',
+                            'UTF-8' => 'UTF-8',
+                            'ISO-8859-1' => 'ISO-8859-1 (Latin-1)',
                             'Windows-1256' => 'Windows-1256 (Arabic)',
                             'Windows-1252' => 'Windows-1252 (Western)',
                         ])
@@ -170,7 +178,7 @@ class SmsImportTemplateResource extends Resource
                             ->label('Match against')
                             ->options([
                                 'member_number' => 'Member Number',
-                                'user_name'     => 'User Full Name',
+                                'user_name' => 'User Full Name',
                             ])
                             ->default('member_number')
                             ->helperText('The extracted value will be compared to this field on the Member / User record.'),
@@ -185,11 +193,11 @@ class SmsImportTemplateResource extends Resource
                     Forms\Components\CheckboxList::make('duplicate_match_fields')
                         ->label('Match duplicates on these fields')
                         ->options([
-                            'date'      => 'Transaction Date',
-                            'amount'    => 'Amount',
-                            'type'      => 'Transaction Type (credit / debit)',
+                            'date' => 'Transaction Date',
+                            'amount' => 'Amount',
+                            'type' => 'Transaction Type (credit / debit)',
                             'reference' => 'Reference Number',
-                            'raw_sms'   => 'Exact SMS Text',
+                            'raw_sms' => 'Exact SMS Text',
                         ])
                         ->default(['date', 'amount', 'reference'])
                         ->columns(2)
@@ -216,10 +224,10 @@ class SmsImportTemplateResource extends Resource
                 Tables\Columns\IconColumn::make('is_default')->label('Default')->boolean(),
                 Tables\Columns\TextColumn::make('delimiter')
                     ->formatStateUsing(fn ($state) => match ($state) {
-                        ','  => 'Comma',
-                        ';'  => 'Semicolon',
+                        ',' => 'Comma',
+                        ';' => 'Semicolon',
                         "\t" => 'Tab',
-                        '|'  => 'Pipe',
+                        '|' => 'Pipe',
                         default => $state,
                     }),
                 Tables\Columns\IconColumn::make('has_header')->label('Has Header')->boolean(),
@@ -243,9 +251,9 @@ class SmsImportTemplateResource extends Resource
     public static function getPages(): array
     {
         return [
-            'index'  => Pages\ListSmsImportTemplates::route('/'),
+            'index' => Pages\ListSmsImportTemplates::route('/'),
             'create' => Pages\CreateSmsImportTemplate::route('/create'),
-            'edit'   => Pages\EditSmsImportTemplate::route('/{record}/edit'),
+            'edit' => Pages\EditSmsImportTemplate::route('/{record}/edit'),
         ];
     }
 }

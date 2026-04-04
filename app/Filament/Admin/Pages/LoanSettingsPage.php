@@ -8,34 +8,62 @@ use Filament\Forms;
 use Filament\Notifications\Notification;
 use Filament\Pages\Page;
 use Filament\Schemas\Components\Section;
-use Filament\Schemas\Schema;
+use Livewire\Attributes\Url;
 
 class LoanSettingsPage extends Page
 {
     protected string $view = 'filament.admin.pages.loan-settings';
 
-    protected static ?string $navigationLabel = 'Loan Settings';
-    protected static string|\BackedEnum|null $navigationIcon = null;
+    protected static ?string $navigationLabel = 'Loans';
+
+    protected static string|\BackedEnum|null $navigationIcon = 'heroicon-o-credit-card';
+
     protected static ?int $navigationSort = 1;
+
+    /** @var 'settings'|'loan-tiers'|'fund-tiers' */
+    #[Url]
+    public string $activeTab = 'settings';
 
     public static function getNavigationGroup(): ?string
     {
         return __('app.nav.group.settings');
     }
 
+    /**
+     * Keep this nav item highlighted when creating/editing tiers (only reachable from this page).
+     *
+     * @return array<int, string>|string
+     */
+    public static function getNavigationItemActiveRoutePattern(): string|array
+    {
+        return [
+            static::getRouteName(),
+            'filament.admin.resources.loan-tiers.*',
+            'filament.admin.resources.fund-tiers.*',
+        ];
+    }
+
+    public function mount(): void
+    {
+        if (! in_array($this->activeTab, ['settings', 'loan-tiers', 'fund-tiers'], true)) {
+            $this->activeTab = 'settings';
+        }
+    }
+
     public function getHeaderActions(): array
     {
         return [
             Action::make('save_settings')
-                ->label('Save Settings')
+                ->label('Save settings')
                 ->icon('heroicon-o-check')
                 ->color('primary')
+                ->visible(fn (): bool => $this->activeTab === 'settings')
                 ->fillForm([
                     'settlement_threshold_pct' => Setting::loanSettlementThreshold() * 100,
-                    'min_fund_balance'         => Setting::loanMinFundBalance(),
-                    'eligibility_months'       => Setting::loanEligibilityMonths(),
-                    'max_borrow_multiplier'    => Setting::loanMaxBorrowMultiplier(),
-                    'default_grace_cycles'     => Setting::loanDefaultGraceCycles(),
+                    'min_fund_balance' => Setting::loanMinFundBalance(),
+                    'eligibility_months' => Setting::loanEligibilityMonths(),
+                    'max_borrow_multiplier' => Setting::loanMaxBorrowMultiplier(),
+                    'default_grace_cycles' => Setting::loanDefaultGraceCycles(),
                 ])
                 ->schema([
                     Section::make('Eligibility Rules')->schema([
@@ -62,15 +90,18 @@ class LoanSettingsPage extends Page
                 ])
                 ->action(function (array $data) {
                     Setting::set('loan.settlement_threshold_pct', $data['settlement_threshold_pct'] / 100);
-                    Setting::set('loan.min_fund_balance',          $data['min_fund_balance']);
-                    Setting::set('loan.eligibility_months',        $data['eligibility_months']);
-                    Setting::set('loan.max_borrow_multiplier',     $data['max_borrow_multiplier']);
-                    Setting::set('loan.default_grace_cycles',      $data['default_grace_cycles']);
+                    Setting::set('loan.min_fund_balance', $data['min_fund_balance']);
+                    Setting::set('loan.eligibility_months', $data['eligibility_months']);
+                    Setting::set('loan.max_borrow_multiplier', $data['max_borrow_multiplier']);
+                    Setting::set('loan.default_grace_cycles', $data['default_grace_cycles']);
 
                     Notification::make()->title('Loan settings saved.')->success()->send();
                 }),
         ];
     }
 
-    public function getTitle(): string { return 'Loan Settings'; }
+    public function getTitle(): string
+    {
+        return 'Loan configuration';
+    }
 }

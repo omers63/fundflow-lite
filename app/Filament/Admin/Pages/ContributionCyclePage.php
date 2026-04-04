@@ -26,7 +26,7 @@ class ContributionCyclePage extends Page implements HasTable
 
     protected static ?string $navigationLabel = 'Contribution Cycles';
 
-    protected static string|\BackedEnum|null $navigationIcon = null;
+    protected static string|\BackedEnum|null $navigationIcon = 'heroicon-o-arrow-path-rounded-square';
 
     protected static ?int $navigationSort = 5;
 

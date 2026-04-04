@@ -19,9 +19,17 @@ use Filament\Tables\Table;
 class BankImportTemplateResource extends Resource
 {
     protected static ?string $model = BankImportTemplate::class;
-    protected static string|\BackedEnum|null $navigationIcon = null;
+
+    protected static string|\BackedEnum|null $navigationIcon = 'heroicon-o-table-cells';
+
     protected static ?string $navigationLabel = 'Import Templates';
+
     protected static ?int $navigationSort = 11;
+
+    public static function shouldRegisterNavigation(): bool
+    {
+        return false;
+    }
 
     public static function getNavigationGroup(): ?string
     {
@@ -51,17 +59,17 @@ class BankImportTemplateResource extends Resource
                 Tab::make('CSV Format')->schema([
                     Forms\Components\Select::make('delimiter')
                         ->options([
-                            ','  => 'Comma  ( , )',
-                            ';'  => 'Semicolon  ( ; )',
+                            ',' => 'Comma  ( , )',
+                            ';' => 'Semicolon  ( ; )',
                             "\t" => 'Tab',
-                            '|'  => 'Pipe  ( | )',
+                            '|' => 'Pipe  ( | )',
                         ])
                         ->required()
                         ->default(','),
                     Forms\Components\Select::make('encoding')
                         ->options([
-                            'UTF-8'        => 'UTF-8',
-                            'ISO-8859-1'   => 'ISO-8859-1 (Latin-1)',
+                            'UTF-8' => 'UTF-8',
+                            'ISO-8859-1' => 'ISO-8859-1 (Latin-1)',
                             'Windows-1256' => 'Windows-1256 (Arabic)',
                             'Windows-1252' => 'Windows-1252 (Western)',
                         ])
@@ -98,24 +106,24 @@ class BankImportTemplateResource extends Resource
                             ->label('Amount column structure')
                             ->options([
                                 'single' => 'Single column (positive = credit, negative = debit)',
-                                'split'  => 'Separate credit and debit columns',
+                                'split' => 'Separate credit and debit columns',
                             ])
                             ->default('single')
                             ->live(),
                         Forms\Components\TextInput::make('amount_column')
                             ->label('Amount column')
-                            ->visible(fn ($get) => $get('amount_type') === 'single')
-                            ->required(fn ($get) => $get('amount_type') === 'single')
+                            ->visible(fn($get) => $get('amount_type') === 'single')
+                            ->required(fn($get) => $get('amount_type') === 'single')
                             ->helperText('Header name or column index'),
                         Forms\Components\TextInput::make('credit_column')
                             ->label('Credit column')
-                            ->visible(fn ($get) => $get('amount_type') === 'split')
-                            ->required(fn ($get) => $get('amount_type') === 'split')
+                            ->visible(fn($get) => $get('amount_type') === 'split')
+                            ->required(fn($get) => $get('amount_type') === 'split')
                             ->helperText('Header name or column index'),
                         Forms\Components\TextInput::make('debit_column')
                             ->label('Debit column')
-                            ->visible(fn ($get) => $get('amount_type') === 'split')
-                            ->required(fn ($get) => $get('amount_type') === 'split')
+                            ->visible(fn($get) => $get('amount_type') === 'split')
+                            ->required(fn($get) => $get('amount_type') === 'split')
                             ->helperText('Header name or column index'),
                     ]),
 
@@ -147,10 +155,10 @@ class BankImportTemplateResource extends Resource
                     Forms\Components\CheckboxList::make('duplicate_match_fields')
                         ->label('Match duplicates on these fields')
                         ->options([
-                            'date'        => 'Transaction Date',
-                            'amount'      => 'Amount',
-                            'type'        => 'Transaction Type (credit / debit)',
-                            'reference'   => 'Reference Number',
+                            'date' => 'Transaction Date',
+                            'amount' => 'Amount',
+                            'type' => 'Transaction Type (credit / debit)',
+                            'reference' => 'Reference Number',
                             'description' => 'Description',
                         ])
                         ->default(['date', 'amount', 'reference'])
@@ -177,19 +185,19 @@ class BankImportTemplateResource extends Resource
                 Tables\Columns\TextColumn::make('name')->searchable(),
                 Tables\Columns\IconColumn::make('is_default')->label('Default')->boolean(),
                 Tables\Columns\TextColumn::make('delimiter')
-                    ->formatStateUsing(fn ($state) => match ($state) {
-                        ','  => 'Comma',
-                        ';'  => 'Semicolon',
+                    ->formatStateUsing(fn($state) => match ($state) {
+                        ',' => 'Comma',
+                        ';' => 'Semicolon',
                         "\t" => 'Tab',
-                        '|'  => 'Pipe',
+                        '|' => 'Pipe',
                         default => $state,
                     }),
                 Tables\Columns\IconColumn::make('has_header')->label('Has Header')->boolean(),
                 Tables\Columns\TextColumn::make('amount_type')->badge()
-                    ->color(fn ($state) => $state === 'split' ? 'info' : 'gray'),
+                    ->color(fn($state) => $state === 'split' ? 'info' : 'gray'),
                 Tables\Columns\TextColumn::make('duplicate_match_fields')
                     ->label('Dup. Fields')
-                    ->formatStateUsing(fn ($state) => is_array($state) ? implode(', ', $state) : $state),
+                    ->formatStateUsing(fn($state) => is_array($state) ? implode(', ', $state) : $state),
             ])
             ->defaultSort('bank_id')
             ->filters([
@@ -206,9 +214,9 @@ class BankImportTemplateResource extends Resource
     public static function getPages(): array
     {
         return [
-            'index'  => Pages\ListBankImportTemplates::route('/'),
+            'index' => Pages\ListBankImportTemplates::route('/'),
             'create' => Pages\CreateBankImportTemplate::route('/create'),
-            'edit'   => Pages\EditBankImportTemplate::route('/{record}/edit'),
+            'edit' => Pages\EditBankImportTemplate::route('/{record}/edit'),
         ];
     }
 }

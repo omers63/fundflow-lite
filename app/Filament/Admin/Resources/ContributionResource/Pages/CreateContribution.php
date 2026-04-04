@@ -9,6 +9,3 @@ class CreateContribution extends CreateRecord
 {
     protected static string $resource = ContributionResource::class;
 }
-
-
-

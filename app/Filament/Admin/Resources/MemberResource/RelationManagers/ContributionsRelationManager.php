@@ -10,6 +10,7 @@ use Filament\Tables\Table;
 class ContributionsRelationManager extends RelationManager
 {
     protected static string $relationship = 'contributions';
+
     protected static ?string $title = 'Contributions';
 
     public function form(Schema $schema): Schema
@@ -29,10 +30,10 @@ class ContributionsRelationManager extends RelationManager
                 Tables\Columns\TextColumn::make('amount')->money('SAR'),
                 Tables\Columns\BadgeColumn::make('payment_method')
                     ->formatStateUsing(fn ($state) => match ($state) {
-                        'cash'          => 'Cash',
+                        'cash' => 'Cash',
                         'bank_transfer' => 'Bank Transfer',
-                        'online'        => 'Online',
-                        default         => $state ?? '—',
+                        'online' => 'Online',
+                        default => $state ?? '—',
                     }),
                 Tables\Columns\TextColumn::make('reference_number')->placeholder('—'),
                 Tables\Columns\TextColumn::make('paid_at')->label('Paid On')

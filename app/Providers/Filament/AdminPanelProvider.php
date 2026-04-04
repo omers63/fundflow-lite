@@ -3,6 +3,7 @@
 namespace App\Providers\Filament;
 
 use App\Filament\Admin\Pages\Dashboard;
+use App\Filament\Admin\Widgets\AdminStatsOverview;
 use BezhanSalleh\FilamentShield\FilamentShieldPlugin;
 use Filament\Http\Middleware\Authenticate;
 use Filament\Http\Middleware\AuthenticateSession;
@@ -12,7 +13,6 @@ use Filament\Navigation\NavigationGroup;
 use Filament\Panel;
 use Filament\PanelProvider;
 use Filament\Support\Colors\Color;
-use App\Filament\Admin\Widgets\AdminStatsOverview;
 use Filament\Widgets\AccountWidget;
 use Illuminate\Cookie\Middleware\AddQueuedCookiesToResponse;
 use Illuminate\Cookie\Middleware\EncryptCookies;
@@ -43,28 +43,24 @@ class AdminPanelProvider extends PanelProvider
                     ->navigationSort(1)
                     ->gridColumns([
                         'default' => 1,
-                        'sm'      => 2,
-                        'lg'      => 3,
+                        'sm' => 2,
+                        'lg' => 3,
                     ])
                     ->sectionColumnSpan(1)
                     ->checkboxListColumns([
                         'default' => 1,
-                        'sm'      => 2,
+                        'sm' => 2,
                     ])
                     ->resourceCheckboxListColumns([
                         'default' => 1,
-                        'sm'      => 2,
+                        'sm' => 2,
                     ]),
             ])
             ->navigationGroups([
-                NavigationGroup::make(__('app.nav.group.membership'))
-                    ->icon('heroicon-o-users'),
-                NavigationGroup::make(__('app.nav.group.finance'))
-                    ->icon('heroicon-o-banknotes'),
-                NavigationGroup::make('Banking')
-                    ->icon('heroicon-o-building-library'),
-                NavigationGroup::make(__('app.nav.group.reports'))
-                    ->icon('heroicon-o-chart-bar'),
+                NavigationGroup::make(__('app.nav.group.membership')),
+                NavigationGroup::make(__('app.nav.group.finance')),
+                NavigationGroup::make('Banking'),
+                NavigationGroup::make(__('app.nav.group.reports')),
                 NavigationGroup::make(__('app.nav.group.settings'))
                     ->collapsed(),
             ])

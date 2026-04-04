@@ -9,6 +9,3 @@ class CreateLoan extends CreateRecord
 {
     protected static string $resource = LoanResource::class;
 }
-
-
-

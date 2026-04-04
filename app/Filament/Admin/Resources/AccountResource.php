@@ -16,7 +16,7 @@ class AccountResource extends Resource
 {
     protected static ?string $model = Account::class;
 
-    protected static string|\BackedEnum|null $navigationIcon = null;
+    protected static string|\BackedEnum|null $navigationIcon = 'heroicon-o-wallet';
 
     protected static ?string $navigationLabel = 'Accounts';
 

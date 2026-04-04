@@ -16,6 +16,7 @@ use Filament\Tables\Table;
 class TransactionsRelationManager extends RelationManager
 {
     protected static string $relationship = 'transactions';
+
     protected static ?string $title = 'Imported Transactions';
 
     public function form(Schema $schema): Schema
@@ -61,7 +62,7 @@ class TransactionsRelationManager extends RelationManager
                 Tables\Filters\TernaryFilter::make('posted')
                     ->trueLabel('Posted')->falseLabel('Unposted')->placeholder('All')
                     ->queries(
-                        true:  fn ($q) => $q->whereNotNull('posted_at'),
+                        true: fn ($q) => $q->whereNotNull('posted_at'),
                         false: fn ($q) => $q->whereNull('posted_at'),
                     ),
             ])

@@ -30,10 +30,10 @@ class ViewAccount extends ViewRecord
         $parts = [$record->type_label];
 
         if ($record->member) {
-            $parts[] = 'Member: ' . $record->member->user->name . ' (' . $record->member->member_number . ')';
+            $parts[] = 'Member: '.$record->member->user->name.' ('.$record->member->member_number.')';
         }
         if ($record->loan_id) {
-            $parts[] = 'Loan #' . $record->loan_id;
+            $parts[] = 'Loan #'.$record->loan_id;
         }
 
         return implode(' · ', $parts);
@@ -66,12 +66,12 @@ class ViewAccount extends ViewRecord
                     TextEntry::make('type_label')
                         ->label('Type')
                         ->badge()
-                        ->color(fn() => $record->type_color),
+                        ->color(fn () => $record->type_color),
                     TextEntry::make('is_active')
                         ->label('Status')
-                        ->formatStateUsing(fn($state) => $state ? 'Active' : 'Inactive')
+                        ->formatStateUsing(fn ($state) => $state ? 'Active' : 'Inactive')
                         ->badge()
-                        ->color(fn() => $record->is_active ? 'success' : 'danger'),
+                        ->color(fn () => $record->is_active ? 'success' : 'danger'),
                     TextEntry::make('member.user.name')
                         ->label('Member Name')
                         ->placeholder('—'),
@@ -85,7 +85,7 @@ class ViewAccount extends ViewRecord
                         ->label('Current Balance (SAR)')
                         ->money('SAR')
                         ->weight(FontWeight::Bold)
-                        ->color(fn() => $balance >= 0 ? 'success' : 'danger'),
+                        ->color(fn () => $balance >= 0 ? 'success' : 'danger'),
                     TextEntry::make('created_at')
                         ->label('Opened')
                         ->dateTime('d M Y'),

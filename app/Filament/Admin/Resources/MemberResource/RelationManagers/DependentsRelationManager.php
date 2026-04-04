@@ -15,6 +15,7 @@ use Filament\Tables\Table;
 class DependentsRelationManager extends RelationManager
 {
     protected static string $relationship = 'dependents';
+
     protected static ?string $title = 'Dependent Members';
 
     public function form(Schema $schema): Schema
@@ -64,7 +65,7 @@ class DependentsRelationManager extends RelationManager
 
                         Notification::make()
                             ->title('Allocation Updated')
-                            ->body("Monthly allocation for {$record->user->name} set to SAR " . number_format($data['monthly_contribution_amount']))
+                            ->body("Monthly allocation for {$record->user->name} set to SAR ".number_format($data['monthly_contribution_amount']))
                             ->success()
                             ->send();
                     }),
@@ -81,9 +82,8 @@ class DependentsRelationManager extends RelationManager
                             ->minValue(1)
                             ->required()
                             ->prefix('SAR')
-                            ->helperText(fn (Member $record) =>
-                                "Dependent's cash balance: SAR " . number_format($record->cash_balance, 2) .
-                                " | Your cash balance: SAR " . number_format($this->getOwnerRecord()->cash_balance, 2)
+                            ->helperText(fn (Member $record) => "Dependent's cash balance: SAR ".number_format($record->cash_balance, 2).
+                                ' | Your cash balance: SAR '.number_format($this->getOwnerRecord()->cash_balance, 2)
                             ),
                         Forms\Components\TextInput::make('note')
                             ->label('Note (optional)')
@@ -94,15 +94,15 @@ class DependentsRelationManager extends RelationManager
 
                         try {
                             app(AccountingService::class)->fundDependentCashAccount(
-                                parent:    $parent,
+                                parent: $parent,
                                 dependent: $record,
-                                amount:    (float) $data['amount'],
-                                note:      $data['note'] ?? '',
+                                amount: (float) $data['amount'],
+                                note: $data['note'] ?? '',
                             );
 
                             Notification::make()
                                 ->title('Cash Account Funded')
-                                ->body("SAR " . number_format($data['amount'], 2) . " transferred to {$record->user->name}'s cash account.")
+                                ->body('SAR '.number_format($data['amount'], 2)." transferred to {$record->user->name}'s cash account.")
                                 ->success()
                                 ->send();
                         } catch (\Throwable $e) {

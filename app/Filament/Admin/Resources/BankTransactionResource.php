@@ -24,8 +24,11 @@ use Illuminate\Database\Eloquent\Collection;
 class BankTransactionResource extends Resource
 {
     protected static ?string $model = BankTransaction::class;
-    protected static string|\BackedEnum|null $navigationIcon = null;
+
+    protected static string|\BackedEnum|null $navigationIcon = 'heroicon-o-arrows-right-left';
+
     protected static ?string $navigationLabel = 'Bank Transactions';
+
     protected static ?int $navigationSort = 12;
 
     public static function getNavigationGroup(): ?string
@@ -36,6 +39,7 @@ class BankTransactionResource extends Resource
     public static function getNavigationBadge(): ?string
     {
         $count = BankTransaction::where('is_duplicate', true)->count();
+
         return $count > 0 ? (string) $count : null;
     }
 
@@ -133,7 +137,7 @@ class BankTransactionResource extends Resource
                     ->falseLabel('Unposted only')
                     ->placeholder('All')
                     ->queries(
-                        true:  fn ($q) => $q->whereNotNull('posted_at'),
+                        true: fn ($q) => $q->whereNotNull('posted_at'),
                         false: fn ($q) => $q->whereNull('posted_at'),
                     ),
                 Tables\Filters\Filter::make('date_range')
@@ -143,7 +147,7 @@ class BankTransactionResource extends Resource
                     ])
                     ->query(fn ($query, $data) => $query
                         ->when($data['date_from'], fn ($q, $v) => $q->whereDate('transaction_date', '>=', $v))
-                        ->when($data['date_to'],   fn ($q, $v) => $q->whereDate('transaction_date', '<=', $v)))
+                        ->when($data['date_to'], fn ($q, $v) => $q->whereDate('transaction_date', '<=', $v)))
                     ->columns(2),
             ])
             ->recordActions([
@@ -187,14 +191,15 @@ class BankTransactionResource extends Resource
                                 ->helperText('All selected transactions will be posted to this member\'s Cash Account.'),
                         ])
                         ->action(function (Collection $records, array $data) {
-                            $member    = Member::findOrFail($data['member_id']);
-                            $service   = app(AccountingService::class);
-                            $posted    = 0;
-                            $skipped   = 0;
+                            $member = Member::findOrFail($data['member_id']);
+                            $service = app(AccountingService::class);
+                            $posted = 0;
+                            $skipped = 0;
 
                             foreach ($records as $tx) {
                                 if ($tx->isPosted()) {
                                     $skipped++;
+
                                     continue;
                                 }
                                 $service->postBankTransactionToCash($tx, $member);
@@ -216,7 +221,7 @@ class BankTransactionResource extends Resource
     {
         return [
             'index' => Pages\ListBankTransactions::route('/'),
-            'view'  => Pages\ViewBankTransaction::route('/{record}'),
+            'view' => Pages\ViewBankTransaction::route('/{record}'),
         ];
     }
 }

@@ -18,9 +18,17 @@ use Filament\Tables\Table;
 class FundTiersResource extends Resource
 {
     protected static ?string $model = FundTier::class;
-    protected static string|\BackedEnum|null $navigationIcon = null;
+
+    protected static string|\BackedEnum|null $navigationIcon = 'heroicon-o-squares-2x2';
+
     protected static ?string $navigationLabel = 'Fund Tiers';
+
     protected static ?int $navigationSort = 3;
+
+    public static function shouldRegisterNavigation(): bool
+    {
+        return false;
+    }
 
     public static function getNavigationGroup(): ?string
     {
@@ -81,15 +89,15 @@ class FundTiersResource extends Resource
             ])
             ->defaultSort('tier_number')
             ->recordActions([EditAction::make(), DeleteAction::make()])
-            ->description("Master Fund Balance: SAR " . number_format($masterBalance, 2));
+            ->description('Master Fund Balance: SAR '.number_format($masterBalance, 2));
     }
 
     public static function getPages(): array
     {
         return [
-            'index'  => Pages\ListFundTiers::route('/'),
+            'index' => Pages\ListFundTiers::route('/'),
             'create' => Pages\CreateFundTier::route('/create'),
-            'edit'   => Pages\EditFundTier::route('/{record}/edit'),
+            'edit' => Pages\EditFundTier::route('/{record}/edit'),
         ];
     }
 }

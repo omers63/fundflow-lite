@@ -9,6 +9,3 @@ class CreateMonthlyStatement extends CreateRecord
 {
     protected static string $resource = MonthlyStatementResource::class;
 }
-
-
-

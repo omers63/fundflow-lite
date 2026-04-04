@@ -17,12 +17,12 @@ class AccountDetailWidget extends Widget
 
     public function getData(): array
     {
-        if (!$this->accountId) {
+        if (! $this->accountId) {
             return [];
         }
 
         $record = Account::with('member.user')->find($this->accountId);
-        if (!$record) {
+        if (! $record) {
             return [];
         }
 

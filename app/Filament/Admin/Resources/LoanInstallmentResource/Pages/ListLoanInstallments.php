@@ -9,6 +9,3 @@ class ListLoanInstallments extends ListRecords
 {
     protected static string $resource = LoanInstallmentResource::class;
 }
-
-
-

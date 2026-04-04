@@ -9,6 +9,3 @@ class EditMonthlyStatement extends EditRecord
 {
     protected static string $resource = MonthlyStatementResource::class;
 }
-
-
-

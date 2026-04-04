@@ -1455,6 +1455,115 @@ Below: Oldest pending applications table (most urgent first, red badge if waitin
 All pages also received a descriptive subheading and the Import CSV / New buttons on the Members page are now styled consistently.
 
 ------------------------------------
+Here’s what was implemented:
+
+Single page: Loan configuration (LoanSettingsPage)
+Navigation: Settings → Loan configuration (replaces the old “Loan Settings” label).
+Tabs (Filament x-filament::tabs + wire:click):
+Loan rules — Same overview cards as before; Save settings in the header only shows on this tab (URL query ?activeTab=settings).
+Loan tiers — Full Loan tiers table (create, edit, delete, reorder) via an embedded table widget.
+Fund tiers — Full Fund tiers table via an embedded table widget.
+#[Url] on activeTab so the active tab is reflected in the URL (e.g. ?activeTab=loan-tiers).
+getNavigationItemActiveRoutePattern() so Loan configuration stays active on loan-tiers / fund-tiers create & edit routes.
+Resources
+LoanTiersResource and FundTiersResource: shouldRegisterNavigation() returns false so they no longer appear as separate sidebar items. Routes (/admin/loan-tiers, /admin/fund-tiers, create/edit) are unchanged for Shield and bookmarks.
+New widgets (not auto-discovered on the dashboard)
+app/Filament/Admin/Widgets/LoanTiersTableWidget.php
+app/Filament/Admin/Widgets/FundTiersTableWidget.php
+They reuse each resource’s configureTable(), getEloquentQuery(), row URLs to edit, and a header Create action.
+
+View
+resources/views/filament/admin/pages/loan-settings.blade.php — tabs + conditional content + @livewire for the two widgets.
+If you use Filament Shield and had menu entries tied only to those resources, regenerate or adjust permissions if anything still expects separate nav items.
+
+-----------------------------------------
+Everything is done. Here's a summary of what was built:
+
+What was done
+Consolidation
+The two independent sidebar items ("Import Templates" and "SMS Templates") under the Banking group have been merged into a single unified "Banking" page — identical in approach to how Loan Settings, Loan Tiers, and Fund Tiers were consolidated. Both resource classes now have shouldRegisterNavigation(): false.
+
+New: BankingPage (tabbed)
+The page lives at /admin/banking and has three tabs, with the active tab persisted in the URL:
+
+Tab	Content
+Overview
+BankingStatsWidget analytics + pipeline explainer
+Bank CSV templates
+Embedded BankImportTemplatesTableWidget table
+SMS templates
+Embedded SmsImportTemplatesTableWidget table
+The "New bank template" / "New SMS template" header action buttons appear contextually based on which tab is active.
+
+New: BankingStatsWidget
+A full-width analytics panel showing:
+
+6 KPI tiles — Registered banks, Total templates (bank + SMS), Total transactions, Posted count & rate, Duplicate count & rate, Imports this month
+6-month stacked bar chart — Bank CSV vs SMS transaction volumes per month
+Recent import sessions feed — last 5 bank import sessions with status badges
+Embedded table widgets
+BankImportTemplatesTableWidget and SmsImportTemplatesTableWidget reuse their parent resource's query and table configuration exactly, so edit/create flows remain unchanged.
+
+------------------------------------
+Here’s what changed.
+
+Panel providers (no group icons)
+AdminPanelProvider: Removed ->icon(...) from Membership, Finance, Banking, Reports, and Settings groups.
+MemberPanelProvider: Removed ->icon(...) from “My Finance” and “Account” groups.
+That matches Filament’s rule: either the group or its items have icons, not both—so the Banking error goes away.
+
+Admin — item icons
+Item	Icon
+Applications
+heroicon-o-clipboard-document-check
+Members
+heroicon-o-user-group
+Accounts
+heroicon-o-wallet
+Contributions
+heroicon-o-banknotes
+Loans
+heroicon-o-document-currency-dollar
+Banking (hub page)
+(unchanged) heroicon-o-building-library
+Banks
+heroicon-o-building-office-2
+Bank import history
+heroicon-o-arrow-up-tray
+Bank transactions
+heroicon-o-arrows-right-left
+SMS transactions
+heroicon-o-device-phone-mobile
+SMS import history
+heroicon-o-inbox-stack
+Statements
+heroicon-o-document-chart-bar
+Loan configuration (Settings → Loans)
+(unchanged) heroicon-o-credit-card
+Hidden nav resources (templates / tiers)
+Icons set for consistency if you turn nav back on
+Dashboard and LoanQueuePage / ContributionCyclePage already had or now have icons (home, queue-list, arrow-path-rounded-square).
+
+Member portal — item icons
+Item	Icon
+My Contributions
+heroicon-o-banknotes
+My Loans
+heroicon-o-document-currency-dollar
+My Installments
+heroicon-o-calendar-days
+My Statements
+heroicon-o-document-chart-bar
+My Dependents
+heroicon-o-users
+Contribution Settings
+heroicon-o-adjustments-horizontal
+Dashboard still uses heroicon-o-home.
+
+Filament Shield’s Roles entry under Settings already ships with its own nav icon, which is fine now that the Settings group has no icon.
+
+Pint was run on the admin panel provider (import order cleanup). Reload the admin/member panels to confirm the sidebar renders without the group/icon conflict.
+
 
 
 

@@ -18,7 +18,7 @@ class LoanQueuePage extends Page
 
     protected static ?string $navigationLabel = 'Loan Queue';
 
-    protected static string|\BackedEnum|null $navigationIcon = null;
+    protected static string|\BackedEnum|null $navigationIcon = 'heroicon-o-queue-list';
 
     protected static ?int $navigationSort = 4;
 
@@ -76,7 +76,7 @@ class LoanQueuePage extends Page
 
     public function loanViewUrl(Loan $loan): ?string
     {
-        if (! LoanResource::canView($loan)) {
+        if (!LoanResource::canView($loan)) {
             return null;
         }
 

@@ -33,7 +33,7 @@ class AdminStatsOverview extends BaseWidget
                 ->icon('heroicon-o-clipboard-document-list')
                 ->color('warning'),
 
-            Stat::make('Total Fund (SAR)', '﷼' . number_format($totalFund, 2))
+            Stat::make('Total Fund (SAR)', '﷼'.number_format($totalFund, 2))
                 ->description('Cumulative contributions')
                 ->icon('heroicon-o-banknotes')
                 ->color('primary'),
@@ -55,6 +55,3 @@ class AdminStatsOverview extends BaseWidget
         ];
     }
 }
-
-
-

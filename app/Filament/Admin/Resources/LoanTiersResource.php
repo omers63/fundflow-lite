@@ -16,9 +16,17 @@ use Filament\Tables\Table;
 class LoanTiersResource extends Resource
 {
     protected static ?string $model = LoanTier::class;
-    protected static string|\BackedEnum|null $navigationIcon = null;
+
+    protected static string|\BackedEnum|null $navigationIcon = 'heroicon-o-queue-list';
+
     protected static ?string $navigationLabel = 'Loan Tiers';
+
     protected static ?int $navigationSort = 2;
+
+    public static function shouldRegisterNavigation(): bool
+    {
+        return false;
+    }
 
     public static function getNavigationGroup(): ?string
     {
@@ -59,9 +67,9 @@ class LoanTiersResource extends Resource
     public static function getPages(): array
     {
         return [
-            'index'  => Pages\ListLoanTiers::route('/'),
+            'index' => Pages\ListLoanTiers::route('/'),
             'create' => Pages\CreateLoanTier::route('/create'),
-            'edit'   => Pages\EditLoanTier::route('/{record}/edit'),
+            'edit' => Pages\EditLoanTier::route('/{record}/edit'),
         ];
     }
 }

@@ -9,6 +9,3 @@ class ViewLoan extends ViewRecord
 {
     protected static string $resource = LoanResource::class;
 }
-
-
-

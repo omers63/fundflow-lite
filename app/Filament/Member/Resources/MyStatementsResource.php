@@ -12,7 +12,7 @@ use Filament\Tables\Table;
 class MyStatementsResource extends Resource
 {
     protected static ?string $model = MonthlyStatement::class;
-    protected static string|\BackedEnum|null $navigationIcon = null;
+    protected static string|\BackedEnum|null $navigationIcon = 'heroicon-o-document-chart-bar';
     protected static ?string $navigationLabel = 'My Statements';
     protected static ?int $navigationSort = 4;
 
@@ -24,7 +24,7 @@ class MyStatementsResource extends Resource
     public static function table(Table $table): Table
     {
         return $table
-            ->query(fn () => MonthlyStatement::whereHas('member', fn ($q) => $q->where('user_id', auth()->id())))
+            ->query(fn() => MonthlyStatement::whereHas('member', fn($q) => $q->where('user_id', auth()->id())))
             ->columns([
                 Tables\Columns\TextColumn::make('period')
                     ->sortable(),
@@ -51,7 +51,7 @@ class MyStatementsResource extends Resource
                     ->label('Download PDF')
                     ->icon('heroicon-o-arrow-down-tray')
                     ->color('gray')
-                    ->url(fn (MonthlyStatement $record) => route('member.statement.pdf', $record))
+                    ->url(fn(MonthlyStatement $record) => route('member.statement.pdf', $record))
                     ->openUrlInNewTab(),
             ]);
     }

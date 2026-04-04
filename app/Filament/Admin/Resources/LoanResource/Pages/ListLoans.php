@@ -43,13 +43,13 @@ class ListLoans extends ListRecords
                 ->label('Import CSV')
                 ->icon('heroicon-o-arrow-up-tray')
                 ->color('success')
-                ->visible(fn(): bool => LoanResource::canCreate())
+                ->visible(fn (): bool => LoanResource::canCreate())
                 ->modalHeading('Import loans from CSV')
                 ->modalDescription(
-                    'Column loan_status: pending (no ledger; amount_requested or amount_approved), approved (no ledger; approved row like Filament approve), ' .
-                    'active (default; disbursed + ledger), completed or early_settled (historical paid-off: full disbursement + bulk repayments, all installments marked paid). ' .
-                    'Disbursed rows: member_portion + master_portion = amount_approved (not inferred from current fund balance). ' .
-                    'Repayments: paid_installments_count × min_monthly_installment, or total_amount_repaid when set. ' .
+                    'Column loan_status: pending (no ledger; amount_requested or amount_approved), approved (no ledger; approved row like Filament approve), '.
+                    'active (default; disbursed + ledger), completed or early_settled (historical paid-off: full disbursement + bulk repayments, all installments marked paid). '.
+                    'Disbursed rows: member_portion + master_portion = amount_approved (not inferred from current fund balance). '.
+                    'Repayments: paid_installments_count × min_monthly_installment, or total_amount_repaid when set. '.
                     'If opening balances already reflect these loans, posting again will double-count unless you adjust imports accordingly.'
                 )
                 ->modalWidth('2xl')
@@ -76,9 +76,9 @@ class ListLoans extends ListRecords
                     if ($result['errors'] !== []) {
                         $preview = implode("\n", array_slice($result['errors'], 0, 8));
                         if (count($result['errors']) > 8) {
-                            $preview .= "\n… and " . (count($result['errors']) - 8) . ' more';
+                            $preview .= "\n… and ".(count($result['errors']) - 8).' more';
                         }
-                        $body .= "\n\n" . $preview;
+                        $body .= "\n\n".$preview;
                     }
 
                     Notification::make()

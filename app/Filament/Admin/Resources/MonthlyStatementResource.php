@@ -20,8 +20,11 @@ use Filament\Tables\Table;
 class MonthlyStatementResource extends Resource
 {
     protected static ?string $model = MonthlyStatement::class;
-    protected static string|\BackedEnum|null $navigationIcon = null;
+
+    protected static string|\BackedEnum|null $navigationIcon = 'heroicon-o-document-chart-bar';
+
     protected static ?string $navigationLabel = 'Statements';
+
     protected static ?int $navigationSort = 1;
 
     public static function getNavigationGroup(): ?string
@@ -88,8 +91,8 @@ class MonthlyStatementResource extends Resource
                             [$year, $month] = explode('-', $period);
 
                             $contributions = Contribution::where('member_id', $member->id)
-                                ->where('month', (int)$month)
-                                ->where('year', (int)$year)
+                                ->where('month', (int) $month)
+                                ->where('year', (int) $year)
                                 ->sum('amount');
 
                             $repayments = LoanInstallment::whereHas('loan', fn ($q) => $q->where('member_id', $member->id))

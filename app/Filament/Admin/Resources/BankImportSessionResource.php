@@ -11,19 +11,21 @@ use App\Services\BankImportService;
 use Filament\Actions\Action;
 use Filament\Actions\ViewAction;
 use Filament\Forms;
-use Filament\Schemas\Components\Section;
 use Filament\Notifications\Notification;
 use Filament\Resources\Resource;
+use Filament\Schemas\Components\Section;
 use Filament\Schemas\Schema;
 use Filament\Tables;
 use Filament\Tables\Table;
-use Illuminate\Support\Facades\Storage;
 
 class BankImportSessionResource extends Resource
 {
     protected static ?string $model = BankImportSession::class;
-    protected static string|\BackedEnum|null $navigationIcon = null;
+
+    protected static string|\BackedEnum|null $navigationIcon = 'heroicon-o-arrow-up-tray';
+
     protected static ?string $navigationLabel = 'Import History';
+
     protected static ?int $navigationSort = 13;
 
     public static function getNavigationGroup(): ?string
@@ -58,12 +60,12 @@ class BankImportSessionResource extends Resource
                 Tables\Columns\TextColumn::make('template.name')->label('Template')->limit(30),
                 Tables\Columns\TextColumn::make('status')
                     ->badge()
-                    ->color(fn (string $state) => match ($state) {
-                        'completed'           => 'success',
-                        'processing'          => 'warning',
+                    ->color(fn(string $state) => match ($state) {
+                        'completed' => 'success',
+                        'processing' => 'warning',
                         'partially_completed' => 'warning',
-                        'failed'              => 'danger',
-                        default               => 'gray',
+                        'failed' => 'danger',
+                        default => 'gray',
                     }),
                 Tables\Columns\TextColumn::make('total_rows')->label('Rows')->alignCenter(),
                 Tables\Columns\TextColumn::make('imported_count')->label('Imported')
@@ -82,10 +84,10 @@ class BankImportSessionResource extends Resource
                     ->options(Bank::active()->pluck('name', 'id')),
                 Tables\Filters\SelectFilter::make('status')
                     ->options([
-                        'completed'           => 'Completed',
+                        'completed' => 'Completed',
                         'partially_completed' => 'Partially Completed',
-                        'failed'              => 'Failed',
-                        'processing'          => 'Processing',
+                        'failed' => 'Failed',
+                        'processing' => 'Processing',
                     ]),
             ])
             ->headerActions([
@@ -99,10 +101,10 @@ class BankImportSessionResource extends Resource
                             ->options(Bank::active()->pluck('name', 'id'))
                             ->required()
                             ->live()
-                            ->afterStateUpdated(fn ($set) => $set('template_id', null)),
+                            ->afterStateUpdated(fn($set) => $set('template_id', null)),
                         Forms\Components\Select::make('template_id')
                             ->label('Import Template')
-                            ->options(fn ($get) => BankImportTemplate::where('bank_id', $get('bank_id'))
+                            ->options(fn($get) => BankImportTemplate::where('bank_id', $get('bank_id'))
                                 ->pluck('name', 'id'))
                             ->required()
                             ->live()
@@ -121,13 +123,13 @@ class BankImportSessionResource extends Resource
                         $template = BankImportTemplate::findOrFail($data['template_id']);
 
                         $session = BankImportSession::create([
-                            'bank_id'     => $data['bank_id'],
+                            'bank_id' => $data['bank_id'],
                             'template_id' => $template->id,
                             'imported_by' => auth()->id(),
-                            'filename'    => basename($data['csv_file']),
-                            'file_path'   => $data['csv_file'],
-                            'notes'       => $data['notes'] ?? null,
-                            'status'      => 'pending',
+                            'filename' => basename($data['csv_file']),
+                            'file_path' => $data['csv_file'],
+                            'notes' => $data['notes'] ?? null,
+                            'status' => 'pending',
                         ]);
 
                         app(BankImportService::class)->import($session);
@@ -150,23 +152,23 @@ class BankImportSessionResource extends Resource
                 Action::make('view_transactions')
                     ->label('Transactions')
                     ->icon('heroicon-o-table-cells')
-                    ->url(fn (BankImportSession $record) => BankTransactionResource::getUrl('index', [
+                    ->url(fn(BankImportSession $record) => BankTransactionResource::getUrl('index', [
                         'tableFilters[import_session_id][value]' => $record->id,
                     ])),
                 Action::make('retry')
                     ->label('Re-import')
                     ->icon('heroicon-o-arrow-path')
                     ->color('warning')
-                    ->visible(fn (BankImportSession $record) => in_array($record->status, ['failed', 'partially_completed']))
+                    ->visible(fn(BankImportSession $record) => in_array($record->status, ['failed', 'partially_completed']))
                     ->requiresConfirmation()
                     ->action(function (BankImportSession $record) {
                         $record->transactions()->delete();
                         $record->update([
-                            'status'          => 'pending',
-                            'imported_count'  => 0,
+                            'status' => 'pending',
+                            'imported_count' => 0,
                             'duplicate_count' => 0,
-                            'error_count'     => 0,
-                            'error_log'       => null,
+                            'error_count' => 0,
+                            'error_log' => null,
                         ]);
 
                         app(BankImportService::class)->import($record);
@@ -193,7 +195,7 @@ class BankImportSessionResource extends Resource
     {
         return [
             'index' => Pages\ListBankImportSessions::route('/'),
-            'view'  => Pages\ViewBankImportSession::route('/{record}'),
+            'view' => Pages\ViewBankImportSession::route('/{record}'),
         ];
     }
 }

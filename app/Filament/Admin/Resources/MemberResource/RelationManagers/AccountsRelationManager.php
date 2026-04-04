@@ -5,12 +5,14 @@ namespace App\Filament\Admin\Resources\MemberResource\RelationManagers;
 use App\Models\Account;
 use Filament\Resources\RelationManagers\RelationManager;
 use Filament\Schemas\Schema;
+use Filament\Support\Enums\FontWeight;
 use Filament\Tables;
 use Filament\Tables\Table;
 
 class AccountsRelationManager extends RelationManager
 {
     protected static string $relationship = 'accounts';
+
     protected static ?string $title = 'Virtual Accounts';
 
     public function form(Schema $schema): Schema
@@ -32,7 +34,7 @@ class AccountsRelationManager extends RelationManager
                     ->label('Balance (SAR)')
                     ->money('SAR')
                     ->color(fn (Account $r) => (float) $r->balance >= 0 ? 'success' : 'danger')
-                    ->weight(\Filament\Support\Enums\FontWeight::Bold),
+                    ->weight(FontWeight::Bold),
             ]);
     }
 }

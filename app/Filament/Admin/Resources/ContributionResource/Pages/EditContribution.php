@@ -9,6 +9,3 @@ class EditContribution extends EditRecord
 {
     protected static string $resource = ContributionResource::class;
 }
-
-
-

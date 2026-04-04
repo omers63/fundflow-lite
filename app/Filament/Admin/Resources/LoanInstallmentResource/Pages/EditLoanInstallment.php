@@ -9,6 +9,3 @@ class EditLoanInstallment extends EditRecord
 {
     protected static string $resource = LoanInstallmentResource::class;
 }
-
-
-

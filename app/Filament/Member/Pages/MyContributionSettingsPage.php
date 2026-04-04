@@ -14,7 +14,7 @@ class MyContributionSettingsPage extends Page
 
     protected static ?string $navigationLabel = 'Contribution Settings';
 
-    protected static string|\BackedEnum|null $navigationIcon = null;
+    protected static string|\BackedEnum|null $navigationIcon = 'heroicon-o-adjustments-horizontal';
 
     protected static ?int $navigationSort = 10;
 
@@ -54,7 +54,7 @@ class MyContributionSettingsPage extends Page
                 ->action(function (array $data) {
                     $member = $this->currentMember();
 
-                    if (! $member) {
+                    if (!$member) {
                         Notification::make()->title('Member record not found.')->danger()->send();
 
                         return;
@@ -68,7 +68,7 @@ class MyContributionSettingsPage extends Page
 
                     Notification::make()
                         ->title('Allocation Updated')
-                        ->body('Your monthly contribution amount is now SAR '.number_format($data['monthly_contribution_amount']))
+                        ->body('Your monthly contribution amount is now SAR ' . number_format($data['monthly_contribution_amount']))
                         ->success()
                         ->send();
                 }),

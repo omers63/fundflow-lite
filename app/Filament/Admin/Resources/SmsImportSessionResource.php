@@ -21,8 +21,11 @@ use Filament\Tables\Table;
 class SmsImportSessionResource extends Resource
 {
     protected static ?string $model = SmsImportSession::class;
-    protected static string|\BackedEnum|null $navigationIcon = null;
+
+    protected static string|\BackedEnum|null $navigationIcon = 'heroicon-o-inbox-stack';
+
     protected static ?string $navigationLabel = 'SMS Import History';
+
     protected static ?int $navigationSort = 23;
 
     public static function getNavigationGroup(): ?string
@@ -56,11 +59,11 @@ class SmsImportSessionResource extends Resource
                 Tables\Columns\TextColumn::make('status')
                     ->badge()
                     ->color(fn (string $state) => match ($state) {
-                        'completed'           => 'success',
-                        'processing'          => 'warning',
+                        'completed' => 'success',
+                        'processing' => 'warning',
                         'partially_completed' => 'warning',
-                        'failed'              => 'danger',
-                        default               => 'gray',
+                        'failed' => 'danger',
+                        default => 'gray',
                     }),
                 Tables\Columns\TextColumn::make('total_rows')->label('Rows')->alignCenter(),
                 Tables\Columns\TextColumn::make('imported_count')->label('Imported')
@@ -79,10 +82,10 @@ class SmsImportSessionResource extends Resource
                     ->options(Bank::active()->pluck('name', 'id')),
                 Tables\Filters\SelectFilter::make('status')
                     ->options([
-                        'completed'           => 'Completed',
+                        'completed' => 'Completed',
                         'partially_completed' => 'Partially Completed',
-                        'failed'              => 'Failed',
-                        'processing'          => 'Processing',
+                        'failed' => 'Failed',
+                        'processing' => 'Processing',
                     ]),
             ])
             ->headerActions([
@@ -120,13 +123,13 @@ class SmsImportSessionResource extends Resource
                         $template = SmsImportTemplate::findOrFail($data['template_id']);
 
                         $session = SmsImportSession::create([
-                            'bank_id'     => $data['bank_id'] ?? $template->bank_id,
+                            'bank_id' => $data['bank_id'] ?? $template->bank_id,
                             'template_id' => $template->id,
                             'imported_by' => auth()->id(),
-                            'filename'    => basename($data['csv_file']),
-                            'file_path'   => $data['csv_file'],
-                            'notes'       => $data['notes'] ?? null,
-                            'status'      => 'pending',
+                            'filename' => basename($data['csv_file']),
+                            'file_path' => $data['csv_file'],
+                            'notes' => $data['notes'] ?? null,
+                            'status' => 'pending',
                         ]);
 
                         app(SmsImportService::class)->import($session);
@@ -134,10 +137,10 @@ class SmsImportSessionResource extends Resource
                         $session->refresh();
 
                         Notification::make()
-                            ->title('SMS Import ' . ucfirst(str_replace('_', ' ', $session->status)))
+                            ->title('SMS Import '.ucfirst(str_replace('_', ' ', $session->status)))
                             ->body(
-                                "Imported: {$session->imported_count} | " .
-                                "Duplicates: {$session->duplicate_count} | " .
+                                "Imported: {$session->imported_count} | ".
+                                "Duplicates: {$session->duplicate_count} | ".
                                 "Errors: {$session->error_count}"
                             )
                             ->color($session->status === 'completed' ? 'success' : 'warning')
@@ -161,18 +164,18 @@ class SmsImportSessionResource extends Resource
                     ->action(function (SmsImportSession $record) {
                         $record->transactions()->delete();
                         $record->update([
-                            'status'          => 'pending',
-                            'imported_count'  => 0,
+                            'status' => 'pending',
+                            'imported_count' => 0,
                             'duplicate_count' => 0,
-                            'error_count'     => 0,
-                            'error_log'       => null,
+                            'error_count' => 0,
+                            'error_log' => null,
                         ]);
 
                         app(SmsImportService::class)->import($record);
                         $record->refresh();
 
                         Notification::make()
-                            ->title('Re-import ' . ucfirst(str_replace('_', ' ', $record->status)))
+                            ->title('Re-import '.ucfirst(str_replace('_', ' ', $record->status)))
                             ->body("Imported: {$record->imported_count} | Duplicates: {$record->duplicate_count}")
                             ->success()
                             ->send();
@@ -191,7 +194,7 @@ class SmsImportSessionResource extends Resource
     {
         return [
             'index' => Pages\ListSmsImportSessions::route('/'),
-            'view'  => Pages\ViewSmsImportSession::route('/{record}'),
+            'view' => Pages\ViewSmsImportSession::route('/{record}'),
         ];
     }
 }

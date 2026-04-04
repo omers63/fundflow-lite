@@ -3,7 +3,6 @@
 namespace App\Filament\Admin\Resources\LoanResource\RelationManagers;
 
 use App\Models\LoanInstallment;
-use App\Services\AccountingService;
 use Filament\Actions\Action;
 use Filament\Notifications\Notification;
 use Filament\Resources\RelationManagers\RelationManager;
@@ -14,6 +13,7 @@ use Filament\Tables\Table;
 class InstallmentsRelationManager extends RelationManager
 {
     protected static string $relationship = 'installments';
+
     protected static ?string $title = 'Installments';
 
     public function form(Schema $schema): Schema
@@ -40,7 +40,7 @@ class InstallmentsRelationManager extends RelationManager
                     ->colors([
                         'success' => 'paid',
                         'warning' => 'pending',
-                        'danger'  => 'overdue',
+                        'danger' => 'overdue',
                     ]),
                 Tables\Columns\TextColumn::make('paid_at')
                     ->label('Paid On')
@@ -56,7 +56,7 @@ class InstallmentsRelationManager extends RelationManager
                     ->requiresConfirmation()
                     ->action(function (LoanInstallment $record) {
                         $record->update([
-                            'status'  => 'paid',
+                            'status' => 'paid',
                             'paid_at' => now(),
                         ]);
 

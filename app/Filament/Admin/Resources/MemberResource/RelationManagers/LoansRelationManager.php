@@ -11,6 +11,7 @@ use Filament\Tables\Table;
 class LoansRelationManager extends RelationManager
 {
     protected static string $relationship = 'loans';
+
     protected static ?string $title = 'Loans';
 
     public function form(Schema $schema): Schema
@@ -31,14 +32,14 @@ class LoansRelationManager extends RelationManager
                 Tables\Columns\BadgeColumn::make('status')
                     ->colors([
                         'warning' => 'pending',
-                        'info'    => 'approved',
+                        'info' => 'approved',
                         'success' => 'active',
-                        'gray'    => 'completed',
-                        'danger'  => 'rejected',
+                        'gray' => 'completed',
+                        'danger' => 'rejected',
                     ]),
                 Tables\Columns\TextColumn::make('paid_installments_count')
                     ->label('Paid / Total')
-                    ->getStateUsing(fn (Loan $r) => $r->paid_installments_count . ' / ' . $r->installments_count),
+                    ->getStateUsing(fn (Loan $r) => $r->paid_installments_count.' / '.$r->installments_count),
                 Tables\Columns\TextColumn::make('remaining_amount')
                     ->label('Remaining')
                     ->money('SAR')

@@ -53,7 +53,7 @@ class AccountSummaryWidget extends Widget
         $zeroBalanceCount = Member::active()
             ->whereHas(
                 'accounts',
-                fn($q) => $q
+                fn ($q) => $q
                     ->where('type', Account::TYPE_MEMBER_CASH)
                     ->where('balance', '<=', 0)
             )

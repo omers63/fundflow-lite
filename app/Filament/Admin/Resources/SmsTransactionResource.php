@@ -24,8 +24,11 @@ use Illuminate\Database\Eloquent\Collection;
 class SmsTransactionResource extends Resource
 {
     protected static ?string $model = SmsTransaction::class;
-    protected static string|\BackedEnum|null $navigationIcon = null;
+
+    protected static string|\BackedEnum|null $navigationIcon = 'heroicon-o-device-phone-mobile';
+
     protected static ?string $navigationLabel = 'SMS Transactions';
+
     protected static ?int $navigationSort = 22;
 
     public static function getNavigationGroup(): ?string
@@ -36,6 +39,7 @@ class SmsTransactionResource extends Resource
     public static function getNavigationBadge(): ?string
     {
         $count = SmsTransaction::where('is_duplicate', true)->count();
+
         return $count > 0 ? (string) $count : null;
     }
 
@@ -137,7 +141,7 @@ class SmsTransactionResource extends Resource
                     ->options(
                         SmsImportSession::with('bank')->latest()->get()
                             ->mapWithKeys(fn ($s) => [
-                                $s->id => ($s->bank?->name ?? 'No Bank') . ' — ' . $s->filename . ' (' . $s->created_at->format('d M Y') . ')',
+                                $s->id => ($s->bank?->name ?? 'No Bank').' — '.$s->filename.' ('.$s->created_at->format('d M Y').')',
                             ])
                     ),
                 Tables\Filters\SelectFilter::make('transaction_type')
@@ -148,7 +152,7 @@ class SmsTransactionResource extends Resource
                     ->falseLabel('Unmatched only')
                     ->placeholder('All')
                     ->queries(
-                        true:  fn ($q) => $q->whereNotNull('member_id'),
+                        true: fn ($q) => $q->whereNotNull('member_id'),
                         false: fn ($q) => $q->whereNull('member_id'),
                     ),
                 Tables\Filters\TernaryFilter::make('posted')
@@ -157,7 +161,7 @@ class SmsTransactionResource extends Resource
                     ->falseLabel('Unposted only')
                     ->placeholder('All')
                     ->queries(
-                        true:  fn ($q) => $q->whereNotNull('posted_at'),
+                        true: fn ($q) => $q->whereNotNull('posted_at'),
                         false: fn ($q) => $q->whereNull('posted_at'),
                     ),
                 Tables\Filters\TernaryFilter::make('is_duplicate')
@@ -172,7 +176,7 @@ class SmsTransactionResource extends Resource
                     ])
                     ->query(fn ($query, $data) => $query
                         ->when($data['date_from'], fn ($q, $v) => $q->whereDate('transaction_date', '>=', $v))
-                        ->when($data['date_to'],   fn ($q, $v) => $q->whereDate('transaction_date', '<=', $v)))
+                        ->when($data['date_to'], fn ($q, $v) => $q->whereDate('transaction_date', '<=', $v)))
                     ->columns(2),
             ])
             ->recordActions([
@@ -214,12 +218,13 @@ class SmsTransactionResource extends Resource
                         ->modalDescription('This will post all selected transactions that already have an auto-matched member. Unmatched transactions will be skipped.')
                         ->action(function (Collection $records) {
                             $service = app(AccountingService::class);
-                            $posted  = 0;
+                            $posted = 0;
                             $skipped = 0;
 
                             foreach ($records as $tx) {
                                 if ($tx->isPosted() || ! $tx->member_id) {
                                     $skipped++;
+
                                     continue;
                                 }
                                 $service->postSmsTransactionToCash($tx, $tx->member);
@@ -247,14 +252,15 @@ class SmsTransactionResource extends Resource
                                 ->required(),
                         ])
                         ->action(function (Collection $records, array $data) {
-                            $member  = Member::findOrFail($data['member_id']);
+                            $member = Member::findOrFail($data['member_id']);
                             $service = app(AccountingService::class);
-                            $posted  = 0;
+                            $posted = 0;
                             $skipped = 0;
 
                             foreach ($records as $tx) {
                                 if ($tx->isPosted()) {
                                     $skipped++;
+
                                     continue;
                                 }
                                 $service->postSmsTransactionToCash($tx, $member);
@@ -276,7 +282,7 @@ class SmsTransactionResource extends Resource
     {
         return [
             'index' => Pages\ListSmsTransactions::route('/'),
-            'view'  => Pages\ViewSmsTransaction::route('/{record}'),
+            'view' => Pages\ViewSmsTransaction::route('/{record}'),
         ];
     }
 }

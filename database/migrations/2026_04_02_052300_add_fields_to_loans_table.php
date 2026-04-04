@@ -5,15 +5,16 @@ use Illuminate\Database\Schema\Blueprint;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Schema;
 
-return new class extends Migration
-{
+return new class extends Migration {
     public function up(): void
     {
-        // Extend the status enum to cover all lifecycle states
-        DB::statement("ALTER TABLE loans MODIFY COLUMN status ENUM(
+        // MySQL/MariaDB: extend ENUM. SQLite/Postgres use string-like columns — no MODIFY needed.
+        if (in_array(Schema::getConnection()->getDriverName(), ['mysql', 'mariadb'], true)) {
+            DB::statement("ALTER TABLE loans MODIFY COLUMN status ENUM(
             'pending','approved','rejected','active','disbursed',
             'completed','early_settled','cancelled'
         ) NOT NULL DEFAULT 'pending'");
+        }
 
         Schema::table('loans', function (Blueprint $table) {
             // Tier references
@@ -65,19 +66,34 @@ return new class extends Migration
             $table->dropForeign(['fund_tier_id']);
             $table->dropForeign(['guarantor_member_id']);
             $table->dropColumn([
-                'loan_tier_id', 'fund_tier_id', 'queue_position',
-                'guarantor_member_id', 'guarantor_released_at',
-                'witness1_name', 'witness1_phone', 'witness2_name', 'witness2_phone',
-                'member_portion', 'master_portion', 'repaid_to_master',
-                'exempted_month', 'exempted_year',
-                'first_repayment_month', 'first_repayment_year',
-                'settlement_threshold', 'late_repayment_count', 'late_repayment_amount',
-                'settled_at', 'cancellation_reason',
+                'loan_tier_id',
+                'fund_tier_id',
+                'queue_position',
+                'guarantor_member_id',
+                'guarantor_released_at',
+                'witness1_name',
+                'witness1_phone',
+                'witness2_name',
+                'witness2_phone',
+                'member_portion',
+                'master_portion',
+                'repaid_to_master',
+                'exempted_month',
+                'exempted_year',
+                'first_repayment_month',
+                'first_repayment_year',
+                'settlement_threshold',
+                'late_repayment_count',
+                'late_repayment_amount',
+                'settled_at',
+                'cancellation_reason',
             ]);
         });
 
-        DB::statement("ALTER TABLE loans MODIFY COLUMN status ENUM(
+        if (in_array(Schema::getConnection()->getDriverName(), ['mysql', 'mariadb'], true)) {
+            DB::statement("ALTER TABLE loans MODIFY COLUMN status ENUM(
             'pending','approved','rejected','active','completed'
         ) NOT NULL DEFAULT 'pending'");
+        }
     }
 };

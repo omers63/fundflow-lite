@@ -15,6 +15,3 @@ class ListMonthlyStatements extends ListRecords
         return [Actions\CreateAction::make()];
     }
 }
-
-
-

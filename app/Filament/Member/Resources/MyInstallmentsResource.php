@@ -11,7 +11,7 @@ use Filament\Tables\Table;
 class MyInstallmentsResource extends Resource
 {
     protected static ?string $model = LoanInstallment::class;
-    protected static string|\BackedEnum|null $navigationIcon = null;
+    protected static string|\BackedEnum|null $navigationIcon = 'heroicon-o-calendar-days';
     protected static ?string $navigationLabel = 'My Installments';
     protected static ?int $navigationSort = 3;
 
@@ -23,11 +23,12 @@ class MyInstallmentsResource extends Resource
     public static function getNavigationBadge(): ?string
     {
         $member = auth()->user()?->member;
-        if (! $member) return null;
-        $count = LoanInstallment::whereHas('loan', fn ($q) => $q->where('member_id', $member->id))
+        if (!$member)
+            return null;
+        $count = LoanInstallment::whereHas('loan', fn($q) => $q->where('member_id', $member->id))
             ->where('status', 'overdue')
             ->count();
-        return $count > 0 ? (string)$count : null;
+        return $count > 0 ? (string) $count : null;
     }
 
     public static function getNavigationBadgeColor(): string
@@ -42,7 +43,7 @@ class MyInstallmentsResource extends Resource
                 $member = auth()->user()?->member;
                 return LoanInstallment::whereHas(
                     'loan',
-                    fn ($q) => $q->where('member_id', $member?->id ?? 0)
+                    fn($q) => $q->where('member_id', $member?->id ?? 0)
                 );
             })
             ->columns([
@@ -59,7 +60,7 @@ class MyInstallmentsResource extends Resource
                     ->sortable(),
                 Tables\Columns\TextColumn::make('status')
                     ->badge()
-                    ->color(fn (string $state) => match ($state) {
+                    ->color(fn(string $state) => match ($state) {
                         'pending' => 'warning',
                         'paid' => 'success',
                         'overdue' => 'danger',

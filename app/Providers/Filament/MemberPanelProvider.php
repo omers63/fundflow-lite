@@ -36,10 +36,8 @@ class MemberPanelProvider extends PanelProvider
                 'gray' => Color::Slate,
             ])
             ->navigationGroups([
-                NavigationGroup::make(__('app.nav.group.my_finance'))
-                    ->icon('heroicon-o-banknotes'),
-                NavigationGroup::make(__('app.nav.group.account'))
-                    ->icon('heroicon-o-user-circle'),
+                NavigationGroup::make(__('app.nav.group.my_finance')),
+                NavigationGroup::make(__('app.nav.group.account')),
             ])
             ->viteTheme('resources/css/filament/member/theme.css')
             ->discoverResources(in: app_path('Filament/Member/Resources'), for: 'App\Filament\Member\Resources')

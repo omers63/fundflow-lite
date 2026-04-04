@@ -16,7 +16,7 @@ use Filament\Tables\Table;
 class MyDependentsResource extends Resource
 {
     protected static ?string $model = Member::class;
-    protected static string|\BackedEnum|null $navigationIcon = null;
+    protected static string|\BackedEnum|null $navigationIcon = 'heroicon-o-users';
     protected static ?string $navigationLabel = 'My Dependents';
     protected static ?int $navigationSort = 11;
 
@@ -39,7 +39,7 @@ class MyDependentsResource extends Resource
 
     public static function table(Table $table): Table
     {
-        $parentMember = fn () => Member::where('user_id', auth()->id())->first();
+        $parentMember = fn() => Member::where('user_id', auth()->id())->first();
 
         return $table
             ->query(function () use ($parentMember) {
@@ -57,8 +57,8 @@ class MyDependentsResource extends Resource
                 Tables\Columns\TextColumn::make('cash_balance')
                     ->label('Cash Balance')
                     ->money('SAR')
-                    ->getStateUsing(fn (Member $r) => $r->cash_balance)
-                    ->color(fn (Member $r) => $r->cash_balance >= 0 ? 'success' : 'danger'),
+                    ->getStateUsing(fn(Member $r) => $r->cash_balance)
+                    ->color(fn(Member $r) => $r->cash_balance >= 0 ? 'success' : 'danger'),
             ])
             ->recordActions([
                 // Parent changes the dependent's allocation
@@ -66,7 +66,7 @@ class MyDependentsResource extends Resource
                     ->label('Set Allocation')
                     ->icon('heroicon-o-adjustments-horizontal')
                     ->color('warning')
-                    ->fillForm(fn (Member $record) => [
+                    ->fillForm(fn(Member $record) => [
                         'monthly_contribution_amount' => $record->monthly_contribution_amount,
                     ])
                     ->schema([
@@ -115,17 +115,17 @@ class MyDependentsResource extends Resource
                     ->action(function (Member $record, array $data) use ($parentMember) {
                         $parent = $parentMember();
 
-                        if (! $parent) {
+                        if (!$parent) {
                             Notification::make()->title('Your member record was not found.')->danger()->send();
                             return;
                         }
 
                         try {
                             app(AccountingService::class)->fundDependentCashAccount(
-                                parent:    $parent,
+                                parent: $parent,
                                 dependent: $record,
-                                amount:    (float) $data['amount'],
-                                note:      $data['note'] ?? '',
+                                amount: (float) $data['amount'],
+                                note: $data['note'] ?? '',
                             );
 
                             Notification::make()
