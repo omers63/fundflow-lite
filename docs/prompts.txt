@@ -117,6 +117,8 @@ I would like to be able to import a file containing members loans information. C
 Yes, I want to be able to import non‑disbursed loans. Further, I want to be able to import fully paid off loans (old loans).
 I want a modern-style beautiful layout page for the loan queue, please.
 The  loan queue is now  very modern and beautiful. Apply similar theming/styling possibly with nicely relevant analytics/informative widgets added as well. I am referring to the main dashboard of admin and member portals as well as all subpages/filament resource.
+Modernize and beautify the "Accounts: page similar to the way you did the "Loan Queue". Add any useful and informative analytical widgets as you see fit.
+Modernize and beautify the "Loans", "Contributions", "Members", and "Applications" pages similar to the way you did the "Loan Queue". Add any useful and informative analytical widgets as you see fit. Use beautify and proper layout scheme and Theming/Styling.
 
  
 

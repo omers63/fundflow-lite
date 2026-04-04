@@ -11,7 +11,6 @@ use Filament\Actions\DeleteBulkAction;
 use Filament\Actions\EditAction;
 use Filament\Forms;
 use Filament\Resources\Resource;
-use Filament\Schemas\Components\Section;
 use Filament\Schemas\Schema;
 use Filament\Tables;
 use Filament\Tables\Table;
@@ -19,8 +18,10 @@ use Filament\Tables\Table;
 class ContributionResource extends Resource
 {
     protected static ?string $model = Contribution::class;
+
     protected static string|\BackedEnum|null $navigationIcon = null;
-    protected static ?int $navigationSort = 1;
+
+    protected static ?int $navigationSort = 2;
 
     public static function getNavigationGroup(): ?string
     {
@@ -32,7 +33,7 @@ class ContributionResource extends Resource
         return $schema->schema([
             Forms\Components\Select::make('member_id')
                 ->label('Member')
-                ->options(fn () => Member::with('user')
+                ->options(fn() => Member::with('user')
                     ->get()
                     ->pluck('user.name', 'id')
                     ->prepend('-- Select Member --', ''))
@@ -44,7 +45,7 @@ class ContributionResource extends Resource
                 ->required()
                 ->minValue(0),
             Forms\Components\Select::make('month')
-                ->options(array_combine(range(1, 12), array_map(fn ($m) => date('F', mktime(0, 0, 0, $m, 1)), range(1, 12))))
+                ->options(array_combine(range(1, 12), array_map(fn($m) => date('F', mktime(0, 0, 0, $m, 1)), range(1, 12))))
                 ->required(),
             Forms\Components\TextInput::make('year')
                 ->numeric()
@@ -80,12 +81,12 @@ class ContributionResource extends Resource
                     ->money('SAR')
                     ->sortable(),
                 Tables\Columns\TextColumn::make('month')
-                    ->formatStateUsing(fn ($state) => date('F', mktime(0, 0, 0, $state, 1))),
+                    ->formatStateUsing(fn($state) => date('F', mktime(0, 0, 0, $state, 1))),
                 Tables\Columns\TextColumn::make('year')
                     ->sortable(),
                 Tables\Columns\TextColumn::make('payment_method')
                     ->badge()
-                    ->formatStateUsing(fn ($state) => match($state) {
+                    ->formatStateUsing(fn($state) => match ($state) {
                         'cash' => 'Cash',
                         'bank_transfer' => 'Bank Transfer',
                         'online' => 'Online',
@@ -105,10 +106,10 @@ class ContributionResource extends Resource
             ->defaultSort('paid_at', 'desc')
             ->filters([
                 Tables\Filters\SelectFilter::make('month')
-                    ->options(array_combine(range(1, 12), array_map(fn ($m) => date('F', mktime(0, 0, 0, $m, 1)), range(1, 12)))),
+                    ->options(array_combine(range(1, 12), array_map(fn($m) => date('F', mktime(0, 0, 0, $m, 1)), range(1, 12)))),
                 Tables\Filters\Filter::make('year')
                     ->schema([Forms\Components\TextInput::make('year')->numeric()->default(now()->year)])
-                    ->query(fn ($query, $data) => $data['year'] ? $query->where('year', $data['year']) : $query),
+                    ->query(fn($query, $data) => $data['year'] ? $query->where('year', $data['year']) : $query),
             ])
             ->recordActions([
                 EditAction::make(),

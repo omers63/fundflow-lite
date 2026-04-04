@@ -2,7 +2,9 @@
 
 namespace App\Filament\Admin\Resources\LoanResource\Pages;
 
+use App\Filament\Admin\Pages\LoanQueuePage;
 use App\Filament\Admin\Resources\LoanResource;
+use App\Filament\Admin\Widgets\LoanStatsWidget;
 use App\Services\LoanImportService;
 use Filament\Actions;
 use Filament\Forms;
@@ -14,20 +16,40 @@ class ListLoans extends ListRecords
 {
     protected static string $resource = LoanResource::class;
 
+    protected function getHeaderWidgets(): array
+    {
+        return [LoanStatsWidget::class];
+    }
+
+    public function getHeaderWidgetsColumns(): int|array
+    {
+        return 1;
+    }
+
+    public function getSubheading(): ?string
+    {
+        return 'Track the full lifecycle of every loan — from application through disbursement to settlement.';
+    }
+
     protected function getHeaderActions(): array
     {
         return [
+            Actions\Action::make('loanQueue')
+                ->label('Loan queue')
+                ->icon('heroicon-o-queue-list')
+                ->url(LoanQueuePage::getUrl())
+                ->color('primary'),
             Actions\Action::make('importLoans')
                 ->label('Import CSV')
                 ->icon('heroicon-o-arrow-up-tray')
-                ->color('gray')
-                ->visible(fn (): bool => LoanResource::canCreate())
+                ->color('success')
+                ->visible(fn(): bool => LoanResource::canCreate())
                 ->modalHeading('Import loans from CSV')
                 ->modalDescription(
-                    'Column loan_status: pending (no ledger; amount_requested or amount_approved), approved (no ledger; approved row like Filament approve), '.
-                    'active (default; disbursed + ledger), completed or early_settled (historical paid-off: full disbursement + bulk repayments, all installments marked paid). '.
-                    'Disbursed rows: member_portion + master_portion = amount_approved (not inferred from current fund balance). '.
-                    'Repayments: paid_installments_count × min_monthly_installment, or total_amount_repaid when set. '.
+                    'Column loan_status: pending (no ledger; amount_requested or amount_approved), approved (no ledger; approved row like Filament approve), ' .
+                    'active (default; disbursed + ledger), completed or early_settled (historical paid-off: full disbursement + bulk repayments, all installments marked paid). ' .
+                    'Disbursed rows: member_portion + master_portion = amount_approved (not inferred from current fund balance). ' .
+                    'Repayments: paid_installments_count × min_monthly_installment, or total_amount_repaid when set. ' .
                     'If opening balances already reflect these loans, posting again will double-count unless you adjust imports accordingly.'
                 )
                 ->modalWidth('2xl')
@@ -54,9 +76,9 @@ class ListLoans extends ListRecords
                     if ($result['errors'] !== []) {
                         $preview = implode("\n", array_slice($result['errors'], 0, 8));
                         if (count($result['errors']) > 8) {
-                            $preview .= "\n… and ".(count($result['errors']) - 8).' more';
+                            $preview .= "\n… and " . (count($result['errors']) - 8) . ' more';
                         }
-                        $body .= "\n\n".$preview;
+                        $body .= "\n\n" . $preview;
                     }
 
                     Notification::make()
@@ -66,7 +88,8 @@ class ListLoans extends ListRecords
                         ->persistent()
                         ->send();
                 }),
-            Actions\CreateAction::make(),
+            Actions\CreateAction::make()
+                ->icon('heroicon-o-plus-circle'),
         ];
     }
 }

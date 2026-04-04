@@ -3,6 +3,7 @@
 namespace App\Filament\Admin\Resources\MemberResource\Pages;
 
 use App\Filament\Admin\Resources\MemberResource;
+use App\Filament\Admin\Widgets\MemberStatsWidget;
 use App\Services\MemberImportService;
 use Filament\Actions\Action;
 use Filament\Actions\CreateAction;
@@ -15,19 +16,34 @@ class ListMembers extends ListRecords
 {
     protected static string $resource = MemberResource::class;
 
+    protected function getHeaderWidgets(): array
+    {
+        return [MemberStatsWidget::class];
+    }
+
+    public function getHeaderWidgetsColumns(): int|array
+    {
+        return 1;
+    }
+
+    public function getSubheading(): ?string
+    {
+        return 'Manage all fund members — review statuses, contribution commitments, and loan activity.';
+    }
+
     protected function getHeaderActions(): array
     {
         return [
             Action::make('importMembers')
                 ->label('Import CSV')
                 ->icon('heroicon-o-arrow-up-tray')
-                ->color('gray')
-                ->visible(fn (): bool => MemberResource::canCreate() || (bool) auth()->user()?->can('Update:Member'))
+                ->color('success')
+                ->visible(fn(): bool => MemberResource::canCreate() || (bool) auth()->user()?->can('Update:Member'))
                 ->modalHeading('Import members from CSV')
                 ->modalDescription(
-                    'First row must be headers. Required: email; name required for new members only (balance-only rows for existing emails may leave name blank). Optional: password, phone, joined_at, status, monthly_contribution_amount, parent_member_number, '.
-                    'cash_balance (≥ 0), fund_balance (may be negative — paired debit on master + member fund, e.g. master-funded loan). '.
-                    'Existing email: if the user already has a member, applies cash/fund adjustments only (other columns ignored); requires Update:Member. No member record → error. '.
+                    'First row must be headers. Required: email; name required for new members only (balance-only rows for existing emails may leave name blank). Optional: password, phone, joined_at, status, monthly_contribution_amount, parent_member_number, ' .
+                    'cash_balance (≥ 0), fund_balance (may be negative — paired debit on master + member fund, e.g. master-funded loan). ' .
+                    'Existing email: if the user already has a member, applies cash/fund adjustments only (other columns ignored); requires Update:Member. No member record → error. ' .
                     'New members require Create:Member. Parent rows before dependents. Status: active, suspended, delinquent. Contribution: 500–3000 in steps of 500.'
                 )
                 ->modalWidth('2xl')
@@ -61,9 +77,9 @@ class ListMembers extends ListRecords
                     if ($result['errors'] !== []) {
                         $preview = implode("\n", array_slice($result['errors'], 0, 8));
                         if (count($result['errors']) > 8) {
-                            $preview .= "\n… and ".(count($result['errors']) - 8).' more';
+                            $preview .= "\n… and " . (count($result['errors']) - 8) . ' more';
                         }
-                        $body .= "\n\n".$preview;
+                        $body .= "\n\n" . $preview;
                     }
 
                     Notification::make()
@@ -73,7 +89,7 @@ class ListMembers extends ListRecords
                         ->persistent()
                         ->send();
                 }),
-            CreateAction::make(),
+            CreateAction::make()->icon('heroicon-o-plus-circle'),
         ];
     }
 }

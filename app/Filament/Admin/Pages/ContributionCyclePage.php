@@ -2,7 +2,7 @@
 
 namespace App\Filament\Admin\Pages;
 
-use App\Models\Account;
+use App\Filament\Admin\Resources\ContributionResource;
 use App\Models\Contribution;
 use App\Models\Member;
 use App\Services\ContributionCycleService;
@@ -22,8 +22,12 @@ class ContributionCyclePage extends Page implements HasTable
 
     protected string $view = 'filament.admin.pages.contribution-cycle';
 
+    protected static bool $shouldRegisterNavigation = false;
+
     protected static ?string $navigationLabel = 'Contribution Cycles';
+
     protected static string|\BackedEnum|null $navigationIcon = null;
+
     protected static ?int $navigationSort = 5;
 
     public static function getNavigationGroup(): ?string
@@ -38,6 +42,11 @@ class ContributionCyclePage extends Page implements HasTable
     public function getHeaderActions(): array
     {
         return [
+            Action::make('allContributions')
+                ->label('All contributions')
+                ->icon('heroicon-o-banknotes')
+                ->url(ContributionResource::getUrl('index'))
+                ->color('info'),
             Action::make('send_notifications')
                 ->label('Send Due Notifications')
                 ->icon('heroicon-o-bell')
@@ -63,15 +72,15 @@ class ContributionCyclePage extends Page implements HasTable
                 ->fillForm($this->defaultPeriod())
                 ->action(function (array $data) {
                     $service = app(ContributionCycleService::class);
-                    $month   = (int) $data['month'];
-                    $year    = (int) $data['year'];
-                    $isLate  = $service->isLate($month, $year);
+                    $month = (int) $data['month'];
+                    $year = (int) $data['year'];
+                    $isLate = $service->isLate($month, $year);
                     $results = $service->applyContributions($month, $year);
 
-                    $applied      = count($results['applied']);
+                    $applied = count($results['applied']);
                     $insufficient = count($results['insufficient']);
-                    $skipped      = count($results['skipped']);
-                    $period       = $this->periodLbl($month, $year);
+                    $skipped = count($results['skipped']);
+                    $period = $this->periodLbl($month, $year);
 
                     $body = "Applied: {$applied} | Insufficient: {$insufficient} | Already processed: {$skipped}";
                     if ($isLate) {
@@ -98,16 +107,16 @@ class ContributionCyclePage extends Page implements HasTable
         $applied = Contribution::where('month', $month)->where('year', $year)->pluck('member_id');
 
         return $table
-            ->query(fn (): Builder =>
-                Member::query()
+            ->query(
+                fn(): Builder => Member::query()
                     ->where('status', 'active')
                     ->with(['user', 'accounts'])
                     ->whereNotIn('id', $applied)
             )
-            ->heading("Pending Members – " . $this->periodLbl($month, $year))
-            ->description("Active members who have not yet contributed for this period.")
+            ->heading('Pending Members – ' . $this->periodLbl($month, $year))
+            ->description('Active members who have not yet contributed for this period.')
             ->emptyStateHeading('All members have contributed')
-            ->emptyStateDescription("No pending contributions for " . $this->periodLbl($month, $year))
+            ->emptyStateDescription('No pending contributions for ' . $this->periodLbl($month, $year))
             ->emptyStateIcon('heroicon-o-check-circle')
             ->columns([
                 TextColumn::make('member_number')->label('Member #')->sortable(),
@@ -118,36 +127,36 @@ class ContributionCyclePage extends Page implements HasTable
                 TextColumn::make('cash_balance')
                     ->label('Cash Balance')
                     ->money('SAR')
-                    ->getStateUsing(fn (Member $r) => $r->cash_balance)
-                    ->color(fn (Member $r) => $r->cash_balance >= $r->monthly_contribution_amount ? 'success' : 'danger'),
+                    ->getStateUsing(fn(Member $r) => $r->cash_balance)
+                    ->color(fn(Member $r) => $r->cash_balance >= $r->monthly_contribution_amount ? 'success' : 'danger'),
                 TextColumn::make('shortfall')
                     ->label('Shortfall')
                     ->money('SAR')
-                    ->getStateUsing(fn (Member $r) => max(0, $r->monthly_contribution_amount - $r->cash_balance))
+                    ->getStateUsing(fn(Member $r) => max(0, $r->monthly_contribution_amount - $r->cash_balance))
                     ->color('danger'),
                 TextColumn::make('parent.user.name')->label('Parent')->placeholder('—'),
             ])
             ->recordActions([
-                \Filament\Actions\Action::make('apply_single')
+                Action::make('apply_single')
                     ->label('Apply Now')
                     ->icon('heroicon-o-check')
                     ->color('success')
                     ->requiresConfirmation()
-                    ->modalHeading(fn (Member $r) => "Apply Contribution for {$r->user->name}?")
-                    ->modalDescription(fn (Member $r) =>
-                        "This will debit SAR " . number_format($r->monthly_contribution_amount) .
-                        " from their cash account (balance: SAR " . number_format($r->cash_balance, 2) . ")."
+                    ->modalHeading(fn(Member $r) => "Apply Contribution for {$r->user->name}?")
+                    ->modalDescription(
+                        fn(Member $r) => 'This will debit SAR ' . number_format($r->monthly_contribution_amount) .
+                        ' from their cash account (balance: SAR ' . number_format($r->cash_balance, 2) . ').'
                     )
-                    ->disabled(fn (Member $r) => $r->cash_balance < $r->monthly_contribution_amount)
+                    ->disabled(fn(Member $r) => $r->cash_balance < $r->monthly_contribution_amount)
                     ->action(function (Member $record) use ($month, $year) {
                         $service = app(ContributionCycleService::class);
-                        $dummy   = [];
+                        $dummy = [];
                         $outcome = $service->applyOne($record, $month, $year, null, $dummy);
 
                         if ($outcome === 'applied') {
                             Notification::make()
                                 ->title('Contribution Applied')
-                                ->body("SAR " . number_format($record->monthly_contribution_amount) . " applied for {$record->user->name}.")
+                                ->body('SAR ' . number_format($record->monthly_contribution_amount) . " applied for {$record->user->name}.")
                                 ->success()
                                 ->send();
                         } else {
@@ -172,7 +181,7 @@ class ContributionCyclePage extends Page implements HasTable
                 ->label('Month')
                 ->options(array_combine(
                     range(1, 12),
-                    array_map(fn ($m) => date('F', mktime(0, 0, 0, $m, 1)), range(1, 12))
+                    array_map(fn($m) => date('F', mktime(0, 0, 0, $m, 1)), range(1, 12))
                 ))
                 ->required(),
             Forms\Components\TextInput::make('year')
@@ -186,6 +195,7 @@ class ContributionCyclePage extends Page implements HasTable
     private function defaultPeriod(): array
     {
         [$month, $year] = $this->currentOpenPeriod();
+
         return ['month' => $month, 'year' => $year];
     }
 
@@ -193,6 +203,7 @@ class ContributionCyclePage extends Page implements HasTable
     private function currentOpenPeriod(): array
     {
         $prev = now()->subMonthNoOverflow();
+
         return [(int) $prev->month, (int) $prev->year];
     }
 

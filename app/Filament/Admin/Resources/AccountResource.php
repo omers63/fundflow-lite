@@ -8,15 +8,19 @@ use App\Models\Account;
 use Filament\Actions\ViewAction;
 use Filament\Resources\Resource;
 use Filament\Schemas\Schema;
+use Filament\Support\Enums\FontWeight;
 use Filament\Tables;
 use Filament\Tables\Table;
 
 class AccountResource extends Resource
 {
     protected static ?string $model = Account::class;
+
     protected static string|\BackedEnum|null $navigationIcon = null;
-    protected static ?string $navigationLabel = 'Virtual Accounts';
-    protected static ?int $navigationSort = 5;
+
+    protected static ?string $navigationLabel = 'Accounts';
+
+    protected static ?int $navigationSort = 1;
 
     public static function getNavigationGroup(): ?string
     {
@@ -35,11 +39,11 @@ class AccountResource extends Resource
                 Tables\Columns\TextColumn::make('name')
                     ->searchable()
                     ->sortable()
-                    ->weight(\Filament\Support\Enums\FontWeight::SemiBold),
+                    ->weight(FontWeight::SemiBold),
                 Tables\Columns\BadgeColumn::make('type')
                     ->label('Account Type')
-                    ->formatStateUsing(fn (Account $r) => $r->type_label)
-                    ->color(fn (Account $r) => $r->type_color),
+                    ->formatStateUsing(fn(Account $r) => $r->type_label)
+                    ->color(fn(Account $r) => $r->type_color),
                 Tables\Columns\TextColumn::make('member.user.name')
                     ->label('Member')
                     ->placeholder('—')
@@ -55,8 +59,8 @@ class AccountResource extends Resource
                     ->label('Balance (SAR)')
                     ->money('SAR')
                     ->sortable()
-                    ->color(fn (Account $r) => (float) $r->balance >= 0 ? 'success' : 'danger')
-                    ->weight(\Filament\Support\Enums\FontWeight::Bold),
+                    ->color(fn(Account $r) => (float) $r->balance >= 0 ? 'success' : 'danger')
+                    ->weight(FontWeight::Bold),
                 Tables\Columns\IconColumn::make('is_active')
                     ->label('Active')
                     ->boolean(),
@@ -66,7 +70,7 @@ class AccountResource extends Resource
                 Tables\Grouping\Group::make('type')
                     ->label('Account Type')
                     ->titlePrefixedWithLabel(false)
-                    ->getTitleFromRecordUsing(fn (Account $r) => $r->type_label),
+                    ->getTitleFromRecordUsing(fn(Account $r) => $r->type_label),
             ])
             ->filters([
                 Tables\Filters\SelectFilter::make('type')
@@ -75,7 +79,7 @@ class AccountResource extends Resource
                         Account::TYPE_MASTER_FUND => 'Master Fund',
                         Account::TYPE_MEMBER_CASH => 'Member Cash',
                         Account::TYPE_MEMBER_FUND => 'Member Fund',
-                        Account::TYPE_LOAN        => 'Loan',
+                        Account::TYPE_LOAN => 'Loan',
                     ]),
             ])
             ->recordActions([
@@ -94,7 +98,7 @@ class AccountResource extends Resource
     {
         return [
             'index' => Pages\ListAccounts::route('/'),
-            'view'  => Pages\ViewAccount::route('/{record}'),
+            'view' => Pages\ViewAccount::route('/{record}'),
         ];
     }
 }

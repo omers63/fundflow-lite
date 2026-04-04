@@ -14,6 +14,8 @@ class LoanQueuePage extends Page
 {
     protected string $view = 'filament.admin.pages.loan-queue';
 
+    protected static bool $shouldRegisterNavigation = false;
+
     protected static ?string $navigationLabel = 'Loan Queue';
 
     protected static string|\BackedEnum|null $navigationIcon = null;

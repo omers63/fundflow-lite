@@ -1388,8 +1388,73 @@ New analytics widgets:
 
 MemberPipelineWidget (admin dashboard) — A funnel-style panel showing Applications → Approved → Active Members with click-through links, new-member indicators, and red-flag badges for delinquent/suspended members
 UpcomingPaymentsWidget (member dashboard) — A 3-column calendar panel for the next 3 months showing each expected contribution and loan installment, color-coded by status (paid/pending/overdue) with per-month totals
+-------------------------------------------------------
+All clean. Here's a summary of everything that was built:
 
+Accounts List page
+AccountSummaryWidget — a full-width custom blade widget added as a header widget, showing:
 
+6 stat tiles across the top: Master Cash, Master Fund, Member Cash (with count), Member Fund (with count), Loan Outstanding (with count), and a dynamically colored Coverage Ratio tile (green ≥1.5×, amber ≥1.0×, red below)
+3 analytics cards below:
+30-day Activity — credits, debits, net flow, total entry count
+Balance Distribution — horizontal progress bars showing each account type's share of total balances
+Fund Health Indicators — coverage ratio progress bar with target zone label, members-with-zero-cash alert, and a live loan exposure vs. master fund comparison
+Account View page (individual ledger)
+AccountDetailWidget — a full-width widget shown at the top of every account view:
+
+Hero balance tile — gradient card (green for positive, red for overdrawn, amber for loan accounts)
+3 stat tiles — Credits (30d), Debits (30d) with net flow, and all-time ledger entry count
+Recent 5 entries mini-table — date, credit/debit badge, color-coded amount, and description, with hover transitions
+Below the widget, the Account Details Infolist shows name, type badge, status badge, member, loan ID, balance, and timestamps in a clean 3-column layout.
+
+--------------------------------------------
+Everything is done. Here's a summary of what was built across all four pages:
+
+Loans page
+LoanStatsWidget — 6 KPI tiles in one row:
+
+Active loans (count + SAR outstanding)
+Queue (pending + approved, with requested SAR)
+Overdue installments (count + SAR, red when > 0)
+New applications this month
+Disbursed this month (SAR)
+Completed/early-settled count
+Below the KPIs: a stacked portfolio breakdown bar showing all 7 loan statuses with a legend and percentages.
+
+Contributions page
+ContributionStatsWidget — 5 KPI tiles:
+
+All-time total collected (SAR)
+This month collected + member count
+Compliance % for this month (color-coded progress bar)
+Compliance % for last month
+Late payments count (all-time)
+Below: a 6-month compliance trend bar chart with green/amber/red coloring based on rate thresholds.
+
+Members page
+MemberStatsWidget — 6 KPI tiles:
+
+Total members
+Active (with %)
+Delinquent (red when > 0)
+Suspended (amber when > 0)
+New this month
+With active loans + overdue count
+Below: Status breakdown with horizontal progress bars, average monthly contribution, and a Top 5 Contributors this year leaderboard.
+
+Applications page
+ApplicationStatsWidget — 5 KPI tiles:
+
+Pending review (amber when > 0)
+Approved (with this-month count)
+Rejected (with this-month count)
+New this month
+Average review time in days
+Below: Oldest pending applications table (most urgent first, red badge if waiting > 7 days), and a 6-month application volume bar chart with approved/rejected breakdown per month.
+
+All pages also received a descriptive subheading and the Import CSV / New buttons on the Members page are now styled consistently.
+
+------------------------------------
 
 
 
