@@ -62,6 +62,8 @@ class AdminPanelProvider extends PanelProvider
                 NavigationGroup::make(__('app.nav.group.reports')),
                 NavigationGroup::make(__('app.nav.group.settings'))
                     ->collapsed(),
+                NavigationGroup::make(__('app.nav.group.system'))
+                    ->collapsed(),
             ])
             ->viteTheme('resources/css/filament/admin/theme.css')
             ->discoverResources(in: app_path('Filament/Admin/Resources'), for: 'App\Filament\Admin\Resources')

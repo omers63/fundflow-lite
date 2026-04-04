@@ -4,6 +4,8 @@ namespace App\Filament\Admin\Resources\MemberResource\Pages;
 
 use App\Filament\Admin\Resources\MemberResource;
 use App\Filament\Admin\Widgets\MemberAccountStatsWidget;
+use App\Filament\Admin\Widgets\MemberActivityWidget;
+use App\Filament\Admin\Widgets\MemberProfileWidget;
 use Filament\Resources\Pages\EditRecord;
 
 class EditMember extends EditRecord
@@ -17,9 +19,23 @@ class EditMember extends EditRecord
 
     // ── Header widgets ───────────────────────────────────────────────────────
 
+    public function getSubheading(): ?string
+    {
+        return 'Edit member details — changes are saved together with their linked user and application records.';
+    }
+
     protected function getHeaderWidgets(): array
     {
-        return [MemberAccountStatsWidget::class];
+        return [
+            MemberAccountStatsWidget::class,
+            MemberProfileWidget::class,
+            MemberActivityWidget::class,
+        ];
+    }
+
+    public function getHeaderWidgetsColumns(): int|array
+    {
+        return 1;
     }
 
     protected function getWidgetsData(): array
@@ -131,11 +147,11 @@ class EditMember extends EditRecord
      */
     protected function afterSave(): void
     {
-        if (! empty($this->pendingUserUpdates)) {
+        if (!empty($this->pendingUserUpdates)) {
             $this->record->user->update($this->pendingUserUpdates);
         }
 
-        if (! empty($this->pendingAppUpdates)) {
+        if (!empty($this->pendingAppUpdates)) {
             $this->record->user->membershipApplication()->updateOrCreate(
                 ['user_id' => $this->record->user_id],
                 $this->pendingAppUpdates,

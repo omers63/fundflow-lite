@@ -2,93 +2,96 @@
 
 namespace App\Filament\Admin\Widgets;
 
-use App\Models\Loan;
+use App\Models\Contribution;
 use App\Models\LoanInstallment;
 use App\Models\Member;
-use Filament\Widgets\StatsOverviewWidget as BaseWidget;
-use Filament\Widgets\StatsOverviewWidget\Stat;
+use App\Models\Setting;
+use Filament\Widgets\Widget;
 
-class MemberAccountStatsWidget extends BaseWidget
+class MemberAccountStatsWidget extends Widget
 {
+    protected string $view = 'filament.admin.widgets.member-account-stats';
+
     public ?Member $record = null;
 
-    protected function getStats(): array
+    protected int|string|array $columnSpan = 'full';
+
+    public function getColumnSpan(): int|string|array
     {
-        if (! $this->record) {
-            return [];
+        return 'full';
+    }
+
+    public function getData(): array
+    {
+        if (!$this->record) {
+            return ['hasRecord' => false];
         }
 
         $member = $this->record->load(['accounts', 'loans']);
 
-        // ── Account balances ─────────────────────────────────────────────────
         $cashBalance = (float) ($member->cashAccount()?->balance ?? 0);
         $fundBalance = (float) ($member->fundAccount()?->balance ?? 0);
+        $minFund = Setting::loanMinFundBalance();
+        $fundPct = $minFund > 0 ? min(100, round($fundBalance / $minFund * 100)) : 100;
 
-        // ── Late contributions ────────────────────────────────────────────────
         $lateCount = (int) ($member->late_contributions_count ?? 0);
         $lateAmount = (float) ($member->late_contributions_amount ?? 0);
 
-        // ── Active / disbursed loans ──────────────────────────────────────────
-        $activeLoans = $member->loans()
-            ->whereIn('status', ['active', 'approved', 'disbursed'])
-            ->get();
-
-        $activeCount = $activeLoans->count();
-        $outstandingAmount = 0.0;
-
+        $activeLoans = $member->loans()->whereIn('status', ['active', 'approved', 'disbursed'])->get();
+        $activeLoansCount = $activeLoans->count();
+        $outstandingAmt = 0.0;
         foreach ($activeLoans as $loan) {
-            // Sum unpaid installments for each active loan
-            $outstandingAmount += (float) LoanInstallment::where('loan_id', $loan->id)
+            $outstandingAmt += (float) LoanInstallment::where('loan_id', $loan->id)
                 ->whereIn('status', ['pending', 'overdue'])
                 ->sum('amount');
         }
 
-        // ── Late loan repayments ──────────────────────────────────────────────
+        $overdueInstallments = LoanInstallment::whereHas('loan', fn($q) => $q->where('member_id', $member->id))
+            ->where('status', 'overdue')
+            ->count();
+
         $lateRepayCount = (int) ($member->late_repayment_count ?? 0);
         $lateRepayAmount = (float) ($member->late_repayment_amount ?? 0);
 
-        // ── Colour helpers ────────────────────────────────────────────────────
-        $cashColor = match (true) {
-            $cashBalance >= 1000 => 'success',
-            $cashBalance > 0 => 'warning',
-            default => 'danger',
-        };
-        $fundColor = match (true) {
-            $fundBalance >= 6000 => 'success',
-            $fundBalance > 0 => 'warning',
-            default => 'danger',
-        };
+        $totalContributions = (float) Contribution::where('member_id', $member->id)->sum('amount');
+        $contribCount = Contribution::where('member_id', $member->id)->count();
+
+        $eligibilityMonths = Setting::loanEligibilityMonths();
+        $eligible = $member->joined_at
+            && $member->joined_at->addMonths($eligibilityMonths)->isPast()
+            && $fundBalance >= $minFund;
+
+        $maxBorrow = $fundBalance * Setting::loanMaxBorrowMultiplier();
+
+        $nextInstallment = LoanInstallment::whereHas('loan', fn($q) => $q->where('member_id', $member->id))
+            ->where('status', 'pending')
+            ->orderBy('due_date')
+            ->first();
+
+        $now = now();
+        $paidThisMonth = Contribution::where('member_id', $member->id)
+            ->where('month', $now->month)->where('year', $now->year)->exists();
 
         return [
-            Stat::make('Cash Balance', 'SAR '.number_format($cashBalance, 2))
-                ->description('Member cash account')
-                ->descriptionIcon('heroicon-o-banknotes')
-                ->icon('heroicon-o-banknotes')
-                ->color($cashColor),
-
-            Stat::make('Fund Balance', 'SAR '.number_format($fundBalance, 2))
-                ->description($fundBalance >= 6000 ? 'Loan-eligible balance' : 'Below SAR 6,000 loan threshold')
-                ->descriptionIcon($fundBalance >= 6000 ? 'heroicon-o-check-circle' : 'heroicon-o-exclamation-circle')
-                ->icon('heroicon-o-building-library')
-                ->color($fundColor),
-
-            Stat::make('Late Contributions', $lateCount.' occurrence'.($lateCount !== 1 ? 's' : ''))
-                ->description('SAR '.number_format($lateAmount, 2).' total late amount')
-                ->descriptionIcon($lateCount > 0 ? 'heroicon-o-exclamation-triangle' : 'heroicon-o-check-circle')
-                ->icon('heroicon-o-clock')
-                ->color($lateCount > 0 ? 'warning' : 'success'),
-
-            Stat::make('Active Loans', $activeCount.' loan'.($activeCount !== 1 ? 's' : ''))
-                ->description('SAR '.number_format($outstandingAmount, 2).' outstanding installments')
-                ->descriptionIcon($activeCount > 0 ? 'heroicon-o-credit-card' : 'heroicon-o-check-circle')
-                ->icon('heroicon-o-credit-card')
-                ->color($activeCount > 0 ? 'info' : 'success'),
-
-            Stat::make('Late Loan Repayments', $lateRepayCount.' occurrence'.($lateRepayCount !== 1 ? 's' : ''))
-                ->description('SAR '.number_format($lateRepayAmount, 2).' total late repayments')
-                ->descriptionIcon($lateRepayCount > 0 ? 'heroicon-o-exclamation-triangle' : 'heroicon-o-check-circle')
-                ->icon('heroicon-o-arrow-path')
-                ->color($lateRepayCount > 0 ? 'danger' : 'success'),
+            'hasRecord' => true,
+            'cash_balance' => $cashBalance,
+            'fund_balance' => $fundBalance,
+            'fund_pct' => $fundPct,
+            'min_fund' => $minFund,
+            'net_worth' => $cashBalance + $fundBalance,
+            'total_contributions' => $totalContributions,
+            'contrib_count' => $contribCount,
+            'late_count' => $lateCount,
+            'late_amount' => $lateAmount,
+            'active_loans_count' => $activeLoansCount,
+            'outstanding_amt' => $outstandingAmt,
+            'overdue_installments' => $overdueInstallments,
+            'late_repay_count' => $lateRepayCount,
+            'late_repay_amount' => $lateRepayAmount,
+            'eligible' => $eligible,
+            'max_borrow' => $maxBorrow,
+            'next_installment' => $nextInstallment,
+            'paid_this_month' => $paidThisMonth,
         ];
     }
 }

@@ -1662,6 +1662,42 @@ ContributionHistoryWidget
 Plain bar ChartWidget
 Full-width card with 4 summary tiles (on-time, late, missed, total), color-coded bar chart rendered via Alpine.js, and a color-key legend footer
 All chart widgets use wire:ignore + this.$nextTick() to initialize Chart.js safely without conflicting with Livewire's DOM diffing.
+------------------------------------------------
+Here’s what was added and how it behaves.
+
+Navigation
+AdminPanelProvider: New group System (__('app.nav.group.system')), collapsed by default like Settings.
+Translations: lang/en/app.php → 'System'; lang/ar/app.php → 'النظام'.
+Pages (auto-discovered under App\Filament\Admin\Pages)
+BackupDatabasePage — “Backup Database”, heroicon-o-arrow-down-tray, sort 1.
+Header action + in-page button → GET /admin/system/backup-download (named admin.system.backup-download).
+PurgeDatabasePage — “Purge Database”, heroicon-o-trash, sort 2.
+Lists tables that will be truncated, tables always skipped, and tables skipped because they have deleted_at.
+Purge now opens a modal: you must type PURGE to confirm.
+Backup (DatabaseMaintenanceService + DatabaseBackupDownloadController)
+SQLite: downloads the configured DB file (.sqlite).
+MySQL / MariaDB: runs mysqldump (must be on PATH) and streams a .sql file.
+Route is protected: user must pass canAccessPanel(admin) (same rule as the admin panel).
+Purge rules (DatabaseMaintenanceService)
+Truncates only tables that:
+exist, and
+do not have a deleted_at column, and
+are not in the protected list.
+Never truncates: migrations, users, password_reset_tokens, sessions, cache, cache_locks, jobs, job_batches, failed_jobs, and Spatie permission.php table names.
+Uses Schema::disableForeignKeyConstraints() / enableForeignKeyConstraints() around truncates.
+Table names from Schema::getTableListing() are deduped (SQLite was returning duplicates).
+Files touched / added
+app/Services/DatabaseMaintenanceService.php
+app/Http/Controllers/Admin/DatabaseBackupDownloadController.php
+app/Filament/Admin/Pages/BackupDatabasePage.php
+app/Filament/Admin/Pages/PurgeDatabasePage.php
+resources/views/filament/admin/pages/backup-database.blade.php
+resources/views/filament/admin/pages/purge-database.blade.php
+routes/web.php
+app/Providers/Filament/AdminPanelProvider.php
+lang/en/app.php, lang/ar/app.php
+If you use Filament Shield, run your usual permission sync (e.g. shield:generate) so roles can access the new pages if you lock navigation by permission.
+
 
 
 
