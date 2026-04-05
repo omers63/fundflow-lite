@@ -204,6 +204,8 @@ class BankImportTemplateResource extends Resource
                 Tables\Filters\SelectFilter::make('bank_id')
                     ->label('Bank')
                     ->options(Bank::active()->pluck('name', 'id')),
+                Tables\Filters\TernaryFilter::make('is_default')->label('Default template'),
+                Tables\Filters\TernaryFilter::make('has_header')->label('Has header row'),
             ])
             ->recordActions([
                 EditAction::make(),

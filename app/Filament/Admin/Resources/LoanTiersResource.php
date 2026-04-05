@@ -56,10 +56,13 @@ class LoanTiersResource extends Resource
                 Tables\Columns\TextColumn::make('min_amount')->label('Min Amount')->money('SAR'),
                 Tables\Columns\TextColumn::make('max_amount')->label('Max Amount')->money('SAR'),
                 Tables\Columns\TextColumn::make('min_monthly_installment')->label('Min Installment/mo')->money('SAR'),
-                Tables\Columns\TextColumn::make('active_loans_count')->label('Active Loans')->getStateUsing(fn (LoanTier $r) => $r->active_loans_count),
+                Tables\Columns\TextColumn::make('active_loans_count')->label('Active Loans')->getStateUsing(fn(LoanTier $r) => $r->active_loans_count),
                 Tables\Columns\IconColumn::make('is_active')->label('Active')->boolean(),
             ])
             ->defaultSort('tier_number')
+            ->filters([
+                Tables\Filters\TernaryFilter::make('is_active')->label('Active'),
+            ])
             ->recordActions([EditAction::make(), DeleteAction::make()])
             ->reorderable('tier_number');
     }

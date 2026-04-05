@@ -1698,6 +1698,102 @@ app/Providers/Filament/AdminPanelProvider.php
 lang/en/app.php, lang/ar/app.php
 If you use Filament Shield, run your usual permission sync (e.g. shield:generate) so roles can access the new pages if you lock navigation by permission.
 
+----------------------------------------
+Everything built cleanly. Here's a summary of what was built:
+
+What was done
+Three new custom widgets now adorn both the View Member and Edit Member pages, each rendered full-width in its own row:
+
+1. MemberAccountStatsWidget (Financial KPIs)
+A 6-tile KPI row with color-coded cards showing:
+
+Cash Balance — green/amber/red based on amount, with contextual icon
+Fund Balance — includes a mini progress bar towards the SAR 6,000 loan-eligibility threshold
+Net Worth — combined cash+fund, with loan eligibility status
+Max Loan — calculated max borrowable amount based on fund multiplier setting
+Contributions — total paid, with late count highlighted in amber
+Repayments — overdue installments in red, late count in amber, "On track" in green
+Below the tiles, contextual alert strips appear if the current month's contribution is unpaid or a loan installment is due soon.
+
+2. MemberProfileWidget (Identity Card)
+A rich card with a dark gradient header banner showing:
+
+Avatar (initial letter), member number, status badge, and loan-eligibility badge
+Key metric chips: months active, compliance %, monthly allocation
+Three content columns: Contact (email, phone, DoB, city, national ID, gender), Employment & Finance (occupation, employer, income, next-of-kin), Membership (compliance progress bar, loan eligibility date, parent/sponsor, dependent list)
+3. MemberActivityWidget (Activity & History)
+A two-column layout:
+
+Left — Contribution History: A 12-month color-coded heatmap grid (emerald = paid, amber = late/short, red = missed, dashed = future) plus a bar chart (Chart.js + Alpine.js) showing monthly paid amounts
+Right — Loan & Installment History: Two stacked cards showing recent loans with status badges and recent installments with paid/overdue/late status
+--------------------------------------------------
+Here is where things stand after the handoff and this pass.
+
+Safe deletion (already in place from the earlier work)
+Bank / SMS transactions: Single and bulk delete go through AccountingService so posted ledger lines are reversed and removed before the source row is deleted.
+Account ledger lines (TransactionsRelationManager): Delete reverses the line’s effect on the account balance first; the UI warns about paired postings.
+Members: MemberDeletionService blocks deletes when there are non–rejected/cancelled contributions or loans; otherwise it cleans dependents, related import txs, accounts (and cascaded ledger), then member and user.
+Table filters — completed / extended
+Date range filters on applications, contributions, loans, and the account ledger relation manager now use the form data correctly inside when() (no wrong second argument).
+Monthly statements: member, exact YYYY-MM period, and year (period LIKE '2026-%').
+Bank / SMS import history: template, imported by user, pending in status list, and import date range.
+Banks: active / inactive ternary.
+Fund tiers: linked loan tier + active ternary.
+Loan tiers: active ternary.
+Bank / SMS import templates: default template; bank templates also has header; SMS templates also default transaction type.
+Pint was run on the touched resources; it reformatted SmsImportSessionResource.php.
+
+What you should double-check locally
+Permissions (e.g. Filament Shield): ensure roles have delete (and bulk delete where applicable) for members, bank/SMS transactions, and account updates if ledger deletes are restricted.
+Bulk delete UX: confirm notifications for partial failures match what you want (only failures surfaced in custom loops).
+If you want relation managers or member-panel tables to get the same filter treatment, say which screens and we can align them with these patterns.
+------------------------------------------------------
+Here is what was added so relation managers and the member panel match the same filtering style as the main admin resources.
+
+Admin relation managers
+MemberResource\AccountsRelationManager — Account type (cash / fund / loan), active, loan-linked vs not, balance min/max.
+MemberResource\LoansRelationManager — Status, loan tier, fund tier, emergency, disbursed, applied date range, requested amount range, approved amount range.
+MemberResource\ContributionsRelationManager — Late column + filters: month, year, payment method, late ternary, paid date range, amount range.
+MemberResource\DependentsRelationManager — Status, monthly allocation, cash balance min/max (via member cash account).
+LoanResource\InstallmentsRelationManager — Status, due date range, amount min/max, paid date range.
+AccountResource\TransactionsRelationManager — Member filter (plus existing entry type, datetime, source type, amount).
+BankImportSessionResource\TransactionsRelationManager — Member, transaction date range, amount min/max (plus existing type / duplicate / posted).
+SmsImportSessionResource\TransactionsRelationManager — Same as bank session RM.
+Also removed a duplicate use Filament\Forms and duplicate Member import so the app boots cleanly.
+
+Member panel resources
+MyContributionsResource — Late column + month, year, payment method, late ternary, paid range, amount range.
+MyLoansResource — Same filter set as admin LoanResource except member (always “me”).
+MyInstallmentsResource — Loan picker (your loans only), status, due range, amount range, paid range.
+MyDependentsResource — Same idea as admin dependents RM: status, allocation, cash balance range.
+MyStatementsResource — Period YYYY-MM, year, closing balance min/max.
+vendor/bin/pint was run on these paths; a few relation managers were auto-styled.
+
+If you want filters on dashboard table widgets (e.g. BankTransactionsTableWidget) as well, that can be a follow-up—those are separate from resources/relation managers.
+
+-----------------------------------------------------
+Here is what was implemented.
+
+AccountingService::safeDeleteLoan(Loan $loan)
+Inside a single DB transaction it:
+
+Collects all account_transactions whose source is this loan (disbursement, imported bulk repayments) or any of its installments (fund repayments, cash debits, guarantor debits).
+Reverses each line with the existing applyLedgerEntryReversal helper (balances stay consistent).
+Picks up any remaining lines on the loan’s virtual account (orphan/straggler rows) and reverses those too.
+Deletes all installments for the loan.
+Deletes the loan Account row (type = loan, loan_id set).
+Deletes the loan record.
+Filament UI
+LoanResource (list) — row Delete and Delete selected bulk action, both using safeDeleteLoan, with confirmation copy explaining ledger reversal.
+ViewLoan — header Delete with the same behavior.
+MemberResource → Loans relation manager — row Delete and bulk delete for consistency.
+Access is still governed by LoanPolicy (Delete:Loan / DeleteAny:Loan via Shield), same as other resources.
+
+Operational note
+This is a full accounting unwind of that loan: use it when correcting imports, bad data, or test loans. For normal “stop this application” flows, Cancel / Reject remain the right product actions because they keep history and notifications.
+
+-------------------------------------------------------
+
 
 
 

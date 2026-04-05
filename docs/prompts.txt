@@ -133,8 +133,8 @@ Finally, Modernize and beautify both dashboard pages similar to the way you did 
 Modernize and beautify the remaining widgets in the admin/member dashboard similar to the way you did the "Loan Queue". Add any useful and informative analytical styling as you see fit. Use beautiful and proper layout scheme and Theming/Styling.
 Create a new "System" navigation group. Under system, create a navigation menu to "Backup Database". Another navigation menu to perform "Purge Database". The "Purge Database" action should include tables that has no "deleted_at" column.
 Modernize and beautify both view/edit member pages, inluding widgets similar to the way you did the "Loan Queue". Add any additional useful and informative analytical widgets as you see fit. Use beautiful and proper layout scheme and Theming/Styling.
-
- 
+I want to be able to safely delete any transaction and/or any member, both single record or in bulk. Also I want to expand table filters for all tables to include useful and relevant columns.
+I want to be able to safely delete loan single/bulk. 
 
 
  

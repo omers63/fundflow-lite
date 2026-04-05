@@ -3,6 +3,7 @@
 namespace App\Filament\Member\Resources;
 
 use App\Filament\Member\Resources\MyLoansResource\Pages;
+use App\Models\FundTier;
 use App\Models\Loan;
 use App\Models\LoanTier;
 use App\Models\Member;
@@ -41,18 +42,18 @@ class MyLoansResource extends Resource
     public static function table(Table $table): Table
     {
         // Resolve member and eligibility once per request
-        $myMember = fn () => Member::where('user_id', auth()->id())->first();
+        $myMember = fn() => Member::where('user_id', auth()->id())->first();
         $eligService = app(LoanEligibilityService::class);
 
         $member = $myMember();
         $eligible = $member ? $eligService->isEligible($member) : false;
         $eligCtx = $member ? $eligService->context($member) : null;
-        $blockReason = ($member && ! $eligible)
+        $blockReason = ($member && !$eligible)
             ? $eligService->getIneligibilityReason($member)
             : '';
 
         return $table
-            ->query(fn () => Loan::whereHas('member', fn ($q) => $q->where('user_id', auth()->id()))
+            ->query(fn() => Loan::whereHas('member', fn($q) => $q->where('user_id', auth()->id()))
                 ->with(['loanTier', 'fundTier', 'guarantor.user']))
             ->columns([
                 Tables\Columns\IconColumn::make('is_emergency')
@@ -67,11 +68,11 @@ class MyLoansResource extends Resource
                 Tables\Columns\TextColumn::make('amount_approved')->label('Approved')->money('SAR')->placeholder('—'),
                 Tables\Columns\TextColumn::make('installments_count')
                     ->label('Months')
-                    ->description(fn (Loan $r) => $r->loanTier
-                        ? 'SAR '.number_format($r->loanTier->min_monthly_installment).'/mo'
+                    ->description(fn(Loan $r) => $r->loanTier
+                        ? 'SAR ' . number_format($r->loanTier->min_monthly_installment) . '/mo'
                         : null),
                 Tables\Columns\TextColumn::make('status')->badge()
-                    ->color(fn (string $state) => match ($state) {
+                    ->color(fn(string $state) => match ($state) {
                         'pending' => 'warning',
                         'approved' => 'info',
                         'active' => 'success',
@@ -80,10 +81,69 @@ class MyLoansResource extends Resource
                         default => 'gray',
                     }),
                 Tables\Columns\TextColumn::make('late_repayment_count')->label('Late #')
-                    ->badge()->color(fn ($state) => $state > 0 ? 'warning' : 'success'),
+                    ->badge()->color(fn($state) => $state > 0 ? 'warning' : 'success'),
                 Tables\Columns\TextColumn::make('applied_at')->dateTime('d M Y')->sortable(),
             ])
             ->defaultSort('applied_at', 'desc')
+            ->filters([
+                Tables\Filters\SelectFilter::make('status')->options([
+                    'pending' => 'Pending',
+                    'approved' => 'Approved',
+                    'active' => 'Active',
+                    'completed' => 'Completed',
+                    'early_settled' => 'Early Settled',
+                    'rejected' => 'Rejected',
+                    'cancelled' => 'Cancelled',
+                ]),
+                Tables\Filters\SelectFilter::make('loan_tier_id')
+                    ->label('Loan tier')
+                    ->options(fn() => LoanTier::query()->orderBy('tier_number')->pluck('label', 'id')),
+                Tables\Filters\SelectFilter::make('fund_tier_id')
+                    ->label('Fund tier')
+                    ->options(fn() => FundTier::query()->orderBy('label')->pluck('label', 'id')),
+                Tables\Filters\TernaryFilter::make('is_emergency')->label('Emergency'),
+                Tables\Filters\TernaryFilter::make('disbursed')
+                    ->label('Disbursed')
+                    ->trueLabel('Disbursed')
+                    ->falseLabel('Not disbursed')
+                    ->queries(
+                        true: fn($q) => $q->whereNotNull('disbursed_at'),
+                        false: fn($q) => $q->whereNull('disbursed_at'),
+                    ),
+                Tables\Filters\Filter::make('applied_at')
+                    ->schema([
+                        Forms\Components\DatePicker::make('from')->label('Applied from'),
+                        Forms\Components\DatePicker::make('until')->label('Applied until'),
+                    ])
+                    ->columns(2)
+                    ->query(function ($query, array $data) {
+                        return $query
+                            ->when($data['from'] ?? null, fn($q) => $q->whereDate('applied_at', '>=', $data['from']))
+                            ->when($data['until'] ?? null, fn($q) => $q->whereDate('applied_at', '<=', $data['until']));
+                    }),
+                Tables\Filters\Filter::make('amount_requested')
+                    ->schema([
+                        Forms\Components\TextInput::make('min')->label('Min requested (SAR)')->numeric(),
+                        Forms\Components\TextInput::make('max')->label('Max requested (SAR)')->numeric(),
+                    ])
+                    ->columns(2)
+                    ->query(function ($query, array $data) {
+                        return $query
+                            ->when(filled($data['min'] ?? null), fn($q) => $q->where('amount_requested', '>=', $data['min']))
+                            ->when(filled($data['max'] ?? null), fn($q) => $q->where('amount_requested', '<=', $data['max']));
+                    }),
+                Tables\Filters\Filter::make('amount_approved')
+                    ->schema([
+                        Forms\Components\TextInput::make('min')->label('Min approved (SAR)')->numeric(),
+                        Forms\Components\TextInput::make('max')->label('Max approved (SAR)')->numeric(),
+                    ])
+                    ->columns(2)
+                    ->query(function ($query, array $data) {
+                        return $query
+                            ->when(filled($data['min'] ?? null), fn($q) => $q->where('amount_approved', '>=', $data['min']))
+                            ->when(filled($data['max'] ?? null), fn($q) => $q->where('amount_approved', '<=', $data['max']));
+                    }),
+            ])
             ->headerActions([
 
                 // ── NOT ELIGIBLE: show why, no form ──────────────────────────
@@ -91,14 +151,14 @@ class MyLoansResource extends Resource
                     ->label('Apply for Loan')
                     ->icon('heroicon-o-lock-closed')
                     ->color('gray')
-                    ->visible(! $eligible)
+                    ->visible(!$eligible)
                     ->requiresConfirmation()
                     ->modalIcon('heroicon-o-exclamation-circle')
                     ->modalIconColor('warning')
                     ->modalHeading('Loan Application — Not Yet Eligible')
                     ->modalDescription($blockReason ?: 'You are currently not eligible to apply for a loan.')
                     ->modalSubmitActionLabel('I Understand')
-                    ->action(fn () => null), // informational only
+                    ->action(fn() => null), // informational only
 
                 // ── ELIGIBLE: full application form ──────────────────────────
                 Action::make('apply_loan')
@@ -110,7 +170,7 @@ class MyLoansResource extends Resource
                     // Layer 1: gate before the modal opens
                     ->before(function (Action $action) use ($myMember, $eligService) {
                         $member = $myMember();
-                        if (! $member || ! $eligService->isEligible($member)) {
+                        if (!$member || !$eligService->isEligible($member)) {
                             Notification::make()
                                 ->title('No Longer Eligible')
                                 ->body($member
@@ -131,13 +191,13 @@ class MyLoansResource extends Resource
                             Forms\Components\Placeholder::make('eligibility_banner')
                                 ->label('')
                                 ->content(function () use ($eligCtx, $maxAmt) {
-                                    if (! $eligCtx) {
+                                    if (!$eligCtx) {
                                         return '—';
                                     }
 
                                     return '✅ Eligible to apply '
-                                        .'| Fund balance: SAR '.number_format($eligCtx['fund_balance'], 2)
-                                        .' | Max loan: SAR '.number_format($maxAmt);
+                                        . '| Fund balance: SAR ' . number_format($eligCtx['fund_balance'], 2)
+                                        . ' | Max loan: SAR ' . number_format($maxAmt);
                                 })
                                 ->columnSpanFull(),
 
@@ -148,14 +208,14 @@ class MyLoansResource extends Resource
                                 ->maxValue($maxAmt > 0 ? $maxAmt : 300000)
                                 ->helperText(
                                     $maxAmt > 0
-                                    ? 'Maximum: SAR '.number_format($maxAmt).' (2× your fund balance)'
+                                    ? 'Maximum: SAR ' . number_format($maxAmt) . ' (2× your fund balance)'
                                     : 'Maximum could not be determined'
                                 ),
 
                             Forms\Components\Placeholder::make('repayment_estimate')
                                 ->label('Estimated Repayment Period')
                                 ->content(function () use ($member) {
-                                    if (! $member) {
+                                    if (!$member) {
                                         return '—';
                                     }
                                     $fundBal = (float) ($member->fundAccount()?->balance ?? 0);
@@ -174,16 +234,16 @@ class MyLoansResource extends Resource
                                             (float) $tier->min_monthly_installment,
                                             $threshold
                                         );
-                                        $lines[] = "{$tier->label}: SAR ".number_format($sampleAmt)
-                                            ." → {$count} months × SAR "
-                                            .number_format($tier->min_monthly_installment).'/mo';
+                                        $lines[] = "{$tier->label}: SAR " . number_format($sampleAmt)
+                                            . " → {$count} months × SAR "
+                                            . number_format($tier->min_monthly_installment) . '/mo';
                                     }
 
                                     return empty($lines)
                                         ? 'Repayment period is computed automatically at approval.'
-                                        : 'For your fund balance of SAR '.number_format($fundBal).":\n"
-                                        .implode("\n", $lines)
-                                        ."\n\nFinal period confirmed at approval.";
+                                        : 'For your fund balance of SAR ' . number_format($fundBal) . ":\n"
+                                        . implode("\n", $lines)
+                                        . "\n\nFinal period confirmed at approval.";
                                 })
                                 ->columnSpanFull(),
 
@@ -201,9 +261,9 @@ class MyLoansResource extends Resource
                                     $me = $myMember();
 
                                     return Member::active()->with('user')
-                                        ->when($me, fn ($q) => $q->where('id', '!=', $me->id))
+                                        ->when($me, fn($q) => $q->where('id', '!=', $me->id))
                                         ->get()
-                                        ->mapWithKeys(fn ($m) => [$m->id => "{$m->member_number} – {$m->user->name}"]);
+                                        ->mapWithKeys(fn($m) => [$m->id => "{$m->member_number} – {$m->user->name}"]);
                                 })
                                 ->searchable()->required()
                                 ->helperText('Must be an active member willing to guarantee your loan.'),
@@ -223,13 +283,13 @@ class MyLoansResource extends Resource
                     ->action(function (array $data) use ($myMember, $eligService) {
                         $member = $myMember();
 
-                        if (! $member) {
+                        if (!$member) {
                             Notification::make()->title('Member record not found')->danger()->send();
 
                             return;
                         }
 
-                        if (! $eligService->isEligible($member)) {
+                        if (!$eligService->isEligible($member)) {
                             Notification::make()
                                 ->title('Loan Submission Rejected — Not Eligible')
                                 ->body($eligService->getIneligibilityReason($member))
@@ -245,8 +305,8 @@ class MyLoansResource extends Resource
                         if ($amount > $maxAmt) {
                             Notification::make()
                                 ->title('Amount Exceeds Maximum')
-                                ->body('Maximum loan amount is SAR '.number_format($maxAmt)
-                                    .' (2× your fund balance of SAR '.number_format($maxAmt / 2).').')
+                                ->body('Maximum loan amount is SAR ' . number_format($maxAmt)
+                                    . ' (2× your fund balance of SAR ' . number_format($maxAmt / 2) . ').')
                                 ->danger()
                                 ->send();
 
@@ -297,7 +357,7 @@ class MyLoansResource extends Resource
                     ->label('Cancel')
                     ->icon('heroicon-o-x-circle')
                     ->color('danger')
-                    ->visible(fn (Loan $r) => $r->status === 'pending')
+                    ->visible(fn(Loan $r) => $r->status === 'pending')
                     ->requiresConfirmation()
                     ->modalHeading('Cancel Loan Application')
                     ->modalDescription('Are you sure you want to cancel this loan application?')

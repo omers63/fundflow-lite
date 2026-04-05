@@ -502,6 +502,193 @@ class AccountingService
     }
 
     // =========================================================================
+    // Safe deletion: reverse ledger effects, then remove rows
+    // =========================================================================
+
+    /**
+     * Reverse one ledger line (adjust account balance oppositely) and delete the row.
+     */
+    public function reverseSingleLedgerEntry(AccountTransaction $entry): void
+    {
+        DB::transaction(function () use ($entry) {
+            $this->applyLedgerEntryReversal($entry);
+        });
+    }
+
+    /** Must run inside an outer DB transaction when batching. */
+    private function applyLedgerEntryReversal(AccountTransaction $entry): void
+    {
+        $account = Account::query()->lockForUpdate()->findOrFail($entry->account_id);
+
+        if ($entry->entry_type === 'credit') {
+            $account->decrement('balance', $entry->amount);
+        } else {
+            $account->increment('balance', $entry->amount);
+        }
+
+        $entry->delete();
+    }
+
+    /**
+     * Remove cash postings for a bank import line (master + member cash) and clear posted flags.
+     */
+    public function reverseBankTransactionPosting(BankTransaction $tx): void
+    {
+        if (! $tx->isPosted()) {
+            return;
+        }
+
+        DB::transaction(function () use ($tx) {
+            $entries = AccountTransaction::query()
+                ->where('source_type', BankTransaction::class)
+                ->where('source_id', $tx->id)
+                ->lockForUpdate()
+                ->get();
+
+            foreach ($entries as $entry) {
+                $this->applyLedgerEntryReversal($entry);
+            }
+
+            $tx->update([
+                'posted_at' => null,
+                'posted_by' => null,
+                'member_id' => null,
+            ]);
+        });
+    }
+
+    /**
+     * Remove cash postings for an SMS import line (master + member cash) and clear posted flags.
+     */
+    public function reverseSmsTransactionPosting(SmsTransaction $tx): void
+    {
+        if (! $tx->isPosted()) {
+            return;
+        }
+
+        DB::transaction(function () use ($tx) {
+            $entries = AccountTransaction::query()
+                ->where('source_type', SmsTransaction::class)
+                ->where('source_id', $tx->id)
+                ->lockForUpdate()
+                ->get();
+
+            foreach ($entries as $entry) {
+                $this->applyLedgerEntryReversal($entry);
+            }
+
+            $tx->update([
+                'posted_at' => null,
+                'posted_by' => null,
+                'member_id' => null,
+            ]);
+        });
+    }
+
+    public function safeDeleteBankTransaction(BankTransaction $tx): void
+    {
+        DB::transaction(function () use ($tx) {
+            if ($tx->isPosted()) {
+                $entries = AccountTransaction::query()
+                    ->where('source_type', BankTransaction::class)
+                    ->where('source_id', $tx->id)
+                    ->lockForUpdate()
+                    ->get();
+                foreach ($entries as $entry) {
+                    $this->applyLedgerEntryReversal($entry);
+                }
+            }
+            $tx->delete();
+        });
+    }
+
+    public function safeDeleteSmsTransaction(SmsTransaction $tx): void
+    {
+        DB::transaction(function () use ($tx) {
+            if ($tx->isPosted()) {
+                $entries = AccountTransaction::query()
+                    ->where('source_type', SmsTransaction::class)
+                    ->where('source_id', $tx->id)
+                    ->lockForUpdate()
+                    ->get();
+                foreach ($entries as $entry) {
+                    $this->applyLedgerEntryReversal($entry);
+                }
+            }
+            $tx->delete();
+        });
+    }
+
+    /**
+     * Delete a single ledger entry after reversing its effect on the account balance.
+     * Does not attempt to repair paired entries from the same source.
+     */
+    public function safeDeleteAccountTransaction(AccountTransaction $entry): void
+    {
+        $this->reverseSingleLedgerEntry($entry);
+    }
+
+    /**
+     * Reverse every ledger line tied to this loan (disbursement, bulk import repayments,
+     * per-installment fund repayments, cash debits, guarantor debits), remove installments,
+     * drop the loan virtual account, then delete the loan row.
+     */
+    public function safeDeleteLoan(Loan $loan): void
+    {
+        DB::transaction(function () use ($loan) {
+            $loan->refresh();
+            $installmentIds = $loan->installments()->pluck('id')->all();
+
+            $entries = AccountTransaction::query()
+                ->where(function ($q) use ($loan, $installmentIds) {
+                    $q->where(function ($q2) use ($loan) {
+                        $q2->where('source_type', Loan::class)
+                            ->where('source_id', $loan->id);
+                    });
+                    if ($installmentIds !== []) {
+                        $q->orWhere(function ($q2) use ($installmentIds) {
+                            $q2->where('source_type', LoanInstallment::class)
+                                ->whereIn('source_id', $installmentIds);
+                        });
+                    }
+                })
+                ->orderBy('id')
+                ->lockForUpdate()
+                ->get();
+
+            foreach ($entries as $entry) {
+                $this->applyLedgerEntryReversal($entry);
+            }
+
+            $loanAccountIds = Account::query()
+                ->where('type', Account::TYPE_LOAN)
+                ->where('loan_id', $loan->id)
+                ->pluck('id');
+
+            if ($loanAccountIds->isNotEmpty()) {
+                $stragglers = AccountTransaction::query()
+                    ->whereIn('account_id', $loanAccountIds)
+                    ->orderBy('id')
+                    ->lockForUpdate()
+                    ->get();
+
+                foreach ($stragglers as $entry) {
+                    $this->applyLedgerEntryReversal($entry);
+                }
+            }
+
+            $loan->installments()->delete();
+
+            Account::query()
+                ->where('type', Account::TYPE_LOAN)
+                ->where('loan_id', $loan->id)
+                ->delete();
+
+            $loan->delete();
+        });
+    }
+
+    // =========================================================================
     // Internal: create one ledger entry and update the account balance atomically
     // =========================================================================
 

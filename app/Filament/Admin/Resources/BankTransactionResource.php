@@ -11,6 +11,8 @@ use App\Services\AccountingService;
 use Filament\Actions\Action;
 use Filament\Actions\BulkAction;
 use Filament\Actions\BulkActionGroup;
+use Filament\Actions\DeleteAction;
+use Filament\Actions\DeleteBulkAction;
 use Filament\Actions\ViewAction;
 use Filament\Forms;
 use Filament\Notifications\Notification;
@@ -154,6 +156,21 @@ class BankTransactionResource extends Resource
                         ->when($data['date_from'], fn($q, $v) => $q->whereDate('transaction_date', '>=', $v))
                         ->when($data['date_to'], fn($q, $v) => $q->whereDate('transaction_date', '<=', $v)))
                     ->columns(2),
+                Tables\Filters\SelectFilter::make('member_id')
+                    ->label('Member')
+                    ->searchable()
+                    ->options($memberOptions),
+                Tables\Filters\Filter::make('amount')
+                    ->schema([
+                        Forms\Components\TextInput::make('amount_min')->label('Min amount (SAR)')->numeric(),
+                        Forms\Components\TextInput::make('amount_max')->label('Max amount (SAR)')->numeric(),
+                    ])
+                    ->columns(2)
+                    ->query(function ($query, array $data) {
+                        return $query
+                            ->when(filled($data['amount_min'] ?? null), fn($q) => $q->where('amount', '>=', $data['amount_min']))
+                            ->when(filled($data['amount_max'] ?? null), fn($q) => $q->where('amount', '<=', $data['amount_max']));
+                    }),
             ])
             ->recordActions([
                 ViewAction::make(),
@@ -180,9 +197,29 @@ class BankTransactionResource extends Resource
                             ->success()
                             ->send();
                     }),
+                DeleteAction::make()
+                    ->modalDescription('Removes this import row. If it was posted to cash, the matching master and member cash ledger lines are reversed first.')
+                    ->using(function (BankTransaction $record) {
+                        app(AccountingService::class)->safeDeleteBankTransaction($record);
+
+                        return true;
+                    }),
             ])
             ->toolbarActions([
                 BulkActionGroup::make([
+                    DeleteBulkAction::make()
+                        ->modalDescription('Deletes selected rows; posted transactions are reversed from the ledger first.')
+                        ->using(function (DeleteBulkAction $action, $records) {
+                            $accounting = app(AccountingService::class);
+                            foreach ($records as $record) {
+                                try {
+                                    $accounting->safeDeleteBankTransaction($record);
+                                } catch (\Throwable $e) {
+                                    $action->reportBulkProcessingFailure(message: $e->getMessage());
+                                    report($e);
+                                }
+                            }
+                        }),
                     BulkAction::make('bulk_post_to_cash')
                         ->label('Post Selected to Cash Account')
                         ->icon('heroicon-o-arrow-right-circle')

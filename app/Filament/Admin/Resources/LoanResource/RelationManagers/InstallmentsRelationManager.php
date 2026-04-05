@@ -4,6 +4,7 @@ namespace App\Filament\Admin\Resources\LoanResource\RelationManagers;
 
 use App\Models\LoanInstallment;
 use Filament\Actions\Action;
+use Filament\Forms;
 use Filament\Notifications\Notification;
 use Filament\Resources\RelationManagers\RelationManager;
 use Filament\Schemas\Schema;
@@ -47,12 +48,53 @@ class InstallmentsRelationManager extends RelationManager
                     ->dateTime('d M Y H:i')
                     ->placeholder('—'),
             ])
+            ->filters([
+                Tables\Filters\SelectFilter::make('status')
+                    ->options([
+                        'pending' => 'Pending',
+                        'paid' => 'Paid',
+                        'overdue' => 'Overdue',
+                    ]),
+                Tables\Filters\Filter::make('due_date')
+                    ->schema([
+                        Forms\Components\DatePicker::make('from')->label('Due from'),
+                        Forms\Components\DatePicker::make('until')->label('Due until'),
+                    ])
+                    ->columns(2)
+                    ->query(function ($query, array $data) {
+                        return $query
+                            ->when($data['from'] ?? null, fn($q) => $q->whereDate('due_date', '>=', $data['from']))
+                            ->when($data['until'] ?? null, fn($q) => $q->whereDate('due_date', '<=', $data['until']));
+                    }),
+                Tables\Filters\Filter::make('amount')
+                    ->schema([
+                        Forms\Components\TextInput::make('amount_min')->label('Min (SAR)')->numeric(),
+                        Forms\Components\TextInput::make('amount_max')->label('Max (SAR)')->numeric(),
+                    ])
+                    ->columns(2)
+                    ->query(function ($query, array $data) {
+                        return $query
+                            ->when(filled($data['amount_min'] ?? null), fn($q) => $q->where('amount', '>=', $data['amount_min']))
+                            ->when(filled($data['amount_max'] ?? null), fn($q) => $q->where('amount', '<=', $data['amount_max']));
+                    }),
+                Tables\Filters\Filter::make('paid_at')
+                    ->schema([
+                        Forms\Components\DatePicker::make('from')->label('Paid from'),
+                        Forms\Components\DatePicker::make('until')->label('Paid until'),
+                    ])
+                    ->columns(2)
+                    ->query(function ($query, array $data) {
+                        return $query
+                            ->when($data['from'] ?? null, fn($q) => $q->whereDate('paid_at', '>=', $data['from']))
+                            ->when($data['until'] ?? null, fn($q) => $q->whereDate('paid_at', '<=', $data['until']));
+                    }),
+            ])
             ->recordActions([
                 Action::make('mark_paid')
                     ->label('Mark Paid')
                     ->icon('heroicon-o-check-circle')
                     ->color('success')
-                    ->visible(fn (LoanInstallment $record) => $record->status !== 'paid')
+                    ->visible(fn(LoanInstallment $record) => $record->status !== 'paid')
                     ->requiresConfirmation()
                     ->action(function (LoanInstallment $record) {
                         $record->update([

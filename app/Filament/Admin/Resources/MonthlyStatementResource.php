@@ -37,7 +37,7 @@ class MonthlyStatementResource extends Resource
         return $schema->schema([
             Forms\Components\Select::make('member_id')
                 ->label('Member')
-                ->options(fn () => Member::with('user')->get()->pluck('user.name', 'id'))
+                ->options(fn() => Member::with('user')->get()->pluck('user.name', 'id'))
                 ->searchable()
                 ->required(),
             Forms\Components\TextInput::make('period')
@@ -74,9 +74,21 @@ class MonthlyStatementResource extends Resource
             ])
             ->defaultSort('period', 'desc')
             ->filters([
+                Tables\Filters\SelectFilter::make('member_id')
+                    ->label('Member')
+                    ->searchable()
+                    ->options(fn() => Member::with('user')->orderBy('member_number')->get()
+                        ->mapWithKeys(fn(Member $m) => [$m->id => "{$m->member_number} – {$m->user->name}"])),
                 Tables\Filters\Filter::make('period')
                     ->schema([Forms\Components\TextInput::make('period')->placeholder('YYYY-MM')])
-                    ->query(fn ($query, $data) => $data['period'] ? $query->where('period', $data['period']) : $query),
+                    ->query(fn($query, $data) => $data['period'] ? $query->where('period', $data['period']) : $query),
+                Tables\Filters\SelectFilter::make('period_year')
+                    ->label('Year')
+                    ->options(array_combine(
+                        range((int) now()->year, (int) now()->year - 15),
+                        range((int) now()->year, (int) now()->year - 15)
+                    ))
+                    ->query(fn($query, $state) => $state ? $query->where('period', 'like', $state . '-%') : $query),
             ])
             ->headerActions([
                 Action::make('generate_all')
@@ -95,7 +107,7 @@ class MonthlyStatementResource extends Resource
                                 ->where('year', (int) $year)
                                 ->sum('amount');
 
-                            $repayments = LoanInstallment::whereHas('loan', fn ($q) => $q->where('member_id', $member->id))
+                            $repayments = LoanInstallment::whereHas('loan', fn($q) => $q->where('member_id', $member->id))
                                 ->whereMonth('due_date', $month)
                                 ->whereYear('due_date', $year)
                                 ->where('status', 'paid')

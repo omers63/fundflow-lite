@@ -5,6 +5,7 @@ namespace App\Filament\Admin\Resources;
 use App\Filament\Admin\Resources\MembershipApplicationResource\Pages;
 use App\Models\Member;
 use App\Models\MembershipApplication;
+use App\Models\User;
 use App\Notifications\MembershipApprovedNotification;
 use App\Notifications\MembershipRejectedNotification;
 use App\Services\MemberNumberService;
@@ -191,7 +192,7 @@ class MembershipApplicationResource extends Resource
                         ->label('Current status')
                         ->disabled()
                         ->dehydrated(false)
-                        ->formatStateUsing(fn (?string $state): string => match ($state) {
+                        ->formatStateUsing(fn(?string $state): string => match ($state) {
                             'pending' => 'Pending',
                             'approved' => 'Approved',
                             'rejected' => 'Rejected',
@@ -233,7 +234,7 @@ class MembershipApplicationResource extends Resource
                     ->sortable(),
                 Tables\Columns\TextColumn::make('status')
                     ->badge()
-                    ->color(fn (string $state) => match ($state) {
+                    ->color(fn(string $state) => match ($state) {
                         'pending' => 'warning',
                         'approved' => 'success',
                         'rejected' => 'danger',
@@ -248,6 +249,43 @@ class MembershipApplicationResource extends Resource
             ->filters([
                 Tables\Filters\SelectFilter::make('status')
                     ->options(['pending' => 'Pending', 'approved' => 'Approved', 'rejected' => 'Rejected']),
+                Tables\Filters\SelectFilter::make('application_type')
+                    ->options(MembershipApplication::applicationTypeOptions()),
+                Tables\Filters\SelectFilter::make('gender')
+                    ->options(MembershipApplication::genderOptions()),
+                Tables\Filters\SelectFilter::make('marital_status')
+                    ->label('Marital status')
+                    ->options(MembershipApplication::maritalStatusOptions()),
+                Tables\Filters\Filter::make('city')
+                    ->schema([
+                        Forms\Components\TextInput::make('value')->label('City contains'),
+                    ])
+                    ->query(fn(Builder $query, array $data) => $query->when(
+                        filled($data['value'] ?? null),
+                        fn(Builder $q) => $q->where('city', 'like', '%' . $data['value'] . '%')
+                    )),
+                Tables\Filters\TernaryFilter::make('reviewed')
+                    ->label('Reviewed')
+                    ->trueLabel('Reviewed')
+                    ->falseLabel('Not reviewed')
+                    ->queries(
+                        true: fn(Builder $q) => $q->whereNotNull('reviewed_at'),
+                        false: fn(Builder $q) => $q->whereNull('reviewed_at'),
+                    ),
+                Tables\Filters\SelectFilter::make('reviewed_by')
+                    ->label('Reviewer')
+                    ->options(fn() => User::query()->whereIn('id', MembershipApplication::query()->whereNotNull('reviewed_by')->pluck('reviewed_by'))->orderBy('name')->pluck('name', 'id')),
+                Tables\Filters\Filter::make('created_at')
+                    ->schema([
+                        Forms\Components\DatePicker::make('from')->label('Applied from'),
+                        Forms\Components\DatePicker::make('until')->label('Applied until'),
+                    ])
+                    ->columns(2)
+                    ->query(function (Builder $query, array $data) {
+                        return $query
+                            ->when($data['from'] ?? null, fn(Builder $q) => $q->whereDate('created_at', '>=', $data['from']))
+                            ->when($data['until'] ?? null, fn(Builder $q) => $q->whereDate('created_at', '<=', $data['until']));
+                    }),
             ])
             ->recordActions([
                 ViewAction::make(),
@@ -256,7 +294,7 @@ class MembershipApplicationResource extends Resource
                     ->label('Approve')
                     ->icon('heroicon-o-check-circle')
                     ->color('success')
-                    ->visible(fn (MembershipApplication $record) => $record->status === 'pending')
+                    ->visible(fn(MembershipApplication $record) => $record->status === 'pending')
                     ->requiresConfirmation()
                     ->modalHeading('Approve Membership Application')
                     ->modalDescription('Are you sure you want to approve this application? The applicant will be notified via email, SMS, and WhatsApp.')
@@ -295,7 +333,7 @@ class MembershipApplicationResource extends Resource
                     ->label('Reject')
                     ->icon('heroicon-o-x-circle')
                     ->color('danger')
-                    ->visible(fn (MembershipApplication $record) => $record->status === 'pending')
+                    ->visible(fn(MembershipApplication $record) => $record->status === 'pending')
                     ->schema([
                         Forms\Components\Textarea::make('rejection_reason')
                             ->label('Reason for Rejection')

@@ -77,6 +77,9 @@ class BankResource extends Resource
                     ->counts('importSessions'),
             ])
             ->defaultSort('name')
+            ->filters([
+                Tables\Filters\TernaryFilter::make('is_active')->label('Active'),
+            ])
             ->recordActions([
                 ViewAction::make(),
                 EditAction::make(),

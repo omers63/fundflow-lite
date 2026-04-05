@@ -223,7 +223,7 @@ class SmsImportTemplateResource extends Resource
                 Tables\Columns\TextColumn::make('name')->searchable(),
                 Tables\Columns\IconColumn::make('is_default')->label('Default')->boolean(),
                 Tables\Columns\TextColumn::make('delimiter')
-                    ->formatStateUsing(fn ($state) => match ($state) {
+                    ->formatStateUsing(fn($state) => match ($state) {
                         ',' => 'Comma',
                         ';' => 'Semicolon',
                         "\t" => 'Tab',
@@ -234,13 +234,17 @@ class SmsImportTemplateResource extends Resource
                 Tables\Columns\TextColumn::make('sms_column')->label('SMS Col.'),
                 Tables\Columns\TextColumn::make('duplicate_match_fields')
                     ->label('Dup. Fields')
-                    ->formatStateUsing(fn ($state) => is_array($state) ? implode(', ', $state) : $state),
+                    ->formatStateUsing(fn($state) => is_array($state) ? implode(', ', $state) : $state),
             ])
             ->defaultSort('name')
             ->filters([
                 Tables\Filters\SelectFilter::make('bank_id')
                     ->label('Bank')
                     ->options(Bank::active()->pluck('name', 'id')),
+                Tables\Filters\TernaryFilter::make('is_default')->label('Default template'),
+                Tables\Filters\SelectFilter::make('default_transaction_type')
+                    ->label('Default type')
+                    ->options(['credit' => 'Credit', 'debit' => 'Debit']),
             ])
             ->recordActions([
                 EditAction::make(),

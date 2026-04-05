@@ -7,6 +7,7 @@ use App\Filament\Admin\Resources\BankImportSessionResource\RelationManagers\Tran
 use App\Models\Bank;
 use App\Models\BankImportSession;
 use App\Models\BankImportTemplate;
+use App\Models\User;
 use App\Services\BankImportService;
 use Filament\Actions\Action;
 use Filament\Actions\ViewAction;
@@ -87,13 +88,38 @@ class BankImportSessionResource extends Resource
             ->filters([
                 Tables\Filters\SelectFilter::make('bank_id')->label('Bank')
                     ->options(Bank::active()->pluck('name', 'id')),
+                Tables\Filters\SelectFilter::make('template_id')
+                    ->label('Template')
+                    ->searchable()
+                    ->options(fn() => BankImportTemplate::query()
+                        ->with('bank')
+                        ->orderBy('name')
+                        ->get()
+                        ->mapWithKeys(fn(BankImportTemplate $t) => [
+                            $t->id => ($t->bank?->name ?? '—') . ' — ' . $t->name,
+                        ])),
+                Tables\Filters\SelectFilter::make('imported_by')
+                    ->label('Imported by')
+                    ->searchable()
+                    ->options(fn() => User::query()->orderBy('name')->pluck('name', 'id')),
                 Tables\Filters\SelectFilter::make('status')
                     ->options([
+                        'pending' => 'Pending',
+                        'processing' => 'Processing',
                         'completed' => 'Completed',
                         'partially_completed' => 'Partially Completed',
                         'failed' => 'Failed',
-                        'processing' => 'Processing',
                     ]),
+                Tables\Filters\Filter::make('imported_between')
+                    ->schema([
+                        Forms\Components\DatePicker::make('from')->label('From'),
+                        Forms\Components\DatePicker::make('until')->label('Until'),
+                    ])
+                    ->query(function ($query, array $data) {
+                        return $query
+                            ->when($data['from'] ?? null, fn($q) => $q->whereDate('created_at', '>=', $data['from']))
+                            ->when($data['until'] ?? null, fn($q) => $q->whereDate('created_at', '<=', $data['until']));
+                    }),
             ])
             ->headerActions([
                 Action::make('new_import')

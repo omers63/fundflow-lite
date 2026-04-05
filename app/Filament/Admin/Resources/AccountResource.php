@@ -5,7 +5,9 @@ namespace App\Filament\Admin\Resources;
 use App\Filament\Admin\Resources\AccountResource\Pages;
 use App\Filament\Admin\Resources\AccountResource\RelationManagers\TransactionsRelationManager;
 use App\Models\Account;
+use App\Models\Member;
 use Filament\Actions\ViewAction;
+use Filament\Forms;
 use Filament\Resources\Resource;
 use Filament\Schemas\Schema;
 use Filament\Support\Enums\FontWeight;
@@ -81,6 +83,33 @@ class AccountResource extends Resource
                         Account::TYPE_MEMBER_FUND => 'Member Fund',
                         Account::TYPE_LOAN => 'Loan',
                     ]),
+                Tables\Filters\SelectFilter::make('member_id')
+                    ->label('Member')
+                    ->searchable()
+                    ->options(fn() => Member::query()->with('user')->orderBy('member_number')->get()
+                        ->mapWithKeys(fn(Member $m) => [$m->id => "{$m->member_number} – {$m->user->name}"])),
+                Tables\Filters\TernaryFilter::make('is_active')
+                    ->label('Active')
+                    ->trueLabel('Active only')
+                    ->falseLabel('Inactive only'),
+                Tables\Filters\Filter::make('balance')
+                    ->schema([
+                        Forms\Components\TextInput::make('balance_min')->label('Min balance (SAR)')->numeric(),
+                        Forms\Components\TextInput::make('balance_max')->label('Max balance (SAR)')->numeric(),
+                    ])
+                    ->columns(2)
+                    ->query(function ($query, array $data) {
+                        return $query
+                            ->when(filled($data['balance_min'] ?? null), fn($q) => $q->where('balance', '>=', $data['balance_min']))
+                            ->when(filled($data['balance_max'] ?? null), fn($q) => $q->where('balance', '<=', $data['balance_max']));
+                    }),
+                Tables\Filters\Filter::make('loan_id')
+                    ->schema([
+                        Forms\Components\TextInput::make('loan_id')->label('Loan #')->numeric(),
+                    ])
+                    ->query(fn($query, array $data) => filled($data['loan_id'] ?? null)
+                        ? $query->where('loan_id', $data['loan_id'])
+                        : $query),
             ])
             ->recordActions([
                 ViewAction::make()->label('Ledger'),

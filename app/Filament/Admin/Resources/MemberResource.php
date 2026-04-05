@@ -9,8 +9,10 @@ use App\Filament\Admin\Resources\MemberResource\RelationManagers\DependentsRelat
 use App\Filament\Admin\Resources\MemberResource\RelationManagers\LoansRelationManager;
 use App\Models\Member;
 use App\Models\MembershipApplication;
+use App\Services\MemberDeletionService;
 use Carbon\Carbon;
 use Filament\Actions\BulkActionGroup;
+use Filament\Actions\DeleteAction;
 use Filament\Actions\DeleteBulkAction;
 use Filament\Actions\EditAction;
 use Filament\Actions\ViewAction;
@@ -280,16 +282,20 @@ class MemberResource extends Resource
                 Tables\Columns\TextColumn::make('member_number')
                     ->searchable()
                     ->sortable()
-                    ->copyable(),
+                    ->copyable()
+                    ->toggleable(),
                 Tables\Columns\TextColumn::make('user.name')
                     ->label('Name')
                     ->searchable()
-                    ->sortable(),
+                    ->sortable()
+                    ->toggleable(),
                 Tables\Columns\TextColumn::make('user.email')
                     ->label('Email')
-                    ->searchable(),
+                    ->searchable()
+                    ->toggleable(),
                 Tables\Columns\TextColumn::make('user.phone')
-                    ->label('Phone'),
+                    ->label('Phone')
+                    ->toggleable(),
                 Tables\Columns\TextColumn::make('status')
                     ->badge()
                     ->color(fn(string $state) => match ($state) {
@@ -297,44 +303,104 @@ class MemberResource extends Resource
                         'suspended' => 'warning',
                         'delinquent' => 'danger',
                         default => 'gray',
-                    }),
+                    })
+                    ->toggleable(),
                 Tables\Columns\TextColumn::make('joined_at')
                     ->date('d M Y')
-                    ->sortable(),
+                    ->sortable()
+                    ->toggleable(),
                 Tables\Columns\TextColumn::make('monthly_contribution_amount')
                     ->label('Monthly Alloc.')
                     ->money('SAR')
-                    ->sortable(),
+                    ->sortable()
+                    ->toggleable(),
                 Tables\Columns\TextColumn::make('parent.user.name')
                     ->label('Parent')
-                    ->placeholder('—'),
+                    ->placeholder('—')
+                    ->toggleable(),
                 Tables\Columns\TextColumn::make('contributions_sum_amount')
                     ->label('Total Contributions')
                     ->money('SAR')
                     ->sortable()
-                    ->getStateUsing(fn($record) => $record->contributions()->sum('amount')),
+                    ->getStateUsing(fn($record) => $record->contributions()->sum('amount'))
+                    ->toggleable(),
                 Tables\Columns\TextColumn::make('late_contributions_count')
                     ->label('Late #')
                     ->sortable()
                     ->badge()
-                    ->color(fn($state) => $state > 0 ? 'warning' : 'success'),
+                    ->color(fn($state) => $state > 0 ? 'warning' : 'success')
+                    ->toggleable(),
                 Tables\Columns\TextColumn::make('late_contributions_amount')
                     ->label('Late Amount')
                     ->money('SAR')
                     ->sortable()
-                    ->color(fn($state) => $state > 0 ? 'warning' : 'gray'),
+                    ->color(fn($state) => $state > 0 ? 'warning' : 'gray')
+                    ->toggleable(),
             ])
             ->filters([
                 Tables\Filters\SelectFilter::make('status')
                     ->options(['active' => 'Active', 'suspended' => 'Suspended', 'delinquent' => 'Delinquent']),
+                Tables\Filters\SelectFilter::make('parent_id')
+                    ->label('Sponsor / parent')
+                    ->options(fn() => Member::query()->with('user')->whereNull('parent_id')->orderBy('member_number')->get()
+                        ->mapWithKeys(fn(Member $m) => [$m->id => "{$m->member_number} – {$m->user->name}"])),
+                Tables\Filters\SelectFilter::make('monthly_contribution_amount')
+                    ->label('Monthly allocation')
+                    ->options(Member::contributionAmountOptions()),
+                Tables\Filters\TernaryFilter::make('has_dependents')
+                    ->label('Dependents')
+                    ->trueLabel('Has dependents')
+                    ->falseLabel('No dependents')
+                    ->queries(
+                        true: fn($q) => $q->whereHas('dependents'),
+                        false: fn($q) => $q->whereDoesntHave('dependents'),
+                    ),
+                Tables\Filters\TernaryFilter::make('has_late_contributions')
+                    ->label('Late contributions')
+                    ->trueLabel('Has late contributions')
+                    ->falseLabel('No late contributions')
+                    ->queries(
+                        true: fn($q) => $q->where('late_contributions_count', '>', 0),
+                        false: fn($q) => $q->where('late_contributions_count', '=', 0),
+                    ),
+                Tables\Filters\Filter::make('joined_at')
+                    ->schema([
+                        Forms\Components\DatePicker::make('joined_from')->label('Joined from'),
+                        Forms\Components\DatePicker::make('joined_until')->label('Joined until'),
+                    ])
+                    ->columns(2)
+                    ->query(function ($query, array $data) {
+                        return $query
+                            ->when($data['joined_from'] ?? null, fn($q, $d) => $q->whereDate('joined_at', '>=', $d))
+                            ->when($data['joined_until'] ?? null, fn($q, $d) => $q->whereDate('joined_at', '<=', $d));
+                    }),
             ])
             ->recordActions([
                 EditAction::make(),
                 ViewAction::make(),
+                DeleteAction::make()
+                    ->modalDescription('Permanently removes this member: all their loans are safe-deleted first (ledger reversed), then bank/SMS lines, virtual accounts, the member row, and their login user. Blocked only while contribution records still exist — remove those first if you need to delete.')
+                    ->using(function (Member $record) {
+                        app(MemberDeletionService::class)->delete($record);
+
+                        return true;
+                    }),
             ])
             ->toolbarActions([
                 BulkActionGroup::make([
-                    DeleteBulkAction::make(),
+                    DeleteBulkAction::make()
+                        ->modalDescription('Deletes each selected member like single delete (loans safe-deleted first, then bank/SMS and accounts). Rows that fail (e.g. contributions still present) are skipped and reported.')
+                        ->using(function (DeleteBulkAction $action, $records) {
+                            $svc = app(MemberDeletionService::class);
+                            foreach ($records as $record) {
+                                try {
+                                    $svc->delete($record);
+                                } catch (\Throwable $e) {
+                                    $action->reportBulkProcessingFailure(message: $e->getMessage());
+                                    report($e);
+                                }
+                            }
+                        }),
                 ]),
             ]);
     }

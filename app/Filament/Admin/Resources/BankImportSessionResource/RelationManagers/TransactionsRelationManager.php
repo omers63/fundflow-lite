@@ -26,10 +26,10 @@ class TransactionsRelationManager extends RelationManager
 
     public function table(Table $table): Table
     {
-        $memberOptions = fn () => Member::with('user')
+        $memberOptions = fn() => Member::with('user')
             ->active()
             ->get()
-            ->mapWithKeys(fn ($m) => [$m->id => "{$m->member_number} – {$m->user->name}"]);
+            ->mapWithKeys(fn($m) => [$m->id => "{$m->member_number} – {$m->user->name}"]);
 
         return $table
             ->recordTitleAttribute('reference')
@@ -38,7 +38,7 @@ class TransactionsRelationManager extends RelationManager
                 Tables\Columns\TextColumn::make('transaction_date')
                     ->label('Date')->date('d M Y')->sortable(),
                 Tables\Columns\TextColumn::make('amount')->money('SAR')
-                    ->color(fn (BankTransaction $r) => $r->transaction_type === 'credit' ? 'success' : 'danger'),
+                    ->color(fn(BankTransaction $r) => $r->transaction_type === 'credit' ? 'success' : 'danger'),
                 Tables\Columns\BadgeColumn::make('transaction_type')->label('Type')
                     ->colors(['success' => 'credit', 'danger' => 'debit']),
                 Tables\Columns\TextColumn::make('reference')->placeholder('—'),
@@ -46,7 +46,7 @@ class TransactionsRelationManager extends RelationManager
                 Tables\Columns\TextColumn::make('member.user.name')->label('Member')->placeholder('—'),
                 Tables\Columns\IconColumn::make('posted_at')->label('Posted')
                     ->boolean()
-                    ->getStateUsing(fn (BankTransaction $r) => $r->posted_at !== null)
+                    ->getStateUsing(fn(BankTransaction $r) => $r->posted_at !== null)
                     ->trueIcon('heroicon-o-check-badge')->falseIcon('heroicon-o-clock')
                     ->trueColor('success')->falseColor('gray'),
                 Tables\Columns\IconColumn::make('is_duplicate')->label('Dup.')
@@ -62,16 +62,42 @@ class TransactionsRelationManager extends RelationManager
                 Tables\Filters\TernaryFilter::make('posted')
                     ->trueLabel('Posted')->falseLabel('Unposted')->placeholder('All')
                     ->queries(
-                        true: fn ($q) => $q->whereNotNull('posted_at'),
-                        false: fn ($q) => $q->whereNull('posted_at'),
+                        true: fn($q) => $q->whereNotNull('posted_at'),
+                        false: fn($q) => $q->whereNull('posted_at'),
                     ),
+                Tables\Filters\SelectFilter::make('member_id')
+                    ->label('Member')
+                    ->searchable()
+                    ->options($memberOptions),
+                Tables\Filters\Filter::make('transaction_date')
+                    ->schema([
+                        Forms\Components\DatePicker::make('from')->label('From'),
+                        Forms\Components\DatePicker::make('until')->label('Until'),
+                    ])
+                    ->columns(2)
+                    ->query(function ($query, array $data) {
+                        return $query
+                            ->when($data['from'] ?? null, fn($q) => $q->whereDate('transaction_date', '>=', $data['from']))
+                            ->when($data['until'] ?? null, fn($q) => $q->whereDate('transaction_date', '<=', $data['until']));
+                    }),
+                Tables\Filters\Filter::make('amount')
+                    ->schema([
+                        Forms\Components\TextInput::make('amount_min')->label('Min (SAR)')->numeric(),
+                        Forms\Components\TextInput::make('amount_max')->label('Max (SAR)')->numeric(),
+                    ])
+                    ->columns(2)
+                    ->query(function ($query, array $data) {
+                        return $query
+                            ->when(filled($data['amount_min'] ?? null), fn($q) => $q->where('amount', '>=', $data['amount_min']))
+                            ->when(filled($data['amount_max'] ?? null), fn($q) => $q->where('amount', '<=', $data['amount_max']));
+                    }),
             ])
             ->recordActions([
                 Action::make('post_to_cash')
                     ->label('Post to Cash')
                     ->icon('heroicon-o-arrow-right-circle')
                     ->color('primary')
-                    ->visible(fn (BankTransaction $r) => ! $r->isPosted())
+                    ->visible(fn(BankTransaction $r) => !$r->isPosted())
                     ->schema([
                         Forms\Components\Select::make('member_id')
                             ->label('Member')

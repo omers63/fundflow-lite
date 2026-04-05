@@ -20,6 +20,9 @@ use App\Services\AccountingService;
 use App\Services\LoanEligibilityService;
 use Carbon\Carbon;
 use Filament\Actions\Action;
+use Filament\Actions\BulkActionGroup;
+use Filament\Actions\DeleteAction;
+use Filament\Actions\DeleteBulkAction;
 use Filament\Actions\ViewAction;
 use Filament\Forms;
 use Filament\Infolists\Components\TextEntry;
@@ -169,6 +172,45 @@ class LoanResource extends Resource
                 ]),
                 Tables\Filters\SelectFilter::make('loan_tier_id')->label('Tier')
                     ->options(LoanTier::pluck('label', 'id')),
+                Tables\Filters\SelectFilter::make('fund_tier_id')->label('Fund tier')
+                    ->options(FundTier::query()->orderBy('label')->pluck('label', 'id')),
+                Tables\Filters\SelectFilter::make('member_id')
+                    ->label('Member')
+                    ->searchable()
+                    ->options(fn () => Member::with('user')->orderBy('member_number')->get()
+                        ->mapWithKeys(fn (Member $m) => [$m->id => "{$m->member_number} – {$m->user->name}"])),
+                Tables\Filters\TernaryFilter::make('is_emergency')
+                    ->label('Emergency'),
+                Tables\Filters\TernaryFilter::make('disbursed')
+                    ->label('Disbursed')
+                    ->trueLabel('Disbursed')
+                    ->falseLabel('Not disbursed')
+                    ->queries(
+                        true: fn ($q) => $q->whereNotNull('disbursed_at'),
+                        false: fn ($q) => $q->whereNull('disbursed_at'),
+                    ),
+                Tables\Filters\Filter::make('applied_at')
+                    ->schema([
+                        Forms\Components\DatePicker::make('from')->label('Applied from'),
+                        Forms\Components\DatePicker::make('until')->label('Applied until'),
+                    ])
+                    ->columns(2)
+                    ->query(function ($query, array $data) {
+                        return $query
+                            ->when($data['from'] ?? null, fn ($q) => $q->whereDate('applied_at', '>=', $data['from']))
+                            ->when($data['until'] ?? null, fn ($q) => $q->whereDate('applied_at', '<=', $data['until']));
+                    }),
+                Tables\Filters\Filter::make('amount_approved')
+                    ->schema([
+                        Forms\Components\TextInput::make('min')->label('Min approved (SAR)')->numeric(),
+                        Forms\Components\TextInput::make('max')->label('Max approved (SAR)')->numeric(),
+                    ])
+                    ->columns(2)
+                    ->query(function ($query, array $data) {
+                        return $query
+                            ->when(filled($data['min'] ?? null), fn ($q) => $q->where('amount_approved', '>=', $data['min']))
+                            ->when(filled($data['max'] ?? null), fn ($q) => $q->where('amount_approved', '<=', $data['max']));
+                    }),
             ])
             ->recordActions([
                 ViewAction::make(),
@@ -434,6 +476,35 @@ class LoanResource extends Resource
 
                         Notification::make()->title('Loan Early Settled')->success()->send();
                     }),
+
+                DeleteAction::make()
+                    ->modalDescription(
+                        'Reverses all ledger postings for this loan (disbursement, repayments, and any cash or guarantor lines tied to its installments), deletes installments and the loan account, then removes the loan. This cannot be undone.'
+                    )
+                    ->using(function (Loan $record) {
+                        app(AccountingService::class)->safeDeleteLoan($record);
+
+                        return true;
+                    }),
+            ])
+            ->toolbarActions([
+                BulkActionGroup::make([
+                    DeleteBulkAction::make()
+                        ->modalDescription(
+                            'Each selected loan is deleted like a single delete: ledger lines are reversed, installments and the loan account removed. Failures are reported; other rows still process.'
+                        )
+                        ->using(function (DeleteBulkAction $action, $records) {
+                            $accounting = app(AccountingService::class);
+                            foreach ($records as $record) {
+                                try {
+                                    $accounting->safeDeleteLoan($record);
+                                } catch (\Throwable $e) {
+                                    $action->reportBulkProcessingFailure(message: $e->getMessage());
+                                    report($e);
+                                }
+                            }
+                        }),
+                ]),
             ]);
     }
 

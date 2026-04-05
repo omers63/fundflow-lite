@@ -33,7 +33,7 @@ class ContributionResource extends Resource
         return $schema->schema([
             Forms\Components\Select::make('member_id')
                 ->label('Member')
-                ->options(fn () => Member::with('user')
+                ->options(fn() => Member::with('user')
                     ->get()
                     ->pluck('user.name', 'id')
                     ->prepend('-- Select Member --', ''))
@@ -45,7 +45,7 @@ class ContributionResource extends Resource
                 ->required()
                 ->minValue(0),
             Forms\Components\Select::make('month')
-                ->options(array_combine(range(1, 12), array_map(fn ($m) => date('F', mktime(0, 0, 0, $m, 1)), range(1, 12))))
+                ->options(array_combine(range(1, 12), array_map(fn($m) => date('F', mktime(0, 0, 0, $m, 1)), range(1, 12))))
                 ->required(),
             Forms\Components\TextInput::make('year')
                 ->numeric()
@@ -81,12 +81,12 @@ class ContributionResource extends Resource
                     ->money('SAR')
                     ->sortable(),
                 Tables\Columns\TextColumn::make('month')
-                    ->formatStateUsing(fn ($state) => date('F', mktime(0, 0, 0, $state, 1))),
+                    ->formatStateUsing(fn($state) => date('F', mktime(0, 0, 0, $state, 1))),
                 Tables\Columns\TextColumn::make('year')
                     ->sortable(),
                 Tables\Columns\TextColumn::make('payment_method')
                     ->badge()
-                    ->formatStateUsing(fn ($state) => match ($state) {
+                    ->formatStateUsing(fn($state) => match ($state) {
                         'cash' => 'Cash',
                         'bank_transfer' => 'Bank Transfer',
                         'online' => 'Online',
@@ -105,11 +105,44 @@ class ContributionResource extends Resource
             ])
             ->defaultSort('paid_at', 'desc')
             ->filters([
+                Tables\Filters\SelectFilter::make('member_id')
+                    ->label('Member')
+                    ->searchable()
+                    ->options(fn() => Member::with('user')->orderBy('member_number')->get()
+                        ->mapWithKeys(fn(Member $m) => [$m->id => "{$m->member_number} – {$m->user->name}"])),
                 Tables\Filters\SelectFilter::make('month')
-                    ->options(array_combine(range(1, 12), array_map(fn ($m) => date('F', mktime(0, 0, 0, $m, 1)), range(1, 12)))),
+                    ->options(array_combine(range(1, 12), array_map(fn($m) => date('F', mktime(0, 0, 0, $m, 1)), range(1, 12)))),
                 Tables\Filters\Filter::make('year')
                     ->schema([Forms\Components\TextInput::make('year')->numeric()->default(now()->year)])
-                    ->query(fn ($query, $data) => $data['year'] ? $query->where('year', $data['year']) : $query),
+                    ->query(fn($query, $data) => $data['year'] ? $query->where('year', $data['year']) : $query),
+                Tables\Filters\SelectFilter::make('payment_method')
+                    ->options(['cash' => 'Cash', 'bank_transfer' => 'Bank Transfer', 'online' => 'Online Payment']),
+                Tables\Filters\TernaryFilter::make('is_late')
+                    ->label('Late payment')
+                    ->trueLabel('Late only')
+                    ->falseLabel('On-time only'),
+                Tables\Filters\Filter::make('paid_at')
+                    ->schema([
+                        Forms\Components\DatePicker::make('paid_from')->label('Paid from'),
+                        Forms\Components\DatePicker::make('paid_until')->label('Paid until'),
+                    ])
+                    ->columns(2)
+                    ->query(function ($query, array $data) {
+                        return $query
+                            ->when($data['paid_from'] ?? null, fn($q) => $q->whereDate('paid_at', '>=', $data['paid_from']))
+                            ->when($data['paid_until'] ?? null, fn($q) => $q->whereDate('paid_at', '<=', $data['paid_until']));
+                    }),
+                Tables\Filters\Filter::make('amount')
+                    ->schema([
+                        Forms\Components\TextInput::make('amount_min')->label('Min amount (SAR)')->numeric(),
+                        Forms\Components\TextInput::make('amount_max')->label('Max amount (SAR)')->numeric(),
+                    ])
+                    ->columns(2)
+                    ->query(function ($query, array $data) {
+                        return $query
+                            ->when(filled($data['amount_min'] ?? null), fn($q) => $q->where('amount', '>=', $data['amount_min']))
+                            ->when(filled($data['amount_max'] ?? null), fn($q) => $q->where('amount', '<=', $data['amount_max']));
+                    }),
             ])
             ->recordActions([
                 EditAction::make(),

@@ -72,24 +72,32 @@ class FundTiersResource extends Resource
                 Tables\Columns\TextColumn::make('allocated_amount')
                     ->label('Allocated (SAR)')
                     ->money('SAR')
-                    ->getStateUsing(fn (FundTier $r) => $r->allocated_amount),
+                    ->getStateUsing(fn(FundTier $r) => $r->allocated_amount),
                 Tables\Columns\TextColumn::make('active_exposure')
                     ->label('Active Loans (SAR)')
                     ->money('SAR')
-                    ->getStateUsing(fn (FundTier $r) => $r->active_exposure),
+                    ->getStateUsing(fn(FundTier $r) => $r->active_exposure),
                 Tables\Columns\TextColumn::make('available_amount')
                     ->label('Available (SAR)')
                     ->money('SAR')
-                    ->getStateUsing(fn (FundTier $r) => $r->available_amount)
-                    ->color(fn (FundTier $r) => $r->available_amount > 0 ? 'success' : 'danger'),
+                    ->getStateUsing(fn(FundTier $r) => $r->available_amount)
+                    ->color(fn(FundTier $r) => $r->available_amount > 0 ? 'success' : 'danger'),
                 Tables\Columns\TextColumn::make('active_loans_count')
                     ->label('Active Loans #')
-                    ->getStateUsing(fn (FundTier $r) => $r->active_loans_count),
+                    ->getStateUsing(fn(FundTier $r) => $r->active_loans_count),
                 Tables\Columns\IconColumn::make('is_active')->label('Active')->boolean(),
             ])
             ->defaultSort('tier_number')
+            ->filters([
+                Tables\Filters\SelectFilter::make('loan_tier_id')
+                    ->label('Linked loan tier')
+                    ->relationship('loanTier', 'label')
+                    ->searchable()
+                    ->preload(),
+                Tables\Filters\TernaryFilter::make('is_active')->label('Active'),
+            ])
             ->recordActions([EditAction::make(), DeleteAction::make()])
-            ->description('Master Fund Balance: SAR '.number_format($masterBalance, 2));
+            ->description('Master Fund Balance: SAR ' . number_format($masterBalance, 2));
     }
 
     public static function getPages(): array
