@@ -2,6 +2,7 @@
 
 namespace App\Filament\Admin\Widgets;
 
+use App\Filament\Admin\Resources\MembershipApplicationResource;
 use App\Models\Contribution;
 use App\Models\Member;
 use App\Models\Setting;
@@ -26,22 +27,23 @@ class MemberProfileWidget extends Widget
             return ['hasRecord' => false];
         }
 
-        $member = $this->record->load(['user.membershipApplication', 'parent.user', 'dependents.user']);
+        $member = $this->record;
+        $member->unsetRelation('user');
+        $member->load(['user', 'parent.user', 'dependents.user']);
         $user = $member->user;
-        $app = $user?->membershipApplication;
+        $app = $member->latestMembershipApplication();
 
         $monthsActive = $member->joined_at
             ? (int) $member->joined_at->diffInMonths(now()) + 1
             : 0;
 
-        $now = now();
         $contribCount = Contribution::where('member_id', $member->id)->count();
         $complianceRate = $monthsActive > 0
             ? min(100, round($contribCount / $monthsActive * 100))
             : 0;
 
         $eligibilityMonths = Setting::loanEligibilityMonths();
-        $loanEligibleDate = $member->joined_at?->addMonths($eligibilityMonths);
+        $loanEligibleDate = $member->joined_at?->copy()->addMonths($eligibilityMonths);
         $isLoanEligibleAge = $loanEligibleDate?->isPast() ?? false;
 
         $dependents = $member->dependents->map(fn(Member $d) => [
@@ -82,6 +84,10 @@ class MemberProfileWidget extends Widget
             'parent_number' => $member->parent?->member_number,
             'parent_name' => $member->parent?->user?->name,
             'dependents' => $dependents,
+
+            'application_edit_url' => $app !== null
+                ? MembershipApplicationResource::getUrl('edit', ['record' => $app])
+                : null,
         ];
     }
 }

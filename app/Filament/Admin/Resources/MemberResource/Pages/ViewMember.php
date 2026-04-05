@@ -40,8 +40,9 @@ class ViewMember extends ViewRecord
 
     protected function mutateFormDataBeforeFill(array $data): array
     {
-        $this->record->loadMissing('user.membershipApplication');
-        $app = $this->record->user?->membershipApplication;
+        $this->record->unsetRelation('user');
+        $this->record->load('user');
+        $app = $this->record->latestMembershipApplication();
 
         if ($app?->membership_date) {
             $data['joined_at'] = $app->membership_date->toDateString();

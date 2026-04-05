@@ -1,32 +1,59 @@
 @php
     $d = $this->getData();
-    if(empty($d)) return;
-    $record  = $d['record'];
-    $balance = $d['balance'];
-    $net30   = $d['credits30'] - $d['debits30'];
 @endphp
 
-<div class="space-y-4 mb-2">
+<div class="account-detail-widget w-full min-w-0 space-y-4 mb-2">
+    @if(empty($d))
+        <div class="rounded-xl border border-dashed border-gray-200 dark:border-gray-700 bg-gray-50/50 dark:bg-gray-900/40 px-4 py-6 text-center text-sm text-gray-500 dark:text-gray-400">
+            Select an account to see balance and ledger summary.
+        </div>
+    @else
+    @php
+        $record  = $d['record'];
+        $balance = $d['balance'];
+        $net30   = $d['credits30'] - $d['debits30'];
+    @endphp
 
-    {{-- ── Balance hero row ──────────────────────────────────────────────── --}}
+    {{-- ── KPI row (four matching cards) ─────────────────────────────────── --}}
     <div class="grid grid-cols-2 gap-4 sm:grid-cols-4">
-
-        {{-- Current balance --}}
-        <div class="relative overflow-hidden col-span-2 sm:col-span-1 rounded-2xl
-            {{ $d['isLoan'] ? 'bg-gradient-to-br from-amber-600 to-amber-700' : ($balance >= 0 ? 'bg-gradient-to-br from-emerald-600 to-emerald-700' : 'bg-gradient-to-br from-red-600 to-red-700') }}
-            p-6 text-white shadow-lg">
-            <div class="absolute inset-0 opacity-10">
-                <x-heroicon-o-banknotes class="absolute -bottom-4 -right-4 w-32 h-32" />
+        {{-- Current / outstanding balance (same shell as Credits / Debits / Ledger) --}}
+        <div class="relative overflow-hidden col-span-2 sm:col-span-1 rounded-xl bg-white dark:bg-gray-800 p-5 ring-1 ring-gray-200 dark:ring-gray-700 shadow-sm">
+            <div @class([
+                'absolute inset-y-0 left-0 w-1 rounded-l-xl',
+                'bg-amber-500' => $d['isLoan'],
+                'bg-emerald-500' => ! $d['isLoan'] && $balance >= 0,
+                'bg-red-500' => ! $d['isLoan'] && $balance < 0,
+            ])></div>
+            <div class="pl-2">
+                <div class="flex items-center gap-1.5 mb-2">
+                    @if($d['isLoan'])
+                        <x-heroicon-o-banknotes class="w-4 h-4 text-amber-500" />
+                    @elseif($balance >= 0)
+                        <x-heroicon-o-banknotes class="w-4 h-4 text-emerald-500" />
+                    @else
+                        <x-heroicon-o-banknotes class="w-4 h-4 text-red-500" />
+                    @endif
+                    <p class="text-xs font-semibold uppercase tracking-wide text-gray-500 dark:text-gray-400">
+                        {{ $d['isLoan'] ? 'Outstanding Balance' : 'Current Balance' }}
+                    </p>
+                </div>
+                @if($d['isLoan'])
+                    <p class="text-xl font-bold text-amber-600 dark:text-amber-400">
+                        SAR {{ number_format($d['outstanding'], 2) }}
+                    </p>
+                @elseif($balance >= 0)
+                    <p class="text-xl font-bold text-emerald-600 dark:text-emerald-400">
+                        SAR {{ number_format($balance, 2) }}
+                    </p>
+                @else
+                    <p class="text-xl font-bold text-red-600 dark:text-red-400">
+                        SAR {{ number_format($balance, 2) }}
+                    </p>
+                @endif
+                <p class="mt-0.5 text-xs text-gray-400 dark:text-gray-500">
+                    {{ $d['isLoan'] ? 'Remaining to be repaid' : ($balance >= 0 ? 'Available balance' : 'Overdrawn') }}
+                </p>
             </div>
-            <p class="text-sm font-medium text-white/80 uppercase tracking-wide">
-                {{ $d['isLoan'] ? 'Outstanding Balance' : 'Current Balance' }}
-            </p>
-            <p class="mt-2 text-3xl font-extrabold tracking-tight">
-                SAR {{ $d['isLoan'] ? number_format($d['outstanding'], 2) : number_format($balance, 2) }}
-            </p>
-            <p class="mt-2 text-sm text-white/70">
-                {{ $d['isLoan'] ? 'Remaining to be repaid' : ($balance >= 0 ? 'Available balance' : 'Overdrawn') }}
-            </p>
         </div>
 
         {{-- Credits 30d --}}
@@ -89,9 +116,9 @@
                     <th class="px-5 py-2.5 text-left text-xs font-semibold uppercase tracking-wide text-gray-400 hidden sm:table-cell">Description</th>
                 </tr>
             </thead>
-            <tbody class="divide-y divide-gray-50 dark:divide-gray-700/50">
+            <tbody class="divide-y divide-gray-100 dark:divide-gray-700/50">
                 @foreach($d['recent'] as $tx)
-                <tr class="hover:bg-gray-50 dark:hover:bg-gray-700/30 transition-colors">
+                <tr class="transition-colors odd:bg-white even:bg-gray-50/90 dark:odd:bg-gray-800 dark:even:bg-gray-900/35 hover:bg-gray-100 dark:hover:bg-gray-700/40">
                     <td class="px-5 py-3 text-xs text-gray-500 dark:text-gray-400 whitespace-nowrap">
                         {{ $tx->transacted_at?->format('d M Y H:i') ?? '—' }}
                     </td>
@@ -117,4 +144,5 @@
     </div>
     @endif
 
+    @endif
 </div>

@@ -32,8 +32,8 @@
             </div>
         </div>
 
-        {{-- Key stats chips --}}
-        <div class="flex flex-wrap gap-3">
+        {{-- Key stats chips + application action --}}
+        <div class="flex flex-wrap items-center gap-3">
             <div class="text-center px-4 py-2 rounded-lg bg-white/10 backdrop-blur-sm">
                 <p class="text-lg font-bold text-white">{{ $d['months_active'] }}</p>
                 <p class="text-xs text-slate-400">Months Active</p>
@@ -46,6 +46,20 @@
                 <p class="text-lg font-bold text-white">SAR {{ number_format($d['monthly_contrib']) }}</p>
                 <p class="text-xs text-slate-400">Monthly Alloc.</p>
             </div>
+            @if(!empty($d['application_edit_url']))
+            <a
+                href="{{ $d['application_edit_url'] }}"
+                wire:navigate
+                class="inline-flex items-center gap-2 rounded-xl px-4 py-2.5 text-sm font-semibold text-white
+                    bg-white/15 hover:bg-white/25 ring-1 ring-white/25 hover:ring-white/40
+                    shadow-md shadow-black/10 backdrop-blur-sm transition duration-150
+                    focus:outline-none focus-visible:ring-2 focus-visible:ring-indigo-400 focus-visible:ring-offset-2 focus-visible:ring-offset-slate-900"
+            >
+                <x-heroicon-o-clipboard-document-check class="w-5 h-5 opacity-90" />
+                <span>Edit application</span>
+                <x-heroicon-o-arrow-right class="w-4 h-4 opacity-80" />
+            </a>
+            @endif
         </div>
     </div>
 

@@ -5,7 +5,9 @@ namespace App\Filament\Admin\Widgets;
 use App\Models\Account;
 use App\Models\AccountTransaction;
 use Carbon\Carbon;
+use Filament\Resources\Pages\Concerns\InteractsWithRecord;
 use Filament\Widgets\Widget;
+use Illuminate\Database\Eloquent\Model;
 
 class AccountDetailWidget extends Widget
 {
@@ -15,14 +17,25 @@ class AccountDetailWidget extends Widget
 
     public ?int $accountId = null;
 
+    /** Set by Filament resource pages via {@see InteractsWithRecord::getWidgetData()}. */
+    public ?Model $record = null;
+
+    public function getColumnSpan(): int|string|array
+    {
+        return 'full';
+    }
+
     public function getData(): array
     {
-        if (! $this->accountId) {
+        $id = $this->accountId
+            ?? ($this->record instanceof Account ? $this->record->getKey() : null);
+
+        if (!$id) {
             return [];
         }
 
-        $record = Account::with('member.user')->find($this->accountId);
-        if (! $record) {
+        $record = Account::with('member.user')->find($id);
+        if (!$record) {
             return [];
         }
 

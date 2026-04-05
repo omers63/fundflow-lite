@@ -27,12 +27,12 @@ class Member extends Model
     protected function casts(): array
     {
         return [
-            'joined_at'                   => 'date',
+            'joined_at' => 'date',
             'monthly_contribution_amount' => 'integer',
-            'late_contributions_count'    => 'integer',
-            'late_contributions_amount'   => 'decimal:2',
-            'late_repayment_count'        => 'integer',
-            'late_repayment_amount'       => 'decimal:2',
+            'late_contributions_count' => 'integer',
+            'late_contributions_amount' => 'decimal:2',
+            'late_repayment_count' => 'integer',
+            'late_repayment_amount' => 'decimal:2',
         ];
     }
 
@@ -75,6 +75,17 @@ class Member extends Model
     public function accounts(): HasMany
     {
         return $this->hasMany(Account::class);
+    }
+
+    /**
+     * Latest application row for this member's user (query; avoids stale relation cache in Livewire).
+     */
+    public function latestMembershipApplication(): ?MembershipApplication
+    {
+        return MembershipApplication::query()
+            ->where('user_id', $this->user_id)
+            ->orderByDesc('id')
+            ->first();
     }
 
     // -----------------------------------------------------------------------
@@ -121,7 +132,7 @@ class Member extends Model
     {
         return array_combine(
             self::CONTRIBUTION_STEPS,
-            array_map(fn ($v) => 'SAR ' . number_format($v), self::CONTRIBUTION_STEPS)
+            array_map(fn($v) => 'SAR ' . number_format($v), self::CONTRIBUTION_STEPS)
         );
     }
 

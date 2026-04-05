@@ -13,7 +13,7 @@ class AccountsRelationManager extends RelationManager
 {
     protected static string $relationship = 'accounts';
 
-    protected static ?string $title = 'Virtual Accounts';
+    protected static ?string $title = 'Accounts';
 
     public function form(Schema $schema): Schema
     {
@@ -27,13 +27,13 @@ class AccountsRelationManager extends RelationManager
             ->columns([
                 Tables\Columns\TextColumn::make('name'),
                 Tables\Columns\BadgeColumn::make('type')
-                    ->formatStateUsing(fn (Account $r) => $r->type_label)
-                    ->color(fn (Account $r) => $r->type_color),
+                    ->formatStateUsing(fn(Account $r) => $r->type_label)
+                    ->color(fn(Account $r) => $r->type_color),
                 Tables\Columns\TextColumn::make('loan_id')->label('Loan #')->placeholder('—'),
                 Tables\Columns\TextColumn::make('balance')
                     ->label('Balance (SAR)')
                     ->money('SAR')
-                    ->color(fn (Account $r) => (float) $r->balance >= 0 ? 'success' : 'danger')
+                    ->color(fn(Account $r) => (float) $r->balance >= 0 ? 'success' : 'danger')
                     ->weight(FontWeight::Bold),
             ]);
     }

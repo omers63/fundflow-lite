@@ -51,8 +51,11 @@ class EditMember extends EditRecord
      */
     protected function mutateFormDataBeforeFill(array $data): array
     {
+        // Drop cached relations so edits from Applications (or elsewhere) always show current DB state.
+        $this->record->unsetRelation('user');
+        $this->record->load('user');
         $user = $this->record->user;
-        $app = $user?->membershipApplication;
+        $app = $this->record->latestMembershipApplication();
 
         // User fields
         $data['_user_name'] = $user?->name;
