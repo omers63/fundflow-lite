@@ -3,17 +3,32 @@
 namespace App\Models;
 
 use Illuminate\Database\Eloquent\Model;
+use Illuminate\Database\Eloquent\SoftDeletes;
 use Illuminate\Support\Facades\Cache;
 
 class Setting extends Model
 {
+    use SoftDeletes;
+
     protected $fillable = ['key', 'value', 'label', 'group'];
+
+    protected static function booted(): void
+    {
+        static::deleted(function (Setting $setting): void {
+            Cache::forget("setting:{$setting->key}");
+        });
+
+        static::restored(function (Setting $setting): void {
+            Cache::forget("setting:{$setting->key}");
+        });
+    }
 
     /** Get a setting value with an optional default. */
     public static function get(string $key, mixed $default = null): mixed
     {
         return Cache::remember("setting:{$key}", 3600, function () use ($key, $default) {
             $setting = static::where('key', $key)->first();
+
             return $setting ? $setting->value : $default;
         });
     }
@@ -21,7 +36,17 @@ class Setting extends Model
     /** Set a setting value and flush its cache. */
     public static function set(string $key, mixed $value): void
     {
-        static::updateOrCreate(['key' => $key], ['value' => $value]);
+        $existing = static::withTrashed()->where('key', $key)->first();
+
+        if ($existing !== null) {
+            if ($existing->trashed()) {
+                $existing->restore();
+            }
+            $existing->update(['value' => $value]);
+        } else {
+            static::create(['key' => $key, 'value' => $value]);
+        }
+
         Cache::forget("setting:{$key}");
     }
 
@@ -49,5 +74,19 @@ class Setting extends Model
     public static function loanDefaultGraceCycles(): int
     {
         return (int) static::get('loan.default_grace_cycles', 2);
+    }
+
+    /**
+     * Maximum pending membership applications allowed from the public apply flow.
+     * 0 means no limit.
+     */
+    public static function maxPendingPublicApplications(): int
+    {
+        return max(0, (int) static::get('membership.max_pending_public', 0));
+    }
+
+    public static function publicPendingApplicationCapEnabled(): bool
+    {
+        return static::maxPendingPublicApplications() > 0;
     }
 }

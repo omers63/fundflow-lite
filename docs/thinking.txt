@@ -1858,6 +1858,75 @@ DeleteBulkAction: ->after(...) dispatches the same.
 dispatchAccountWidgetsRefresh() runs:
 $this->dispatch('refresh-account-widgets', accountId: (int) $this->getOwnerRecord()->getKey()).
 So: instant refresh when you change the ledger on that page, plus 3s polling as a safety net. To make polling more aggressive, lower $pollingInterval (e.g. '2s') on AccountDetailWidget.
+-------------------------------------------
+Here is what was implemented:
+
+1. Import Applications (like Import Members)
+New service: app/Services/MembershipImportService.php → actually MembershipApplicationImportService.php
+MembershipApplicationResource: table headerActions entry importApplications — label Import Applications, green upload icon, 2xl modal with CSV upload + default password (≥ 8 chars), same flow as members (temp file on local disk, delete after run, persistent notification with counts + error preview).
+Visibility: canCreate() or Update:MembershipApplication (aligned with member import + bulk updates).
+CSV rules (header row, UTF‑8, BOM stripped):
+Required: name, email, national_id, date_of_birth, city, address, mobile_phone, next_of_kin_name, next_of_kin_phone
+Optional: password (≥ 8 overrides default), application_type (new / resume / renew), gender, marital_status, membership_date, home_phone, work_phone, work_place, residency_place, occupation, employer, monthly_income, bank_account_number, iban
+Row outcomes: new pending user + pending application (same idea as manual create); skipped if that email already has a membership application; error if the user is already a member or email exists without an application.
+2. Create application page → tabs
+CreateMembershipApplication: replaced stacked Sections with Tabs::make()->tabs([...]) (Filament\Schemas\Components\Tabs / Tab), with icons on each tab:
+Account, Profile, Identity & address, Contact, Work & residency, Banking, Employment, Next of kin & document
+handleRecordCreation is unchanged in behavior.
+Pint was run on the touched files. php artisan test still fails on the existing ExampleTest / missing members table in SQLite memory — not caused by these changes.
+
+If you want updates for existing applications from CSV (like balance updates on member import), say how rows should be matched (e.g. by email only) and what fields may change.
+
+------------------------------
+Processing CSV rows
+
+I'm handling trailing commas in CSV rows by ensuring str_getcsv properly processes empty fields.
+
+Validating IBAN formats
+
+I'm correcting the Saudi IBAN validation to ensure it follows the correct format of SA + 22 digits totaling 24 characters. I confirmed that SA IBANs follow the format: country code (2) + check digits (2) + BBAN (20) = 24 characters total. I'm standardizing IBAN lengths in the CSV to match valid SA format (24 characters).
+
+Here’s what was added.
+
+File
+storage/app/examples/membership-applications-import-sample.csv
+
+5 data rows (within your 3–5 range), UTF-8, header row aligned with MembershipApplicationImportService.
+Required columns on every row: name, email, national_id, date_of_birth, city, address, mobile_phone, next_of_kin_name, next_of_kin_phone.
+Varied optional fields:
+application_type: resume, new, renew, new, new
+gender: female, male, female, other, female
+marital_status: married, single, divorced, other, widowed
+password: blank (uses import default password) on most rows; Omar has RowOwnPass99! (≥ 8 chars, overrides default)
+Phones / work: mix of home_phone, work_phone, work_place, residency_place
+Employment: different occupation, employer, monthly_income (including 0.00)
+Banking: some rows with bank_account_number + iban (24-char SA-style IBANs), some empty
+Emails use @example.test so they are unlikely to clash with real users; change them before importing on a shared DB.
+Import it from Applications → Import Applications, pick this file, set a default password (≥ 8 characters), then run the import.
+
+---------------------------------------------
+Here’s what was added and how it behaves.
+
+Configurable cap (Setting model)
+membership.max_pending_public — integer, stored like other settings (cached reads, cache cleared on save).
+Setting::maxPendingPublicApplications() — value, minimum 0.
+Setting::publicPendingApplicationCapEnabled() — true only when the max is greater than 0 (0 = no limit).
+Admin: Settings → Public membership
+New page: App\Filament\Admin\Pages\PublicMembershipSettingsPage (auto-discovered).
+Header action Save settings opens a small form: Maximum pending applications (numeric, ≥ 0, default 0).
+Section copy explains this only affects the public /apply wizard, not login (existing users can still sign in).
+Dashboard-style readout: current pending count vs configured maximum (or “No limit”).
+If you use Filament Shield, run php artisan shield:generate (or your usual flow) and grant access to this page for the right roles.
+
+Public apply flow (MembershipApplicationForm)
+mount() — if a cap is enabled and pending applications ≥ max, sets applicationCapReached so the wizard is not shown.
+Closed state — friendly “Applications temporarily closed” panel with links to Check application status and Home.
+submit() — re-checks the cap under a Cache::lock('membership_public_apply_submit', …) so concurrent submits don’t bypass the limit; on failure shows a form validation error in a red banner at the top of the step card.
+nextStep() — no-op when the cap is already reached (edge case if state changed mid-session).
+Count used: MembershipApplication::where('status', 'pending')->count() (same queue you configure in admin).
+
+The public login page does not register new users, so nothing was added there; only /apply is gated.
+
 
 
 

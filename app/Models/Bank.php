@@ -4,11 +4,19 @@ namespace App\Models;
 
 use Illuminate\Database\Eloquent\Model;
 use Illuminate\Database\Eloquent\Relations\HasMany;
+use Illuminate\Database\Eloquent\SoftDeletes;
 
 class Bank extends Model
 {
+    use SoftDeletes;
+
     protected $fillable = [
-        'name', 'code', 'swift_code', 'account_number', 'is_active', 'notes',
+        'name',
+        'code',
+        'swift_code',
+        'account_number',
+        'is_active',
+        'notes',
     ];
 
     protected $casts = [

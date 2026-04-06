@@ -4,9 +4,12 @@ namespace App\Models;
 
 use Illuminate\Database\Eloquent\Model;
 use Illuminate\Database\Eloquent\Relations\BelongsTo;
+use Illuminate\Database\Eloquent\SoftDeletes;
 
 class MonthlyStatement extends Model
 {
+    use SoftDeletes;
+
     protected $fillable = [
         'member_id',
         'period',
@@ -33,9 +36,37 @@ class MonthlyStatement extends Model
         return $this->belongsTo(Member::class);
     }
 
+    /**
+     * Create or update a row for member + period, restoring a soft-deleted duplicate if present (unique key).
+     *
+     * @param  array<string, mixed>  $values
+     */
+    public static function upsertForMember(int $memberId, string $period, array $values): self
+    {
+        $row = static::withTrashed()
+            ->where('member_id', $memberId)
+            ->where('period', $period)
+            ->first();
+
+        if ($row !== null) {
+            if ($row->trashed()) {
+                $row->restore();
+            }
+            $row->fill($values);
+            $row->save();
+
+            return $row;
+        }
+
+        return static::create(array_merge($values, [
+            'member_id' => $memberId,
+            'period' => $period,
+        ]));
+    }
+
     public function getPeriodFormattedAttribute(): string
     {
         $parts = explode('-', $this->period);
-        return \Carbon\Carbon::create((int)$parts[0], (int)$parts[1], 1)->format('F Y');
+        return \Carbon\Carbon::create((int) $parts[0], (int) $parts[1], 1)->format('F Y');
     }
 }

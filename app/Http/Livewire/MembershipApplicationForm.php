@@ -3,8 +3,12 @@
 namespace App\Http\Livewire;
 
 use App\Models\MembershipApplication;
+use App\Models\Setting;
 use App\Models\User;
+use Illuminate\Contracts\Cache\LockTimeoutException;
+use Illuminate\Support\Facades\Cache;
 use Illuminate\Support\Facades\Hash;
+use Illuminate\Validation\ValidationException;
 use Livewire\Component;
 use Livewire\WithFileUploads;
 
@@ -71,6 +75,23 @@ class MembershipApplicationForm extends Component
     public $application_form = null;
 
     public bool $submitted = false;
+
+    /** True when pending applications are at or above the configured public cap. */
+    public bool $applicationCapReached = false;
+
+    public function mount(): void
+    {
+        $this->applicationCapReached = $this->checkApplicationCapReached();
+    }
+
+    protected function checkApplicationCapReached(): bool
+    {
+        if (! Setting::publicPendingApplicationCapEnabled()) {
+            return false;
+        }
+
+        return MembershipApplication::query()->where('status', 'pending')->count() >= Setting::maxPendingPublicApplications();
+    }
 
     protected function rules(): array
     {
@@ -139,6 +160,10 @@ class MembershipApplicationForm extends Component
 
     public function nextStep(): void
     {
+        if ($this->applicationCapReached) {
+            return;
+        }
+
         $this->validate($this->stepRules()[$this->currentStep]);
         $this->currentStep++;
     }
@@ -150,47 +175,70 @@ class MembershipApplicationForm extends Component
 
     public function submit(): void
     {
-        $this->validate();
-
-        $filePath = null;
-        if ($this->application_form) {
-            $filePath = $this->application_form->store('applications', 'public');
+        if ($this->applicationCapReached) {
+            throw ValidationException::withMessages([
+                'form' => 'We are not accepting new applications at the moment. Please try again later.',
+            ]);
         }
 
-        $user = User::create([
-            'name' => $this->name,
-            'email' => $this->email,
-            'phone' => $this->mobile_phone,
-            'role' => 'member',
-            'status' => 'pending',
-            'password' => Hash::make($this->password),
-        ]);
+        $this->validate();
 
-        MembershipApplication::create([
-            'user_id' => $user->id,
-            'application_type' => $this->application_type,
-            'gender' => filled($this->gender) ? $this->gender : null,
-            'marital_status' => filled($this->marital_status) ? $this->marital_status : null,
-            'national_id' => $this->national_id,
-            'date_of_birth' => $this->date_of_birth,
-            'address' => $this->address,
-            'city' => $this->city,
-            'home_phone' => filled($this->home_phone) ? $this->home_phone : null,
-            'work_phone' => filled($this->work_phone) ? $this->work_phone : null,
-            'mobile_phone' => $this->mobile_phone,
-            'occupation' => $this->occupation ?: null,
-            'employer' => $this->employer ?: null,
-            'work_place' => filled($this->work_place) ? $this->work_place : null,
-            'residency_place' => filled($this->residency_place) ? $this->residency_place : null,
-            'monthly_income' => filled($this->monthly_income) ? $this->monthly_income : null,
-            'bank_account_number' => filled($this->bank_account_number) ? $this->bank_account_number : null,
-            'iban' => filled($this->iban) ? strtoupper($this->iban) : null,
-            'membership_date' => filled($this->membership_date) ? $this->membership_date : null,
-            'next_of_kin_name' => $this->next_of_kin_name,
-            'next_of_kin_phone' => $this->next_of_kin_phone,
-            'application_form_path' => $filePath,
-            'status' => 'pending',
-        ]);
+        try {
+            Cache::lock('membership_public_apply_submit', 15)->block(8, function (): void {
+                if (Setting::publicPendingApplicationCapEnabled()) {
+                    $pendingCount = MembershipApplication::query()->where('status', 'pending')->count();
+                    if ($pendingCount >= Setting::maxPendingPublicApplications()) {
+                        throw ValidationException::withMessages([
+                            'form' => 'We are not accepting new applications at the moment. Please try again later.',
+                        ]);
+                    }
+                }
+
+                $filePath = null;
+                if ($this->application_form) {
+                    $filePath = $this->application_form->store('applications', 'public');
+                }
+
+                $user = User::create([
+                    'name' => $this->name,
+                    'email' => $this->email,
+                    'phone' => $this->mobile_phone,
+                    'role' => 'member',
+                    'status' => 'pending',
+                    'password' => Hash::make($this->password),
+                ]);
+
+                MembershipApplication::create([
+                    'user_id' => $user->id,
+                    'application_type' => $this->application_type,
+                    'gender' => filled($this->gender) ? $this->gender : null,
+                    'marital_status' => filled($this->marital_status) ? $this->marital_status : null,
+                    'national_id' => $this->national_id,
+                    'date_of_birth' => $this->date_of_birth,
+                    'address' => $this->address,
+                    'city' => $this->city,
+                    'home_phone' => filled($this->home_phone) ? $this->home_phone : null,
+                    'work_phone' => filled($this->work_phone) ? $this->work_phone : null,
+                    'mobile_phone' => $this->mobile_phone,
+                    'occupation' => $this->occupation ?: null,
+                    'employer' => $this->employer ?: null,
+                    'work_place' => filled($this->work_place) ? $this->work_place : null,
+                    'residency_place' => filled($this->residency_place) ? $this->residency_place : null,
+                    'monthly_income' => filled($this->monthly_income) ? $this->monthly_income : null,
+                    'bank_account_number' => filled($this->bank_account_number) ? $this->bank_account_number : null,
+                    'iban' => filled($this->iban) ? strtoupper($this->iban) : null,
+                    'membership_date' => filled($this->membership_date) ? $this->membership_date : null,
+                    'next_of_kin_name' => $this->next_of_kin_name,
+                    'next_of_kin_phone' => $this->next_of_kin_phone,
+                    'application_form_path' => $filePath,
+                    'status' => 'pending',
+                ]);
+            });
+        } catch (LockTimeoutException) {
+            throw ValidationException::withMessages([
+                'form' => 'The application service is busy. Please wait a moment and try again.',
+            ]);
+        }
 
         $this->submitted = true;
     }

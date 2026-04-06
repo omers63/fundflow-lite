@@ -21,6 +21,29 @@
                 </a>
             </div>
         </div>
+        @elseif($applicationCapReached)
+        <div class="bg-white rounded-3xl shadow-xl p-10 sm:p-12 text-center">
+            <div class="w-20 h-20 bg-amber-100 rounded-full flex items-center justify-center mx-auto mb-6">
+                <svg class="w-10 h-10 text-amber-600" fill="none" stroke="currentColor" viewBox="0 0 24 24" aria-hidden="true">
+                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 9v2m0 4h.01m-6.938 4h13.856c1.54 0 2.502-1.667 1.732-3L13.732 4c-.77-1.333-2.694-1.333-3.464 0L3.34 16c-.77 1.333.192 3 1.732 3z"/>
+                </svg>
+            </div>
+            <h2 class="text-2xl font-bold text-slate-800 mb-3">Applications temporarily closed</h2>
+            <p class="text-slate-600 max-w-md mx-auto mb-2">
+                We are not accepting new membership applications right now because our review queue is full.
+            </p>
+            <p class="text-slate-500 text-sm max-w-md mx-auto mb-8">
+                If you already applied, you can check your status below. Otherwise, please try again later.
+            </p>
+            <div class="flex flex-col sm:flex-row gap-3 justify-center">
+                <a href="{{ route('application.status') }}" class="bg-blue-600 text-white font-semibold px-6 py-3 rounded-xl hover:bg-blue-700 transition-colors">
+                    Check application status
+                </a>
+                <a href="{{ route('home') }}" class="bg-slate-100 text-slate-700 font-semibold px-6 py-3 rounded-xl hover:bg-slate-200 transition-colors">
+                    Back to home
+                </a>
+            </div>
+        </div>
         @else
 
         {{-- Progress Header --}}
@@ -58,6 +81,12 @@
             </div>
 
             <div class="p-8">
+                @error('form')
+                    <div class="mb-6 rounded-xl border border-red-200 bg-red-50 px-4 py-3 text-sm text-red-800" role="alert">
+                        {{ $message }}
+                    </div>
+                @enderror
+
                 {{-- Step 1: Personal Info --}}
                 @if($currentStep === 1)
                 <div class="space-y-5">

@@ -1,9 +1,15 @@
 @php
     $d = $this->getData();
     $total = max(1, $d['total']);
+    $pollingInterval = $this->getPollingInterval();
 @endphp
 
-<div class="w-full max-w-none space-y-4 mb-2">
+<div
+    class="w-full max-w-none space-y-4 mb-2"
+    @if (filled($pollingInterval))
+        wire:poll.{{ $pollingInterval }}
+    @endif
+>
 
     {{-- ── KPI row ─────────────────────────────────────────────────────── --}}
     <div class="grid grid-cols-2 gap-4 sm:grid-cols-3 xl:grid-cols-5">

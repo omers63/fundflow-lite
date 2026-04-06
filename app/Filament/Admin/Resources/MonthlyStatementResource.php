@@ -10,12 +10,16 @@ use App\Models\MonthlyStatement;
 use Filament\Actions\Action;
 use Filament\Actions\DeleteAction;
 use Filament\Actions\EditAction;
+use Filament\Actions\ForceDeleteAction;
+use Filament\Actions\RestoreAction;
 use Filament\Forms;
 use Filament\Notifications\Notification;
 use Filament\Resources\Resource;
 use Filament\Schemas\Schema;
 use Filament\Tables;
+use Filament\Tables\Filters\TrashedFilter;
 use Filament\Tables\Table;
+use Illuminate\Database\Eloquent\Builder;
 
 class MonthlyStatementResource extends Resource
 {
@@ -89,6 +93,7 @@ class MonthlyStatementResource extends Resource
                         range((int) now()->year, (int) now()->year - 15)
                     ))
                     ->query(fn($query, $state) => $state ? $query->where('period', 'like', $state . '-%') : $query),
+                TrashedFilter::make(),
             ])
             ->headerActions([
                 Action::make('generate_all')
@@ -120,16 +125,13 @@ class MonthlyStatementResource extends Resource
                             $opening = $lastStatement?->closing_balance ?? 0;
                             $closing = $opening + $contributions - $repayments;
 
-                            MonthlyStatement::updateOrCreate(
-                                ['member_id' => $member->id, 'period' => $period],
-                                [
-                                    'opening_balance' => $opening,
-                                    'total_contributions' => $contributions,
-                                    'total_repayments' => $repayments,
-                                    'closing_balance' => $closing,
-                                    'generated_at' => now(),
-                                ]
-                            );
+                            MonthlyStatement::upsertForMember($member->id, $period, [
+                                'opening_balance' => $opening,
+                                'total_contributions' => $contributions,
+                                'total_repayments' => $repayments,
+                                'closing_balance' => $closing,
+                                'generated_at' => now(),
+                            ]);
                             $generated++;
                         });
 
@@ -142,6 +144,8 @@ class MonthlyStatementResource extends Resource
             ->recordActions([
                 EditAction::make(),
                 DeleteAction::make(),
+                RestoreAction::make(),
+                ForceDeleteAction::make(),
             ]);
     }
 
@@ -152,5 +156,10 @@ class MonthlyStatementResource extends Resource
             'create' => Pages\CreateMonthlyStatement::route('/create'),
             'edit' => Pages\EditMonthlyStatement::route('/{record}/edit'),
         ];
+    }
+
+    public static function getRecordRouteBindingEloquentQuery(): Builder
+    {
+        return parent::getRecordRouteBindingEloquentQuery()->withTrashed();
     }
 }

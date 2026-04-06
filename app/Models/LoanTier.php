@@ -4,9 +4,12 @@ namespace App\Models;
 
 use Illuminate\Database\Eloquent\Model;
 use Illuminate\Database\Eloquent\Relations\HasMany;
+use Illuminate\Database\Eloquent\SoftDeletes;
 
 class LoanTier extends Model
 {
+    use SoftDeletes;
+
     protected $fillable = [
         'tier_number',
         'label',
@@ -19,10 +22,10 @@ class LoanTier extends Model
     protected function casts(): array
     {
         return [
-            'min_amount'              => 'decimal:2',
-            'max_amount'              => 'decimal:2',
+            'min_amount' => 'decimal:2',
+            'max_amount' => 'decimal:2',
             'min_monthly_installment' => 'decimal:2',
-            'is_active'               => 'boolean',
+            'is_active' => 'boolean',
         ];
     }
 

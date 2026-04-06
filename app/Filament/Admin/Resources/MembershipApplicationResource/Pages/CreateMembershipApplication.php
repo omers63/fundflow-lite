@@ -9,9 +9,12 @@ use Filament\Forms;
 use Filament\Notifications\Notification;
 use Filament\Resources\Pages\CreateRecord;
 use Filament\Schemas\Components\Section;
+use Filament\Schemas\Components\Tabs;
+use Filament\Schemas\Components\Tabs\Tab;
 use Filament\Schemas\Schema;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Hash;
+use Illuminate\Support\HtmlString;
 
 class CreateMembershipApplication extends CreateRecord
 {
@@ -20,153 +23,177 @@ class CreateMembershipApplication extends CreateRecord
     public function form(Schema $schema): Schema
     {
         return $schema->schema([
-            Section::make('Applicant account')
-                ->description('Creates a member login with pending status, same as the public apply flow.')
-                ->schema([
-                    Forms\Components\TextInput::make('name')
-                        ->label('Full Name')
-                        ->required()
-                        ->maxLength(150),
-                    Forms\Components\TextInput::make('email')
-                        ->label('Email (login)')
-                        ->email()
-                        ->required()
-                        ->unique(User::class, 'email')
-                        ->maxLength(255),
-                    Forms\Components\TextInput::make('password')
-                        ->label('Password')
-                        ->password()
-                        ->revealable()
-                        ->required()
-                        ->minLength(8)
-                        ->same('password_confirmation'),
-                    Forms\Components\TextInput::make('password_confirmation')
-                        ->label('Confirm Password')
-                        ->password()
-                        ->revealable()
-                        ->required()
-                        ->dehydrated(false),
-                ])->columns(2),
+            Tabs::make()
+                ->contained(false)
+                ->columnSpanFull()
+                ->tabs([
+                    Tab::make('Account')
+                        ->icon('heroicon-o-user')
+                        ->schema([
+                            Forms\Components\TextInput::make('name')
+                                ->label('Full Name')
+                                ->required()
+                                ->maxLength(150),
+                            Forms\Components\TextInput::make('email')
+                                ->label('Email (login)')
+                                ->email()
+                                ->required()
+                                ->unique(User::class, 'email')
+                                ->maxLength(255)
+                                ->helperText('Creates a member login with pending status, same as the public apply flow.'),
+                            Forms\Components\TextInput::make('password')
+                                ->label('Password')
+                                ->password()
+                                ->revealable()
+                                ->required()
+                                ->minLength(8)
+                                ->same('password_confirmation'),
+                            Forms\Components\TextInput::make('password_confirmation')
+                                ->label('Confirm Password')
+                                ->password()
+                                ->revealable()
+                                ->required()
+                                ->dehydrated(false),
+                        ])->columns(2),
 
-            Section::make('Application type & profile')
-                ->schema([
-                    Forms\Components\Select::make('application_type')
-                        ->label('Application type')
-                        ->options(MembershipApplication::applicationTypeOptions())
-                        ->required()
-                        ->default('new'),
-                    Forms\Components\Select::make('gender')
-                        ->options(MembershipApplication::genderOptions())
-                        ->placeholder('—'),
-                    Forms\Components\Select::make('marital_status')
-                        ->label('Marital status')
-                        ->options(MembershipApplication::maritalStatusOptions())
-                        ->placeholder('—'),
-                    Forms\Components\DatePicker::make('membership_date')
-                        ->label('Membership date')
-                        ->native(false),
-                ])->columns(2),
+                    Tab::make('Details')
+                        ->icon('heroicon-o-clipboard-document-list')
+                        ->schema([
+                            Section::make('Profile')
+                                ->icon('heroicon-o-identification')
+                                ->schema([
+                                    Forms\Components\Select::make('application_type')
+                                        ->label('Application type')
+                                        ->options(MembershipApplication::applicationTypeOptions())
+                                        ->required()
+                                        ->default('new'),
+                                    Forms\Components\Select::make('gender')
+                                        ->options(MembershipApplication::genderOptions())
+                                        ->placeholder('—'),
+                                    Forms\Components\Select::make('marital_status')
+                                        ->label('Marital status')
+                                        ->options(MembershipApplication::maritalStatusOptions())
+                                        ->placeholder('—'),
+                                    Forms\Components\DatePicker::make('membership_date')
+                                        ->label('Membership date')
+                                        ->native(false),
+                                ])->columns(2),
 
-            Section::make('Application — identity & address')
-                ->schema([
-                    Forms\Components\TextInput::make('national_id')
-                        ->label('National ID')
-                        ->required()
-                        ->maxLength(20),
-                    Forms\Components\DatePicker::make('date_of_birth')
-                        ->label('Date of Birth')
-                        ->required()
-                        ->native(false)
-                        ->maxDate(now()),
-                    Forms\Components\TextInput::make('city')
-                        ->label('City')
-                        ->required()
-                        ->maxLength(100),
-                    Forms\Components\Textarea::make('address')
-                        ->label('Address')
-                        ->required()
-                        ->rows(3)
-                        ->columnSpanFull(),
-                ])->columns(3),
+                            Section::make('Identity & address')
+                                ->icon('heroicon-o-map-pin')
+                                ->schema([
+                                    Forms\Components\TextInput::make('national_id')
+                                        ->label('National ID')
+                                        ->required()
+                                        ->maxLength(20),
+                                    Forms\Components\DatePicker::make('date_of_birth')
+                                        ->label('Date of Birth')
+                                        ->required()
+                                        ->native(false)
+                                        ->maxDate(now()),
+                                    Forms\Components\TextInput::make('city')
+                                        ->label('City')
+                                        ->required()
+                                        ->maxLength(100),
+                                    Forms\Components\Textarea::make('address')
+                                        ->label('Address')
+                                        ->required()
+                                        ->rows(3)
+                                        ->columnSpanFull(),
+                                ])->columns(3),
 
-            Section::make('Contact numbers')
-                ->schema([
-                    Forms\Components\TextInput::make('mobile_phone')
-                        ->label('Mobile phone')
-                        ->tel()
-                        ->required()
-                        ->maxLength(30)
-                        ->helperText('Used for SMS and WhatsApp; also set as the user account phone.'),
-                    Forms\Components\TextInput::make('home_phone')
-                        ->label('Home phone')
-                        ->tel()
-                        ->maxLength(30),
-                    Forms\Components\TextInput::make('work_phone')
-                        ->label('Work phone')
-                        ->tel()
-                        ->maxLength(30),
-                ])->columns(3),
+                            Section::make('Contact')
+                                ->icon('heroicon-o-phone')
+                                ->schema([
+                                    Forms\Components\TextInput::make('mobile_phone')
+                                        ->label('Mobile phone')
+                                        ->tel()
+                                        ->required()
+                                        ->maxLength(30)
+                                        ->helperText('Used for SMS and WhatsApp; also set as the user account phone.'),
+                                    Forms\Components\TextInput::make('home_phone')
+                                        ->label('Home phone')
+                                        ->tel()
+                                        ->maxLength(30),
+                                    Forms\Components\TextInput::make('work_phone')
+                                        ->label('Work phone')
+                                        ->tel()
+                                        ->maxLength(30),
+                                ])->columns(3),
 
-            Section::make('Work & residency')
-                ->schema([
-                    Forms\Components\TextInput::make('work_place')
-                        ->label('Work place')
-                        ->maxLength(255)
-                        ->columnSpanFull(),
-                    Forms\Components\TextInput::make('residency_place')
-                        ->label('Residency place')
-                        ->maxLength(255)
-                        ->columnSpanFull(),
-                ]),
+                            Section::make('Work & residency')
+                                ->icon('heroicon-o-building-office')
+                                ->schema([
+                                    Forms\Components\TextInput::make('work_place')
+                                        ->label('Work place')
+                                        ->maxLength(255)
+                                        ->columnSpanFull(),
+                                    Forms\Components\TextInput::make('residency_place')
+                                        ->label('Residency place')
+                                        ->maxLength(255)
+                                        ->columnSpanFull(),
+                                ]),
 
-            Section::make('Banking')
-                ->schema([
-                    Forms\Components\TextInput::make('bank_account_number')
-                        ->label('Bank account number')
-                        ->maxLength(50),
-                    Forms\Components\TextInput::make('iban')
-                        ->label('IBAN')
-                        ->maxLength(34)
-                        ->extraInputAttributes(['dir' => 'ltr', 'class' => 'font-mono']),
-                ])->columns(2),
+                            Section::make('Employment')
+                                ->icon('heroicon-o-briefcase')
+                                ->schema([
+                                    Forms\Components\TextInput::make('occupation')
+                                        ->maxLength(150),
+                                    Forms\Components\TextInput::make('employer')
+                                        ->maxLength(150),
+                                    Forms\Components\TextInput::make('monthly_income')
+                                        ->label('Monthly Income (SAR)')
+                                        ->numeric()
+                                        ->prefix('SAR')
+                                        ->minValue(0),
+                                ])->columns(3),
 
-            Section::make('Application — employment')
-                ->schema([
-                    Forms\Components\TextInput::make('occupation')
-                        ->maxLength(150),
-                    Forms\Components\TextInput::make('employer')
-                        ->maxLength(150),
-                    Forms\Components\TextInput::make('monthly_income')
-                        ->label('Monthly Income (SAR)')
-                        ->numeric()
-                        ->prefix('SAR')
-                        ->minValue(0),
-                ])->columns(3),
+                            Section::make('Banking')
+                                ->icon('heroicon-o-building-library')
+                                ->schema([
+                                    Forms\Components\TextInput::make('bank_account_number')
+                                        ->label('Bank account number')
+                                        ->maxLength(50),
+                                    Forms\Components\TextInput::make('iban')
+                                        ->label('IBAN')
+                                        ->maxLength(34)
+                                        ->extraInputAttributes(['dir' => 'ltr', 'class' => 'font-mono']),
+                                ])->columns(2),
 
-            Section::make('Application — next of kin')
-                ->schema([
-                    Forms\Components\TextInput::make('next_of_kin_name')
-                        ->label('Name')
-                        ->required()
-                        ->maxLength(150),
-                    Forms\Components\TextInput::make('next_of_kin_phone')
-                        ->label('Phone')
-                        ->tel()
-                        ->required()
-                        ->maxLength(30),
-                ])->columns(2),
+                            Section::make('Next of kin')
+                                ->icon('heroicon-o-user-group')
+                                ->schema([
+                                    Forms\Components\TextInput::make('next_of_kin_name')
+                                        ->label('Name')
+                                        ->required()
+                                        ->maxLength(150),
+                                    Forms\Components\TextInput::make('next_of_kin_phone')
+                                        ->label('Phone')
+                                        ->tel()
+                                        ->required()
+                                        ->maxLength(30),
+                                ])->columns(2),
+                        ]),
 
-            Section::make('Application document')
-                ->schema([
-                    Forms\Components\FileUpload::make('application_form_path')
-                        ->label('Uploaded form')
-                        ->disk('public')
-                        ->directory('membership-applications')
-                        ->downloadable()
-                        ->openable()
-                        ->acceptedFileTypes(['application/pdf', 'image/jpeg', 'image/png', 'image/webp'])
-                        ->maxSize(10240)
-                        ->helperText('PDF or image, max 10 MB. Optional if you will add it later from edit.'),
+                    Tab::make('Form Upload')
+                        ->icon('heroicon-o-document-text')
+                        ->schema([
+                            Section::make()
+                                ->description(new HtmlString(view('filament.admin.membership-application-form-upload-notice', [
+                                    'downloadUrl' => route('downloads.membership-application-form-template'),
+                                ])->render()))
+                                ->schema([
+                                    Forms\Components\FileUpload::make('application_form_path')
+                                        ->label('Signed application form')
+                                        ->disk('public')
+                                        ->directory('membership-applications')
+                                        ->downloadable()
+                                        ->openable()
+                                        ->acceptedFileTypes(['application/pdf', 'image/jpeg', 'image/png', 'image/webp'])
+                                        ->maxSize(10240)
+                                        ->helperText('PDF or image, max 10 MB. Optional if you will add it later from edit.'),
+                                ]),
+                        ]),
                 ]),
         ]);
     }

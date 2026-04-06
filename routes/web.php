@@ -2,6 +2,7 @@
 
 use App\Http\Controllers\Admin\DatabaseBackupDownloadController;
 use App\Http\Controllers\Admin\StoredDatabaseBackupDownloadController;
+use App\Http\Controllers\MembershipApplicationFormTemplateController;
 use App\Http\Controllers\StatementPdfController;
 use App\Http\Livewire\ApplicationStatusPage;
 use App\Http\Livewire\LoginPage;
@@ -13,6 +14,9 @@ Route::get('/', PublicHomePage::class)->name('home');
 Route::get('/login', LoginPage::class)->name('login');
 Route::get('/apply', MembershipApplicationForm::class)->name('apply');
 Route::get('/application-status', ApplicationStatusPage::class)->name('application.status');
+
+Route::get('/downloads/membership-application-form-template', MembershipApplicationFormTemplateController::class)
+    ->name('downloads.membership-application-form-template');
 
 Route::middleware(['auth'])->group(function () {
     Route::get('/member/statements/{statement}/pdf', [StatementPdfController::class, 'download'])

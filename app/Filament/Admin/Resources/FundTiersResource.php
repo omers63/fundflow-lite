@@ -8,12 +8,16 @@ use App\Models\FundTier;
 use App\Models\LoanTier;
 use Filament\Actions\DeleteAction;
 use Filament\Actions\EditAction;
+use Filament\Actions\ForceDeleteAction;
+use Filament\Actions\RestoreAction;
 use Filament\Forms;
 use Filament\Resources\Resource;
 use Filament\Schemas\Components\Section;
 use Filament\Schemas\Schema;
 use Filament\Tables;
+use Filament\Tables\Filters\TrashedFilter;
 use Filament\Tables\Table;
+use Illuminate\Database\Eloquent\Builder;
 
 class FundTiersResource extends Resource
 {
@@ -95,8 +99,14 @@ class FundTiersResource extends Resource
                     ->searchable()
                     ->preload(),
                 Tables\Filters\TernaryFilter::make('is_active')->label('Active'),
+                TrashedFilter::make(),
             ])
-            ->recordActions([EditAction::make(), DeleteAction::make()])
+            ->recordActions([
+                EditAction::make(),
+                DeleteAction::make(),
+                RestoreAction::make(),
+                ForceDeleteAction::make(),
+            ])
             ->description('Master Fund Balance: SAR ' . number_format($masterBalance, 2));
     }
 
@@ -107,5 +117,10 @@ class FundTiersResource extends Resource
             'create' => Pages\CreateFundTier::route('/create'),
             'edit' => Pages\EditFundTier::route('/{record}/edit'),
         ];
+    }
+
+    public static function getRecordRouteBindingEloquentQuery(): Builder
+    {
+        return parent::getRecordRouteBindingEloquentQuery()->withTrashed();
     }
 }

@@ -6,13 +6,17 @@ use App\Filament\Admin\Resources\BankResource\Pages;
 use App\Models\Bank;
 use Filament\Actions\DeleteAction;
 use Filament\Actions\EditAction;
+use Filament\Actions\ForceDeleteAction;
+use Filament\Actions\RestoreAction;
 use Filament\Actions\ViewAction;
 use Filament\Forms;
 use Filament\Resources\Resource;
 use Filament\Schemas\Components\Section;
 use Filament\Schemas\Schema;
 use Filament\Tables;
+use Filament\Tables\Filters\TrashedFilter;
 use Filament\Tables\Table;
+use Illuminate\Database\Eloquent\Builder;
 
 class BankResource extends Resource
 {
@@ -79,11 +83,14 @@ class BankResource extends Resource
             ->defaultSort('name')
             ->filters([
                 Tables\Filters\TernaryFilter::make('is_active')->label('Active'),
+                TrashedFilter::make(),
             ])
             ->recordActions([
                 ViewAction::make(),
                 EditAction::make(),
                 DeleteAction::make(),
+                RestoreAction::make(),
+                ForceDeleteAction::make(),
             ]);
     }
 
@@ -94,5 +101,10 @@ class BankResource extends Resource
             'create' => Pages\CreateBank::route('/create'),
             'edit' => Pages\EditBank::route('/{record}/edit'),
         ];
+    }
+
+    public static function getRecordRouteBindingEloquentQuery(): Builder
+    {
+        return parent::getRecordRouteBindingEloquentQuery()->withTrashed();
     }
 }

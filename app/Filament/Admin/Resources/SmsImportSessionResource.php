@@ -17,7 +17,9 @@ use Filament\Resources\Resource;
 use Filament\Schemas\Components\Section;
 use Filament\Schemas\Schema;
 use Filament\Tables;
+use Filament\Tables\Filters\TrashedFilter;
 use Filament\Tables\Table;
+use Illuminate\Database\Eloquent\Builder;
 
 class SmsImportSessionResource extends Resource
 {
@@ -118,6 +120,7 @@ class SmsImportSessionResource extends Resource
                             ->when($data['from'] ?? null, fn($q) => $q->whereDate('created_at', '>=', $data['from']))
                             ->when($data['until'] ?? null, fn($q) => $q->whereDate('created_at', '<=', $data['until']));
                     }),
+                TrashedFilter::make(),
             ])
             ->headerActions([
                 Action::make('new_sms_import')
@@ -227,5 +230,10 @@ class SmsImportSessionResource extends Resource
             'index' => Pages\ListSmsImportSessions::route('/'),
             'view' => Pages\ViewSmsImportSession::route('/{record}'),
         ];
+    }
+
+    public static function getRecordRouteBindingEloquentQuery(): Builder
+    {
+        return parent::getRecordRouteBindingEloquentQuery()->withTrashed();
     }
 }

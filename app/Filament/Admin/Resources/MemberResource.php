@@ -10,18 +10,23 @@ use App\Filament\Admin\Resources\MemberResource\RelationManagers\LoansRelationMa
 use App\Models\Member;
 use App\Models\MembershipApplication;
 use App\Services\MemberDeletionService;
+use App\Services\MemberImportService;
 use Carbon\Carbon;
+use Filament\Actions\Action;
 use Filament\Actions\BulkActionGroup;
+use Filament\Actions\CreateAction;
 use Filament\Actions\DeleteAction;
 use Filament\Actions\DeleteBulkAction;
 use Filament\Actions\EditAction;
 use Filament\Actions\ViewAction;
 use Filament\Forms;
+use Filament\Notifications\Notification;
 use Filament\Resources\Resource;
 use Filament\Schemas\Components\Section;
 use Filament\Schemas\Schema;
 use Filament\Tables;
 use Filament\Tables\Table;
+use Illuminate\Support\Facades\Storage;
 
 class MemberResource extends Resource
 {
@@ -182,16 +187,16 @@ class MemberResource extends Resource
                         ->helperText('Multiples of SAR 500, from SAR 500 to SAR 3,000.'),
                     Forms\Components\Select::make('parent_id')
                         ->label('Parent Member (Sponsor)')
-                        ->options(fn(?Member $record) => Member::with('user')
+                        ->options(fn (?Member $record) => Member::with('user')
                             ->whereNull('parent_id')
-                            ->when($record, fn($q) => $q->where('id', '!=', $record->id))
+                            ->when($record, fn ($q) => $q->where('id', '!=', $record->id))
                             ->get()
-                            ->mapWithKeys(fn($m) => [$m->id => "{$m->member_number} – {$m->user->name}"]))
+                            ->mapWithKeys(fn ($m) => [$m->id => "{$m->member_number} – {$m->user->name}"]))
                         ->searchable()
                         ->nullable()
                         ->placeholder('None (independent member)')
-                        ->disabled(fn(?Member $record) => $record && $record->dependents()->exists())
-                        ->helperText(fn(?Member $record) => $record && $record->dependents()->exists()
+                        ->disabled(fn (?Member $record) => $record && $record->dependents()->exists())
+                        ->helperText(fn (?Member $record) => $record && $record->dependents()->exists()
                             ? 'This member has dependents and cannot be assigned a parent.'
                             : 'The parent member can fund this member\'s cash account.'),
                 ])->columns(2),
@@ -208,12 +213,12 @@ class MemberResource extends Resource
                             $loan = $record?->loans()
                                 ->whereIn('status', ['approved', 'active', 'disbursed'])
                                 ->latest('applied_at')->first();
-                            if (!$loan) {
+                            if (! $loan) {
                                 return '— No active loan';
                             }
 
-                            return "Loan #{$loan->id} · SAR " . number_format((float) $loan->amount_approved, 2)
-                                . " · Status: {$loan->status}";
+                            return "Loan #{$loan->id} · SAR ".number_format((float) $loan->amount_approved, 2)
+                                ." · Status: {$loan->status}";
                         })
                         ->columnSpanFull(),
                     Forms\Components\Placeholder::make('_guarantor')
@@ -222,13 +227,13 @@ class MemberResource extends Resource
                             $loan = $record?->loans()
                                 ->whereIn('status', ['approved', 'active', 'disbursed'])
                                 ->latest('applied_at')->first();
-                            if (!$loan?->guarantor) {
+                            if (! $loan?->guarantor) {
                                 return '—';
                             }
                             $g = $loan->guarantor->load('user');
 
                             return "{$g->member_number} – {$g->user->name}"
-                                . ($g->user->phone ? '  ·  ' . $g->user->phone : '');
+                                .($g->user->phone ? '  ·  '.$g->user->phone : '');
                         }),
                     Forms\Components\Placeholder::make('_guarantor_released')
                         ->label('Guarantor Released?')
@@ -236,12 +241,12 @@ class MemberResource extends Resource
                             $loan = $record?->loans()
                                 ->whereIn('status', ['approved', 'active', 'disbursed'])
                                 ->latest('applied_at')->first();
-                            if (!$loan) {
+                            if (! $loan) {
                                 return '—';
                             }
 
                             return $loan->guarantor_released_at
-                                ? '✅ Released on ' . Carbon::parse($loan->guarantor_released_at)->format('d M Y')
+                                ? '✅ Released on '.Carbon::parse($loan->guarantor_released_at)->format('d M Y')
                                 : '⏳ Not yet released';
                         }),
                     Forms\Components\Placeholder::make('_witness1')
@@ -250,12 +255,12 @@ class MemberResource extends Resource
                             $loan = $record?->loans()
                                 ->whereIn('status', ['approved', 'active', 'disbursed'])
                                 ->latest('applied_at')->first();
-                            if (!$loan?->witness1_name) {
+                            if (! $loan?->witness1_name) {
                                 return '—';
                             }
 
                             return $loan->witness1_name
-                                . ($loan->witness1_phone ? '  ·  ' . $loan->witness1_phone : '');
+                                .($loan->witness1_phone ? '  ·  '.$loan->witness1_phone : '');
                         }),
                     Forms\Components\Placeholder::make('_witness2')
                         ->label('Witness 2')
@@ -263,12 +268,12 @@ class MemberResource extends Resource
                             $loan = $record?->loans()
                                 ->whereIn('status', ['approved', 'active', 'disbursed'])
                                 ->latest('applied_at')->first();
-                            if (!$loan?->witness2_name) {
+                            if (! $loan?->witness2_name) {
                                 return '—';
                             }
 
                             return $loan->witness2_name
-                                . ($loan->witness2_phone ? '  ·  ' . $loan->witness2_phone : '');
+                                .($loan->witness2_phone ? '  ·  '.$loan->witness2_phone : '');
                         }),
                 ])->columns(2),
 
@@ -298,7 +303,7 @@ class MemberResource extends Resource
                     ->toggleable(),
                 Tables\Columns\TextColumn::make('status')
                     ->badge()
-                    ->color(fn(string $state) => match ($state) {
+                    ->color(fn (string $state) => match ($state) {
                         'active' => 'success',
                         'suspended' => 'warning',
                         'delinquent' => 'danger',
@@ -322,28 +327,90 @@ class MemberResource extends Resource
                     ->label('Total Contributions')
                     ->money('SAR')
                     ->sortable()
-                    ->getStateUsing(fn($record) => $record->contributions()->sum('amount'))
+                    ->getStateUsing(fn ($record) => $record->contributions()->sum('amount'))
                     ->toggleable(),
                 Tables\Columns\TextColumn::make('late_contributions_count')
                     ->label('Late #')
                     ->sortable()
                     ->badge()
-                    ->color(fn($state) => $state > 0 ? 'warning' : 'success')
+                    ->color(fn ($state) => $state > 0 ? 'warning' : 'success')
                     ->toggleable(),
                 Tables\Columns\TextColumn::make('late_contributions_amount')
                     ->label('Late Amount')
                     ->money('SAR')
                     ->sortable()
-                    ->color(fn($state) => $state > 0 ? 'warning' : 'gray')
+                    ->color(fn ($state) => $state > 0 ? 'warning' : 'gray')
                     ->toggleable(),
+            ])
+            ->columnManager()
+            ->headerActions([
+                Action::make('importMembers')
+                    ->label('Import Members')
+                    ->icon('heroicon-o-arrow-up-tray')
+                    ->color('success')
+                    ->visible(fn (): bool => static::canCreate() || (bool) auth()->user()?->can('Update:Member'))
+                    ->modalHeading('Import members from CSV')
+                    ->modalDescription(
+                        'First row must be headers. Required: email; name required for new members only (balance-only rows for existing emails may leave name blank). Optional: password, phone, joined_at, status, monthly_contribution_amount, parent_member_number, '.
+                        'cash_balance (≥ 0), fund_balance (may be negative — paired debit on master + member fund, e.g. master-funded loan). '.
+                        'Existing email: if the user already has a member, applies cash/fund adjustments only (other columns ignored); requires Update:Member. No member record → error. '.
+                        'New members require Create:Member. Parent rows before dependents. Status: active, suspended, delinquent. Contribution: 500–3000 in steps of 500.'
+                    )
+                    ->modalWidth('2xl')
+                    ->schema([
+                        Forms\Components\FileUpload::make('csv_file')
+                            ->label('CSV file')
+                            ->disk('local')
+                            ->directory('member-imports')
+                            ->acceptedFileTypes(['text/csv', 'text/plain', 'application/csv', 'application/vnd.ms-excel'])
+                            ->required(),
+                        Forms\Components\TextInput::make('default_password')
+                            ->label('Default password')
+                            ->password()
+                            ->revealable()
+                            ->required()
+                            ->minLength(8)
+                            ->helperText('Used when the password column is empty or shorter than 8 characters. Members should change it after first login.'),
+                    ])
+                    ->action(function (array $data): void {
+                        $relative = $data['csv_file'];
+                        $fullPath = Storage::disk('local')->path($relative);
+
+                        try {
+                            $result = app(MemberImportService::class)->import($fullPath, $data['default_password']);
+                        } finally {
+                            Storage::disk('local')->delete($relative);
+                        }
+
+                        $body = "Created: {$result['created']} · Updated (balances): {$result['updated']} · Skipped: {$result['skipped']} · Failed: {$result['failed']}";
+
+                        if ($result['errors'] !== []) {
+                            $preview = implode("\n", array_slice($result['errors'], 0, 8));
+                            if (count($result['errors']) > 8) {
+                                $preview .= "\n… and ".(count($result['errors']) - 8).' more';
+                            }
+                            $body .= "\n\n".$preview;
+                        }
+
+                        Notification::make()
+                            ->title('Member import finished')
+                            ->body($body)
+                            ->color($result['failed'] > 0 || $result['errors'] !== [] ? 'warning' : 'success')
+                            ->persistent()
+                            ->send();
+                    }),
+                CreateAction::make()
+                    ->icon('heroicon-o-plus-circle')
+                    ->url(static::getUrl('create'))
+                    ->visible(fn (): bool => static::canCreate()),
             ])
             ->filters([
                 Tables\Filters\SelectFilter::make('status')
                     ->options(['active' => 'Active', 'suspended' => 'Suspended', 'delinquent' => 'Delinquent']),
                 Tables\Filters\SelectFilter::make('parent_id')
                     ->label('Sponsor / parent')
-                    ->options(fn() => Member::query()->with('user')->whereNull('parent_id')->orderBy('member_number')->get()
-                        ->mapWithKeys(fn(Member $m) => [$m->id => "{$m->member_number} – {$m->user->name}"])),
+                    ->options(fn () => Member::query()->with('user')->whereNull('parent_id')->orderBy('member_number')->get()
+                        ->mapWithKeys(fn (Member $m) => [$m->id => "{$m->member_number} – {$m->user->name}"])),
                 Tables\Filters\SelectFilter::make('monthly_contribution_amount')
                     ->label('Monthly allocation')
                     ->options(Member::contributionAmountOptions()),
@@ -352,16 +419,16 @@ class MemberResource extends Resource
                     ->trueLabel('Has dependents')
                     ->falseLabel('No dependents')
                     ->queries(
-                        true: fn($q) => $q->whereHas('dependents'),
-                        false: fn($q) => $q->whereDoesntHave('dependents'),
+                        true: fn ($q) => $q->whereHas('dependents'),
+                        false: fn ($q) => $q->whereDoesntHave('dependents'),
                     ),
                 Tables\Filters\TernaryFilter::make('has_late_contributions')
                     ->label('Late contributions')
                     ->trueLabel('Has late contributions')
                     ->falseLabel('No late contributions')
                     ->queries(
-                        true: fn($q) => $q->where('late_contributions_count', '>', 0),
-                        false: fn($q) => $q->where('late_contributions_count', '=', 0),
+                        true: fn ($q) => $q->where('late_contributions_count', '>', 0),
+                        false: fn ($q) => $q->where('late_contributions_count', '=', 0),
                     ),
                 Tables\Filters\Filter::make('joined_at')
                     ->schema([
@@ -371,8 +438,8 @@ class MemberResource extends Resource
                     ->columns(2)
                     ->query(function ($query, array $data) {
                         return $query
-                            ->when($data['joined_from'] ?? null, fn($q, $d) => $q->whereDate('joined_at', '>=', $d))
-                            ->when($data['joined_until'] ?? null, fn($q, $d) => $q->whereDate('joined_at', '<=', $d));
+                            ->when($data['joined_from'] ?? null, fn ($q, $d) => $q->whereDate('joined_at', '>=', $d))
+                            ->when($data['joined_until'] ?? null, fn ($q, $d) => $q->whereDate('joined_at', '<=', $d));
                     }),
             ])
             ->recordActions([

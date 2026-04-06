@@ -17,7 +17,9 @@ use Filament\Resources\Resource;
 use Filament\Schemas\Components\Section;
 use Filament\Schemas\Schema;
 use Filament\Tables;
+use Filament\Tables\Filters\TrashedFilter;
 use Filament\Tables\Table;
+use Illuminate\Database\Eloquent\Builder;
 
 class BankImportSessionResource extends Resource
 {
@@ -120,6 +122,7 @@ class BankImportSessionResource extends Resource
                             ->when($data['from'] ?? null, fn($q) => $q->whereDate('created_at', '>=', $data['from']))
                             ->when($data['until'] ?? null, fn($q) => $q->whereDate('created_at', '<=', $data['until']));
                     }),
+                TrashedFilter::make(),
             ])
             ->headerActions([
                 Action::make('new_import')
@@ -228,5 +231,10 @@ class BankImportSessionResource extends Resource
             'index' => Pages\ListBankImportSessions::route('/'),
             'view' => Pages\ViewBankImportSession::route('/{record}'),
         ];
+    }
+
+    public static function getRecordRouteBindingEloquentQuery(): Builder
+    {
+        return parent::getRecordRouteBindingEloquentQuery()->withTrashed();
     }
 }

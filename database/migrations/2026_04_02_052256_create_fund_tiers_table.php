@@ -20,16 +20,17 @@ return new class extends Migration
         });
 
         DB::table('fund_tiers')->insert([
-            ['tier_number' =>  0, 'label' => 'Emergency', 'loan_tier_id' => null, 'percentage' => 100.00],
-            ['tier_number' =>  2, 'label' => 'Tier 2',    'loan_tier_id' => 2,    'percentage' => 100.00],
-            ['tier_number' =>  3, 'label' => 'Tier 3',    'loan_tier_id' => 3,    'percentage' => 100.00],
-            ['tier_number' =>  4, 'label' => 'Tier 4',    'loan_tier_id' => 4,    'percentage' => 100.00],
-            ['tier_number' =>  5, 'label' => 'Tier 5',    'loan_tier_id' => 5,    'percentage' => 100.00],
-            ['tier_number' =>  6, 'label' => 'Tier 6',    'loan_tier_id' => 6,    'percentage' => 100.00],
-            ['tier_number' =>  7, 'label' => 'Tier 7',    'loan_tier_id' => 7,    'percentage' => 100.00],
-            ['tier_number' =>  8, 'label' => 'Tier 8',    'loan_tier_id' => 8,    'percentage' => 100.00],
-            ['tier_number' =>  9, 'label' => 'Tier 9',    'loan_tier_id' => 9,    'percentage' => 100.00],
-            ['tier_number' => 10, 'label' => 'Tier 10',   'loan_tier_id' => 10,   'percentage' => 100.00],
+            ['tier_number' => 0, 'label' => 'Emergency', 'loan_tier_id' => null, 'percentage' => 100.00],
+            ['tier_number' => 1, 'label' => 'Tier 1', 'loan_tier_id' => 1, 'percentage' => 100.00],
+            ['tier_number' => 2, 'label' => 'Tier 2', 'loan_tier_id' => 2, 'percentage' => 100.00],
+            ['tier_number' => 3, 'label' => 'Tier 3', 'loan_tier_id' => 3, 'percentage' => 100.00],
+            ['tier_number' => 4, 'label' => 'Tier 4', 'loan_tier_id' => 4, 'percentage' => 100.00],
+            ['tier_number' => 5, 'label' => 'Tier 5', 'loan_tier_id' => 5, 'percentage' => 100.00],
+            ['tier_number' => 6, 'label' => 'Tier 6', 'loan_tier_id' => 6, 'percentage' => 100.00],
+            ['tier_number' => 7, 'label' => 'Tier 7', 'loan_tier_id' => 7, 'percentage' => 100.00],
+            ['tier_number' => 8, 'label' => 'Tier 8', 'loan_tier_id' => 8, 'percentage' => 100.00],
+            ['tier_number' => 9, 'label' => 'Tier 9', 'loan_tier_id' => 9, 'percentage' => 100.00],
+            ['tier_number' => 10, 'label' => 'Tier 10', 'loan_tier_id' => 10, 'percentage' => 100.00],
         ]);
     }
 

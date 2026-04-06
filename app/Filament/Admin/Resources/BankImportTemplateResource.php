@@ -7,6 +7,8 @@ use App\Models\Bank;
 use App\Models\BankImportTemplate;
 use Filament\Actions\DeleteAction;
 use Filament\Actions\EditAction;
+use Filament\Actions\ForceDeleteAction;
+use Filament\Actions\RestoreAction;
 use Filament\Forms;
 use Filament\Resources\Resource;
 use Filament\Schemas\Components\Section;
@@ -14,7 +16,9 @@ use Filament\Schemas\Components\Tabs;
 use Filament\Schemas\Components\Tabs\Tab;
 use Filament\Schemas\Schema;
 use Filament\Tables;
+use Filament\Tables\Filters\TrashedFilter;
 use Filament\Tables\Table;
+use Illuminate\Database\Eloquent\Builder;
 
 class BankImportTemplateResource extends Resource
 {
@@ -206,10 +210,13 @@ class BankImportTemplateResource extends Resource
                     ->options(Bank::active()->pluck('name', 'id')),
                 Tables\Filters\TernaryFilter::make('is_default')->label('Default template'),
                 Tables\Filters\TernaryFilter::make('has_header')->label('Has header row'),
+                TrashedFilter::make(),
             ])
             ->recordActions([
                 EditAction::make(),
                 DeleteAction::make(),
+                RestoreAction::make(),
+                ForceDeleteAction::make(),
             ]);
     }
 
@@ -220,5 +227,10 @@ class BankImportTemplateResource extends Resource
             'create' => Pages\CreateBankImportTemplate::route('/create'),
             'edit' => Pages\EditBankImportTemplate::route('/{record}/edit'),
         ];
+    }
+
+    public static function getRecordRouteBindingEloquentQuery(): Builder
+    {
+        return parent::getRecordRouteBindingEloquentQuery()->withTrashed();
     }
 }

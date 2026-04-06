@@ -6,12 +6,16 @@ use App\Filament\Admin\Resources\LoanTiersResource\Pages;
 use App\Models\LoanTier;
 use Filament\Actions\DeleteAction;
 use Filament\Actions\EditAction;
+use Filament\Actions\ForceDeleteAction;
+use Filament\Actions\RestoreAction;
 use Filament\Forms;
 use Filament\Resources\Resource;
 use Filament\Schemas\Components\Section;
 use Filament\Schemas\Schema;
 use Filament\Tables;
+use Filament\Tables\Filters\TrashedFilter;
 use Filament\Tables\Table;
+use Illuminate\Database\Eloquent\Builder;
 
 class LoanTiersResource extends Resource
 {
@@ -62,8 +66,14 @@ class LoanTiersResource extends Resource
             ->defaultSort('tier_number')
             ->filters([
                 Tables\Filters\TernaryFilter::make('is_active')->label('Active'),
+                TrashedFilter::make(),
             ])
-            ->recordActions([EditAction::make(), DeleteAction::make()])
+            ->recordActions([
+                EditAction::make(),
+                DeleteAction::make(),
+                RestoreAction::make(),
+                ForceDeleteAction::make(),
+            ])
             ->reorderable('tier_number');
     }
 
@@ -74,5 +84,10 @@ class LoanTiersResource extends Resource
             'create' => Pages\CreateLoanTier::route('/create'),
             'edit' => Pages\EditLoanTier::route('/{record}/edit'),
         ];
+    }
+
+    public static function getRecordRouteBindingEloquentQuery(): Builder
+    {
+        return parent::getRecordRouteBindingEloquentQuery()->withTrashed();
     }
 }

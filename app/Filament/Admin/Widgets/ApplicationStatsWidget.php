@@ -5,12 +5,28 @@ namespace App\Filament\Admin\Widgets;
 use App\Models\MembershipApplication;
 use Carbon\Carbon;
 use Filament\Widgets\Widget;
+use Livewire\Attributes\On;
 
 class ApplicationStatsWidget extends Widget
 {
+    protected static bool $isLazy = false;
+
     protected string $view = 'filament.admin.widgets.application-stats';
 
     protected int|string|array $columnSpan = 'full';
+
+    protected ?string $pollingInterval = '3s';
+
+    public function getPollingInterval(): ?string
+    {
+        return $this->pollingInterval;
+    }
+
+    #[On('refresh-application-stats')]
+    public function refreshApplicationStats(): void
+    {
+        // Re-render; getData() runs on each render.
+    }
 
     public function getData(): array
     {

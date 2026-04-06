@@ -7,6 +7,8 @@ use App\Models\Bank;
 use App\Models\SmsImportTemplate;
 use Filament\Actions\DeleteAction;
 use Filament\Actions\EditAction;
+use Filament\Actions\ForceDeleteAction;
+use Filament\Actions\RestoreAction;
 use Filament\Forms;
 use Filament\Resources\Resource;
 use Filament\Schemas\Components\Section;
@@ -14,7 +16,9 @@ use Filament\Schemas\Components\Tabs;
 use Filament\Schemas\Components\Tabs\Tab;
 use Filament\Schemas\Schema;
 use Filament\Tables;
+use Filament\Tables\Filters\TrashedFilter;
 use Filament\Tables\Table;
+use Illuminate\Database\Eloquent\Builder;
 
 class SmsImportTemplateResource extends Resource
 {
@@ -245,10 +249,13 @@ class SmsImportTemplateResource extends Resource
                 Tables\Filters\SelectFilter::make('default_transaction_type')
                     ->label('Default type')
                     ->options(['credit' => 'Credit', 'debit' => 'Debit']),
+                TrashedFilter::make(),
             ])
             ->recordActions([
                 EditAction::make(),
                 DeleteAction::make(),
+                RestoreAction::make(),
+                ForceDeleteAction::make(),
             ]);
     }
 
@@ -259,5 +266,10 @@ class SmsImportTemplateResource extends Resource
             'create' => Pages\CreateSmsImportTemplate::route('/create'),
             'edit' => Pages\EditSmsImportTemplate::route('/{record}/edit'),
         ];
+    }
+
+    public static function getRecordRouteBindingEloquentQuery(): Builder
+    {
+        return parent::getRecordRouteBindingEloquentQuery()->withTrashed();
     }
 }
