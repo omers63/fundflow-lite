@@ -8,13 +8,16 @@ use App\Models\LoanInstallment;
 use App\Models\Member;
 use App\Notifications\LoanRepaymentAppliedNotification;
 use App\Notifications\LoanRepaymentDueNotification;
+use App\Support\DatabaseDialect;
 use Carbon\Carbon;
 use Illuminate\Support\Collection;
 use Illuminate\Support\Facades\DB;
 
 class LoanRepaymentService
 {
-    public function __construct(protected AccountingService $accounting) {}
+    public function __construct(protected AccountingService $accounting)
+    {
+    }
 
     // =========================================================================
     // Deadline helpers (mirrors ContributionCycleService)
@@ -55,7 +58,7 @@ class LoanRepaymentService
             ->each(function (Loan $loan) use ($month, $year, $deadline, &$notified) {
                 // Find the installment due in this period
                 $installment = $this->installmentForPeriod($loan, $month, $year);
-                if (! $installment || $installment->isPaid()) {
+                if (!$installment || $installment->isPaid()) {
                     return;
                 }
 
@@ -63,15 +66,16 @@ class LoanRepaymentService
 
                 try {
                     $loan->member->user->notify(new LoanRepaymentDueNotification(
-                        loan:         $loan,
-                        installment:  $installment,
-                        deadline:     $deadline,
-                        cashBalance:  $cashBalance,
+                        loan: $loan,
+                        installment: $installment,
+                        deadline: $deadline,
+                        cashBalance: $cashBalance,
                     ));
                     $notified++;
                 } catch (\Throwable $e) {
                     logger()->error('LoanRepaymentService: due notification failed', [
-                        'loan_id' => $loan->id, 'error' => $e->getMessage(),
+                        'loan_id' => $loan->id,
+                        'error' => $e->getMessage(),
                     ]);
                 }
             });
@@ -90,11 +94,11 @@ class LoanRepaymentService
      */
     public function applyRepayments(int $month, int $year): array
     {
-        $isLate  = $this->isLate($month, $year);
+        $isLate = $this->isLate($month, $year);
         $results = [
-            'applied'      => collect(),
+            'applied' => collect(),
             'insufficient' => collect(),
-            'skipped'      => collect(),
+            'skipped' => collect(),
         ];
 
         Loan::active()->with(['member.user', 'installments'])->each(
@@ -117,23 +121,25 @@ class LoanRepaymentService
 
         $installment = $this->installmentForPeriod($loan, $month, $year);
 
-        if (! $installment || $installment->isPaid()) {
+        if (!$installment || $installment->isPaid()) {
             $results['skipped'][] = $loan;
+
             return 'skipped';
         }
 
-        $member      = $loan->member;
-        $amount      = (float) $installment->amount;
+        $member = $loan->member;
+        $amount = (float) $installment->amount;
         $cashAccount = Account::where('type', Account::TYPE_MEMBER_CASH)
             ->where('member_id', $member->id)
             ->first();
 
-        if (! $cashAccount || (float) $cashAccount->balance < $amount) {
+        if (!$cashAccount || (float) $cashAccount->balance < $amount) {
             $results['insufficient'][] = [
-                'loan'    => $loan,
+                'loan' => $loan,
                 'balance' => (float) ($cashAccount?->balance ?? 0),
-                'required'=> $amount,
+                'required' => $amount,
             ];
+
             return 'insufficient';
         }
 
@@ -143,7 +149,7 @@ class LoanRepaymentService
 
             // 2. Mark installment paid (observer posts to fund accounts + updates repaid_to_master)
             $installment->update([
-                'status'  => 'paid',
+                'status' => 'paid',
                 'paid_at' => now(),
                 'is_late' => $isLate,
             ]);
@@ -163,19 +169,21 @@ class LoanRepaymentService
 
                 $loan->refresh();
                 $member->user->notify(new LoanRepaymentAppliedNotification(
-                    loan:        $loan,
+                    loan: $loan,
                     installment: $installment,
                     cashBalance: (float) ($freshCash?->balance ?? 0),
-                    isLate:      $isLate,
+                    isLate: $isLate,
                 ));
             } catch (\Throwable $e) {
                 logger()->error('LoanRepaymentService: statement notification failed', [
-                    'loan_id' => $loan->id, 'error' => $e->getMessage(),
+                    'loan_id' => $loan->id,
+                    'error' => $e->getMessage(),
                 ]);
             }
         });
 
         $results['applied'][] = $loan;
+
         return 'applied';
     }
 
@@ -199,27 +207,29 @@ class LoanRepaymentService
 
     public function periodSummaries(int $limit = 12): Collection
     {
-        return LoanInstallment::selectRaw(
-                "YEAR(due_date) as year, MONTH(due_date) as month,
+        $y = DatabaseDialect::yearExpression('due_date');
+        $m = DatabaseDialect::monthExpression('due_date');
+
+        return LoanInstallment::query()
+            ->selectRaw("{$y} as year, {$m} as month,
                  COUNT(*) as total_count,
                  SUM(amount) as total_amount,
                  SUM(CASE WHEN status='paid' THEN 1 ELSE 0 END) as paid_count,
-                 SUM(is_late) as late_count"
-            )
-            ->groupBy('year', 'month')
+                 SUM(is_late) as late_count")
+            ->groupByRaw("{$y}, {$m}")
             ->orderByDesc('year')
             ->orderByDesc('month')
             ->limit($limit)
             ->get()
-            ->map(fn ($r) => [
+            ->map(fn($r) => [
                 'period_label' => $this->periodLabel((int) $r->month, (int) $r->year),
-                'month'        => (int) $r->month,
-                'year'         => (int) $r->year,
-                'total_count'  => (int) $r->total_count,
+                'month' => (int) $r->month,
+                'year' => (int) $r->year,
+                'total_count' => (int) $r->total_count,
                 'total_amount' => (float) $r->total_amount,
-                'paid_count'   => (int) $r->paid_count,
-                'late_count'   => (int) $r->late_count,
-                'deadline'     => $this->deadline((int) $r->month, (int) $r->year)->format('d M Y'),
+                'paid_count' => (int) $r->paid_count,
+                'late_count' => (int) $r->late_count,
+                'deadline' => $this->deadline((int) $r->month, (int) $r->year)->format('d M Y'),
             ]);
     }
 }

@@ -7,6 +7,23 @@ return [
 
     /*
     |--------------------------------------------------------------------------
+    | Default database (SQLite vs MySQL)
+    |--------------------------------------------------------------------------
+    |
+    | Default is SQLite: set DB_CONNECTION=sqlite and ensure database/database.sqlite
+    | exists (e.g. `touch database/database.sqlite`), then run migrations.
+    |
+    | To use MySQL again: DB_CONNECTION=mysql and set MYSQL_* (or DB_HOST, DB_DATABASE,
+    | DB_USERNAME, DB_PASSWORD). The mysql connection reads MYSQL_* first so you can
+    | keep both blocks in .env and flip DB_CONNECTION only.
+    |
+    | Raw SQL that differs by engine lives in migrations (driver checks) and in
+    | App\Support\DatabaseDialect for application queries.
+    |
+    */
+
+    /*
+    |--------------------------------------------------------------------------
     | Default Database Connection Name
     |--------------------------------------------------------------------------
     |
