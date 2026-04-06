@@ -8,6 +8,7 @@ use Carbon\Carbon;
 use Filament\Resources\Pages\Concerns\InteractsWithRecord;
 use Filament\Widgets\Widget;
 use Illuminate\Database\Eloquent\Model;
+use Livewire\Attributes\On;
 
 class AccountDetailWidget extends Widget
 {
@@ -15,7 +16,14 @@ class AccountDetailWidget extends Widget
 
     protected int|string|array $columnSpan = 'full';
 
+    protected ?string $pollingInterval = '3s';
+
     public ?int $accountId = null;
+
+    public function getPollingInterval(): ?string
+    {
+        return $this->pollingInterval;
+    }
 
     /** Set by Filament resource pages via {@see InteractsWithRecord::getWidgetData()}. */
     public ?Model $record = null;
@@ -23,6 +31,17 @@ class AccountDetailWidget extends Widget
     public function getColumnSpan(): int|string|array
     {
         return 'full';
+    }
+
+    #[On('refresh-account-widgets')]
+    public function refreshAccountDetailSummary(mixed $accountId): void
+    {
+        $id = $this->accountId
+            ?? ($this->record instanceof Account ? (int) $this->record->getKey() : null);
+
+        if ($id === null || (int) $accountId !== $id) {
+            return;
+        }
     }
 
     public function getData(): array

@@ -5,12 +5,15 @@ namespace App\Filament\Admin\Resources\AccountResource\RelationManagers;
 use App\Models\AccountTransaction;
 use App\Models\Member;
 use App\Services\AccountingService;
+use Filament\Actions\Action;
 use Filament\Actions\BulkActionGroup;
 use Filament\Actions\DeleteAction;
 use Filament\Actions\DeleteBulkAction;
 use Filament\Forms;
+use Filament\Notifications\Notification;
 use Filament\Resources\RelationManagers\RelationManager;
 use Filament\Schemas\Schema;
+use Filament\Support\Exceptions\Halt;
 use Filament\Tables;
 use Filament\Tables\Table;
 
@@ -30,6 +33,28 @@ class TransactionsRelationManager extends RelationManager
         return $table
             ->recordTitleAttribute('description')
             ->defaultSort('transacted_at', 'desc')
+            ->headerActions([
+                Action::make('createLedgerCredit')
+                    ->label('Credit')
+                    ->icon('heroicon-o-arrow-trending-up')
+                    ->color('success')
+                    ->modalHeading('Post credit entry')
+                    ->modalDescription('Adds a credit to this account only. If you need matching master and member lines, post each account separately or use the standard finance workflows.')
+                    ->modalSubmitActionLabel('Post credit')
+                    ->authorize(fn() => auth()->user()?->can('update', $this->getOwnerRecord()) ?? false)
+                    ->schema($this->manualLedgerEntryFormSchema())
+                    ->action(fn(array $data) => $this->postManualLedgerLineFromAction($data, 'credit')),
+                Action::make('createLedgerDebit')
+                    ->label('Debit')
+                    ->icon('heroicon-o-arrow-trending-down')
+                    ->color('danger')
+                    ->modalHeading('Post debit entry')
+                    ->modalDescription('Adds a debit to this account only. If you need matching master and member lines, post each account separately or use the standard finance workflows.')
+                    ->modalSubmitActionLabel('Post debit')
+                    ->authorize(fn() => auth()->user()?->can('update', $this->getOwnerRecord()) ?? false)
+                    ->schema($this->manualLedgerEntryFormSchema())
+                    ->action(fn(array $data) => $this->postManualLedgerLineFromAction($data, 'debit')),
+            ])
             ->columns([
                 Tables\Columns\TextColumn::make('transacted_at')
                     ->label('Date')
@@ -105,7 +130,8 @@ class TransactionsRelationManager extends RelationManager
                         app(AccountingService::class)->safeDeleteAccountTransaction($record);
 
                         return true;
-                    }),
+                    })
+                    ->after(fn() => $this->dispatchAccountWidgetsRefresh()),
             ])
             ->toolbarActions([
                 BulkActionGroup::make([
@@ -122,9 +148,86 @@ class TransactionsRelationManager extends RelationManager
                                     report($e);
                                 }
                             }
-                        }),
+                        })
+                        ->after(fn() => $this->dispatchAccountWidgetsRefresh()),
                 ]),
             ])
             ->paginated([25, 50, 100]);
+    }
+
+    protected function manualLedgerEntryFormSchema(): array
+    {
+        $account = $this->getOwnerRecord();
+
+        return [
+            Forms\Components\TextInput::make('amount')
+                ->label('Amount (SAR)')
+                ->numeric()
+                ->required()
+                ->minValue(0.01)
+                ->step(0.01),
+            Forms\Components\Textarea::make('description')
+                ->label('Description')
+                ->required()
+                ->rows(2)
+                ->maxLength(1000),
+            Forms\Components\DateTimePicker::make('transacted_at')
+                ->label('Transaction date')
+                ->default(now())
+                ->required()
+                ->seconds(false),
+            Forms\Components\Select::make('member_id')
+                ->label('Member tag')
+                ->helperText('Optional for master accounts — used when filtering ledger lines by member. Member-owned accounts use their member automatically.')
+                ->options(fn() => Member::query()->with('user')->orderBy('member_number')->get()
+                    ->mapWithKeys(fn(Member $m) => [$m->id => "{$m->member_number} – {$m->user->name}"]))
+                ->searchable()
+                ->placeholder('—')
+                ->visible(fn() => $account->member_id === null),
+        ];
+    }
+
+    protected function postManualLedgerLineFromAction(array $data, string $entryType): void
+    {
+        $account = $this->getOwnerRecord();
+        $memberId = $account->member_id;
+        if ($memberId === null && filled($data['member_id'] ?? null)) {
+            $memberId = (int) $data['member_id'];
+        }
+
+        try {
+            app(AccountingService::class)->postManualLedgerEntry(
+                $account,
+                $entryType,
+                (float) $data['amount'],
+                (string) $data['description'],
+                $memberId,
+                $data['transacted_at'] ?? null,
+            );
+        } catch (\Throwable $e) {
+            report($e);
+            Notification::make()
+                ->title('Could not post entry')
+                ->body($e->getMessage())
+                ->danger()
+                ->send();
+
+            throw new Halt;
+        }
+
+        Notification::make()
+            ->title(ucfirst($entryType) . ' posted')
+            ->success()
+            ->send();
+
+        $this->dispatchAccountWidgetsRefresh();
+    }
+
+    protected function dispatchAccountWidgetsRefresh(): void
+    {
+        $this->dispatch(
+            'refresh-account-widgets',
+            accountId: (int) $this->getOwnerRecord()->getKey(),
+        );
     }
 }

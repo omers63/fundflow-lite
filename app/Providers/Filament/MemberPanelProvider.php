@@ -32,7 +32,7 @@ class MemberPanelProvider extends PanelProvider
             ->databaseNotifications()
             ->databaseNotificationsPolling('30s')
             ->colors([
-                'primary' => Color::Teal,
+                'primary' => Color::Sky,
                 'gray' => Color::Slate,
             ])
             ->navigationGroups([

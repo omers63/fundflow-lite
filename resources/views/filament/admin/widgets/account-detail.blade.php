@@ -1,8 +1,14 @@
 @php
     $d = $this->getData();
+    $pollingInterval = $this->getPollingInterval();
 @endphp
 
-<div class="account-detail-widget w-full min-w-0 space-y-4 mb-2">
+<div
+    class="account-detail-widget w-full min-w-0 space-y-4 mb-2"
+    @if (filled($pollingInterval))
+        wire:poll.{{ $pollingInterval }}
+    @endif
+>
     @if(empty($d))
         <div class="rounded-xl border border-dashed border-gray-200 dark:border-gray-700 bg-gray-50/50 dark:bg-gray-900/40 px-4 py-6 text-center text-sm text-gray-500 dark:text-gray-400">
             Select an account to see balance and ledger summary.

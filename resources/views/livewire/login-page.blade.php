@@ -1,16 +1,16 @@
-<div class="min-h-screen bg-gradient-to-br from-slate-900 via-emerald-950 to-teal-900 flex items-center justify-center py-12 px-4">
+<div class="min-h-screen bg-gradient-to-br from-slate-950 via-blue-950 to-indigo-950 flex items-center justify-center py-12 px-4">
     <div class="w-full max-w-md">
         {{-- Card --}}
         <div class="bg-white rounded-3xl shadow-2xl overflow-hidden">
             {{-- Header --}}
-            <div class="bg-gradient-to-r from-emerald-600 to-teal-600 p-8 text-center">
+            <div class="bg-gradient-to-r from-blue-700 via-blue-600 to-indigo-600 p-8 text-center">
                 <div class="w-16 h-16 bg-white/20 rounded-2xl flex items-center justify-center mx-auto mb-4">
                     <svg class="w-8 h-8 text-white" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                         <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 15v2m-6 4h12a2 2 0 002-2v-6a2 2 0 00-2-2H6a2 2 0 00-2 2v6a2 2 0 002 2zm10-10V7a4 4 0 00-8 0v4h8z"/>
                     </svg>
                 </div>
                 <h2 class="text-2xl font-bold text-white">Welcome Back</h2>
-                <p class="text-emerald-100 text-sm mt-1">Sign in to your FundFlow account</p>
+                <p class="text-blue-100 text-sm mt-1">Sign in to your FundFlow account</p>
             </div>
 
             <div class="p-8">
@@ -52,7 +52,7 @@
                             type="email"
                             autocomplete="email"
                             placeholder="your@email.com"
-                            class="w-full px-4 py-3 border border-slate-200 rounded-xl text-sm focus:outline-none focus:ring-2 focus:ring-emerald-500 focus:border-transparent transition-all @error('email') border-red-400 @enderror"
+                            class="w-full px-4 py-3 border border-slate-200 rounded-xl text-sm focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent transition-all @error('email') border-red-400 @enderror"
                         >
                         @error('email')
                         <p class="text-red-500 text-xs mt-1">{{ $message }}</p>
@@ -66,7 +66,7 @@
                             type="password"
                             autocomplete="current-password"
                             placeholder="••••••••"
-                            class="w-full px-4 py-3 border border-slate-200 rounded-xl text-sm focus:outline-none focus:ring-2 focus:ring-emerald-500 focus:border-transparent transition-all @error('password') border-red-400 @enderror"
+                            class="w-full px-4 py-3 border border-slate-200 rounded-xl text-sm focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent transition-all @error('password') border-red-400 @enderror"
                         >
                         @error('password')
                         <p class="text-red-500 text-xs mt-1">{{ $message }}</p>
@@ -75,7 +75,7 @@
 
                     <div class="flex items-center justify-between">
                         <label class="flex items-center gap-2 text-sm text-slate-600 cursor-pointer">
-                            <input wire:model="remember" type="checkbox" class="rounded border-slate-300 text-emerald-600 focus:ring-emerald-500">
+                            <input wire:model="remember" type="checkbox" class="rounded border-slate-300 text-blue-600 focus:ring-blue-500">
                             Remember me
                         </label>
                     </div>
@@ -83,7 +83,7 @@
                     <button
                         type="submit"
                         wire:loading.attr="disabled"
-                        class="w-full bg-gradient-to-r from-emerald-600 to-teal-600 hover:from-emerald-700 hover:to-teal-700 text-white font-bold py-3.5 px-6 rounded-xl transition-all shadow-md hover:shadow-lg disabled:opacity-50 flex items-center justify-center gap-2"
+                        class="w-full bg-gradient-to-r from-blue-600 to-indigo-600 hover:from-blue-700 hover:to-indigo-700 text-white font-bold py-3.5 px-6 rounded-xl transition-all shadow-md hover:shadow-lg disabled:opacity-50 flex items-center justify-center gap-2"
                     >
                         <span wire:loading.remove>Sign In</span>
                         <span wire:loading class="flex items-center gap-2">
@@ -99,11 +99,11 @@
                 <div class="mt-6 text-center">
                     <p class="text-sm text-slate-500">
                         Not a member yet?
-                        <a href="{{ route('apply') }}" class="text-emerald-600 font-semibold hover:underline">Apply for membership</a>
+                        <a href="{{ route('apply') }}" class="text-blue-600 font-semibold hover:underline">Apply for membership</a>
                     </p>
                     <p class="text-sm text-slate-500 mt-2">
                         Applied already?
-                        <a href="{{ route('application.status') }}" class="text-teal-600 font-semibold hover:underline">Check your status</a>
+                        <a href="{{ route('application.status') }}" class="text-indigo-600 font-semibold hover:underline">Check your status</a>
                     </p>
                 </div>
             </div>

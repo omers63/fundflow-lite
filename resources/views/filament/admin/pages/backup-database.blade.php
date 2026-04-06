@@ -6,8 +6,11 @@
                     <x-heroicon-o-arrow-down-tray class="w-6 h-6 text-emerald-600 dark:text-emerald-400" />
                 </div>
                 <div>
-                    <h2 class="text-base font-semibold text-gray-900 dark:text-white">Download a full database backup</h2>
-                    <p class="text-sm text-gray-500 dark:text-gray-400 mt-0.5">Use the button above or below to save a copy of your current database.</p>
+                    <h2 class="text-base font-semibold text-gray-900 dark:text-white">Database backups</h2>
+                    <p class="text-sm text-gray-500 dark:text-gray-400 mt-0.5">
+                        <strong class="text-gray-700 dark:text-gray-300">Download backup</strong> streams a copy to your browser without saving on the server.
+                        <strong class="text-gray-700 dark:text-gray-300">Save backup to server</strong> writes to <code class="text-xs bg-gray-200 dark:bg-gray-700 px-1 rounded">storage/app/backups/</code> and records it in the history table below.
+                    </p>
                 </div>
             </div>
 

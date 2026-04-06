@@ -21,26 +21,26 @@
             <div class="flex justify-between items-center h-16">
                 {{-- Logo --}}
                 <a href="{{ route('home') }}" class="flex items-center space-x-3 group">
-                    <div class="w-9 h-9 bg-gradient-to-br from-emerald-500 to-teal-600 rounded-xl flex items-center justify-center shadow-md group-hover:shadow-lg transition-shadow">
+                    <div class="w-9 h-9 bg-gradient-to-br from-blue-600 to-indigo-600 rounded-xl flex items-center justify-center shadow-md group-hover:shadow-lg transition-shadow">
                         <svg class="w-5 h-5 text-white" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                             <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 8c-1.657 0-3 .895-3 2s1.343 2 3 2 3 .895 3 2-1.343 2-3 2m0-8c1.11 0 2.08.402 2.599 1M12 8V7m0 1v8m0 0v1m0-1c-1.11 0-2.08-.402-2.599-1M21 12a9 9 0 11-18 0 9 9 0 0118 0z"/>
                         </svg>
                     </div>
-                    <span class="text-xl font-bold text-slate-800">Fund<span class="text-emerald-600">Flow</span></span>
+                    <span class="text-xl font-bold text-slate-800">Fund<span class="text-blue-600">Flow</span></span>
                 </a>
 
                 {{-- Desktop Nav --}}
                 <div class="hidden md:flex items-center space-x-8">
-                    <a href="{{ route('home') }}" class="text-sm font-medium text-slate-600 hover:text-emerald-600 transition-colors">Home</a>
-                    <a href="{{ route('home') }}#features" class="text-sm font-medium text-slate-600 hover:text-emerald-600 transition-colors">Features</a>
-                    <a href="{{ route('home') }}#how-it-works" class="text-sm font-medium text-slate-600 hover:text-emerald-600 transition-colors">How It Works</a>
-                    <a href="{{ route('application.status') }}" class="text-sm font-medium text-slate-600 hover:text-emerald-600 transition-colors">Check Status</a>
+                    <a href="{{ route('home') }}" class="text-sm font-medium text-slate-600 hover:text-blue-600 transition-colors">Home</a>
+                    <a href="{{ route('home') }}#features" class="text-sm font-medium text-slate-600 hover:text-blue-600 transition-colors">Features</a>
+                    <a href="{{ route('home') }}#how-it-works" class="text-sm font-medium text-slate-600 hover:text-blue-600 transition-colors">How It Works</a>
+                    <a href="{{ route('application.status') }}" class="text-sm font-medium text-slate-600 hover:text-blue-600 transition-colors">Check Status</a>
                 </div>
 
                 {{-- CTA Buttons --}}
                 <div class="flex items-center space-x-3">
-                    <a href="{{ route('login') }}" class="text-sm font-medium text-slate-600 hover:text-emerald-600 transition-colors px-4 py-2">Sign In</a>
-                    <a href="{{ route('apply') }}" class="bg-emerald-600 hover:bg-emerald-700 text-white text-sm font-semibold px-5 py-2.5 rounded-xl transition-all shadow-sm hover:shadow-md">
+                    <a href="{{ route('login') }}" class="text-sm font-medium text-slate-600 hover:text-blue-600 transition-colors px-4 py-2">Sign In</a>
+                    <a href="{{ route('apply') }}" class="bg-gradient-to-r from-blue-600 to-indigo-600 hover:from-blue-700 hover:to-indigo-700 text-white text-sm font-semibold px-5 py-2.5 rounded-xl transition-all shadow-sm hover:shadow-md">
                         Apply Now
                     </a>
                 </div>
@@ -59,12 +59,12 @@
             <div class="grid md:grid-cols-4 gap-10 mb-12">
                 <div class="md:col-span-2">
                     <div class="flex items-center space-x-3 mb-4">
-                        <div class="w-9 h-9 bg-gradient-to-br from-emerald-500 to-teal-600 rounded-xl flex items-center justify-center">
+                        <div class="w-9 h-9 bg-gradient-to-br from-blue-600 to-indigo-600 rounded-xl flex items-center justify-center">
                             <svg class="w-5 h-5 text-white" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                                 <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 8c-1.657 0-3 .895-3 2s1.343 2 3 2 3 .895 3 2-1.343 2-3 2m0-8c1.11 0 2.08.402 2.599 1M12 8V7m0 1v8m0 0v1m0-1c-1.11 0-2.08-.402-2.599-1M21 12a9 9 0 11-18 0 9 9 0 0118 0z"/>
                             </svg>
                         </div>
-                        <span class="text-xl font-bold text-white">Fund<span class="text-emerald-400">Flow</span></span>
+                        <span class="text-xl font-bold text-white">Fund<span class="text-sky-400">Flow</span></span>
                     </div>
                     <p class="text-slate-400 text-sm leading-relaxed max-w-xs">
                         A transparent and trusted family fund management platform — built on mutual support and zero-interest principles.
@@ -73,9 +73,9 @@
                 <div>
                     <h4 class="text-white font-semibold text-sm mb-4">Quick Links</h4>
                     <ul class="space-y-2 text-sm">
-                        <li><a href="{{ route('apply') }}" class="hover:text-emerald-400 transition-colors">Apply for Membership</a></li>
-                        <li><a href="{{ route('application.status') }}" class="hover:text-emerald-400 transition-colors">Check Application Status</a></li>
-                        <li><a href="{{ route('login') }}" class="hover:text-emerald-400 transition-colors">Member Login</a></li>
+                        <li><a href="{{ route('apply') }}" class="hover:text-sky-400 transition-colors">Apply for Membership</a></li>
+                        <li><a href="{{ route('application.status') }}" class="hover:text-sky-400 transition-colors">Check Application Status</a></li>
+                        <li><a href="{{ route('login') }}" class="hover:text-sky-400 transition-colors">Member Login</a></li>
                     </ul>
                 </div>
                 <div>

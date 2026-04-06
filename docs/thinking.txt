@@ -1793,6 +1793,73 @@ Operational note
 This is a full accounting unwind of that loan: use it when correcting imports, bad data, or test loans. For normal “stop this application” flows, Cancel / Reject remain the right product actions because they keep history and notifications.
 
 -------------------------------------------------------
+Here’s what was added:
+
+1. TransactionsRelationManager (Ledger Entries table)
+Two header actions:
+
+Credit — green, trending-up icon — opens a modal to post a credit on this account.
+Debit — red, trending-down icon — same flow for a debit.
+Shared fields:
+
+Amount (SAR), description, transaction date/time
+Member tag — only for accounts without member_id (e.g. master cash/fund), optional for filters/reporting
+Member-linked accounts always use that account’s member_id.
+Authorization matches row delete: Update:Account on the owner account.
+
+2. AccountingService::postManualLedgerEntry()
+Validates amount > 0, credit / debit, non-empty description.
+Runs in a DB transaction with lockForUpdate on the account.
+Reuses postEntry(), which now accepts an optional $transactedAt (defaults to now()).
+Parses string dates from the form with Carbon::parse() when needed.
+Manual lines have no source_type / source_id (same as other null‑source postings). Modal copy notes that this is one account only; paired master/member moves still need two postings or the normal finance flows.
+
+Files touched:
+
+app/Filament/Admin/Resources/AccountResource/RelationManagers/TransactionsRelationManager.php
+app/Services/AccountingService.php
+-------------------------------
+Here’s what was added.
+
+1. database_backups table
+Migration: id, path (relative under storage/app), filename, size_bytes, driver, user_id (nullable, nullOnDelete), created_at / updated_at.
+
+Model: App\Models\DatabaseBackup with user() relationship.
+
+2. DatabaseMaintenanceService
+createStoredBackup() – ensures storage/app/backups, writes SQLite copy or MySQL mysqldump to a timestamped file, then creates a row.
+deleteStoredBackup() – deletes the file (if present) and the row.
+getBackupOverviewStats() – driver, connection name, DB label/path, live size (SQLite file size + mtime; MySQL information_schema size), table count, stored backup count/total bytes, raw folder size under backups/.
+Shared helpers: resolveSqliteDatabasePath(), runMysqlDump() (used for both stream download and on-disk SQL).
+3. Routes / download
+GET /admin/system/backups/{databaseBackup}/download (admin.system.backup-stored-download) – admin panel access only; resolves real paths and only allows files under storage/app/backups/.
+4. Backup Database page
+Header: “Save backup to server” – creates file + DB row, then redirects to refresh the list.
+Header: “Download backup” – unchanged one-shot download (no row).
+Header widget: DatabaseBackupOverviewWidget – overview cards (driver, DB, size, last file change when SQLite, tables, stored backups, folder total).
+Footer widget: DatabaseBackupsTableWidget – table titled “Existing Backups” with your description; columns: filename, size, driver, created, created by; row actions Download and Delete.
+5. Storage / git
+storage/app/backups/.gitkeep added.
+storage/app/.gitignore updated with !backups/ so the folder can be tracked.
+Run php artisan migrate on other environments. Existing files in backups/ that were never recorded are not auto-imported; only new Save backup to server runs create rows (we can add a sync command later if you want).
+-----------------------------------
+Here’s what was implemented for live updates on Cash / Fund (and any) View Account pages:
+
+1. AccountDetailWidget (header KPIs & recent ledger)
+CanPoll with $pollingInterval = '3s' so the widget re-renders on a short interval (covers changes from other tabs or background jobs).
+wire:poll.3s on the root div in account-detail.blade.php (same idea as Filament’s stats widgets).
+#[On('refresh-account-widgets')] on refreshAccountDetailSummary() so when the ledger fires that event for this account, the widget refreshes immediately (no need to wait for the next poll).
+2. ViewAccount (infolist balance / “Last updated”)
+#[On('refresh-account-widgets')] on refreshAccountRecordFromLedger() so the Eloquent record is **refresh()**ed and member.user is reloaded when the event matches the open account. That keeps the Account Details infolist in sync with the ledger.
+3. TransactionsRelationManager
+After a successful Credit / Debit post: calls dispatchAccountWidgetsRefresh().
+DeleteAction: ->after(...) dispatches the same.
+DeleteBulkAction: ->after(...) dispatches the same.
+dispatchAccountWidgetsRefresh() runs:
+$this->dispatch('refresh-account-widgets', accountId: (int) $this->getOwnerRecord()->getKey()).
+So: instant refresh when you change the ledger on that page, plus 3s polling as a safety net. To make polling more aggressive, lower $pollingInterval (e.g. '2s') on AccountDetailWidget.
+
+
 
 
 

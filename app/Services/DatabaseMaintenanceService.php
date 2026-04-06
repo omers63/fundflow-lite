@@ -2,10 +2,14 @@
 
 namespace App\Services;
 
+use App\Models\DatabaseBackup;
+use Carbon\CarbonInterface;
+use Illuminate\Support\Carbon;
 use Illuminate\Support\Facades\Config;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Process;
 use Illuminate\Support\Facades\Schema;
+use Illuminate\Support\Facades\Storage;
 use RuntimeException;
 use Symfony\Component\HttpFoundation\BinaryFileResponse;
 use Symfony\Component\HttpFoundation\StreamedResponse;
@@ -148,12 +152,181 @@ class DatabaseMaintenanceService
         };
     }
 
+    /**
+     * Write a full backup into storage/app/backups and persist a database_backups row.
+     */
+    public function createStoredBackup(): DatabaseBackup
+    {
+        $this->ensureBackupDirectoryExists();
+
+        $connection = Config::get('database.default');
+        $driver = Config::get("database.connections.{$connection}.driver");
+
+        $extension = match ($driver) {
+            'sqlite' => '.sqlite',
+            'mysql', 'mariadb' => '.sql',
+            default => throw new RuntimeException(
+                "Database backup is not implemented for driver [{$driver}]. Use SQLite or MySQL."
+            ),
+        };
+
+        $filename = 'fundflow-backup-' . now()->format('Y-m-d-His') . $extension;
+        $relativePath = $this->backupDirectoryRelative() . '/' . $filename;
+        $fullPath = storage_path('app/' . $relativePath);
+
+        try {
+            match ($driver) {
+                'sqlite' => $this->copySqliteDatabaseToFile($fullPath),
+                'mysql', 'mariadb' => $this->writeMysqlDumpToFile($connection, $fullPath),
+                default => throw new RuntimeException(
+                    "Database backup is not implemented for driver [{$driver}]. Use SQLite or MySQL."
+                ),
+            };
+        } catch (\Throwable $e) {
+            if (is_file($fullPath)) {
+                @unlink($fullPath);
+            }
+            throw $e;
+        }
+
+        if (!is_file($fullPath)) {
+            throw new RuntimeException('Backup file was not created.');
+        }
+
+        $size = filesize($fullPath);
+        if ($size === false) {
+            @unlink($fullPath);
+            throw new RuntimeException('Could not read backup file size.');
+        }
+
+        return DatabaseBackup::query()->create([
+            'path' => $relativePath,
+            'filename' => $filename,
+            'size_bytes' => $size,
+            'driver' => $driver === 'mariadb' ? 'mariadb' : $driver,
+            'user_id' => auth()->id(),
+        ]);
+    }
+
+    public function deleteStoredBackup(DatabaseBackup $backup): void
+    {
+        if (Storage::disk('local')->exists($backup->path)) {
+            Storage::disk('local')->delete($backup->path);
+        }
+        $backup->delete();
+    }
+
+    public function backupDirectoryRelative(): string
+    {
+        return 'backups';
+    }
+
+    public function ensureBackupDirectoryExists(): void
+    {
+        Storage::disk('local')->makeDirectory($this->backupDirectoryRelative());
+    }
+
+    /**
+     * @return array{
+     *     driver: string,
+     *     connection: string,
+     *     display_name: string,
+     *     path_or_schema: string|null,
+     *     size_bytes: int|null,
+     *     modified_at: CarbonInterface|null,
+     *     table_count: int,
+     *     stored_backup_count: int,
+     *     stored_backups_total_bytes: int,
+     *     backup_folder_total_bytes: int,
+     * }
+     */
+    public function getBackupOverviewStats(): array
+    {
+        $connectionName = Config::get('database.default');
+        $driver = Config::get("database.connections.{$connectionName}.driver");
+
+        $displayName = '—';
+        $pathOrSchema = null;
+        $sizeBytes = null;
+        $modifiedAt = null;
+
+        if ($driver === 'sqlite') {
+            try {
+                $sqlitePath = $this->resolveSqliteDatabasePath();
+                $displayName = basename($sqlitePath);
+                $pathOrSchema = $sqlitePath;
+                if (is_file($sqlitePath)) {
+                    $sizeBytes = filesize($sqlitePath) ?: null;
+                    $modifiedAt = Carbon::createFromTimestamp(filemtime($sqlitePath));
+                }
+            } catch (RuntimeException) {
+                $displayName = '(sqlite path unavailable)';
+            }
+        } elseif (in_array($driver, ['mysql', 'mariadb'], true)) {
+            $config = Config::get("database.connections.{$connectionName}");
+            $database = (string) ($config['database'] ?? '');
+            $displayName = $database !== '' ? $database : '—';
+            $pathOrSchema = $database !== '' ? $database : null;
+            if ($database !== '') {
+                $row = DB::selectOne(
+                    'SELECT SUM(data_length + index_length) AS total FROM information_schema.tables WHERE table_schema = ?',
+                    [$database]
+                );
+                $sizeBytes = (int) ($row->total ?? 0);
+            }
+        }
+
+        $backupDir = storage_path('app/' . $this->backupDirectoryRelative());
+        $folderTotal = 0;
+        if (is_dir($backupDir)) {
+            foreach (glob($backupDir . DIRECTORY_SEPARATOR . '*') ?: [] as $file) {
+                if (is_file($file)) {
+                    $folderTotal += (int) filesize($file);
+                }
+            }
+        }
+
+        return [
+            'driver' => is_string($driver) ? $driver : 'unknown',
+            'connection' => is_string($connectionName) ? $connectionName : 'default',
+            'display_name' => $displayName,
+            'path_or_schema' => $pathOrSchema,
+            'size_bytes' => $sizeBytes,
+            'modified_at' => $modifiedAt,
+            'table_count' => count($this->databaseTableNames()),
+            'stored_backup_count' => (int) DatabaseBackup::query()->count(),
+            'stored_backups_total_bytes' => (int) DatabaseBackup::query()->sum('size_bytes'),
+            'backup_folder_total_bytes' => $folderTotal,
+        ];
+    }
+
     private function downloadSqliteBackup(): BinaryFileResponse
+    {
+        $path = $this->resolveSqliteDatabasePath();
+        $filename = 'fundflow-backup-' . now()->format('Y-m-d-His') . '.sqlite';
+
+        return response()->download($path, $filename, [
+            'Content-Type' => 'application/octet-stream',
+        ]);
+    }
+
+    private function downloadMysqlBackup(string $connection): StreamedResponse
+    {
+        $filename = 'fundflow-backup-' . now()->format('Y-m-d-His') . '.sql';
+
+        return response()->streamDownload(function () use ($connection): void {
+            echo $this->runMysqlDump($connection);
+        }, $filename, [
+            'Content-Type' => 'application/sql',
+        ]);
+    }
+
+    private function resolveSqliteDatabasePath(): string
     {
         $path = Config::get('database.connections.sqlite.database');
 
         if ($path === ':memory:') {
-            throw new RuntimeException('Cannot download an in-memory SQLite database.');
+            throw new RuntimeException('Cannot use an in-memory SQLite database for this operation.');
         }
 
         if (!is_string($path) || $path === '') {
@@ -164,20 +337,32 @@ class DatabaseMaintenanceService
             $path = base_path($path);
         }
 
-        $path = realpath($path) ?: $path;
+        $resolved = realpath($path) ?: $path;
 
-        if (!is_file($path) || !is_readable($path)) {
+        if (!is_file($resolved) || !is_readable($resolved)) {
             throw new RuntimeException('SQLite database file is missing or not readable.');
         }
 
-        $filename = 'fundflow-backup-' . now()->format('Y-m-d-His') . '.sqlite';
-
-        return response()->download($path, $filename, [
-            'Content-Type' => 'application/octet-stream',
-        ]);
+        return $resolved;
     }
 
-    private function downloadMysqlBackup(string $connection): StreamedResponse
+    private function copySqliteDatabaseToFile(string $destinationAbsolutePath): void
+    {
+        $source = $this->resolveSqliteDatabasePath();
+        if (!@copy($source, $destinationAbsolutePath)) {
+            throw new RuntimeException('Failed to copy SQLite database to backup path.');
+        }
+    }
+
+    private function writeMysqlDumpToFile(string $connection, string $destinationAbsolutePath): void
+    {
+        $sql = $this->runMysqlDump($connection);
+        if (file_put_contents($destinationAbsolutePath, $sql) === false) {
+            throw new RuntimeException('Failed to write mysqldump output to backup file.');
+        }
+    }
+
+    private function runMysqlDump(string $connection): string
     {
         $config = Config::get("database.connections.{$connection}");
 
@@ -198,33 +383,27 @@ class DatabaseMaintenanceService
             );
         }
 
-        $filename = 'fundflow-backup-' . now()->format('Y-m-d-His') . '.sql';
+        $result = Process::env(['MYSQL_PWD' => $password])
+            ->timeout(600)
+            ->run([
+                $mysqldump,
+                '--host=' . $host,
+                '--port=' . $port,
+                '--user=' . $username,
+                '--single-transaction',
+                '--no-tablespaces',
+                '--routines',
+                '--add-drop-table',
+                $database,
+            ]);
 
-        return response()->streamDownload(function () use ($mysqldump, $host, $port, $database, $username, $password): void {
-            $result = Process::env(['MYSQL_PWD' => $password])
-                ->timeout(600)
-                ->run([
-                    $mysqldump,
-                    '--host=' . $host,
-                    '--port=' . $port,
-                    '--user=' . $username,
-                    '--single-transaction',
-                    '--no-tablespaces',
-                    '--routines',
-                    '--add-drop-table',
-                    $database,
-                ]);
+        if (!$result->successful()) {
+            throw new RuntimeException(
+                'mysqldump failed: ' . ($result->errorOutput() ?: $result->output())
+            );
+        }
 
-            if (!$result->successful()) {
-                throw new RuntimeException(
-                    'mysqldump failed: ' . ($result->errorOutput() ?: $result->output())
-                );
-            }
-
-            echo $result->output();
-        }, $filename, [
-            'Content-Type' => 'application/sql',
-        ]);
+        return $result->output();
     }
 
     private function findMysqldumpBinary(): ?string

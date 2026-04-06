@@ -10,6 +10,8 @@ use App\Models\Loan;
 use App\Models\LoanInstallment;
 use App\Models\Member;
 use App\Models\SmsTransaction;
+use Carbon\CarbonInterface;
+use Illuminate\Support\Carbon;
 use Illuminate\Support\Facades\DB;
 
 class AccountingService
@@ -688,6 +690,43 @@ class AccountingService
         });
     }
 
+    /**
+     * Post a single manual line on one account (no paired master/member posting).
+     * Use for adjustments and corrections on the account ledger only.
+     */
+    public function postManualLedgerEntry(
+        Account $account,
+        string $entryType,
+        float $amount,
+        string $description,
+        ?int $memberId = null,
+        CarbonInterface|string|null $transactedAt = null,
+    ): AccountTransaction {
+        if ($amount <= 0) {
+            throw new \InvalidArgumentException('Amount must be greater than zero.');
+        }
+        if (! in_array($entryType, ['credit', 'debit'], true)) {
+            throw new \InvalidArgumentException('Entry type must be credit or debit.');
+        }
+
+        $trimmed = trim($description);
+        if ($trimmed === '') {
+            throw new \InvalidArgumentException('Description is required.');
+        }
+
+        $memberId = $memberId ?? $account->member_id;
+
+        if ($transactedAt !== null && ! $transactedAt instanceof CarbonInterface) {
+            $transactedAt = Carbon::parse($transactedAt);
+        }
+
+        return DB::transaction(function () use ($account, $entryType, $amount, $trimmed, $memberId, $transactedAt) {
+            $account = Account::query()->lockForUpdate()->findOrFail($account->id);
+
+            return $this->postEntry($account, $amount, $entryType, $trimmed, null, $memberId, $transactedAt);
+        });
+    }
+
     // =========================================================================
     // Internal: create one ledger entry and update the account balance atomically
     // =========================================================================
@@ -699,6 +738,7 @@ class AccountingService
         string $description,
         mixed $source,
         ?int $memberId = null,
+        ?CarbonInterface $transactedAt = null,
     ): AccountTransaction {
         $entry = AccountTransaction::create([
             'account_id' => $account->id,
@@ -709,7 +749,7 @@ class AccountingService
             'source_id' => $source?->id,
             'member_id' => $memberId,
             'posted_by' => auth()->id() ?? 1,
-            'transacted_at' => now(),
+            'transacted_at' => $transactedAt ?? now(),
         ]);
 
         // Update running balance atomically

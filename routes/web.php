@@ -1,6 +1,7 @@
 <?php
 
 use App\Http\Controllers\Admin\DatabaseBackupDownloadController;
+use App\Http\Controllers\Admin\StoredDatabaseBackupDownloadController;
 use App\Http\Controllers\StatementPdfController;
 use App\Http\Livewire\ApplicationStatusPage;
 use App\Http\Livewire\LoginPage;
@@ -19,6 +20,9 @@ Route::middleware(['auth'])->group(function () {
 
     Route::get('/admin/system/backup-download', DatabaseBackupDownloadController::class)
         ->name('admin.system.backup-download');
+
+    Route::get('/admin/system/backups/{databaseBackup}/download', StoredDatabaseBackupDownloadController::class)
+        ->name('admin.system.backup-stored-download');
 });
 
 Route::post('/logout', function () {

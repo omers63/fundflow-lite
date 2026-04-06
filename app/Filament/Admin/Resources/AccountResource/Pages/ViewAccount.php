@@ -9,6 +9,7 @@ use Filament\Resources\Pages\ViewRecord;
 use Filament\Schemas\Components\Section;
 use Filament\Schemas\Schema;
 use Filament\Support\Enums\FontWeight;
+use Livewire\Attributes\On;
 
 class ViewAccount extends ViewRecord
 {
@@ -59,6 +60,17 @@ class ViewAccount extends ViewRecord
             ...parent::getWidgetData(),
             'accountId' => $this->getRecord()->getKey(),
         ];
+    }
+
+    #[On('refresh-account-widgets')]
+    public function refreshAccountRecordFromLedger(mixed $accountId): void
+    {
+        if ((int) $this->getRecord()->getKey() !== (int) $accountId) {
+            return;
+        }
+
+        $this->getRecord()->refresh();
+        $this->getRecord()->loadMissing(['member.user']);
     }
 
     public function infolist(Schema $schema): Schema
