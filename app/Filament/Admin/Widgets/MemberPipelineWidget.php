@@ -23,6 +23,7 @@ class MemberPipelineWidget extends Widget
         $activeMembers = Member::active()->count();
         $delinquent = Member::delinquent()->count();
         $suspended = Member::where('status', 'suspended')->count();
+        $terminated = Member::where('status', 'terminated')->count();
 
         // New members this month
         $newThisMonth = Member::whereMonth('joined_at', now()->month)
@@ -40,6 +41,7 @@ class MemberPipelineWidget extends Widget
             'active_members' => $activeMembers,
             'delinquent' => $delinquent,
             'suspended' => $suspended,
+            'terminated' => $terminated,
             'new_this_month' => $newThisMonth,
             'apps_this_month' => $appsThisMonth,
 

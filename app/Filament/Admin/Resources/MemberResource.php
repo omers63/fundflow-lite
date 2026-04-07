@@ -3,6 +3,11 @@
 namespace App\Filament\Admin\Resources;
 
 use App\Filament\Admin\Resources\MemberResource\Pages;
+use App\Filament\Admin\Resources\MembershipApplicationResource;
+use App\Filament\Admin\Widgets\MemberAccountStatsWidget;
+use App\Filament\Admin\Widgets\MemberActivityWidget;
+use App\Filament\Admin\Widgets\MemberProfileWidget;
+use App\Filament\Admin\Widgets\MemberStatsWidget;
 use App\Filament\Admin\Resources\MemberResource\RelationManagers\AccountsRelationManager;
 use App\Filament\Admin\Resources\MemberResource\RelationManagers\ContributionsRelationManager;
 use App\Filament\Admin\Resources\MemberResource\RelationManagers\DependentsRelationManager;
@@ -13,6 +18,8 @@ use App\Services\MemberDeletionService;
 use App\Services\MemberImportService;
 use Carbon\Carbon;
 use Filament\Actions\Action;
+use Filament\Actions\ActionGroup;
+use Filament\Actions\BulkAction;
 use Filament\Actions\BulkActionGroup;
 use Filament\Actions\CreateAction;
 use Filament\Actions\DeleteAction;
@@ -32,7 +39,9 @@ use Filament\Tables;
 use Filament\Tables\Filters\TrashedFilter;
 use Filament\Tables\Table;
 use Illuminate\Database\Eloquent\Builder;
+use Illuminate\Database\Eloquent\Collection as EloquentCollection;
 use Illuminate\Support\Facades\Storage;
+use Livewire\Component;
 
 class MemberResource extends Resource
 {
@@ -63,6 +72,7 @@ class MemberResource extends Resource
                             'active' => 'Active',
                             'suspended' => 'Suspended',
                             'delinquent' => 'Delinquent',
+                            'terminated' => 'Terminated',
                         ])
                         ->required(),
                     Forms\Components\DatePicker::make('joined_at')
@@ -313,6 +323,7 @@ class MemberResource extends Resource
                         'active' => 'success',
                         'suspended' => 'warning',
                         'delinquent' => 'danger',
+                        'terminated' => 'danger',
                         default => 'gray',
                     })
                     ->toggleable(),
@@ -360,7 +371,7 @@ class MemberResource extends Resource
                         'First row must be headers. Required: email; name required for new members only (balance-only rows for existing emails may leave name blank). Optional: password, phone, joined_at, status, monthly_contribution_amount, parent_member_number, ' .
                         'cash_balance (≥ 0), fund_balance (may be negative — paired debit on master + member fund, e.g. master-funded loan). ' .
                         'Existing email: if the user already has a member, applies cash/fund adjustments only (other columns ignored); requires Update:Member. No member record → error. ' .
-                        'New members require Create:Member. Parent rows before dependents. Status: active, suspended, delinquent. Contribution: 500–3000 in steps of 500.'
+                        'New members require Create:Member. Parent rows before dependents. Status: active, suspended, delinquent, terminated. Contribution: 500–3000 in steps of 500.'
                     )
                     ->modalWidth('2xl')
                     ->schema([
@@ -378,7 +389,7 @@ class MemberResource extends Resource
                             ->minLength(8)
                             ->helperText('Used when the password column is empty or shorter than 8 characters. Members should change it after first login.'),
                     ])
-                    ->action(function (array $data): void {
+                    ->action(function (array $data, Component $livewire): void {
                         $relative = $data['csv_file'];
                         $fullPath = Storage::disk('local')->path($relative);
 
@@ -404,15 +415,18 @@ class MemberResource extends Resource
                             ->color($result['failed'] > 0 || $result['errors'] !== [] ? 'warning' : 'success')
                             ->persistent()
                             ->send();
+
+                        static::dispatchMemberListHeaderWidgetsRefresh($livewire);
                     }),
                 CreateAction::make()
+                    ->label('New Member')
                     ->icon('heroicon-o-plus-circle')
                     ->url(static::getUrl('create'))
                     ->visible(fn(): bool => static::canCreate()),
             ])
             ->filters([
                 Tables\Filters\SelectFilter::make('status')
-                    ->options(['active' => 'Active', 'suspended' => 'Suspended', 'delinquent' => 'Delinquent']),
+                    ->options(['active' => 'Active', 'suspended' => 'Suspended', 'delinquent' => 'Delinquent', 'terminated' => 'Terminated']),
                 Tables\Filters\SelectFilter::make('parent_id')
                     ->label('Sponsor / parent')
                     ->options(fn() => Member::query()->with('user')->whereNull('parent_id')->orderBy('member_number')->get()
@@ -450,20 +464,137 @@ class MemberResource extends Resource
                 TrashedFilter::make(),
             ])
             ->recordActions([
-                EditAction::make(),
-                ViewAction::make(),
-                DeleteAction::make()
-                    ->modalDescription('Removes this member from active records: loans are safe-deleted first (ledger reversed), then bank/SMS lines, virtual accounts, the member row, and their login user (soft-deleted). Blocked while contribution records still exist — remove or soft-delete those first if you need to delete.')
-                    ->using(function (Member $record) {
-                        app(MemberDeletionService::class)->delete($record);
+                ActionGroup::make([
+                    ViewAction::make(),
+                    EditAction::make(),
+                    Action::make('viewApplication')
+                        ->label('Application')
+                        ->icon('heroicon-o-clipboard-document-check')
+                        ->color('info')
+                        ->url(fn(Member $record): string => MembershipApplicationResource::getUrl(
+                            'view',
+                            ['record' => $record->latestMembershipApplication()],
+                        ))
+                        ->visible(
+                            fn(Member $record): bool => (bool) ($record->membership_applications_exists ?? false)
+                            && auth()->user()?->can('View:MembershipApplication')
+                        ),
+                    Action::make('suspend')
+                        ->label('Suspend')
+                        ->icon('heroicon-o-pause-circle')
+                        ->color('warning')
+                        ->visible(
+                            fn(Member $record): bool => in_array($record->status, ['active', 'delinquent'], true)
+                            && !$record->trashed()
+                        )
+                        ->authorize(fn(Member $record): bool => auth()->user()?->can('update', $record) ?? false)
+                        ->requiresConfirmation()
+                        ->modalHeading('Suspend member')
+                        ->modalDescription('Sets membership to Suspended. This member will not be able to sign in to the member portal until their status is changed back.')
+                        ->action(function (Member $record, Component $livewire): void {
+                            $record->update(['status' => 'suspended']);
+                            Notification::make()
+                                ->title('Member suspended')
+                                ->success()
+                                ->send();
+                            static::dispatchMemberListHeaderWidgetsRefresh($livewire);
+                        }),
+                    Action::make('terminate')
+                        ->label('Terminate')
+                        ->icon('heroicon-o-no-symbol')
+                        ->color('danger')
+                        ->visible(
+                            fn(Member $record): bool => $record->status !== 'terminated'
+                            && !$record->trashed()
+                        )
+                        ->authorize(fn(Member $record): bool => auth()->user()?->can('update', $record) ?? false)
+                        ->requiresConfirmation()
+                        ->modalHeading('Terminate membership')
+                        ->modalDescription('Ends membership permanently (status: Terminated). The person cannot use the member portal. This does not delete records or ledger history. Use Delete only when a full removal is required.')
+                        ->action(function (Member $record, Component $livewire): void {
+                            $record->update(['status' => 'terminated']);
+                            Notification::make()
+                                ->title('Membership terminated')
+                                ->warning()
+                                ->send();
+                            static::dispatchMemberListHeaderWidgetsRefresh($livewire);
+                        }),
+                    DeleteAction::make()
+                        ->modalDescription('Removes this member from active records: loans are safe-deleted first (ledger reversed), then bank/SMS lines, virtual accounts, the member row, and their login user (soft-deleted). Blocked while contribution records still exist — remove or soft-delete those first if you need to delete.')
+                        ->using(function (Member $record) {
+                            app(MemberDeletionService::class)->delete($record);
 
-                        return true;
-                    }),
-                RestoreAction::make(),
-                ForceDeleteAction::make(),
+                            return true;
+                        })
+                        ->after(fn(Component $livewire) => static::dispatchMemberListHeaderWidgetsRefresh($livewire)),
+                    RestoreAction::make()
+                        ->after(fn(Component $livewire) => static::dispatchMemberListHeaderWidgetsRefresh($livewire)),
+                    ForceDeleteAction::make()
+                        ->after(fn(Component $livewire) => static::dispatchMemberListHeaderWidgetsRefresh($livewire)),
+                ])
+                    ->tooltip('Actions'),
             ])
             ->toolbarActions([
                 BulkActionGroup::make([
+                    BulkAction::make('suspend')
+                        ->label('Suspend selected')
+                        ->icon('heroicon-o-pause-circle')
+                        ->color('warning')
+                        ->requiresConfirmation()
+                        ->modalHeading('Suspend selected members')
+                        ->modalDescription('Sets each eligible row to Suspended (active or delinquent only). Already suspended, terminated, or trashed rows are skipped.')
+                        ->authorizeIndividualRecords('update')
+                        ->action(function (EloquentCollection $records, Component $livewire): void {
+                            $eligible = $records->filter(
+                                fn(Member $r) => !$r->trashed()
+                                && in_array($r->status, ['active', 'delinquent'], true)
+                            );
+                            $skipped = $records->count() - $eligible->count();
+
+                            $suspended = 0;
+                            foreach ($eligible as $record) {
+                                $record->update(['status' => 'suspended']);
+                                $suspended++;
+                            }
+
+                            Notification::make()
+                                ->title('Bulk suspend finished')
+                                ->body("Suspended: {$suspended}. Skipped: {$skipped}.")
+                                ->success()
+                                ->send();
+
+                            static::dispatchMemberListHeaderWidgetsRefresh($livewire);
+                        })
+                        ->deselectRecordsAfterCompletion(),
+                    BulkAction::make('terminate')
+                        ->label('Terminate selected')
+                        ->icon('heroicon-o-no-symbol')
+                        ->color('danger')
+                        ->requiresConfirmation()
+                        ->modalHeading('Terminate selected memberships')
+                        ->modalDescription('Sets each eligible row to Terminated. Rows already terminated or trashed are skipped.')
+                        ->authorizeIndividualRecords('update')
+                        ->action(function (EloquentCollection $records, Component $livewire): void {
+                            $eligible = $records->filter(
+                                fn(Member $r) => !$r->trashed() && $r->status !== 'terminated'
+                            );
+                            $skipped = $records->count() - $eligible->count();
+
+                            $terminated = 0;
+                            foreach ($eligible as $record) {
+                                $record->update(['status' => 'terminated']);
+                                $terminated++;
+                            }
+
+                            Notification::make()
+                                ->title('Bulk terminate finished')
+                                ->body("Terminated: {$terminated}. Skipped: {$skipped}.")
+                                ->warning()
+                                ->send();
+
+                            static::dispatchMemberListHeaderWidgetsRefresh($livewire);
+                        })
+                        ->deselectRecordsAfterCompletion(),
                     DeleteBulkAction::make()
                         ->modalDescription('Deletes each selected member like single delete (loans safe-deleted first, then bank/SMS and accounts). Rows that fail (e.g. contributions still present) are skipped and reported.')
                         ->using(function (DeleteBulkAction $action, $records) {
@@ -476,9 +607,12 @@ class MemberResource extends Resource
                                     report($e);
                                 }
                             }
-                        }),
-                    RestoreBulkAction::make(),
-                    ForceDeleteBulkAction::make(),
+                        })
+                        ->after(fn(Component $livewire) => static::dispatchMemberListHeaderWidgetsRefresh($livewire)),
+                    RestoreBulkAction::make()
+                        ->after(fn(Component $livewire) => static::dispatchMemberListHeaderWidgetsRefresh($livewire)),
+                    ForceDeleteBulkAction::make()
+                        ->after(fn(Component $livewire) => static::dispatchMemberListHeaderWidgetsRefresh($livewire)),
                 ]),
             ]);
     }
@@ -506,5 +640,57 @@ class MemberResource extends Resource
     public static function getRecordRouteBindingEloquentQuery(): Builder
     {
         return parent::getRecordRouteBindingEloquentQuery()->withTrashed();
+    }
+
+    public static function getEloquentQuery(): Builder
+    {
+        return parent::getEloquentQuery()->withExists('membershipApplications');
+    }
+
+    /**
+     * Refresh list-page header widgets ({@see MemberStatsWidget}) after table mutations.
+     */
+    public static function dispatchMemberListHeaderWidgetsRefresh(?Component $livewire): void
+    {
+        if ($livewire === null) {
+            return;
+        }
+
+        static::dispatchLivewireWidgetsRefresh($livewire, [
+            MemberStatsWidget::class,
+        ]);
+    }
+
+    /**
+     * Refresh member View/Edit header widgets after the record changes.
+     */
+    public static function dispatchMemberRecordHeaderWidgetsRefresh(?Component $livewire): void
+    {
+        if ($livewire === null) {
+            return;
+        }
+
+        static::dispatchLivewireWidgetsRefresh($livewire, [
+            MemberAccountStatsWidget::class,
+            MemberProfileWidget::class,
+            MemberActivityWidget::class,
+        ]);
+    }
+
+    /**
+     * @param  array<class-string>  $widgetClasses
+     */
+    protected static function dispatchLivewireWidgetsRefresh(Component $livewire, array $widgetClasses): void
+    {
+        $parts = [];
+        foreach ($widgetClasses as $class) {
+            $name = json_encode(
+                app('livewire.factory')->resolveComponentName($class),
+                JSON_THROW_ON_ERROR
+            );
+            $parts[] = 'window.Livewire.getByName(' . $name . ').forEach(w => w.$refresh());';
+        }
+
+        $livewire->js('setTimeout(() => { ' . implode(' ', $parts) . ' }, 0)');
     }
 }

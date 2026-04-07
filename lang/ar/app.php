@@ -34,6 +34,7 @@ return [
     'status.active' => 'نشط',
     'status.completed' => 'مكتمل',
     'status.suspended' => 'موقوف',
+    'status.terminated' => 'منهي العضوية',
     'status.delinquent' => 'متأخر',
     'status.overdue' => 'متأخر السداد',
     'status.paid' => 'مدفوع',

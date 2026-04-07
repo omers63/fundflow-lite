@@ -1957,6 +1957,28 @@ Restoring a loan after safeDeleteLoan does not recreate disbursement/repayment l
 Unique columns (e.g. users.email, members.member_number) still count soft-deleted rows unless you force-delete them or adjust indexes.
 DatabaseBackup is still not soft-deleted (file + row stay aligned).
 Migration has been run successfully in this environment.
+--------------------------------------------------------
+Here’s what was implemented.
+
+Members table row actions (single Actions menu)
+All row actions are wrapped in an ActionGroup (ellipsis + “Actions” tooltip), including:
+
+View application — links to the latest MembershipApplication for that member’s user. Shown only when membershipApplications exist and the admin has View:MembershipApplication. The listing query uses withExists('membershipApplications') so visibility is cheap.
+Suspend — sets members.status to suspended (confirmation). Shown for active or delinquent members, not trashed. Requires update on the member.
+Terminate — sets members.status to terminated (confirmation). Shown for any non‑terminated, non‑trashed row. Same update policy.
+Existing View, Edit, Delete, Restore, Force delete unchanged, now inside the same group.
+New terminated member status
+Migration 2026_04_07_100000_add_terminated_status_to_members_table.php extends the MySQL members.status enum (migrate has been run successfully in your environment).
+Member model: membershipApplications() relation, scopeTerminated(), latestMembershipApplication() uses that relation.
+User::canAccessPanel (member panel): users whose member is suspended or terminated can no longer access the member portal (login still works, but panel access is denied).
+Other updates
+Form / table filter / badges: Terminated where statuses are listed.
+MemberImportService accepts terminated.
+Dependents relation + MyDependentsResource: badge + filter include terminated.
+MemberStatsWidget + member-pipeline widget: counts/breakdown include terminated (EN/AR status.terminated string added).
+Note: On SQLite, this migration does not alter the column (MySQL-only ALTER). Locally on SQLite, terminated usually still works if the column is stored as string; use MySQL or adjust the migration if you rely on strict SQLite parity.
+
+-------------------------------------------
 
 
 

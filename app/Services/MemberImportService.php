@@ -146,7 +146,7 @@ class MemberImportService
         $parentNumber = $this->nullableCell($row, 'parent_member_number');
         if ($parentNumber !== null && $parentNumber !== '') {
             $parent = Member::where('member_number', $parentNumber)->first();
-            if (! $parent) {
+            if (!$parent) {
                 throw new \InvalidArgumentException("Parent member number not found: {$parentNumber}");
             }
             if ($parent->parent_id !== null) {
@@ -200,7 +200,7 @@ class MemberImportService
         }
 
         $lines = preg_split('/\r\n|\r|\n/', $content);
-        $lines = array_values(array_filter($lines, fn ($l) => trim((string) $l) !== ''));
+        $lines = array_values(array_filter($lines, fn($l) => trim((string) $l) !== ''));
 
         if (count($lines) < 2) {
             return [];
@@ -208,7 +208,7 @@ class MemberImportService
 
         $headerLine = array_shift($lines);
         $headers = str_getcsv((string) $headerLine);
-        $headers = array_map(fn ($h) => strtolower(trim((string) $h)), $headers);
+        $headers = array_map(fn($h) => strtolower(trim((string) $h)), $headers);
 
         $rows = [];
 
@@ -266,11 +266,11 @@ class MemberImportService
             return 'active';
         }
 
-        if (in_array($v, ['active', 'suspended', 'delinquent'], true)) {
+        if (in_array($v, ['active', 'suspended', 'delinquent', 'terminated'], true)) {
             return $v;
         }
 
-        throw new \InvalidArgumentException("status must be active, suspended, or delinquent (got: {$value})");
+        throw new \InvalidArgumentException("status must be active, suspended, delinquent, or terminated (got: {$value})");
     }
 
     private function parseContribution(string $value): int
@@ -279,15 +279,15 @@ class MemberImportService
             return 500;
         }
 
-        if (! is_numeric($value)) {
+        if (!is_numeric($value)) {
             throw new \InvalidArgumentException("monthly_contribution_amount must be numeric (got: {$value})");
         }
 
         $int = (int) $value;
 
-        if (! Member::isValidContributionAmount($int)) {
+        if (!Member::isValidContributionAmount($int)) {
             throw new \InvalidArgumentException(
-                'monthly_contribution_amount must be 500–3000 in steps of 500 (got: '.$int.')'
+                'monthly_contribution_amount must be 500–3000 in steps of 500 (got: ' . $int . ')'
             );
         }
 
@@ -300,7 +300,7 @@ class MemberImportService
             return 0.0;
         }
 
-        if (! is_numeric($value)) {
+        if (!is_numeric($value)) {
             throw new \InvalidArgumentException("{$column} must be numeric (got: {$value})");
         }
 
@@ -319,7 +319,7 @@ class MemberImportService
             return 0.0;
         }
 
-        if (! is_numeric($value)) {
+        if (!is_numeric($value)) {
             throw new \InvalidArgumentException("{$column} must be numeric (got: {$value})");
         }
 

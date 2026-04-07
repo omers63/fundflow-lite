@@ -90,15 +90,18 @@ class Member extends Model
         return $this->hasMany(Account::class);
     }
 
+    /** All membership application rows for this member's login user. */
+    public function membershipApplications(): HasMany
+    {
+        return $this->hasMany(MembershipApplication::class, 'user_id', 'user_id');
+    }
+
     /**
      * Latest application row for this member's user (query; avoids stale relation cache in Livewire).
      */
     public function latestMembershipApplication(): ?MembershipApplication
     {
-        return MembershipApplication::query()
-            ->where('user_id', $this->user_id)
-            ->orderByDesc('id')
-            ->first();
+        return $this->membershipApplications()->orderByDesc('id')->first();
     }
 
     // -----------------------------------------------------------------------
@@ -184,5 +187,10 @@ class Member extends Model
     public function scopeDelinquent($query)
     {
         return $query->where('status', 'delinquent');
+    }
+
+    public function scopeTerminated($query)
+    {
+        return $query->where('status', 'terminated');
     }
 }

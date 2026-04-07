@@ -1,15 +1,16 @@
 @php
     $d = $this->getData();
     $total = max(1, $d['total']);
-    $activePct     = round($d['active']     / $total * 100);
-    $suspendedPct  = round($d['suspended']  / $total * 100);
-    $delinquentPct = round($d['delinquent'] / $total * 100);
+    $activePct      = round($d['active']      / $total * 100);
+    $suspendedPct   = round($d['suspended']   / $total * 100);
+    $delinquentPct  = round($d['delinquent']  / $total * 100);
+    $terminatedPct  = round($d['terminated']  / $total * 100);
 @endphp
 
 <div class="w-full max-w-none space-y-4 mb-2">
 
     {{-- ── KPI row ─────────────────────────────────────────────────────── --}}
-    <div class="grid grid-cols-2 gap-4 sm:grid-cols-3 xl:grid-cols-6">
+    <div class="grid grid-cols-2 gap-4 sm:grid-cols-3 lg:grid-cols-4 xl:grid-cols-7">
 
         {{-- Total members --}}
         <div class="relative overflow-hidden rounded-xl bg-white dark:bg-gray-800 p-5 ring-1 ring-gray-200 dark:ring-gray-700 shadow-sm">
@@ -63,6 +64,19 @@
             </div>
         </div>
 
+        {{-- Terminated --}}
+        <div class="relative overflow-hidden rounded-xl bg-white dark:bg-gray-800 p-5 ring-1 ring-gray-200 dark:ring-gray-700 shadow-sm">
+            <div class="absolute inset-y-0 left-0 w-1 rounded-l-xl {{ $d['terminated'] > 0 ? 'bg-red-600' : 'bg-gray-200 dark:bg-gray-600' }}"></div>
+            <div class="pl-2">
+                <div class="flex items-center gap-1.5 mb-2">
+                    <x-heroicon-o-no-symbol class="w-4 h-4 {{ $d['terminated'] > 0 ? 'text-red-600' : 'text-gray-400' }}" />
+                    <p class="text-xs font-semibold uppercase tracking-wide text-gray-500 dark:text-gray-400">Terminated</p>
+                </div>
+                <p class="text-2xl font-bold {{ $d['terminated'] > 0 ? 'text-red-600 dark:text-red-400' : 'text-gray-900 dark:text-white' }}">{{ number_format($d['terminated']) }}</p>
+                <p class="mt-0.5 text-xs text-gray-400">{{ $terminatedPct }}% of total</p>
+            </div>
+        </div>
+
         {{-- New this month --}}
         <div class="relative overflow-hidden rounded-xl bg-white dark:bg-gray-800 p-5 ring-1 ring-gray-200 dark:ring-gray-700 shadow-sm">
             <div class="absolute inset-y-0 left-0 w-1 rounded-l-xl bg-indigo-500"></div>
@@ -105,6 +119,7 @@
                     ['label' => 'Active',     'count' => $d['active'],     'color' => 'bg-emerald-500', 'text' => 'text-emerald-600 dark:text-emerald-400'],
                     ['label' => 'Delinquent', 'count' => $d['delinquent'], 'color' => 'bg-red-500',     'text' => 'text-red-600 dark:text-red-400'],
                     ['label' => 'Suspended',  'count' => $d['suspended'],  'color' => 'bg-amber-400',   'text' => 'text-amber-600 dark:text-amber-400'],
+                    ['label' => 'Terminated', 'count' => $d['terminated'], 'color' => 'bg-red-500',     'text' => 'text-red-600 dark:text-red-400'],
                 ] as $row)
                 @php $pct = $total > 0 ? round($row['count'] / $total * 100) : 0; @endphp
                 <div>

@@ -160,5 +160,7 @@ class EditMember extends EditRecord
                 $this->pendingAppUpdates,
             );
         }
+
+        MemberResource::dispatchMemberRecordHeaderWidgetsRefresh($this);
     }
 }

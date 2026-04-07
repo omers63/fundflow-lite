@@ -34,6 +34,7 @@ return [
     'status.active' => 'Active',
     'status.completed' => 'Completed',
     'status.suspended' => 'Suspended',
+    'status.terminated' => 'Terminated',
     'status.delinquent' => 'Delinquent',
     'status.overdue' => 'Overdue',
     'status.paid' => 'Paid',

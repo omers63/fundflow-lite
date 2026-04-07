@@ -59,7 +59,12 @@ class MyDependentsResource extends Resource
                     ->label('Monthly Allocation')
                     ->money('SAR'),
                 Tables\Columns\TextColumn::make('status')->badge()
-                    ->colors(['success' => 'active', 'warning' => 'suspended', 'danger' => 'delinquent']),
+                    ->color(fn(string $state) => match ($state) {
+                        'active' => 'success',
+                        'suspended' => 'warning',
+                        'delinquent', 'terminated' => 'danger',
+                        default => 'gray',
+                    }),
                 Tables\Columns\TextColumn::make('cash_balance')
                     ->label('Cash Balance')
                     ->money('SAR')
@@ -72,6 +77,7 @@ class MyDependentsResource extends Resource
                         'active' => 'Active',
                         'suspended' => 'Suspended',
                         'delinquent' => 'Delinquent',
+                        'terminated' => 'Terminated',
                     ]),
                 Tables\Filters\SelectFilter::make('monthly_contribution_amount')
                     ->label('Monthly allocation')

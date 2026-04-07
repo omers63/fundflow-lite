@@ -20,17 +20,18 @@ class MemberStatsWidget extends Widget
         $active = Member::where('status', 'active')->count();
         $suspended = Member::where('status', 'suspended')->count();
         $delinquent = Member::where('status', 'delinquent')->count();
-        $total = $active + $suspended + $delinquent;
+        $terminated = Member::where('status', 'terminated')->count();
+        $total = $active + $suspended + $delinquent + $terminated;
 
         $newThisMonth = Member::whereMonth('joined_at', $now->month)
             ->whereYear('joined_at', $now->year)
             ->count();
 
-        $withActiveLoans = Member::whereHas('loans', fn ($q) => $q->where('status', 'active'))->count();
+        $withActiveLoans = Member::whereHas('loans', fn($q) => $q->where('status', 'active'))->count();
 
         $withOverdue = Member::whereHas(
             'loans',
-            fn ($q) => $q->whereHas('installments', fn ($i) => $i->where('status', 'overdue'))
+            fn($q) => $q->whereHas('installments', fn($i) => $i->where('status', 'overdue'))
         )->count();
 
         $avgContribution = (float) Member::active()
@@ -38,13 +39,13 @@ class MemberStatsWidget extends Widget
 
         // Top 5 members by contribution amount this year
         $topContributors = Member::withSum([
-            'contributions as year_total' => fn ($q) => $q->whereYear('paid_at', $now->year),
+            'contributions as year_total' => fn($q) => $q->whereYear('paid_at', $now->year),
         ], 'amount')
             ->with('user')
             ->orderByDesc('year_total')
             ->limit(5)
             ->get()
-            ->map(fn ($m) => [
+            ->map(fn($m) => [
                 'name' => $m->user?->name ?? '—',
                 'number' => $m->member_number,
                 'total' => (float) ($m->year_total ?? 0),
@@ -56,6 +57,7 @@ class MemberStatsWidget extends Widget
             'active' => $active,
             'suspended' => $suspended,
             'delinquent' => $delinquent,
+            'terminated' => $terminated,
             'new_this_month' => $newThisMonth,
             'with_active_loans' => $withActiveLoans,
             'with_overdue' => $withOverdue,

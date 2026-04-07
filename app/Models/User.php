@@ -47,6 +47,16 @@ class User extends Authenticatable implements FilamentUser
             return false;
         }
 
+        if ($panel->getId() === 'member' && $this->role === 'member') {
+            $member = $this->member;
+            if ($member === null) {
+                return false;
+            }
+            if (in_array($member->status, ['suspended', 'terminated'], true)) {
+                return false;
+            }
+        }
+
         return match ($panel->getId()) {
             'admin' => $this->role === 'admin',
             'member' => $this->role === 'member',

@@ -10,11 +10,11 @@ Design and implement a web application using the latest filament php and livewir
 -----------------------------
 System maintains one or more external banks information. Admin is able to add as many banks as needed.
 Periodically, the admin uploads a bank transaction file (in .csv) format.
-The format of the data in the file need to be customizable via a setting template page. 
+The format of the data in the file need to be customizable via a setting template page.
 I need to maintain a history of import session.
 During imports, duplicates need to be identified. Duplicate matching need to be customizable via a setting template page.
 ------------------------------
-Similarly, periodically, the admin may upload a bulk SMS file. 
+Similarly, periodically, the admin may upload a bulk SMS file.
 The format of the SMS contained in the uploaded file need to be customizable via a setting SMS template page.
 I need to maintain a history of import session.
 During imports, duplicates need to be identified. Duplicate matching need to be customizable via a setting SMS template page.
@@ -25,7 +25,7 @@ Cash Account contains transactions posted from bank/sms imports.
 Fund Account contains transactions posted from contributions/loan repayments/loan disbursements.
 Application maintains these 2 accounts at all times.
 Admin must select (single/bulk) transactions to be posted to the cash account.
-All collections transactions made (monthly contributions, monthly repayments, and any disbursements) from/to members are posted to the fund account. 
+All collections transactions made (monthly contributions, monthly repayments, and any disbursements) from/to members are posted to the fund account.
 Each member also maintains 2 member's virtual accounts: (Member Cash Account, Member Fund Account), as well as an account for each loan taken.
 Transactions posted to the master cash account, need also be posted to a particular member. For bank imports, the selection of the member is done by the admin. For Sms imports, the selection is done automatically as the member name/account is matched and is part of the SMS template.
 --------------------------------
@@ -36,7 +36,7 @@ The parent member defines the allocated contribution amounts of all of his depen
 Both the parent/dependent member can changes their allocated contribution amount anytime via the Admin/Member portals.
 Any additional funds received above the allocated contribution amount of any member will remain in the member's cash account after applying the monthly contribution cycle.
 ---------------------------------
-When applying the dependent members fund allocations, the parent's cash account is debited and the dependent's cash account is credited. 
+When applying the dependent members fund allocations, the parent's cash account is debited and the dependent's cash account is credited.
 This is done before applying the contributions.
 Applying contributions always debits the member's cash account and credits the master fund account which is also mirrored in the member's fund account.
 Collecting members Contributions for a given month is due by the 5th of the following month. The amount of contribution equals the allocated member's monthly contribution amount.
@@ -45,13 +45,13 @@ At the beginning of a contribution cycle (1st day of the month following the cyc
 When a member's contribution amount is applied, an account statement is sent to the member.
 ----------------------------------
 A member may apply for one or more loans from the admin/member portal. A member may have one or more active loans at any given time.
-A member may cancel a pending loan request prior to approval/disbursement. After approval/disbursement the member can only do repayments for the loan schedule period or choice to do early settlement. 
-When a loan request is received, approved, rejected, disbursed, or early settled, a notification is sent to the member. 
+A member may cancel a pending loan request prior to approval/disbursement. After approval/disbursement the member can only do repayments for the loan schedule period or choice to do early settlement.
+When a loan request is received, approved, rejected, disbursed, or early settled, a notification is sent to the member.
 A member is eligible for a loan after one full year from the date of his membership, and his fund account balance shall not be less than 6000 SAR.
 A member may borrow up to double his fund account balance.
 When wishing to borrow, the member completes a loan application form and submits along with the request.
 The borrowing member is exempt from paying the monthly contribution installment; repayment of loan installments to the Fund’s account begins in the month following receipt of the loan disbursement. For example, if the loan is disbursed before the due date of the July 5th for the contribution cycle of June and he has not made the contribution; he is except from the contribution of June and Repayment starts for the Contribution cycle of July. Another example, if the loan is disbursed after the due date of the July 5th for the contribution cycle of July is exempted and repayments starts for the cycle of August.
-A member may borrow up to double the balance of his fund account. When disbursing the loan from the fund's master account, it is thought of in two parts: member's portion and master fund portion. The Disbursement is funded from the member's fund account until it is exhausted then from the master fund account for what remains. 
+A member may borrow up to double the balance of his fund account. When disbursing the loan from the fund's master account, it is thought of in two parts: member's portion and master fund portion. The Disbursement is funded from the member's fund account until it is exhausted then from the master fund account for what remains.
 Disbursing a loan will debit the master fund account and the member's fund account equally.
 The borrowing member completes his loan after paying all that is due to the Master Fund and when his new fund account balance reaches 16% of the total amount he borrowed.
 The loan is considered paid off when the master fund account portion is paid off and topped of with another 16% of the original loan amount. The percentage needs to be configurable via a setting page.
@@ -102,13 +102,13 @@ Generate a full and complete Admin Operational manual of the system and also gen
 Are there any useful and relevant analytical/insightful Widgets you can add to the dashboard of both the admin and member portals and/or any other group pages/resources?
 Repayment Period of a loan should not be user decided. System must compute the repayment period and build loan repayment schedule. The Repayment Period is calculated as: (master fund portion of the loan amount + 16% of the requested loan amount) / monthly installed amount of the loan tier.
 The assignment to Fund Tier should be determined automatically by the System. If the loan request was flagged as emergency, the fund tier is set to emergency fund tier; otherwise it is set based on the determined loan tier.
-Loan Eligibility check must be done at the time of applying for loan and submission. A member should not be able to submit a loan if he is not eligible. 
+Loan Eligibility check must be done at the time of applying for loan and submission. A member should not be able to submit a loan if he is not eligible.
 I need to be able to edit a member's membership date from the admin portal.
 In the admin view/edit member page, I want to get summary cards of account balances, late contributions, outstanding loans amount, active loans count.
 In the admin view/edit member page, I want to seem full member information: name, grantee member, Witnesses, address, etc.
 I want to be able to edit a member's application from the admin.
 I want to be able to create a new Membership Applications in the admin portal.
-Add the following fields to a member's application: Application Type(New, Resume, Renew), gender, marital status, Home phone, work phone, mobile phone, Work Place, Residency Place, Bank Account Number, IBAN, Membership date, 
+Add the following fields to a member's application: Application Type(New, Resume, Renew), gender, marital status, Home phone, work phone, mobile phone, Work Place, Residency Place, Bank Account Number, IBAN, Membership date,
 The account phone and the mobile phone are the same. Keep just the mobile phone.
 I would like to be able to import a file containing member's information.
 I want to be able to import the member's cash account balance and fund account balance. Check if importing these balances has any impact on account treatment and handle it properly. Ask for any clarifications.
@@ -127,17 +127,19 @@ I want a quick action button within a group action card that triggers the follow
 3. If the new Master Bank Account Transaction is credit, it results in posted to a Member's Bank Account.
 4. Member's allocations to dependents is applied.
 5. Contributions/Loan Installment repayments for member and all of his dependents are applied.
-6. If the new Master Bank Account Transaction is debit (i.e., loan disbursement), nothing else is done. 
-Also add a welcome banner to the dashboard of both the admin and member (with gradients and modern theming). 
+6. If the new Master Bank Account Transaction is debit (i.e., loan disbursement), nothing else is done.
+Also add a welcome banner to the dashboard of both the admin and member (with gradients and modern theming).
 Finally, Modernize and beautify both dashboard pages similar to the way you did the "Loan Queue". Add any useful and informative analytical widgets as you see fit. Use beautiful and proper layout scheme and Theming/Styling.
 Modernize and beautify the remaining widgets in the admin/member dashboard similar to the way you did the "Loan Queue". Add any useful and informative analytical styling as you see fit. Use beautiful and proper layout scheme and Theming/Styling.
 Create a new "System" navigation group. Under system, create a navigation menu to "Backup Database". Another navigation menu to perform "Purge Database". The "Purge Database" action should include tables that has no "deleted_at" column.
 Modernize and beautify both view/edit member pages, inluding widgets similar to the way you did the "Loan Queue". Add any additional useful and informative analytical widgets as you see fit. Use beautiful and proper layout scheme and Theming/Styling.
 I want to be able to safely delete any transaction and/or any member, both single record or in bulk. Also I want to expand table filters for all tables to include useful and relevant columns.
-I want to be able to safely delete loan single/bulk. 
+I want to be able to safely delete loan single/bulk.
+------------------------------------
+Add "View Application" row action to the member's table, visible only if an application exists for the member. Also add a "Suspend" and "Terminate" row actions. Group all row actions together.
 
 
- 
+
 
 
 

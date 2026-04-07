@@ -71,7 +71,7 @@
     </div>
 
     {{-- Bottom: delinquent & suspended flags --}}
-    @if($data['delinquent'] > 0 || $data['suspended'] > 0)
+    @if($data['delinquent'] > 0 || $data['suspended'] > 0 || $data['terminated'] > 0)
     <div class="flex flex-wrap gap-3 px-6 py-3 border-t border-gray-100 dark:border-gray-700 bg-red-50/50 dark:bg-red-900/5">
         @if($data['delinquent'] > 0)
         <a href="{{ $data['members_url'] }}" class="inline-flex items-center gap-1.5 rounded-full bg-red-100 dark:bg-red-900/40 px-3 py-1 text-xs font-medium text-red-700 dark:text-red-300 hover:bg-red-200 dark:hover:bg-red-800 transition-colors">
@@ -83,6 +83,12 @@
         <a href="{{ $data['members_url'] }}" class="inline-flex items-center gap-1.5 rounded-full bg-gray-100 dark:bg-gray-700 px-3 py-1 text-xs font-medium text-gray-600 dark:text-gray-300 hover:bg-gray-200 dark:hover:bg-gray-600 transition-colors">
             <x-heroicon-o-no-symbol class="w-3.5 h-3.5" />
             {{ $data['suspended'] }} suspended
+        </a>
+        @endif
+        @if($data['terminated'] > 0)
+        <a href="{{ $data['members_url'] }}" class="inline-flex items-center gap-1.5 rounded-full bg-zinc-100 dark:bg-zinc-800 px-3 py-1 text-xs font-medium text-zinc-600 dark:text-zinc-300 hover:bg-zinc-200 dark:hover:bg-zinc-700 transition-colors">
+            <x-heroicon-o-x-circle class="w-3.5 h-3.5" />
+            {{ $data['terminated'] }} terminated
         </a>
         @endif
     </div>
