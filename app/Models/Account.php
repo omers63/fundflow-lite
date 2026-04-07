@@ -5,21 +5,30 @@ namespace App\Models;
 use Illuminate\Database\Eloquent\Model;
 use Illuminate\Database\Eloquent\Relations\BelongsTo;
 use Illuminate\Database\Eloquent\Relations\HasMany;
+use Illuminate\Database\Eloquent\SoftDeletes;
 
 class Account extends Model
 {
+    use SoftDeletes;
+
     public const TYPE_MASTER_CASH = 'master_cash';
     public const TYPE_MASTER_FUND = 'master_fund';
     public const TYPE_MEMBER_CASH = 'member_cash';
     public const TYPE_MEMBER_FUND = 'member_fund';
-    public const TYPE_LOAN        = 'loan';
+    public const TYPE_LOAN = 'loan';
 
     protected $fillable = [
-        'slug', 'name', 'type', 'member_id', 'loan_id', 'balance', 'is_active',
+        'slug',
+        'name',
+        'type',
+        'member_id',
+        'loan_id',
+        'balance',
+        'is_active',
     ];
 
     protected $casts = [
-        'balance'   => 'decimal:2',
+        'balance' => 'decimal:2',
         'is_active' => 'boolean',
     ];
 
@@ -73,8 +82,8 @@ class Account extends Model
             self::TYPE_MASTER_FUND => 'success',
             self::TYPE_MEMBER_CASH => 'primary',
             self::TYPE_MEMBER_FUND => 'success',
-            self::TYPE_LOAN        => 'warning',
-            default                => 'gray',
+            self::TYPE_LOAN => 'warning',
+            default => 'gray',
         };
     }
 
@@ -85,8 +94,8 @@ class Account extends Model
             self::TYPE_MASTER_FUND => 'Master Fund',
             self::TYPE_MEMBER_CASH => 'Member Cash',
             self::TYPE_MEMBER_FUND => 'Member Fund',
-            self::TYPE_LOAN        => 'Loan',
-            default                => $this->type,
+            self::TYPE_LOAN => 'Loan',
+            default => $this->type,
         };
     }
 }

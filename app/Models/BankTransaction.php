@@ -4,25 +4,34 @@ namespace App\Models;
 
 use Illuminate\Database\Eloquent\Model;
 use Illuminate\Database\Eloquent\Relations\BelongsTo;
+use Illuminate\Database\Eloquent\SoftDeletes;
 
 class BankTransaction extends Model
 {
+    use SoftDeletes;
+
     protected $fillable = [
-        'bank_id', 'import_session_id',
+        'bank_id',
+        'import_session_id',
         'member_id',
-        'transaction_date', 'amount', 'transaction_type',
-        'description', 'reference',
-        'is_duplicate', 'duplicate_of_id',
+        'transaction_date',
+        'amount',
+        'transaction_type',
+        'description',
+        'reference',
+        'is_duplicate',
+        'duplicate_of_id',
         'raw_data',
-        'posted_at', 'posted_by',
+        'posted_at',
+        'posted_by',
     ];
 
     protected $casts = [
         'transaction_date' => 'date',
-        'amount'           => 'decimal:2',
-        'is_duplicate'     => 'boolean',
-        'raw_data'         => 'array',
-        'posted_at'        => 'datetime',
+        'amount' => 'decimal:2',
+        'is_duplicate' => 'boolean',
+        'raw_data' => 'array',
+        'posted_at' => 'datetime',
     ];
 
     public function bank(): BelongsTo

@@ -5,9 +5,22 @@ namespace App\Models;
 use Illuminate\Database\Eloquent\Model;
 use Illuminate\Database\Eloquent\Relations\BelongsTo;
 use Illuminate\Database\Eloquent\Relations\HasMany;
+use Illuminate\Database\Eloquent\SoftDeletes;
 
 class Member extends Model
 {
+    use SoftDeletes;
+
+    protected static function booted(): void
+    {
+        static::restored(function (Member $member): void {
+            $user = User::withTrashed()->find($member->user_id);
+            if ($user !== null && $user->trashed()) {
+                $user->restore();
+            }
+        });
+    }
+
     /** Allowed monthly contribution amounts (multiples of 500, 500–3000). */
     public const CONTRIBUTION_STEPS = [500, 1000, 1500, 2000, 2500, 3000];
 

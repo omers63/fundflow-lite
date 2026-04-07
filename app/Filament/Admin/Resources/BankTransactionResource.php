@@ -13,6 +13,10 @@ use Filament\Actions\BulkAction;
 use Filament\Actions\BulkActionGroup;
 use Filament\Actions\DeleteAction;
 use Filament\Actions\DeleteBulkAction;
+use Filament\Actions\ForceDeleteAction;
+use Filament\Actions\ForceDeleteBulkAction;
+use Filament\Actions\RestoreAction;
+use Filament\Actions\RestoreBulkAction;
 use Filament\Actions\ViewAction;
 use Filament\Forms;
 use Filament\Notifications\Notification;
@@ -20,7 +24,9 @@ use Filament\Resources\Resource;
 use Filament\Schemas\Components\Section;
 use Filament\Schemas\Schema;
 use Filament\Tables;
+use Filament\Tables\Filters\TrashedFilter;
 use Filament\Tables\Table;
+use Illuminate\Database\Eloquent\Builder;
 use Illuminate\Database\Eloquent\Collection;
 
 class BankTransactionResource extends Resource
@@ -171,6 +177,7 @@ class BankTransactionResource extends Resource
                             ->when(filled($data['amount_min'] ?? null), fn($q) => $q->where('amount', '>=', $data['amount_min']))
                             ->when(filled($data['amount_max'] ?? null), fn($q) => $q->where('amount', '<=', $data['amount_max']));
                     }),
+                TrashedFilter::make(),
             ])
             ->recordActions([
                 ViewAction::make(),
@@ -198,12 +205,14 @@ class BankTransactionResource extends Resource
                             ->send();
                     }),
                 DeleteAction::make()
-                    ->modalDescription('Removes this import row. If it was posted to cash, the matching master and member cash ledger lines are reversed first.')
+                    ->modalDescription('Soft-deletes this import row. If it was posted to cash, the matching master and member cash ledger lines are reversed first.')
                     ->using(function (BankTransaction $record) {
                         app(AccountingService::class)->safeDeleteBankTransaction($record);
 
                         return true;
                     }),
+                RestoreAction::make(),
+                ForceDeleteAction::make(),
             ])
             ->toolbarActions([
                 BulkActionGroup::make([
@@ -220,6 +229,8 @@ class BankTransactionResource extends Resource
                                 }
                             }
                         }),
+                    RestoreBulkAction::make(),
+                    ForceDeleteBulkAction::make(),
                     BulkAction::make('bulk_post_to_cash')
                         ->label('Post Selected to Cash Account')
                         ->icon('heroicon-o-arrow-right-circle')
@@ -266,5 +277,10 @@ class BankTransactionResource extends Resource
             'create' => Pages\CreateBankTransaction::route('/create'),
             'view' => Pages\ViewBankTransaction::route('/{record}'),
         ];
+    }
+
+    public static function getRecordRouteBindingEloquentQuery(): Builder
+    {
+        return parent::getRecordRouteBindingEloquentQuery()->withTrashed();
     }
 }

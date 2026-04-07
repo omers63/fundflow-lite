@@ -4,9 +4,12 @@ namespace App\Models;
 
 use Illuminate\Database\Eloquent\Model;
 use Illuminate\Database\Eloquent\Relations\BelongsTo;
+use Illuminate\Database\Eloquent\SoftDeletes;
 
 class Contribution extends Model
 {
+    use SoftDeletes;
+
     protected $fillable = [
         'member_id',
         'amount',
@@ -22,7 +25,7 @@ class Contribution extends Model
     protected function casts(): array
     {
         return [
-            'amount'  => 'decimal:2',
+            'amount' => 'decimal:2',
             'paid_at' => 'datetime',
             'is_late' => 'boolean',
         ];

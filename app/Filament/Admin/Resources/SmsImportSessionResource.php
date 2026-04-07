@@ -7,6 +7,7 @@ use App\Filament\Admin\Resources\SmsImportSessionResource\RelationManagers\Trans
 use App\Models\Bank;
 use App\Models\SmsImportSession;
 use App\Models\SmsImportTemplate;
+use App\Models\SmsTransaction;
 use App\Models\User;
 use App\Services\SmsImportService;
 use Filament\Actions\Action;
@@ -196,7 +197,9 @@ class SmsImportSessionResource extends Resource
                     ->visible(fn(SmsImportSession $record) => in_array($record->status, ['failed', 'partially_completed']))
                     ->requiresConfirmation()
                     ->action(function (SmsImportSession $record) {
-                        $record->transactions()->delete();
+                        SmsTransaction::query()
+                            ->where('import_session_id', $record->id)
+                            ->forceDelete();
                         $record->update([
                             'status' => 'pending',
                             'imported_count' => 0,

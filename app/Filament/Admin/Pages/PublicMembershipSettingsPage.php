@@ -38,19 +38,19 @@ class PublicMembershipSettingsPage extends Page
                 ->icon('heroicon-o-check')
                 ->color('primary')
                 ->fillForm([
-                    'max_pending_public' => Setting::maxPendingPublicApplications(),
+                    'max_pending_public' => Setting::maxPublicApplications(),
                 ])
                 ->schema([
                     Section::make('Application capacity')
                         ->description('Controls the public “Apply for membership” page at /apply. Login is unchanged: existing members and applicants can still sign in.')
                         ->schema([
                             Forms\Components\TextInput::make('max_pending_public')
-                                ->label('Maximum pending applications')
+                                ->label('Maximum applications (public apply)')
                                 ->numeric()
                                 ->minValue(0)
                                 ->required()
                                 ->default(0)
-                                ->helperText('Counts applications with status Pending. When this number is reached, new visitors cannot submit the public form. Use 0 for no limit.'),
+                                ->helperText('Counts all membership applications (any status). When this number is reached, new visitors cannot submit the public form. Use 0 for no limit.'),
                         ]),
                 ])
                 ->action(function (array $data): void {
@@ -64,8 +64,8 @@ class PublicMembershipSettingsPage extends Page
         ];
     }
 
-    public function getPendingApplicationsCount(): int
+    public function getTotalApplicationsCount(): int
     {
-        return MembershipApplication::query()->where('status', 'pending')->count();
+        return MembershipApplication::query()->count();
     }
 }

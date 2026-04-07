@@ -77,16 +77,16 @@ class Setting extends Model
     }
 
     /**
-     * Maximum pending membership applications allowed from the public apply flow.
-     * 0 means no limit.
+     * Maximum membership applications (all statuses) allowed from the public apply flow.
+     * Stored under historical key `membership.max_pending_public`. 0 means no limit.
      */
-    public static function maxPendingPublicApplications(): int
+    public static function maxPublicApplications(): int
     {
         return max(0, (int) static::get('membership.max_pending_public', 0));
     }
 
-    public static function publicPendingApplicationCapEnabled(): bool
+    public static function publicApplicationCapEnabled(): bool
     {
-        return static::maxPendingPublicApplications() > 0;
+        return static::maxPublicApplications() > 0;
     }
 }

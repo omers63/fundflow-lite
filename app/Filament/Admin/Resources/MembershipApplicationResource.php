@@ -12,12 +12,16 @@ use App\Notifications\MembershipRejectedNotification;
 use App\Services\MemberNumberService;
 use App\Services\MembershipApplicationImportService;
 use Filament\Actions\Action;
+use Filament\Actions\ActionGroup;
 use Filament\Actions\BulkAction;
 use Filament\Actions\BulkActionGroup;
 use Filament\Actions\CreateAction;
+use Filament\Actions\DeleteAction;
 use Filament\Actions\DeleteBulkAction;
 use Filament\Actions\EditAction;
+use Filament\Actions\ForceDeleteAction;
 use Filament\Actions\ForceDeleteBulkAction;
+use Filament\Actions\RestoreAction;
 use Filament\Actions\RestoreBulkAction;
 use Filament\Actions\ViewAction;
 use Filament\Forms;
@@ -289,6 +293,7 @@ class MembershipApplicationResource extends Resource
                     ->sortable(),
             ])
             ->defaultSort('created_at', 'desc')
+            ->striped()
             ->filters([
                 Tables\Filters\SelectFilter::make('status')
                     ->options(['pending' => 'Pending', 'approved' => 'Approved', 'rejected' => 'Rejected']),
@@ -393,50 +398,59 @@ class MembershipApplicationResource extends Resource
                     ->visible(fn(): bool => static::canCreate()),
             ])
             ->recordActions([
-                ViewAction::make(),
-                EditAction::make(),
-                Action::make('approve')
-                    ->label('Approve')
-                    ->icon('heroicon-o-check-circle')
-                    ->color('success')
-                    ->visible(fn(MembershipApplication $record) => $record->status === 'pending')
-                    ->requiresConfirmation()
-                    ->modalHeading('Approve Membership Application')
-                    ->modalDescription('Are you sure you want to approve this application? The applicant will be notified via email, SMS, and WhatsApp.')
-                    ->action(function (MembershipApplication $record, Component $livewire) {
-                        $memberNumber = static::approvePendingApplication($record);
+                ActionGroup::make([
+                    ViewAction::make(),
+                    EditAction::make(),
+                    Action::make('approve')
+                        ->label('Approve')
+                        ->icon('heroicon-o-check-circle')
+                        ->color('success')
+                        ->visible(fn(MembershipApplication $record) => $record->status === 'pending')
+                        ->requiresConfirmation()
+                        ->modalHeading('Approve Membership Application')
+                        ->modalDescription('Are you sure you want to approve this application? The applicant will be notified via email, SMS, and WhatsApp.')
+                        ->action(function (MembershipApplication $record, Component $livewire) {
+                            $memberNumber = static::approvePendingApplication($record);
 
-                        Notification::make()
-                            ->title('Application Approved')
-                            ->body("Member {$record->user->name} has been approved with number {$memberNumber}.")
-                            ->success()
-                            ->send();
+                            Notification::make()
+                                ->title('Application Approved')
+                                ->body("Member {$record->user->name} has been approved with number {$memberNumber}.")
+                                ->success()
+                                ->send();
 
-                        static::dispatchApplicationStatsRefresh($livewire);
-                    }),
-                Action::make('reject')
-                    ->label('Reject')
-                    ->icon('heroicon-o-x-circle')
-                    ->color('danger')
-                    ->visible(fn(MembershipApplication $record) => $record->status === 'pending')
-                    ->schema([
-                        Forms\Components\Textarea::make('rejection_reason')
-                            ->label('Reason for Rejection')
-                            ->required()
-                            ->rows(3)
-                            ->placeholder('Please provide a reason for rejecting this application...'),
-                    ])
-                    ->action(function (MembershipApplication $record, array $data, Component $livewire) {
-                        static::rejectPendingApplication($record, $data['rejection_reason']);
+                            static::dispatchApplicationStatsRefresh($livewire);
+                        }),
+                    Action::make('reject')
+                        ->label('Reject')
+                        ->icon('heroicon-o-x-circle')
+                        ->color('danger')
+                        ->visible(fn(MembershipApplication $record) => $record->status === 'pending')
+                        ->schema([
+                            Forms\Components\Textarea::make('rejection_reason')
+                                ->label('Reason for Rejection')
+                                ->required()
+                                ->rows(3)
+                                ->placeholder('Please provide a reason for rejecting this application...'),
+                        ])
+                        ->action(function (MembershipApplication $record, array $data, Component $livewire) {
+                            static::rejectPendingApplication($record, $data['rejection_reason']);
 
-                        Notification::make()
-                            ->title('Application Rejected')
-                            ->body("Application for {$record->user->name} has been rejected.")
-                            ->warning()
-                            ->send();
+                            Notification::make()
+                                ->title('Application Rejected')
+                                ->body("Application for {$record->user->name} has been rejected.")
+                                ->warning()
+                                ->send();
 
-                        static::dispatchApplicationStatsRefresh($livewire);
-                    }),
+                            static::dispatchApplicationStatsRefresh($livewire);
+                        }),
+                    DeleteAction::make()
+                        ->after(fn(Component $livewire) => static::dispatchApplicationStatsRefresh($livewire)),
+                    RestoreAction::make()
+                        ->after(fn(Component $livewire) => static::dispatchApplicationStatsRefresh($livewire)),
+                    ForceDeleteAction::make()
+                        ->after(fn(Component $livewire) => static::dispatchApplicationStatsRefresh($livewire)),
+                ])
+                    ->tooltip('Actions'),
             ])
             ->toolbarActions([
                 BulkActionGroup::make([
@@ -557,9 +571,21 @@ class MembershipApplicationResource extends Resource
 
     protected static function dispatchApplicationStatsRefresh(?Component $livewire): void
     {
-        // Child header widgets are separate Livewire roots; a bare dispatch() only bubbles
-        // from the page element upward, so it never reaches nested widgets.
-        $livewire?->dispatch('refresh-application-stats')->to(ApplicationStatsWidget::class);
+        if ($livewire === null) {
+            return;
+        }
+
+        // Header widgets are separate Livewire roots. Defer so the widget is mounted.
+        // Use $wire.$refresh() instead of dispatchTo(event): missing event detail becomes `{}` and
+        // breaks __dispatch (empty property path / PublicPropertyNotFoundException).
+        $targetName = json_encode(
+            app('livewire.factory')->resolveComponentName(ApplicationStatsWidget::class),
+            JSON_THROW_ON_ERROR
+        );
+
+        $livewire->js(
+            'setTimeout(() => window.Livewire.getByName(' . $targetName . ').forEach(w => w.$refresh()), 0)'
+        );
     }
 
     public static function getRelations(): array

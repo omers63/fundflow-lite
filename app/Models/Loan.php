@@ -6,9 +6,12 @@ use Carbon\Carbon;
 use Illuminate\Database\Eloquent\Model;
 use Illuminate\Database\Eloquent\Relations\BelongsTo;
 use Illuminate\Database\Eloquent\Relations\HasMany;
+use Illuminate\Database\Eloquent\SoftDeletes;
 
 class Loan extends Model
 {
+    use SoftDeletes;
+
     protected $fillable = [
         'member_id',
         'loan_tier_id',
@@ -155,8 +158,10 @@ class Loan extends Model
      */
     public function releaseGuarantorIfDue(): void
     {
-        if (! $this->isGuarantorReleased() && $this->guarantor_member_id &&
-            (float) $this->repaid_to_master >= (float) $this->master_portion) {
+        if (
+            !$this->isGuarantorReleased() && $this->guarantor_member_id &&
+            (float) $this->repaid_to_master >= (float) $this->master_portion
+        ) {
             $this->update(['guarantor_released_at' => now()]);
         }
     }

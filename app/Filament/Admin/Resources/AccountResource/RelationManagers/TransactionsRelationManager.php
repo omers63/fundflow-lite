@@ -9,6 +9,8 @@ use Filament\Actions\Action;
 use Filament\Actions\BulkActionGroup;
 use Filament\Actions\DeleteAction;
 use Filament\Actions\DeleteBulkAction;
+use Filament\Actions\ForceDeleteAction;
+use Filament\Actions\ForceDeleteBulkAction;
 use Filament\Forms;
 use Filament\Notifications\Notification;
 use Filament\Resources\RelationManagers\RelationManager;
@@ -121,6 +123,7 @@ class TransactionsRelationManager extends RelationManager
                             ->when(filled($data['amount_min'] ?? null), fn($q) => $q->where('amount', '>=', $data['amount_min']))
                             ->when(filled($data['amount_max'] ?? null), fn($q) => $q->where('amount', '<=', $data['amount_max']));
                     }),
+                Tables\Filters\TrashedFilter::make(),
             ])
             ->recordActions([
                 DeleteAction::make()
@@ -131,6 +134,10 @@ class TransactionsRelationManager extends RelationManager
 
                         return true;
                     })
+                    ->after(fn() => $this->dispatchAccountWidgetsRefresh()),
+                ForceDeleteAction::make()
+                    ->authorize(fn() => auth()->user()?->can('update', $this->getOwnerRecord()) ?? false)
+                    ->modalDescription('Permanently removes this ledger row from the database. Only use after a normal delete (balance already reversed).')
                     ->after(fn() => $this->dispatchAccountWidgetsRefresh()),
             ])
             ->toolbarActions([
@@ -149,6 +156,9 @@ class TransactionsRelationManager extends RelationManager
                                 }
                             }
                         })
+                        ->after(fn() => $this->dispatchAccountWidgetsRefresh()),
+                    ForceDeleteBulkAction::make()
+                        ->authorize(fn() => auth()->user()?->can('update', $this->getOwnerRecord()) ?? false)
                         ->after(fn() => $this->dispatchAccountWidgetsRefresh()),
                 ]),
             ])

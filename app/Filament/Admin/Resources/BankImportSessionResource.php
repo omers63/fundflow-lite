@@ -7,6 +7,7 @@ use App\Filament\Admin\Resources\BankImportSessionResource\RelationManagers\Tran
 use App\Models\Bank;
 use App\Models\BankImportSession;
 use App\Models\BankImportTemplate;
+use App\Models\BankTransaction;
 use App\Models\User;
 use App\Services\BankImportService;
 use Filament\Actions\Action;
@@ -196,7 +197,9 @@ class BankImportSessionResource extends Resource
                     ->visible(fn(BankImportSession $record) => in_array($record->status, ['failed', 'partially_completed']))
                     ->requiresConfirmation()
                     ->action(function (BankImportSession $record) {
-                        $record->transactions()->delete();
+                        BankTransaction::query()
+                            ->where('import_session_id', $record->id)
+                            ->forceDelete();
                         $record->update([
                             'status' => 'pending',
                             'imported_count' => 0,

@@ -5,7 +5,6 @@ namespace App\Filament\Admin\Widgets;
 use App\Models\MembershipApplication;
 use Carbon\Carbon;
 use Filament\Widgets\Widget;
-use Livewire\Attributes\On;
 
 class ApplicationStatsWidget extends Widget
 {
@@ -20,12 +19,6 @@ class ApplicationStatsWidget extends Widget
     public function getPollingInterval(): ?string
     {
         return $this->pollingInterval;
-    }
-
-    #[On('refresh-application-stats')]
-    public function refreshApplicationStats(): void
-    {
-        // Re-render; getData() runs on each render.
     }
 
     public function getData(): array
@@ -59,7 +52,7 @@ class ApplicationStatsWidget extends Widget
         $avgReviewDays = $reviewedApplications->isEmpty()
             ? 0.0
             : (float) $reviewedApplications->avg(
-                fn (MembershipApplication $a): float => (float) Carbon::parse($a->created_at)->diffInDays(Carbon::parse($a->reviewed_at))
+                fn(MembershipApplication $a): float => (float) Carbon::parse($a->created_at)->diffInDays(Carbon::parse($a->reviewed_at))
             );
 
         // Recent pending (oldest first — need attention)
@@ -68,7 +61,7 @@ class ApplicationStatsWidget extends Widget
             ->orderBy('created_at')
             ->limit(5)
             ->get()
-            ->map(fn ($a) => [
+            ->map(fn($a) => [
                 'name' => $a->user?->name ?? '—',
                 'email' => $a->user?->email ?? '—',
                 'days_ago' => (int) Carbon::parse($a->created_at)->diffInDays(now()),

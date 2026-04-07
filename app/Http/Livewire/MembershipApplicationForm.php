@@ -76,7 +76,7 @@ class MembershipApplicationForm extends Component
 
     public bool $submitted = false;
 
-    /** True when pending applications are at or above the configured public cap. */
+    /** True when total applications are at or above the configured public cap. */
     public bool $applicationCapReached = false;
 
     public function mount(): void
@@ -86,11 +86,11 @@ class MembershipApplicationForm extends Component
 
     protected function checkApplicationCapReached(): bool
     {
-        if (! Setting::publicPendingApplicationCapEnabled()) {
+        if (! Setting::publicApplicationCapEnabled()) {
             return false;
         }
 
-        return MembershipApplication::query()->where('status', 'pending')->count() >= Setting::maxPendingPublicApplications();
+        return MembershipApplication::query()->count() >= Setting::maxPublicApplications();
     }
 
     protected function rules(): array
@@ -185,9 +185,9 @@ class MembershipApplicationForm extends Component
 
         try {
             Cache::lock('membership_public_apply_submit', 15)->block(8, function (): void {
-                if (Setting::publicPendingApplicationCapEnabled()) {
-                    $pendingCount = MembershipApplication::query()->where('status', 'pending')->count();
-                    if ($pendingCount >= Setting::maxPendingPublicApplications()) {
+                if (Setting::publicApplicationCapEnabled()) {
+                    $applicationCount = MembershipApplication::query()->count();
+                    if ($applicationCount >= Setting::maxPublicApplications()) {
                         throw ValidationException::withMessages([
                             'form' => 'We are not accepting new applications at the moment. Please try again later.',
                         ]);

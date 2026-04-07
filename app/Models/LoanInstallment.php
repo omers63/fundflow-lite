@@ -4,9 +4,12 @@ namespace App\Models;
 
 use Illuminate\Database\Eloquent\Model;
 use Illuminate\Database\Eloquent\Relations\BelongsTo;
+use Illuminate\Database\Eloquent\SoftDeletes;
 
 class LoanInstallment extends Model
 {
+    use SoftDeletes;
+
     protected $fillable = [
         'loan_id',
         'installment_number',
@@ -21,10 +24,10 @@ class LoanInstallment extends Model
     protected function casts(): array
     {
         return [
-            'amount'            => 'decimal:2',
-            'due_date'          => 'date',
-            'paid_at'           => 'datetime',
-            'is_late'           => 'boolean',
+            'amount' => 'decimal:2',
+            'due_date' => 'date',
+            'paid_at' => 'datetime',
+            'is_late' => 'boolean',
             'paid_by_guarantor' => 'boolean',
         ];
     }

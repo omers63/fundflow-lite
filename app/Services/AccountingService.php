@@ -246,11 +246,11 @@ class AccountingService
         DB::transaction(function () use ($loan, $member, $masterFund, $memberFund, $loanAccount, $description, $totalAmount, $memberPortion, $masterPortion) {
             // Debit member's fund (up to its full balance)
             if ($memberPortion > 0) {
-                $this->postEntry($memberFund, $memberPortion, 'debit', $description.' (member portion)', $loan, $member->id);
+                $this->postEntry($memberFund, $memberPortion, 'debit', $description . ' (member portion)', $loan, $member->id);
             }
             // Debit master fund for the remainder
             if ($masterPortion > 0) {
-                $this->postEntry($masterFund, $masterPortion, 'debit', $description.' (fund portion)', $loan, $member->id);
+                $this->postEntry($masterFund, $masterPortion, 'debit', $description . ' (fund portion)', $loan, $member->id);
             }
             // Loan account tracks total outstanding
             $this->postEntry($loanAccount, $totalAmount, 'debit', $description, $loan, $member->id);
@@ -294,10 +294,10 @@ class AccountingService
 
         DB::transaction(function () use ($loan, $member, $masterFund, $memberFund, $loanAccount, $description, $totalAmount, $memberPortion, $masterPortion) {
             if ($memberPortion > 0) {
-                $this->postEntry($memberFund, $memberPortion, 'debit', $description.' (member portion)', $loan, $member->id);
+                $this->postEntry($memberFund, $memberPortion, 'debit', $description . ' (member portion)', $loan, $member->id);
             }
             if ($masterPortion > 0) {
-                $this->postEntry($masterFund, $masterPortion, 'debit', $description.' (fund portion)', $loan, $member->id);
+                $this->postEntry($masterFund, $masterPortion, 'debit', $description . ' (fund portion)', $loan, $member->id);
             }
             $this->postEntry($loanAccount, $totalAmount, 'debit', $description, $loan, $member->id);
 
@@ -325,7 +325,7 @@ class AccountingService
             ->where('loan_id', $loan->id)
             ->first();
 
-        if (! $loanAccount) {
+        if (!$loanAccount) {
             $loanAccount = $this->ensureLoanAccount($loan);
         }
 
@@ -362,7 +362,7 @@ class AccountingService
             ->where('loan_id', $loan->id)
             ->first();
 
-        if (! $loanAccount) {
+        if (!$loanAccount) {
             $loanAccount = $this->ensureLoanAccount($loan);
         }
 
@@ -489,13 +489,13 @@ class AccountingService
 
         if ((float) $parentCash->balance < $amount) {
             throw new \RuntimeException(
-                "Insufficient balance in {$parent->user->name}'s Cash Account. ".
-                'Available: SAR '.number_format((float) $parentCash->balance, 2)
+                "Insufficient balance in {$parent->user->name}'s Cash Account. " .
+                'Available: SAR ' . number_format((float) $parentCash->balance, 2)
             );
         }
 
-        $debitDesc = trim("Transfer to {$dependent->user->name}'s cash account".($note ? " — {$note}" : ''));
-        $creditDesc = trim("Transfer from {$parent->user->name}'s cash account".($note ? " — {$note}" : ''));
+        $debitDesc = trim("Transfer to {$dependent->user->name}'s cash account" . ($note ? " — {$note}" : ''));
+        $creditDesc = trim("Transfer from {$parent->user->name}'s cash account" . ($note ? " — {$note}" : ''));
 
         DB::transaction(function () use ($parent, $dependent, $parentCash, $dependentCash, $amount, $debitDesc, $creditDesc) {
             $this->postEntry($parentCash, $amount, 'debit', $debitDesc, null, $parent->id);
@@ -506,6 +506,24 @@ class AccountingService
     // =========================================================================
     // Safe deletion: reverse ledger effects, then remove rows
     // =========================================================================
+
+    /**
+     * Reverse fund postings for a contribution (paired master + member fund lines).
+     */
+    public function reverseContributionPosting(Contribution $contribution): void
+    {
+        DB::transaction(function () use ($contribution) {
+            $entries = AccountTransaction::query()
+                ->where('source_type', Contribution::class)
+                ->where('source_id', $contribution->id)
+                ->lockForUpdate()
+                ->get();
+
+            foreach ($entries as $entry) {
+                $this->applyLedgerEntryReversal($entry);
+            }
+        });
+    }
 
     /**
      * Reverse one ledger line (adjust account balance oppositely) and delete the row.
@@ -536,7 +554,7 @@ class AccountingService
      */
     public function reverseBankTransactionPosting(BankTransaction $tx): void
     {
-        if (! $tx->isPosted()) {
+        if (!$tx->isPosted()) {
             return;
         }
 
@@ -564,7 +582,7 @@ class AccountingService
      */
     public function reverseSmsTransactionPosting(SmsTransaction $tx): void
     {
-        if (! $tx->isPosted()) {
+        if (!$tx->isPosted()) {
             return;
         }
 
@@ -705,7 +723,7 @@ class AccountingService
         if ($amount <= 0) {
             throw new \InvalidArgumentException('Amount must be greater than zero.');
         }
-        if (! in_array($entryType, ['credit', 'debit'], true)) {
+        if (!in_array($entryType, ['credit', 'debit'], true)) {
             throw new \InvalidArgumentException('Entry type must be credit or debit.');
         }
 
@@ -716,7 +734,7 @@ class AccountingService
 
         $memberId = $memberId ?? $account->member_id;
 
-        if ($transactedAt !== null && ! $transactedAt instanceof CarbonInterface) {
+        if ($transactedAt !== null && !$transactedAt instanceof CarbonInterface) {
             $transactedAt = Carbon::parse($transactedAt);
         }
 

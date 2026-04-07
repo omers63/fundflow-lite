@@ -1926,7 +1926,37 @@ nextStep() — no-op when the cap is already reached (edge case if state changed
 Count used: MembershipApplication::where('status', 'pending')->count() (same queue you configure in admin).
 
 The public login page does not register new users, so nothing was added there; only /apply is gated.
+-------------------------------------------
+Here is what was implemented.
 
+Migration & models
+database/migrations/2026_04_06_150000_add_soft_deletes_to_ledger_and_member_tables.php adds deleted_at to:
+users, members, loans, loan_installments, accounts, account_transactions, contributions, bank_transactions, sms_transactions.
+Those models now use SoftDeletes.
+Auth
+User::canAccessPanel() returns false when the user is trashed.
+Member ↔ user restore
+Member::booted() restored handler restores the linked User when a member is restored (so Filament restore/bulk-restore does not leave a trashed login).
+Contributions & ledger
+AccountingService::reverseContributionPosting() reverses all fund lines whose source is that contribution (same pattern as bank/SMS).
+ContributionObserver:
+deleting – reverses ledger, then allows soft delete (throws if reversal fails).
+restored – calls postContribution() again so balances match after restore.
+Accounting / safe deletes
+Existing flows still reverse balances first; delete() now soft-deletes rows (AccountTransaction, installments, loan account, loan, bank/SMS lines, member accounts, member, user). No change to reversal logic beyond that.
+
+Import retry (hard wipe of session lines)
+BankImportSessionResource / SmsImportSessionResource retry now uses forceDelete() on rows for that session so re-import is not blocked by soft-deleted lines.
+Filament
+Trashed filter, Restore, Force delete (where it already had delete/bulk delete), and getRecordRouteBindingEloquentQuery()->withTrashed() on:
+Member, Loan, Contribution, Account (list + view), BankTransaction, SmsTransaction.
+TransactionsRelationManager: Trashed filter, Force delete row + bulk (no Restore — restoring a line without re-applying the amount would break balances; use contribution/bank/SMS restore paths instead).
+Copy on delete modals updated where it still said “permanent” for flows that are now soft-delete.
+Important caveats
+Restoring a loan after safeDeleteLoan does not recreate disbursement/repayment ledger; the UI text says so. Treat restore as exceptional.
+Unique columns (e.g. users.email, members.member_number) still count soft-deleted rows unless you force-delete them or adjust indexes.
+DatabaseBackup is still not soft-deleted (file + row stay aligned).
+Migration has been run successfully in this environment.
 
 
 
