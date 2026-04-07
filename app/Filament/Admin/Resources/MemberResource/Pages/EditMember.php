@@ -3,6 +3,7 @@
 namespace App\Filament\Admin\Resources\MemberResource\Pages;
 
 use App\Filament\Admin\Resources\MemberResource;
+use App\Filament\Admin\Resources\MemberResource\Concerns\UsesAlpineRelationManagerTabs;
 use App\Filament\Admin\Widgets\MemberAccountStatsWidget;
 use App\Filament\Admin\Widgets\MemberActivityWidget;
 use App\Filament\Admin\Widgets\MemberProfileWidget;
@@ -10,7 +11,22 @@ use Filament\Resources\Pages\EditRecord;
 
 class EditMember extends EditRecord
 {
+    use UsesAlpineRelationManagerTabs;
+
     protected static string $resource = MemberResource::class;
+
+    /**
+     * @see ViewMember::hasCombinedRelationManagerTabsWithContent()
+     */
+    public function hasCombinedRelationManagerTabsWithContent(): bool
+    {
+        return true;
+    }
+
+    public function getContentTabLabel(): ?string
+    {
+        return 'Membershop';
+    }
 
     // Stash fields for related-model saves after the Member record is persisted
     private array $pendingUserUpdates = [];
@@ -150,11 +166,11 @@ class EditMember extends EditRecord
      */
     protected function afterSave(): void
     {
-        if (!empty($this->pendingUserUpdates)) {
+        if (! empty($this->pendingUserUpdates)) {
             $this->record->user->update($this->pendingUserUpdates);
         }
 
-        if (!empty($this->pendingAppUpdates)) {
+        if (! empty($this->pendingAppUpdates)) {
             $this->record->user->membershipApplication()->updateOrCreate(
                 ['user_id' => $this->record->user_id],
                 $this->pendingAppUpdates,

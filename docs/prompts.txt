@@ -137,7 +137,7 @@ I want to be able to safely delete any transaction and/or any member, both singl
 I want to be able to safely delete loan single/bulk.
 ------------------------------------
 Add "View Application" row action to the member's table, visible only if an application exists for the member. Also add a "Suspend" and "Terminate" row actions. Group all row actions together.
-
+When approving a member's application and as part of creating the member in the system, his cash and fund account should also be created.
 
 
 

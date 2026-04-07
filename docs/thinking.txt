@@ -1979,6 +1979,28 @@ MemberStatsWidget + member-pipeline widget: counts/breakdown include terminated 
 Note: On SQLite, this migration does not alter the column (MySQL-only ALTER). Locally on SQLite, terminated usually still works if the column is stored as string; use MySQL or adjust the migration if you rely on strict SQLite parity.
 
 -------------------------------------------
+Here’s what was wrong and what we changed.
+
+Cause
+Approvals go through MembershipApplicationResource::approvePendingApplication(), which creates the Member but never called AccountingService::ensureMemberAccounts(). Manual New Member creation and CSV import already call that helper, so applications were the odd path out.
+
+Change
+After Member::create(...), the code now runs app(AccountingService::class)->ensureMemberAccounts($member), which idempotently creates the Member Cash and Member Fund accounts (same as elsewhere in the app).
+
+        $member = Member::create([
+            'user_id' => $record->user_id,
+            'member_number' => $memberNumber,
+            'joined_at' => now()->toDateString(),
+            'status' => 'active',
+        ]);
+        app(AccountingService::class)->ensureMemberAccounts($member);
+        try {
+            $record->user->notify(new MembershipApprovedNotification($memberNumber));
+Single-row Approve and bulk approve both use this method, so both paths get the accounts.
+
+Note: Existing members who were approved before this fix might still be missing accounts. If you want, we can add a one-off artisan command or migration script to backfill with ensureMemberAccounts where cash/fund rows are absent.
+
+------------------------------
 
 
 

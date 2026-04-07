@@ -24,28 +24,33 @@ class ContributionsRelationManager extends RelationManager
         return $table
             ->recordTitleAttribute('id')
             ->defaultSort('year', 'desc')
+            ->striped()
             ->columns([
-                Tables\Columns\TextColumn::make('year')->sortable(),
+                Tables\Columns\TextColumn::make('year')->sortable()->toggleable(),
                 Tables\Columns\TextColumn::make('month')
-                    ->formatStateUsing(fn($state) => date('F', mktime(0, 0, 0, $state, 1))),
-                Tables\Columns\TextColumn::make('amount')->money('SAR'),
+                    ->formatStateUsing(fn($state) => date('F', mktime(0, 0, 0, $state, 1)))
+                    ->toggleable(),
+                Tables\Columns\TextColumn::make('amount')->money('SAR')->toggleable(),
                 Tables\Columns\BadgeColumn::make('payment_method')
                     ->formatStateUsing(fn($state) => match ($state) {
                         'cash' => 'Cash',
                         'bank_transfer' => 'Bank Transfer',
                         'online' => 'Online',
                         default => $state ?? '—',
-                    }),
-                Tables\Columns\TextColumn::make('reference_number')->placeholder('—'),
+                    })
+                    ->toggleable(),
+                Tables\Columns\TextColumn::make('reference_number')->placeholder('—')->toggleable(),
                 Tables\Columns\TextColumn::make('paid_at')->label('Paid On')
-                    ->dateTime('d M Y')->sortable(),
+                    ->dateTime('d M Y')->sortable()
+                    ->toggleable(),
                 Tables\Columns\IconColumn::make('is_late')
                     ->label('Late')
                     ->boolean()
                     ->trueIcon('heroicon-o-exclamation-triangle')
                     ->falseIcon('heroicon-o-check-circle')
                     ->trueColor('warning')
-                    ->falseColor('success'),
+                    ->falseColor('success')
+                    ->toggleable(),
             ])
             ->defaultSort('paid_at', 'desc')
             ->filters([

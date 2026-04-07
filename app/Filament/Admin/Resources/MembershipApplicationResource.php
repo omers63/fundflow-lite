@@ -9,6 +9,7 @@ use App\Models\MembershipApplication;
 use App\Models\User;
 use App\Notifications\MembershipApprovedNotification;
 use App\Notifications\MembershipRejectedNotification;
+use App\Services\AccountingService;
 use App\Services\MemberNumberService;
 use App\Services\MembershipApplicationImportService;
 use Filament\Actions\Action;
@@ -632,12 +633,14 @@ class MembershipApplicationResource extends Resource
 
         $record->user->update(['status' => 'approved']);
 
-        Member::create([
+        $member = Member::create([
             'user_id' => $record->user_id,
             'member_number' => $memberNumber,
             'joined_at' => now()->toDateString(),
             'status' => 'active',
         ]);
+
+        app(AccountingService::class)->ensureMemberAccounts($member);
 
         try {
             $record->user->notify(new MembershipApprovedNotification($memberNumber));

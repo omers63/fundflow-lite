@@ -35,6 +35,7 @@ class TransactionsRelationManager extends RelationManager
         return $table
             ->recordTitleAttribute('description')
             ->defaultSort('transacted_at', 'desc')
+            ->striped()
             ->headerActions([
                 Action::make('createLedgerCredit')
                     ->label('Credit')
@@ -61,27 +62,34 @@ class TransactionsRelationManager extends RelationManager
                 Tables\Columns\TextColumn::make('transacted_at')
                     ->label('Date')
                     ->dateTime('d M Y H:i')
-                    ->sortable(),
+                    ->sortable()
+                    ->toggleable(),
                 Tables\Columns\BadgeColumn::make('entry_type')
                     ->label('Type')
-                    ->colors(['success' => 'credit', 'danger' => 'debit']),
+                    ->colors(['success' => 'credit', 'danger' => 'debit'])
+                    ->toggleable(),
                 Tables\Columns\TextColumn::make('amount')
                     ->money('SAR')
                     ->sortable()
-                    ->color(fn(AccountTransaction $r) => $r->entry_type === 'credit' ? 'success' : 'danger'),
+                    ->color(fn(AccountTransaction $r) => $r->entry_type === 'credit' ? 'success' : 'danger')
+                    ->toggleable(),
                 Tables\Columns\TextColumn::make('description')
                     ->limit(60)
-                    ->placeholder('—'),
+                    ->placeholder('—')
+                    ->toggleable(),
                 Tables\Columns\TextColumn::make('member.user.name')
                     ->label('Member')
                     ->placeholder('—')
-                    ->searchable(),
+                    ->searchable()
+                    ->toggleable(),
                 Tables\Columns\TextColumn::make('source_type')
                     ->label('Source')
-                    ->formatStateUsing(fn($state) => $state ? class_basename($state) : '—'),
+                    ->formatStateUsing(fn($state) => $state ? class_basename($state) : '—')
+                    ->toggleable(),
                 Tables\Columns\TextColumn::make('postedBy.name')
                     ->label('Posted By')
-                    ->placeholder('—'),
+                    ->placeholder('—')
+                    ->toggleable(),
             ])
             ->filters([
                 Tables\Filters\SelectFilter::make('member_id')

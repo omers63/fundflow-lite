@@ -17,7 +17,7 @@ class DependentsRelationManager extends RelationManager
 {
     protected static string $relationship = 'dependents';
 
-    protected static ?string $title = 'Dependent Members';
+    protected static ?string $title = 'Dependents';
 
     public function form(Schema $schema): Schema
     {
@@ -30,24 +30,28 @@ class DependentsRelationManager extends RelationManager
             ->recordTitleAttribute('member_number')
             ->emptyStateHeading('No dependent members')
             ->emptyStateDescription('This member has no dependents assigned.')
+            ->striped()
             ->columns([
-                Tables\Columns\TextColumn::make('member_number')->label('Member #')->sortable(),
-                Tables\Columns\TextColumn::make('user.name')->label('Name')->searchable(),
+                Tables\Columns\TextColumn::make('member_number')->label('Member #')->sortable()->toggleable(),
+                Tables\Columns\TextColumn::make('user.name')->label('Name')->searchable()->toggleable(),
                 Tables\Columns\TextColumn::make('monthly_contribution_amount')
                     ->label('Monthly Allocation')
-                    ->money('SAR'),
+                    ->money('SAR')
+                    ->toggleable(),
                 Tables\Columns\TextColumn::make('status')->badge()
                     ->color(fn(string $state) => match ($state) {
                         'active' => 'success',
                         'suspended' => 'warning',
                         'delinquent', 'terminated' => 'danger',
                         default => 'gray',
-                    }),
+                    })
+                    ->toggleable(),
                 Tables\Columns\TextColumn::make('cash_balance')
                     ->label('Cash Balance')
                     ->money('SAR')
                     ->getStateUsing(fn(Member $r) => $r->cash_balance)
-                    ->color(fn(Member $r) => $r->cash_balance >= 0 ? 'success' : 'danger'),
+                    ->color(fn(Member $r) => $r->cash_balance >= 0 ? 'success' : 'danger')
+                    ->toggleable(),
             ])
             ->filters([
                 Tables\Filters\SelectFilter::make('status')

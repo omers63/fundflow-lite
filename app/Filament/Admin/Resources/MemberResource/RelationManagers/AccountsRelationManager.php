@@ -2,6 +2,7 @@
 
 namespace App\Filament\Admin\Resources\MemberResource\RelationManagers;
 
+use App\Filament\Admin\Resources\AccountResource;
 use App\Models\Account;
 use Filament\Forms;
 use Filament\Resources\RelationManagers\RelationManager;
@@ -25,17 +26,21 @@ class AccountsRelationManager extends RelationManager
     {
         return $table
             ->recordTitleAttribute('name')
+            ->recordUrl(fn(Account $record): string => AccountResource::getUrl('view', ['record' => $record]))
+            ->striped()
             ->columns([
-                Tables\Columns\TextColumn::make('name'),
+                Tables\Columns\TextColumn::make('name')->toggleable(),
                 Tables\Columns\BadgeColumn::make('type')
                     ->formatStateUsing(fn(Account $r) => $r->type_label)
-                    ->color(fn(Account $r) => $r->type_color),
-                Tables\Columns\TextColumn::make('loan_id')->label('Loan #')->placeholder('—'),
+                    ->color(fn(Account $r) => $r->type_color)
+                    ->toggleable(),
+                Tables\Columns\TextColumn::make('loan_id')->label('Loan #')->placeholder('—')->toggleable(),
                 Tables\Columns\TextColumn::make('balance')
                     ->label('Balance (SAR)')
                     ->money('SAR')
                     ->color(fn(Account $r) => (float) $r->balance >= 0 ? 'success' : 'danger')
-                    ->weight(FontWeight::Bold),
+                    ->weight(FontWeight::Bold)
+                    ->toggleable(),
             ])
             ->filters([
                 Tables\Filters\SelectFilter::make('type')
