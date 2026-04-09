@@ -148,5 +148,5 @@ I am sorry, I mislead you. "Allocate" acion should always be available as long a
 In the allocation confirmation, I need a selection box to select the allocation cycle.
 Make sure that the concept of allocation/collection/repayment throughout the application is consistent as folowing: a cycle for a particular month (say June) starts at a particular day and ends one day less the following month. So, for June Cycle, it starts from the 6th of June and ends the 5th of July (considered the due date for the cycle). Make the due date be configurable via a setting page.
 In the view/edit member page, make the "Sponsored by" in the widget an active link that redirect me to the parent view/edit page respectively. Similarly, make the "Dependents"  redirect to the view/edit page of the particular Dependent.
-
+Allocation to a member can be done when the Dependent member cash balance is greator than 0, this is not currently the case. It is not available to a Dependent member only if the allocation for the selected cycle had already been done previously. So, allocations need to be tagged with the cycle it was meant for.
 

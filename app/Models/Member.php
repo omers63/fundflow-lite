@@ -76,6 +76,18 @@ class Member extends Model
         return $this->hasMany(Contribution::class);
     }
 
+    /** Parent→dependent cash allocations received by this member (tagged by contribution cycle). */
+    public function dependentCashAllocationsReceived(): HasMany
+    {
+        return $this->hasMany(DependentCashAllocation::class, 'dependent_member_id');
+    }
+
+    /** Parent→dependent cash allocations sent from this member to their dependents. */
+    public function dependentCashAllocationsSent(): HasMany
+    {
+        return $this->hasMany(DependentCashAllocation::class, 'parent_member_id');
+    }
+
     public function loans(): HasMany
     {
         return $this->hasMany(Loan::class);

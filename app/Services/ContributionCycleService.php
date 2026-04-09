@@ -4,6 +4,7 @@ namespace App\Services;
 
 use App\Models\Account;
 use App\Models\Contribution;
+use App\Models\DependentCashAllocation;
 use App\Models\Member;
 use App\Models\Setting;
 use App\Notifications\ContributionAppliedNotification;
@@ -152,6 +153,67 @@ class ContributionCycleService
     }
 
     /**
+     * Whether a parent→dependent cash allocation has already been completed for this cycle.
+     */
+    public function dependentAllocationExistsForPeriod(Member $dependent, int $month, int $year): bool
+    {
+        return DependentCashAllocation::query()
+            ->where('dependent_member_id', $dependent->id)
+            ->where('allocation_month', $month)
+            ->where('allocation_year', $year)
+            ->exists();
+    }
+
+    /**
+     * Active dependent with a positive monthly amount and not contribution-exempt (ignores allocation / Contribution rows).
+     */
+    public function memberBaseEligibleForDependentAllocation(Member $dependent): bool
+    {
+        if ($dependent->trashed() || $dependent->status !== 'active') {
+            return false;
+        }
+
+        if ((int) $dependent->monthly_contribution_amount <= 0) {
+            return false;
+        }
+
+        if ($dependent->isExemptFromContributions()) {
+            return false;
+        }
+
+        return true;
+    }
+
+    /**
+     * Whether this dependent may receive parent cash allocation for the cycle (independent of Contribution rows).
+     * Blocked when an allocation for this cycle already exists.
+     */
+    public function memberEligibleForDependentAllocationFunding(Member $dependent, int $month, int $year): bool
+    {
+        if (!$this->memberBaseEligibleForDependentAllocation($dependent)) {
+            return false;
+        }
+
+        return !$this->dependentAllocationExistsForPeriod($dependent, $month, $year);
+    }
+
+    /**
+     * Cash still needed on the dependent (monthly amount − cash balance), when allocation for the cycle is allowed.
+     */
+    public function dependentAllocationShortfallForPeriod(Member $dependent, int $month, int $year): float
+    {
+        if (!$this->memberEligibleForDependentAllocationFunding($dependent, $month, $year)) {
+            return 0.0;
+        }
+
+        $dependent->unsetRelation('accounts');
+        $needed = (float) $dependent->monthly_contribution_amount;
+        $cash = (float) ($dependent->cashAccount()?->balance ?? 0);
+
+        return max(0, $needed - $cash);
+    }
+
+    /**
      * True when this member may still post a contribution for the given calendar month (no row yet, eligible).
      */
     public function memberCanApplyContributionForPeriod(Member $member, int $month, int $year): bool
@@ -285,8 +347,10 @@ class ContributionCycleService
             return false;
         }
 
+        [$m, $y] = $this->currentOpenPeriod();
+
         foreach ($parent->dependents()->where('status', 'active')->get() as $dependent) {
-            if ($this->shouldOfferOpenPeriodContribution($dependent)) {
+            if ($this->dependentAllocationShortfallForPeriod($dependent, $m, $y) > 0) {
                 return true;
             }
         }
@@ -303,14 +367,7 @@ class ContributionCycleService
         $total = 0.0;
 
         foreach ($parent->dependents()->where('status', 'active')->get() as $dependent) {
-            if (!$this->memberCanApplyContributionForPeriod($dependent, $month, $year)) {
-                continue;
-            }
-
-            $dependent->unsetRelation('accounts');
-            $needed = (float) $dependent->monthly_contribution_amount;
-            $cash = (float) ($dependent->cashAccount()?->balance ?? 0);
-            $total += max(0, $needed - $cash);
+            $total += $this->dependentAllocationShortfallForPeriod($dependent, $month, $year);
         }
 
         return $total;
@@ -425,12 +482,22 @@ class ContributionCycleService
         }
 
         foreach ($parent->dependents()->where('status', 'active')->orderBy('member_number')->get() as $dependent) {
-            if (!$this->memberCanApplyContributionForPeriod($dependent, $month, $year)) {
+            $dependent->unsetRelation('accounts');
+            $dependent->load(['accounts', 'user']);
+
+            if ($this->dependentAllocationExistsForPeriod($dependent, $month, $year)) {
+                $details[] = $this->dependentAllocationDetailLine(
+                    $dependent,
+                    'Allocation for ' . $periodLabel . ' was already completed.',
+                );
+
                 continue;
             }
 
-            $dependent->unsetRelation('accounts');
-            $dependent->load(['accounts', 'user']);
+            if (!$this->memberBaseEligibleForDependentAllocation($dependent)) {
+                continue;
+            }
+
             $needed = (float) $dependent->monthly_contribution_amount;
             $cash = (float) ($dependent->cashAccount()?->balance ?? 0);
             $shortfall = max(0, $needed - $cash);
@@ -445,16 +512,26 @@ class ContributionCycleService
             }
 
             try {
-                $this->accounting->fundDependentCashAccount(
-                    parent: $parent,
-                    dependent: $dependent,
-                    amount: $shortfall,
-                    note: 'Allocation — ' . $periodLabel,
-                );
+                DB::transaction(function () use ($parent, $dependent, $shortfall, $periodLabel, $month, $year): void {
+                    $this->accounting->fundDependentCashAccount(
+                        parent: $parent,
+                        dependent: $dependent,
+                        amount: $shortfall,
+                        note: 'Allocation — ' . $periodLabel,
+                    );
+
+                    DependentCashAllocation::query()->create([
+                        'parent_member_id' => $parent->id,
+                        'dependent_member_id' => $dependent->id,
+                        'allocation_month' => $month,
+                        'allocation_year' => $year,
+                        'amount' => $shortfall,
+                    ]);
+                });
                 $transfers++;
                 $details[] = $this->dependentAllocationDetailLine(
                     $dependent,
-                    'Transferred SAR ' . number_format($shortfall, 2) . '.',
+                    'Transferred SAR ' . number_format($shortfall, 2) . ' for ' . $periodLabel . '.',
                 );
             } catch (\Throwable $e) {
                 $details[] = $this->dependentAllocationDetailLine($dependent, $e->getMessage());
@@ -489,13 +566,9 @@ class ContributionCycleService
 
         $rowsHtml = '';
         foreach ($parent->dependents()->where('status', 'active')->orderBy('member_number')->get() as $dependent) {
-            if (!$this->memberCanApplyContributionForPeriod($dependent, $month, $year)) {
-                continue;
-            }
-
             $needed = (float) $dependent->monthly_contribution_amount;
             $cash = (float) ($dependent->cashAccount()?->balance ?? 0);
-            $shortfall = max(0, $needed - $cash);
+            $shortfall = $this->dependentAllocationShortfallForPeriod($dependent, $month, $year);
 
             if ($shortfall <= 0) {
                 continue;

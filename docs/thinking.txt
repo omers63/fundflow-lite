@@ -2301,6 +2301,34 @@ memberResourceTargetPage()
 
 Uses request()->routeIs('filament.admin.resources.members.edit') to choose edit vs view; anything else (including the member view route) defaults to view links.
 Parent member number in parentheses stays plain text so the link is clearly the name; say if you want the whole line (including number) linked.
+-------------------------------------------------
+Here’s what was wrong and what we changed.
+
+What was wrong
+Dependent allocation reused memberCanApplyContributionForPeriod, which is “no contributions row yet for that month/year”. So as soon as a contribution existed for that cycle, the dependent was excluded from allocation math—even if they still had a cash shortfall (e.g. partial cash, or you need to align funding with the cycle in a different way than the contribution row).
+
+What we did
+dependent_cash_allocations table (migration 2026_04_09_120000_create_dependent_cash_allocations_table.php)
+
+Stores parent_member_id, dependent_member_id, allocation_month, allocation_year, amount.
+Unique on (dependent_member_id, allocation_month, allocation_year) so a given dependent can only have one completed allocation per contribution cycle.
+DependentCashAllocation model
+
+Represents “parent→dependent cash for this cycle” in the database (in addition to the existing ledger lines / note text).
+ContributionCycleService
+
+dependentAllocationExistsForPeriod / memberEligibleForDependentAllocationFunding / memberBaseEligibleForDependentAllocation – allocation no longer depends on Contribution rows.
+dependentAllocationShortfallForPeriod – max(0, monthly − cash) only when the dependent is allowed and that cycle doesn’t already have an allocation row.
+applyDependentAllocationForParentForPeriod – after a successful transfer, creates a DependentCashAllocation row in the same DB transaction as fundDependentCashAccount.
+shouldOfferOpenPeriodDependentAllocation – uses the new shortfall logic instead of shouldOfferOpenPeriodContribution on dependents.
+Member model – dependentCashAllocationsReceived() and dependentCashAllocationsSent() for convenience.
+
+Behaviour now
+Allocation is offered when there is still shortfall (monthly amount − cash > 0), parent can cover, and no allocation row exists for that dependent for that cycle.
+It is blocked for the next run only when an allocation for that cycle is already recorded—not merely because a contribution exists.
+Note on existing data
+Rows are not backfilled from old ledger transfers. Cycles that were funded in the past only via account entries won’t have a row until someone runs Allocate again (or you add a one-off backfill). If you want, we can add a small artisan command to seed dependent_cash_allocations from past “Allocation — …” transactions.
+
 
 
 
