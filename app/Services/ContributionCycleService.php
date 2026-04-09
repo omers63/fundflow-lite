@@ -5,6 +5,7 @@ namespace App\Services;
 use App\Models\Account;
 use App\Models\Contribution;
 use App\Models\Member;
+use App\Models\Setting;
 use App\Notifications\ContributionAppliedNotification;
 use App\Notifications\ContributionDueNotification;
 use Carbon\Carbon;
@@ -24,19 +25,63 @@ class ContributionCycleService
     }
 
     // =========================================================================
+    // Cycle window (allocation / collection / repayment)
+    // =========================================================================
+
+    /**
+     * First calendar day of the cycle for period (month/year). Configurable via Setting::contributionCycleStartDay().
+     */
+    public function cycleStartDay(): int
+    {
+        return Setting::contributionCycleStartDay();
+    }
+
+    /**
+     * When the cycle for the given contribution month/year begins (start of that day, app timezone).
+     */
+    public function cycleStartAt(int $month, int $year): Carbon
+    {
+        $day = $this->cycleStartDay();
+        $last = (int) Carbon::create($year, $month, 1)->endOfMonth()->day;
+        $d = min($day, $last);
+
+        return Carbon::create($year, $month, $d)->startOfDay();
+    }
+
+    /**
+     * End of the due date for the cycle (last moment to pay without being late): end of the day before the next cycle starts.
+     */
+    public function cycleDueEndAt(int $month, int $year): Carbon
+    {
+        $start = $this->cycleStartAt($month, $year);
+        $nextMonth = $start->copy()->addMonthNoOverflow();
+        $nextStart = $this->cycleStartAt((int) $nextMonth->month, (int) $nextMonth->year);
+
+        return $nextStart->copy()->subDay()->endOfDay();
+    }
+
+    /**
+     * Human-readable window for UI, e.g. "6 Jun 2026 – 5 Jul 2026 (due end of 5 Jul 2026)".
+     */
+    public function cycleWindowDescription(int $month, int $year): string
+    {
+        $start = $this->cycleStartAt($month, $year);
+        $dueEnd = $this->cycleDueEndAt($month, $year);
+
+        return $start->format('j M Y') . ' – ' . $dueEnd->format('j M Y')
+            . ' (due end of ' . $dueEnd->format('j M Y') . ')';
+    }
+
+    // =========================================================================
     // Deadline helpers
     // =========================================================================
 
     /**
-     * Returns the contribution deadline: the 5th of the month following the cycle month.
-     * Example: June 2026 → 5 July 2026 23:59:59
+     * Contribution/repayment deadline for the cycle month: end of the due date (same as cycleDueEndAt).
      */
     public function deadline(int $month, int $year): Carbon
     {
-        return Carbon::create($year, $month, 1)
-            ->addMonthNoOverflow()
-            ->day(5)
-            ->endOfDay();
+        return $this->cycleDueEndAt($month, $year);
     }
 
     /**
@@ -54,15 +99,31 @@ class ContributionCycleService
     }
 
     /**
-     * The month/year contributions are collected for: previous calendar month (arrears).
+     * The cycle month/year currently open for collection (the window containing "now").
      *
      * @return array{0: int, 1: int} month, year
      */
     public function currentOpenPeriod(): array
     {
-        $prev = now()->subMonthNoOverflow();
+        $now = now();
+        $cursor = $now->copy()->startOfMonth();
 
-        return [(int) $prev->month, (int) $prev->year];
+        for ($i = 0; $i < 15; $i++) {
+            $m = (int) $cursor->month;
+            $y = (int) $cursor->year;
+            $start = $this->cycleStartAt($m, $y);
+            $dueEnd = $this->cycleDueEndAt($m, $y);
+
+            if ($now->gte($start) && $now->lte($dueEnd)) {
+                return [$m, $y];
+            }
+
+            $cursor->subMonthNoOverflow();
+        }
+
+        $fallback = $now->copy()->subMonthNoOverflow();
+
+        return [(int) $fallback->month, (int) $fallback->year];
     }
 
     public function currentOpenPeriodLabel(): string
@@ -587,7 +648,7 @@ class ContributionCycleService
     }
 
     // =========================================================================
-    // Notifications (1st of following month)
+    // Notifications (due by cycleDueEndAt for the period)
     // =========================================================================
 
     /**
@@ -631,7 +692,7 @@ class ContributionCycleService
     }
 
     // =========================================================================
-    // Apply contributions (on or before 5th of following month)
+    // Apply contributions (on or before the period deadline / cycle due end)
     // =========================================================================
 
     /**

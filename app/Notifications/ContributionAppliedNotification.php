@@ -4,6 +4,7 @@ namespace App\Notifications;
 
 use App\Channels\TwilioWhatsAppChannel;
 use App\Models\Contribution;
+use App\Services\ContributionCycleService;
 use App\Models\NotificationLog;
 use Illuminate\Bus\Queueable;
 use Illuminate\Notifications\Messages\MailMessage;
@@ -17,8 +18,9 @@ class ContributionAppliedNotification extends Notification
 
     public function __construct(
         public readonly Contribution $contribution,
-        public readonly float        $cashBalance,
-    ) {}
+        public readonly float $cashBalance,
+    ) {
+    }
 
     public function via(mixed $notifiable): array
     {
@@ -45,10 +47,10 @@ class ContributionAppliedNotification extends Notification
     public function toDatabase(mixed $notifiable): array
     {
         return [
-            'title'   => "Contribution Applied – {$this->periodLabel()}",
-            'body'    => $this->shortBody(),
-            'icon'    => $this->contribution->is_late ? 'heroicon-o-exclamation-circle' : 'heroicon-o-check-circle',
-            'color'   => $this->contribution->is_late ? 'warning' : 'success',
+            'title' => "Contribution Applied – {$this->periodLabel()}",
+            'body' => $this->shortBody(),
+            'icon' => $this->contribution->is_late ? 'heroicon-o-exclamation-circle' : 'heroicon-o-check-circle',
+            'color' => $this->contribution->is_late ? 'warning' : 'success',
             'actions' => [
                 ['label' => 'View My Contributions', 'url' => url('/member')],
             ],
@@ -71,7 +73,11 @@ class ContributionAppliedNotification extends Notification
             ->line("• Remaining Cash Balance: ﷼" . number_format($this->cashBalance, 2));
 
         if ($this->contribution->is_late) {
-            $mail->line("⚠️ This contribution was recorded as **late** (applied after the 5th of the due month).");
+            $deadline = app(ContributionCycleService::class)->cycleDueEndAt(
+                (int) $this->contribution->month,
+                (int) $this->contribution->year,
+            )->format('j F Y');
+            $mail->line("⚠️ This contribution was recorded as **late** (applied after the deadline for this period: {$deadline}).");
         }
 
         $mail->action('View My Account', url('/member'));
@@ -80,8 +86,8 @@ class ContributionAppliedNotification extends Notification
             'user_id' => $notifiable->id,
             'channel' => 'mail',
             'subject' => "FundFlow — Account Statement: {$this->periodLabel()} Contribution",
-            'body'    => $this->shortBody(),
-            'status'  => 'sent',
+            'body' => $this->shortBody(),
+            'status' => 'sent',
             'sent_at' => now(),
         ]);
 
@@ -96,8 +102,8 @@ class ContributionAppliedNotification extends Notification
             'user_id' => $notifiable->id,
             'channel' => 'sms',
             'subject' => null,
-            'body'    => $body,
-            'status'  => 'sent',
+            'body' => $body,
+            'status' => 'sent',
             'sent_at' => now(),
         ]);
 
@@ -107,7 +113,7 @@ class ContributionAppliedNotification extends Notification
     public function toWhatsApp(mixed $notifiable): string
     {
         $amount = number_format((float) $this->contribution->amount, 2);
-        $icon   = $this->contribution->is_late ? '⚠️' : '✅';
+        $icon = $this->contribution->is_late ? '⚠️' : '✅';
 
         return "{$icon} *FundFlow – Contribution Applied*\n\n"
             . "Dear {$notifiable->name},\n\n"

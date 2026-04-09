@@ -2263,6 +2263,23 @@ Submit runs applyDependentAllocationForParentForPeriod for the selected cycle.
 Visibility: Allocate stays visible when allocationCycleSelectOptionsForParent is non-empty (at least one month in the window has shortfall and the parent can cover it). Months with nothing to move are not listed.
 
 -------------------------------------
+Here’s what was implemented.
+
+Cycle model (everywhere)
+cycleStartAt(month, year) — first instant of the cycle (start of that calendar day; day is min(configured start day, days in that month)).
+cycleDueEndAt(month, year) — due moment = end of the last day of the window = the day before the next cycle’s start (e.g. start day 6 → June cycle runs 6 Jun–5 Jul, due end of 5 Jul).
+deadline(month, year) — same as cycleDueEndAt (used for late checks on contributions and for loan repayment deadlines via LoanRepaymentService::deadline(), which now delegates to ContributionCycleService).
+currentOpenPeriod()
+No longer “previous calendar month only”. It returns the cycle month whose window contains now (walks back month by month for up to 15 steps), so it matches the configurable window (e.g. 1–5 Jul still counts as the June cycle when start day is 6).
+Settings
+Setting::contributionCycleStartDay() — integer 1–28, default 6 (matches your June 6 → July 5 example and keeps February safe).
+contribution.cycle_start_day stored via Setting::set.
+New Filament page: ContributionCycleSettingsPage (Settings → Contribution cycles) with Save settings and short explanation cards (example June window + current open period from the service).
+Other alignment
+Loan::computeExemptionAndFirstRepayment — cutoff uses max(1, contributionCycleStartDay() - 1) instead of a hardcoded 5 (same pattern as “due on the 5th” when start is 6).
+ContributionAppliedNotification — late copy references the real cycleDueEndAt for that contribution’s month/year.
+Comments that referred to a fixed “5th” or “1st of following month” in ContributionCycleService were updated to describe the configurable cycle deadline.
+
 
 
 

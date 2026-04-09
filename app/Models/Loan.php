@@ -255,12 +255,17 @@ class Loan extends Model
     /**
      * Determine which contribution cycle is exempted and when repayments start
      * based on the disbursement date.
+     *
+     * Cutoff day aligns with the contribution cycle: the due date for a cycle is the day before
+     * the next cycle starts (see Setting::contributionCycleStartDay). If disbursed on or before
+     * that day number in the month (e.g. day 5 when cycle starts on the 6th), exempt the previous
+     * calendar month's contribution; otherwise exempt the current month.
      */
     public static function computeExemptionAndFirstRepayment(Carbon $disbursedAt): array
     {
-        // If disbursed on or before the 5th: exempt PREVIOUS month's contribution
-        // If disbursed after the 5th: exempt CURRENT month's contribution
-        if ($disbursedAt->day <= 5) {
+        $cutoffDay = max(1, Setting::contributionCycleStartDay() - 1);
+
+        if ($disbursedAt->day <= $cutoffDay) {
             $exempted = $disbursedAt->copy()->subMonthNoOverflow();
             $first = $disbursedAt->copy(); // repayment starts this month
         } else {

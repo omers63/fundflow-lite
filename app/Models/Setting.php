@@ -89,4 +89,16 @@ class Setting extends Model
     {
         return static::maxPublicApplications() > 0;
     }
+
+    /**
+     * Day of month when each contribution/repayment cycle starts (1–28).
+     * The cycle for calendar month M runs from this day in M until the day before the same numbered day in M+1
+     * (due date is the last day of that window, end of day). Default 6 → e.g. June cycle: 6 Jun–5 Jul.
+     */
+    public static function contributionCycleStartDay(): int
+    {
+        $d = (int) static::get('contribution.cycle_start_day', 6);
+
+        return max(1, min(28, $d));
+    }
 }

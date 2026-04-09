@@ -25,10 +25,7 @@ class LoanRepaymentService
 
     public function deadline(int $month, int $year): Carbon
     {
-        return Carbon::create($year, $month, 1)
-            ->addMonthNoOverflow()
-            ->day(5)
-            ->endOfDay();
+        return app(ContributionCycleService::class)->deadline($month, $year);
     }
 
     public function isLate(int $month, int $year): bool
@@ -188,7 +185,7 @@ class LoanRepaymentService
     }
 
     // =========================================================================
-    // Open period (aligned with contribution cycle — previous calendar month)
+    // Open period (aligned with ContributionCycleService::currentOpenPeriod)
     // =========================================================================
 
     /** Whether to show one-click repayment for the current open period (active loan, unpaid installment for that period). */
