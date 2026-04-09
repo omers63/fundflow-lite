@@ -3,33 +3,13 @@
 namespace App\Filament\Admin\Resources\MemberResource\Pages;
 
 use App\Filament\Admin\Resources\MemberResource;
-use App\Filament\Admin\Resources\MemberResource\Concerns\UsesAlpineRelationManagerTabs;
-use App\Filament\Admin\Widgets\MemberAccountStatsWidget;
-use App\Filament\Admin\Widgets\MemberActivityWidget;
-use App\Filament\Admin\Widgets\MemberProfileWidget;
+use App\Filament\Admin\Widgets\MemberRecordInsightsWidget;
 use Filament\Actions\EditAction;
 use Filament\Resources\Pages\ViewRecord;
 
 class ViewMember extends ViewRecord
 {
-    use UsesAlpineRelationManagerTabs;
-
     protected static string $resource = MemberResource::class;
-
-    /**
-     * Merge the read-only member form into the first tab with relation managers.
-     * Tab switching uses Alpine ({@see UsesAlpineRelationManagerTabs}) because Livewire
-     * $set('activeRelationManager') + #[Url] often fails to update these tabs in the DOM.
-     */
-    public function hasCombinedRelationManagerTabsWithContent(): bool
-    {
-        return true;
-    }
-
-    public function getContentTabLabel(): ?string
-    {
-        return 'Membershop';
-    }
 
     protected function getHeaderActions(): array
     {
@@ -46,9 +26,7 @@ class ViewMember extends ViewRecord
     protected function getHeaderWidgets(): array
     {
         return [
-            MemberAccountStatsWidget::class,
-            MemberProfileWidget::class,
-            MemberActivityWidget::class,
+            MemberRecordInsightsWidget::class,
         ];
     }
 

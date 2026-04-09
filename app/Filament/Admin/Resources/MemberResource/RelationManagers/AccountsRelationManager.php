@@ -3,6 +3,7 @@
 namespace App\Filament\Admin\Resources\MemberResource\RelationManagers;
 
 use App\Filament\Admin\Resources\AccountResource;
+use App\Filament\Admin\Resources\MemberResource\Concerns\InteractsWithMemberCycleHeaderActions;
 use App\Models\Account;
 use Filament\Forms;
 use Filament\Resources\RelationManagers\RelationManager;
@@ -13,9 +14,19 @@ use Filament\Tables\Table;
 
 class AccountsRelationManager extends RelationManager
 {
+    use InteractsWithMemberCycleHeaderActions;
+
     protected static string $relationship = 'accounts';
 
     protected static ?string $title = 'Accounts';
+
+    /**
+     * Allow header cycle actions on member View pages (panel defaults to read-only RMs).
+     */
+    public function isReadOnly(): bool
+    {
+        return false;
+    }
 
     public function form(Schema $schema): Schema
     {
@@ -28,6 +39,11 @@ class AccountsRelationManager extends RelationManager
             ->recordTitleAttribute('name')
             ->recordUrl(fn(Account $record): string => AccountResource::getUrl('view', ['record' => $record]))
             ->striped()
+            ->headerActions([
+                $this->allocateCycleHeaderAction(),
+                $this->contributeCycleHeaderAction(),
+                $this->repaymentCycleHeaderAction(),
+            ])
             ->columns([
                 Tables\Columns\TextColumn::make('name')->toggleable(),
                 Tables\Columns\BadgeColumn::make('type')

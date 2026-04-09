@@ -1,4 +1,4 @@
-@php $d = $this->getData(); @endphp
+@php $d = $d ?? $this->getData(); @endphp
 
 @if(!($d['hasRecord'] ?? false))
     <div class="p-4 text-gray-400 text-sm">No member selected.</div>
@@ -181,6 +181,7 @@
                     <div class="h-2 rounded-full {{ $d['compliance_rate'] >= 90 ? 'bg-emerald-500' : ($d['compliance_rate'] >= 70 ? 'bg-amber-500' : 'bg-red-500') }}"
                          style="width: {{ $d['compliance_rate'] }}%"></div>
                 </div>
+                <p class="text-xs text-gray-400 dark:text-gray-500 mt-1.5">Contribution records ÷ months since joined — not the same as payments flagged late on the contribution.</p>
             </div>
 
             {{-- Loan eligibility --}}

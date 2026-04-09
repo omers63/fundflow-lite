@@ -2,29 +2,52 @@
 
 namespace App\Filament\Admin\Resources\MemberResource\RelationManagers;
 
+use App\Filament\Admin\Resources\ContributionResource;
+use App\Filament\Admin\Resources\MemberResource;
+use App\Filament\Admin\Resources\MemberResource\Concerns\InteractsWithMemberCycleHeaderActions;
+use App\Models\Contribution;
+use Filament\Actions\BulkActionGroup;
+use Filament\Actions\DeleteAction;
+use Filament\Actions\DeleteBulkAction;
+use Filament\Actions\EditAction;
+use Filament\Actions\ViewAction;
 use Filament\Forms;
 use Filament\Resources\RelationManagers\RelationManager;
 use Filament\Schemas\Schema;
 use Filament\Tables;
 use Filament\Tables\Table;
+use Livewire\Component;
 
 class ContributionsRelationManager extends RelationManager
 {
+    use InteractsWithMemberCycleHeaderActions;
+
     protected static string $relationship = 'contributions';
 
     protected static ?string $title = 'Contributions';
 
+    /**
+     * Allow view/edit/delete on member View pages even when the panel defaults
+     * to read-only relation managers.
+     */
+    public function isReadOnly(): bool
+    {
+        return false;
+    }
+
     public function form(Schema $schema): Schema
     {
-        return $schema->schema([]);
+        return ContributionResource::form($schema);
     }
 
     public function table(Table $table): Table
     {
         return $table
             ->recordTitleAttribute('id')
-            ->defaultSort('year', 'desc')
             ->striped()
+            ->headerActions([
+                $this->contributeCycleHeaderAction(),
+            ])
             ->columns([
                 Tables\Columns\TextColumn::make('year')->sortable()->toggleable(),
                 Tables\Columns\TextColumn::make('month')
@@ -32,12 +55,8 @@ class ContributionsRelationManager extends RelationManager
                     ->toggleable(),
                 Tables\Columns\TextColumn::make('amount')->money('SAR')->toggleable(),
                 Tables\Columns\BadgeColumn::make('payment_method')
-                    ->formatStateUsing(fn($state) => match ($state) {
-                        'cash' => 'Cash',
-                        'bank_transfer' => 'Bank Transfer',
-                        'online' => 'Online',
-                        default => $state ?? '—',
-                    })
+                    ->label('Source')
+                    ->formatStateUsing(fn(?string $state): string => Contribution::paymentMethodLabel($state))
                     ->toggleable(),
                 Tables\Columns\TextColumn::make('reference_number')->placeholder('—')->toggleable(),
                 Tables\Columns\TextColumn::make('paid_at')->label('Paid On')
@@ -60,7 +79,8 @@ class ContributionsRelationManager extends RelationManager
                     ->schema([Forms\Components\TextInput::make('year')->numeric()->default(now()->year)])
                     ->query(fn($query, $data) => ($data['year'] ?? null) ? $query->where('year', $data['year']) : $query),
                 Tables\Filters\SelectFilter::make('payment_method')
-                    ->options(['cash' => 'Cash', 'bank_transfer' => 'Bank Transfer', 'online' => 'Online Payment']),
+                    ->label('Source')
+                    ->options(fn(): array => Contribution::paymentMethodOptions()),
                 Tables\Filters\TernaryFilter::make('is_late')
                     ->label('Late payment')
                     ->trueLabel('Late only')
@@ -87,6 +107,28 @@ class ContributionsRelationManager extends RelationManager
                             ->when(filled($data['amount_min'] ?? null), fn($q) => $q->where('amount', '>=', $data['amount_min']))
                             ->when(filled($data['amount_max'] ?? null), fn($q) => $q->where('amount', '<=', $data['amount_max']));
                     }),
+            ])
+            ->recordActions([
+                ViewAction::make()
+                    ->modalWidth('2xl'),
+                EditAction::make()
+                    ->modalWidth('2xl')
+                    ->after(function (Component $livewire): void {
+                        MemberResource::dispatchMemberRecordHeaderWidgetsRefresh($livewire);
+                    }),
+                DeleteAction::make()
+                    ->modalDescription('Soft-deletes this contribution and reverses its fund ledger postings (master + member fund). Restoring re-posts the contribution to the ledger.')
+                    ->after(function (Component $livewire): void {
+                        MemberResource::dispatchMemberRecordHeaderWidgetsRefresh($livewire);
+                    }),
+            ])
+            ->toolbarActions([
+                BulkActionGroup::make([
+                    DeleteBulkAction::make()
+                        ->after(function (Component $livewire): void {
+                            MemberResource::dispatchMemberRecordHeaderWidgetsRefresh($livewire);
+                        }),
+                ]),
             ]);
     }
 }

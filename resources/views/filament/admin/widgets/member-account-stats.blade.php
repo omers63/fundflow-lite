@@ -1,4 +1,4 @@
-@php $d = $this->getData(); @endphp
+@php $d = $d ?? $this->getData(); @endphp
 
 @if(!($d['hasRecord'] ?? false))
     <div class="p-4 text-gray-400 text-sm">No member selected.</div>

@@ -6,6 +6,7 @@ use Illuminate\Database\Eloquent\Model;
 use Illuminate\Database\Eloquent\Relations\BelongsTo;
 use Illuminate\Database\Eloquent\Relations\HasMany;
 use Illuminate\Database\Eloquent\SoftDeletes;
+use Illuminate\Support\Facades\DB;
 
 class Member extends Model
 {
@@ -155,6 +156,38 @@ class Member extends Model
     public function getTotalContributionsAttribute(): float
     {
         return (float) $this->contributions()->sum('amount');
+    }
+
+    /**
+     * Recompute denormalized late stats from active (non-deleted) contributions.
+     */
+    public function refreshLateContributionStats(): void
+    {
+        $row = DB::table('contributions')
+            ->where('member_id', $this->id)
+            ->where('is_late', true)
+            ->whereNull('deleted_at')
+            ->selectRaw('COUNT(*) as c, COALESCE(SUM(amount), 0) as total')
+            ->first();
+
+        $this->forceFill([
+            'late_contributions_count' => (int) ($row->c ?? 0),
+            'late_contributions_amount' => (float) ($row->total ?? 0),
+        ])->saveQuietly();
+    }
+
+    /**
+     * Live aggregates for contributions flagged late (is_late), matching the contributions table.
+     * Prefer over denormalized columns when those may be stale.
+     */
+    public function contributionsMarkedLateCount(): int
+    {
+        return (int) $this->contributions()->where('is_late', true)->count();
+    }
+
+    public function contributionsMarkedLateAmount(): float
+    {
+        return (float) $this->contributions()->where('is_late', true)->sum('amount');
     }
 
     public function getActiveLoansAttribute()

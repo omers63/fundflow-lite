@@ -2,6 +2,7 @@
 
 namespace App\Filament\Admin\Resources\MemberResource\RelationManagers;
 
+use App\Filament\Admin\Resources\MemberResource\Concerns\InteractsWithMemberCycleHeaderActions;
 use App\Models\Account;
 use App\Models\Member;
 use App\Services\AccountingService;
@@ -15,9 +16,16 @@ use Filament\Tables\Table;
 
 class DependentsRelationManager extends RelationManager
 {
+    use InteractsWithMemberCycleHeaderActions;
+
     protected static string $relationship = 'dependents';
 
     protected static ?string $title = 'Dependents';
+
+    public function isReadOnly(): bool
+    {
+        return false;
+    }
 
     public function form(Schema $schema): Schema
     {
@@ -31,6 +39,9 @@ class DependentsRelationManager extends RelationManager
             ->emptyStateHeading('No dependent members')
             ->emptyStateDescription('This member has no dependents assigned.')
             ->striped()
+            ->headerActions([
+                $this->allocateCycleHeaderAction(),
+            ])
             ->columns([
                 Tables\Columns\TextColumn::make('member_number')->label('Member #')->sortable()->toggleable(),
                 Tables\Columns\TextColumn::make('user.name')->label('Name')->searchable()->toggleable(),

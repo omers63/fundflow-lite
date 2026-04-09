@@ -34,8 +34,8 @@ class MemberAccountStatsWidget extends Widget
         $minFund = Setting::loanMinFundBalance();
         $fundPct = $minFund > 0 ? min(100, round($fundBalance / $minFund * 100)) : 100;
 
-        $lateCount = (int) ($member->late_contributions_count ?? 0);
-        $lateAmount = (float) ($member->late_contributions_amount ?? 0);
+        $lateCount = $member->contributionsMarkedLateCount();
+        $lateAmount = $member->contributionsMarkedLateAmount();
 
         $activeLoans = $member->loans()->whereIn('status', ['active', 'approved', 'disbursed'])->get();
         $activeLoansCount = $activeLoans->count();

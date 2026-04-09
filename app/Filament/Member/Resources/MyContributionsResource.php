@@ -36,13 +36,9 @@ class MyContributionsResource extends Resource
                     ->formatStateUsing(fn($state) => date('F', mktime(0, 0, 0, $state, 1))),
                 Tables\Columns\TextColumn::make('year'),
                 Tables\Columns\TextColumn::make('payment_method')
+                    ->label('Source')
                     ->badge()
-                    ->formatStateUsing(fn($state) => match ($state) {
-                        'cash' => 'Cash',
-                        'bank_transfer' => 'Bank Transfer',
-                        'online' => 'Online',
-                        default => $state ?? '-',
-                    }),
+                    ->formatStateUsing(fn(?string $state): string => Contribution::paymentMethodLabel($state)),
                 Tables\Columns\TextColumn::make('reference_number')
                     ->placeholder('-'),
                 Tables\Columns\TextColumn::make('paid_at')
@@ -64,7 +60,8 @@ class MyContributionsResource extends Resource
                     ->schema([Forms\Components\TextInput::make('year')->numeric()->default(now()->year)])
                     ->query(fn($query, $data) => ($data['year'] ?? null) ? $query->where('year', $data['year']) : $query),
                 Tables\Filters\SelectFilter::make('payment_method')
-                    ->options(['cash' => 'Cash', 'bank_transfer' => 'Bank Transfer', 'online' => 'Online Payment']),
+                    ->label('Source')
+                    ->options(fn(): array => Contribution::paymentMethodOptions()),
                 Tables\Filters\TernaryFilter::make('is_late')
                     ->label('Late payment')
                     ->trueLabel('Late only')

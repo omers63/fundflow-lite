@@ -138,9 +138,14 @@ I want to be able to safely delete loan single/bulk.
 ------------------------------------
 Add "View Application" row action to the member's table, visible only if an application exists for the member. Also add a "Suspend" and "Terminate" row actions. Group all row actions together.
 When approving a member's application and as part of creating the member in the system, his cash and fund account should also be created.
-
-
-
+In the View/Edit Member and for the "Contributions" tab, add table header action "Contribute" to apply the contribution of the member for the due cycle. This action shows only if the contribution was not made by the member for the current cycle.
+Add a new contribution table header action to import contributions from a file. Name it "Import Contributions".
+Add "Allocate" action to the member's table. Visiible only when the member is a parent and allocation has not yet been done for the cycle, simillar to "Contribute" action. Also add "Repayment" action, only visible if the member is in loan repayment cycle. Either the "Contribute" or "Repayment" is visible, never both.
+In the "Accounts" tab of the view/edit member page, add 3 table header actions, as follows: 1. "Allocate" action to trigger allocation of funds from the cash account to the cash accounts of all Dependents, shown only if fund had not been allocated for the Current cycle. 2. "Contribute" action to trigger contribution of funds from the member's cash account to the master fund account and mirrored to the member's fund account as well, shown only if "contribution" has not be made for the current cycle. 3. "Repayment" action to trigger loan installement repayments of current loans, shown only if there are active loans with due payments for the current cycle. Either the "Contribute" or "Repayment" actions is shown, never both. Further, add the "Contribute" action to the "Contributions" tab, "Repayment" action to the loans tab, "Allocate" action to dependents tab.
+Present the allocation confirmation in a nicer form. No need to mention member number, member name is sufficiant. ALso present it in table-like format.
+In the contribution confirmation, I need a selection box to select the contribution cycle.
+I am sorry, I mislead you. "Allocate" acion should always be available as long as the member is a parent and has sufficient cash account balance to fund all Dependents allocated amounts.
+In the allocation confirmation, I need a selection box to select the allocation cycle.
 
 
 

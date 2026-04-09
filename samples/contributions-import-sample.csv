@@ -1,0 +1,5 @@
+member_id,member_number,month,year,amount,paid_at,reference_number,notes,is_late,payment_method
+1,,3,2026,500,,IMP-2026-03-001,Sample row using member_id; replace 1 with a real id from your database,no,admin
+,10001,3,2026,1000,2026-03-05 14:30:00,IMP-2026-03-002,Sample using member_number; replace 10001 with a real member number,0,bank_transfer
+,10002,April,2026,500,,IMP-2026-04-003,Month can be a name (e.g. April) or 1-12,yes,cash
+,10003,5,2026,1500,2026-05-02,,Empty paid_at defaults to now at import time,0,online

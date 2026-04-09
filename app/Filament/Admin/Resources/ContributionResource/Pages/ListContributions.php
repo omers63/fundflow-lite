@@ -31,12 +31,10 @@ class ListContributions extends ListRecords
     {
         return [
             Actions\Action::make('contributionCycle')
-                ->label('Contribution cycle')
+                ->label('Run Contribution Cycle')
                 ->icon('heroicon-o-arrow-path')
                 ->url(ContributionCyclePage::getUrl())
                 ->color('primary'),
-            Actions\CreateAction::make()
-                ->icon('heroicon-o-plus-circle'),
         ];
     }
 }

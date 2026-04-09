@@ -9,7 +9,7 @@ class MemberNumberService
     public function generate(): string
     {
         $year = now()->year;
-        $prefix = "FF-{$year}-";
+        $prefix = "M-{$year}-";
 
         $lastMember = Member::where('member_number', 'like', "{$prefix}%")
             ->orderByDesc('member_number')

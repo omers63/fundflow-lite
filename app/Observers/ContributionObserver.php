@@ -3,6 +3,7 @@
 namespace App\Observers;
 
 use App\Models\Contribution;
+use App\Models\Member;
 use App\Services\AccountingService;
 use Throwable;
 
@@ -26,6 +27,11 @@ class ContributionObserver
         }
     }
 
+    public function deleted(Contribution $contribution): void
+    {
+        $this->refreshMemberLateStatsForContribution($contribution);
+    }
+
     public function restored(Contribution $contribution): void
     {
         try {
@@ -36,6 +42,13 @@ class ContributionObserver
                 'error' => $e->getMessage(),
             ]);
         }
+
+        $this->refreshMemberLateStatsForContribution($contribution);
+    }
+
+    public function forceDeleted(Contribution $contribution): void
+    {
+        $this->refreshMemberLateStatsForContribution($contribution);
     }
 
     public function created(Contribution $contribution): void
@@ -49,5 +62,33 @@ class ContributionObserver
                 'error' => $e->getMessage(),
             ]);
         }
+
+        $this->refreshMemberLateStatsForContribution($contribution);
+    }
+
+    public function updated(Contribution $contribution): void
+    {
+        if ($contribution->wasChanged('member_id')) {
+            $originalMemberId = $contribution->getOriginal('member_id');
+            if (filled($originalMemberId)) {
+                $this->refreshMemberLateStatsForMemberId((int) $originalMemberId);
+            }
+        }
+
+        $this->refreshMemberLateStatsForContribution($contribution);
+    }
+
+    protected function refreshMemberLateStatsForContribution(Contribution $contribution): void
+    {
+        $this->refreshMemberLateStatsForMemberId((int) $contribution->member_id);
+    }
+
+    protected function refreshMemberLateStatsForMemberId(int $memberId): void
+    {
+        if ($memberId <= 0) {
+            return;
+        }
+
+        Member::query()->whereKey($memberId)->first()?->refreshLateContributionStats();
     }
 }

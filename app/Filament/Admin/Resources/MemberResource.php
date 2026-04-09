@@ -4,19 +4,19 @@ namespace App\Filament\Admin\Resources;
 
 use App\Filament\Admin\Resources\MemberResource\Pages;
 use App\Filament\Admin\Resources\MembershipApplicationResource;
-use App\Filament\Admin\Widgets\MemberAccountStatsWidget;
-use App\Filament\Admin\Widgets\MemberActivityWidget;
-use App\Filament\Admin\Widgets\MemberProfileWidget;
+use App\Filament\Admin\Widgets\MemberRecordInsightsWidget;
 use App\Filament\Admin\Widgets\MemberStatsWidget;
 use App\Filament\Admin\Resources\MemberResource\RelationManagers\AccountsRelationManager;
 use App\Filament\Admin\Resources\MemberResource\RelationManagers\ContributionsRelationManager;
 use App\Filament\Admin\Resources\MemberResource\RelationManagers\DependentsRelationManager;
 use App\Filament\Admin\Resources\MemberResource\RelationManagers\LoansRelationManager;
+use App\Models\Contribution;
 use App\Models\Member;
 use App\Models\MembershipApplication;
+use App\Services\ContributionCycleService;
+use App\Services\LoanRepaymentService;
 use App\Services\MemberDeletionService;
 use App\Services\MemberImportService;
-use Carbon\Carbon;
 use Filament\Actions\Action;
 use Filament\Actions\ActionGroup;
 use Filament\Actions\BulkAction;
@@ -34,6 +34,7 @@ use Filament\Forms;
 use Filament\Notifications\Notification;
 use Filament\Resources\Resource;
 use Filament\Schemas\Components\Section;
+use Filament\Schemas\Components\Utilities\Get;
 use Filament\Schemas\Schema;
 use Filament\Tables;
 use Filament\Tables\Filters\TrashedFilter;
@@ -41,6 +42,7 @@ use Filament\Tables\Table;
 use Illuminate\Database\Eloquent\Builder;
 use Illuminate\Database\Eloquent\Collection as EloquentCollection;
 use Illuminate\Support\Facades\Storage;
+use Illuminate\Support\HtmlString;
 use Livewire\Component;
 
 class MemberResource extends Resource
@@ -60,9 +62,9 @@ class MemberResource extends Resource
     {
         return $schema->schema([
 
-            // ── 1. Member Status ─────────────────────────────────────────────
             Section::make('Membership')
                 ->icon('heroicon-o-identification')
+                ->columnSpanFull()
                 ->schema([
                     Forms\Components\TextInput::make('member_number')
                         ->label('Member Number')
@@ -80,6 +82,71 @@ class MemberResource extends Resource
                         ->required()
                         ->native(false)
                         ->helperText('Affects loan eligibility (minimum 1-year membership).'),
+                    Forms\Components\Select::make('monthly_contribution_amount')
+                        ->label('Monthly Contribution Amount')
+                        ->options(Member::contributionAmountOptions())
+                        ->default(500)
+                        ->required()
+                        ->helperText('Multiples of SAR 500, from SAR 500 to SAR 3,000.'),
+                    Forms\Components\Select::make('parent_id')
+                        ->label('Parent Member (Sponsor)')
+                        ->searchable()
+                        ->preload()
+                        ->nullable()
+                        ->placeholder('None (independent member)')
+                        ->columnSpan(2)
+                        ->options(function (Forms\Components\Select $component): array {
+                            $record = $component->getRecord();
+                            if (!$record instanceof Member) {
+                                $record = null;
+                            }
+
+                            $query = Member::query()
+                                ->with('user')
+                                ->where(function ($q) use ($record) {
+                                    $q->whereNull('parent_id');
+                                    if ($record !== null && filled($record->parent_id)) {
+                                        $q->orWhere('id', (int) $record->parent_id);
+                                    }
+                                })
+                                ->when($record !== null, fn($q) => $q->where('id', '!=', $record->id));
+
+                            return $query
+                                ->orderBy('member_number')
+                                ->get()
+                                ->mapWithKeys(
+                                    fn(Member $m) => [$m->id => "{$m->member_number} – {$m->user->name}"]
+                                )
+                                ->all();
+                        })
+                        ->getOptionLabelUsing(function (mixed $value): ?string {
+                            if (blank($value)) {
+                                return null;
+                            }
+
+                            $member = Member::query()->with('user')->find((int) $value);
+
+                            return $member
+                                ? "{$member->member_number} – {$member->user->name}"
+                                : null;
+                        })
+                        ->disabled(function (Forms\Components\Select $component): bool {
+                            $record = $component->getRecord();
+
+                            return $record instanceof Member
+                                && $record->exists
+                                && $record->dependents()->exists();
+                        })
+                        ->helperText(function (Forms\Components\Select $component): string {
+                            $record = $component->getRecord();
+
+                            return $record instanceof Member
+                                && $record->exists
+                                && $record->dependents()->exists()
+                                ? 'This member has dependents and cannot be assigned a parent.'
+                                : 'The parent member can fund this member\'s cash account. '
+                                . 'Independent members (no sponsor) are the usual choices; the current sponsor stays listed even if they have their own sponsor.';
+                        }),
                 ])->columns(3),
 
             // ── 2. User Account ──────────────────────────────────────────────
@@ -191,114 +258,13 @@ class MemberResource extends Resource
             //             ->maxLength(30),
             //     ])->columns(2),
 
-            // ── 5. Contribution & Sponsorship ────────────────────────────────
-            Section::make('Contribution & Sponsorship')
-                ->icon('heroicon-o-currency-dollar')
-                ->schema([
-                    Forms\Components\Select::make('monthly_contribution_amount')
-                        ->label('Monthly Contribution Amount')
-                        ->options(Member::contributionAmountOptions())
-                        ->default(500)
-                        ->required()
-                        ->helperText('Multiples of SAR 500, from SAR 500 to SAR 3,000.'),
-                    Forms\Components\Select::make('parent_id')
-                        ->label('Parent Member (Sponsor)')
-                        ->options(fn(?Member $record) => Member::with('user')
-                            ->whereNull('parent_id')
-                            ->when($record, fn($q) => $q->where('id', '!=', $record->id))
-                            ->get()
-                            ->mapWithKeys(fn($m) => [$m->id => "{$m->member_number} – {$m->user->name}"]))
-                        ->searchable()
-                        ->nullable()
-                        ->placeholder('None (independent member)')
-                        ->disabled(fn(?Member $record) => $record && $record->dependents()->exists())
-                        ->helperText(fn(?Member $record) => $record && $record->dependents()->exists()
-                            ? 'This member has dependents and cannot be assigned a parent.'
-                            : 'The parent member can fund this member\'s cash account.'),
-                ])->columns(2),
-
-            // ── 6. Active Loan — Guarantor & Witnesses ───────────────────────
-            Section::make('Active Loan — Guarantor & Witnesses')
-                ->icon('heroicon-o-shield-check')
-                ->description('Guarantor and witnesses linked to the most recent active loan.')
-                ->collapsed()
-                ->schema([
-                    Forms\Components\Placeholder::make('_active_loan_ref')
-                        ->label('Loan Reference')
-                        ->content(function (?Member $record) {
-                            $loan = $record?->loans()
-                                ->whereIn('status', ['approved', 'active', 'disbursed'])
-                                ->latest('applied_at')->first();
-                            if (!$loan) {
-                                return '— No active loan';
-                            }
-
-                            return "Loan #{$loan->id} · SAR " . number_format((float) $loan->amount_approved, 2)
-                                . " · Status: {$loan->status}";
-                        })
-                        ->columnSpanFull(),
-                    Forms\Components\Placeholder::make('_guarantor')
-                        ->label('Guarantor Member')
-                        ->content(function (?Member $record) {
-                            $loan = $record?->loans()
-                                ->whereIn('status', ['approved', 'active', 'disbursed'])
-                                ->latest('applied_at')->first();
-                            if (!$loan?->guarantor) {
-                                return '—';
-                            }
-                            $g = $loan->guarantor->load('user');
-
-                            return "{$g->member_number} – {$g->user->name}"
-                                . ($g->user->phone ? '  ·  ' . $g->user->phone : '');
-                        }),
-                    Forms\Components\Placeholder::make('_guarantor_released')
-                        ->label('Guarantor Released?')
-                        ->content(function (?Member $record) {
-                            $loan = $record?->loans()
-                                ->whereIn('status', ['approved', 'active', 'disbursed'])
-                                ->latest('applied_at')->first();
-                            if (!$loan) {
-                                return '—';
-                            }
-
-                            return $loan->guarantor_released_at
-                                ? '✅ Released on ' . Carbon::parse($loan->guarantor_released_at)->format('d M Y')
-                                : '⏳ Not yet released';
-                        }),
-                    Forms\Components\Placeholder::make('_witness1')
-                        ->label('Witness 1')
-                        ->content(function (?Member $record) {
-                            $loan = $record?->loans()
-                                ->whereIn('status', ['approved', 'active', 'disbursed'])
-                                ->latest('applied_at')->first();
-                            if (!$loan?->witness1_name) {
-                                return '—';
-                            }
-
-                            return $loan->witness1_name
-                                . ($loan->witness1_phone ? '  ·  ' . $loan->witness1_phone : '');
-                        }),
-                    Forms\Components\Placeholder::make('_witness2')
-                        ->label('Witness 2')
-                        ->content(function (?Member $record) {
-                            $loan = $record?->loans()
-                                ->whereIn('status', ['approved', 'active', 'disbursed'])
-                                ->latest('applied_at')->first();
-                            if (!$loan?->witness2_name) {
-                                return '—';
-                            }
-
-                            return $loan->witness2_name
-                                . ($loan->witness2_phone ? '  ·  ' . $loan->witness2_phone : '');
-                        }),
-                ])->columns(2),
-
         ]);
     }
 
     public static function table(Table $table): Table
     {
         return $table
+            ->striped()
             ->columns([
                 Tables\Columns\TextColumn::make('member_number')
                     ->searchable()
@@ -348,14 +314,34 @@ class MemberResource extends Resource
                     ->toggleable(),
                 Tables\Columns\TextColumn::make('late_contributions_count')
                     ->label('Late #')
-                    ->sortable()
+                    ->getStateUsing(fn(Member $record): int => $record->contributionsMarkedLateCount())
+                    ->sortable(query: function (Builder $query, string $direction): Builder {
+                        return $query->orderBy(
+                            Contribution::query()
+                                ->selectRaw('count(*)')
+                                ->whereColumn('contributions.member_id', 'members.id')
+                                ->where('contributions.is_late', true)
+                                ->whereNull('contributions.deleted_at'),
+                            $direction
+                        );
+                    })
                     ->badge()
                     ->color(fn($state) => $state > 0 ? 'warning' : 'success')
                     ->toggleable(),
                 Tables\Columns\TextColumn::make('late_contributions_amount')
                     ->label('Late Amount')
+                    ->getStateUsing(fn(Member $record): float => $record->contributionsMarkedLateAmount())
                     ->money('SAR')
-                    ->sortable()
+                    ->sortable(query: function (Builder $query, string $direction): Builder {
+                        return $query->orderBy(
+                            Contribution::query()
+                                ->selectRaw('coalesce(sum(contributions.amount),0)')
+                                ->whereColumn('contributions.member_id', 'members.id')
+                                ->where('contributions.is_late', true)
+                                ->whereNull('contributions.deleted_at'),
+                            $direction
+                        );
+                    })
                     ->color(fn($state) => $state > 0 ? 'warning' : 'gray')
                     ->toggleable(),
             ])
@@ -447,8 +433,14 @@ class MemberResource extends Resource
                     ->trueLabel('Has late contributions')
                     ->falseLabel('No late contributions')
                     ->queries(
-                        true: fn($q) => $q->where('late_contributions_count', '>', 0),
-                        false: fn($q) => $q->where('late_contributions_count', '=', 0),
+                        true: fn(Builder $q) => $q->whereHas(
+                            'contributions',
+                            fn(Builder $q) => $q->where('is_late', true)
+                        ),
+                        false: fn(Builder $q) => $q->whereDoesntHave(
+                            'contributions',
+                            fn(Builder $q) => $q->where('is_late', true)
+                        ),
                     ),
                 Tables\Filters\Filter::make('joined_at')
                     ->schema([
@@ -479,6 +471,230 @@ class MemberResource extends Resource
                             fn(Member $record): bool => (bool) ($record->membership_applications_exists ?? false)
                             && auth()->user()?->can('View:MembershipApplication')
                         ),
+                    Action::make('contribute')
+                        ->label('Contribute')
+                        ->icon('heroicon-o-banknotes')
+                        ->color('success')
+                        ->visible(
+                            fn(Member $record): bool => !$record->trashed()
+                            && app(ContributionCycleService::class)->memberHasPayableContributionCycle($record)
+                            && !app(LoanRepaymentService::class)->shouldOfferOpenPeriodRepayment($record)
+                        )
+                        ->disabled(
+                            fn(Member $record): bool => app(ContributionCycleService::class)->hasInsufficientCashForOpenPeriodContribution($record)
+                        )
+                        ->authorize(fn(Member $record): bool => auth()->user()?->can('update', $record) ?? false)
+                        ->modalHeading(fn(): string => 'Apply contribution')
+                        ->modalDescription(
+                            'Select the calendar month this contribution is for (arrears). The member\'s cash account is debited and fund accounts are credited the same amount.'
+                        )
+                        ->modalWidth('md')
+                        ->schema(fn(Member $record): array => [
+                            Forms\Components\Select::make('cycle')
+                                ->label('Contribution cycle')
+                                ->options(fn(): array => app(ContributionCycleService::class)->contributionCycleSelectOptionsForMember($record))
+                                ->required()
+                                ->live()
+                                ->native(false)
+                                ->helperText(fn(Get $get) => app(ContributionCycleService::class)->contributionModalDescriptionForMemberAndCycleKey(
+                                    $record,
+                                    $get('cycle'),
+                                ))
+                                ->columnSpanFull(),
+                        ])
+                        ->fillForm(fn(Member $record): array => [
+                            'cycle' => app(ContributionCycleService::class)->defaultContributionCycleKeyForMember($record) ?? '',
+                        ])
+                        ->action(function (array $data, Member $record, Component $livewire): void {
+                            $svc = app(ContributionCycleService::class);
+                            $key = $data['cycle'] ?? null;
+
+                            if (!is_string($key) || $key === '') {
+                                Notification::make()
+                                    ->title('Select a contribution cycle')
+                                    ->danger()
+                                    ->send();
+
+                                return;
+                            }
+
+                            try {
+                                [$month, $year] = $svc->parseContributionCycleKey($key);
+                            } catch (\InvalidArgumentException) {
+                                Notification::make()
+                                    ->title('Invalid contribution cycle')
+                                    ->danger()
+                                    ->send();
+
+                                return;
+                            }
+
+                            $outcome = $svc->applyContributionForMemberForPeriod($record, $month, $year);
+                            $period = $svc->periodLabel($month, $year);
+
+                            if ($outcome === 'applied') {
+                                Notification::make()
+                                    ->title('Contribution applied')
+                                    ->body('SAR ' . number_format((float) $record->monthly_contribution_amount, 2) . " posted for {$period}.")
+                                    ->success()
+                                    ->send();
+                            } elseif ($outcome === 'insufficient') {
+                                Notification::make()
+                                    ->title('Insufficient cash balance')
+                                    ->body('Cash balance is below the required monthly amount.')
+                                    ->danger()
+                                    ->send();
+                            } else {
+                                Notification::make()
+                                    ->title('Could not apply contribution')
+                                    ->body(match ($outcome) {
+                                        'already_contributed' => Contribution::duplicateCycleMessage($month, $year),
+                                        'exempt' => 'This member is exempt from contributions while they have an approved or active loan.',
+                                        'skipped' => 'This contribution could not be applied.',
+                                        default => "Status: {$outcome}",
+                                    })
+                                    ->warning()
+                                    ->send();
+                            }
+
+                            static::dispatchMemberListHeaderWidgetsRefresh($livewire);
+                        }),
+                    Action::make('repayment')
+                        ->label('Repayment')
+                        ->icon('heroicon-o-receipt-percent')
+                        ->color('primary')
+                        ->visible(
+                            fn(Member $record): bool => !$record->trashed()
+                            && app(LoanRepaymentService::class)->shouldOfferOpenPeriodRepayment($record)
+                        )
+                        ->disabled(
+                            fn(Member $record): bool => app(LoanRepaymentService::class)->hasInsufficientCashForOpenPeriodRepayment($record)
+                        )
+                        ->authorize(fn(Member $record): bool => auth()->user()?->can('update', $record) ?? false)
+                        ->requiresConfirmation()
+                        ->modalHeading(
+                            fn(): string => 'Apply loan repayment – ' . app(ContributionCycleService::class)->currentOpenPeriodLabel()
+                        )
+                        ->modalDescription(
+                            fn(Member $record): string => app(LoanRepaymentService::class)->openPeriodRepaymentModalDescription($record)
+                        )
+                        ->action(function (Member $record, Component $livewire): void {
+                            $svc = app(LoanRepaymentService::class);
+                            $outcome = $svc->applyOpenPeriodRepaymentForMember($record);
+                            $period = app(ContributionCycleService::class)->currentOpenPeriodLabel();
+
+                            if ($outcome === 'applied') {
+                                Notification::make()
+                                    ->title('Repayment applied')
+                                    ->body("Loan installment posted for {$period}.")
+                                    ->success()
+                                    ->send();
+                            } elseif ($outcome === 'insufficient') {
+                                Notification::make()
+                                    ->title('Insufficient cash balance')
+                                    ->body('Cash balance is below the installment amount.')
+                                    ->danger()
+                                    ->send();
+                            } else {
+                                Notification::make()
+                                    ->title('Could not apply repayment')
+                                    ->body(match ($outcome) {
+                                        'skipped' => 'No unpaid installment for this period or no active loan.',
+                                        default => "Status: {$outcome}",
+                                    })
+                                    ->warning()
+                                    ->send();
+                            }
+
+                            static::dispatchMemberListHeaderWidgetsRefresh($livewire);
+                        }),
+                    Action::make('allocate')
+                        ->label('Allocate')
+                        ->icon('heroicon-o-arrow-right-circle')
+                        ->color('warning')
+                        ->visible(
+                            fn(Member $record): bool => !$record->trashed()
+                            && $record->status === 'active'
+                            && app(ContributionCycleService::class)->shouldShowDependentAllocationAction($record)
+                        )
+                        ->authorize(fn(Member $record): bool => auth()->user()?->can('update', $record) ?? false)
+                        ->modalHeading(fn(): string => 'Allocate to dependents')
+                        ->modalDescription(
+                            'Choose the calendar month you are funding dependent cash for (arrears). Preview updates when you change the cycle.'
+                        )
+                        ->modalWidth('lg')
+                        ->schema(fn(Member $record): array => [
+                            Forms\Components\Select::make('cycle')
+                                ->label('Allocation cycle')
+                                ->options(fn(): array => app(ContributionCycleService::class)->allocationCycleSelectOptionsForParent($record))
+                                ->required()
+                                ->live()
+                                ->native(false)
+                                ->columnSpanFull(),
+                            Forms\Components\Placeholder::make('breakdown')
+                                ->label('')
+                                ->content(function (Get $get) use ($record) {
+                                    $key = $get('cycle');
+                                    if ($key === null || $key === '') {
+                                        return new HtmlString('<p class="text-sm text-gray-500 dark:text-gray-400">Select a cycle to preview.</p>');
+                                    }
+
+                                    try {
+                                        [$m, $y] = app(ContributionCycleService::class)->parseContributionCycleKey($key);
+                                    } catch (\InvalidArgumentException) {
+                                        return new HtmlString('');
+                                    }
+
+                                    return app(ContributionCycleService::class)->dependentAllocationModalDescriptionForPeriod($record, $m, $y);
+                                })
+                                ->columnSpanFull(),
+                        ])
+                        ->fillForm(fn(Member $record): array => [
+                            'cycle' => app(ContributionCycleService::class)->defaultAllocationCycleKeyForParent($record) ?? '',
+                        ])
+                        ->action(function (array $data, Member $record, Component $livewire): void {
+                            $svc = app(ContributionCycleService::class);
+                            $key = $data['cycle'] ?? null;
+
+                            if (!is_string($key) || $key === '') {
+                                Notification::make()
+                                    ->title('Select an allocation cycle')
+                                    ->danger()
+                                    ->send();
+
+                                return;
+                            }
+
+                            try {
+                                [$month, $year] = $svc->parseContributionCycleKey($key);
+                            } catch (\InvalidArgumentException) {
+                                Notification::make()
+                                    ->title('Invalid allocation cycle')
+                                    ->danger()
+                                    ->send();
+
+                                return;
+                            }
+
+                            $result = $svc->applyDependentAllocationForParentForPeriod($record, $month, $year);
+                            $body = $svc->formatAllocationResultDetailTableHtml($result['details'])->toHtml();
+
+                            if ($result['transfers'] > 0) {
+                                Notification::make()
+                                    ->title('Allocation completed')
+                                    ->body($body)
+                                    ->success()
+                                    ->send();
+                            } else {
+                                Notification::make()
+                                    ->title('Allocation')
+                                    ->body($body)
+                                    ->warning()
+                                    ->send();
+                            }
+
+                            static::dispatchMemberListHeaderWidgetsRefresh($livewire);
+                        }),
                     Action::make('suspend')
                         ->label('Suspend')
                         ->icon('heroicon-o-pause-circle')
@@ -521,10 +737,20 @@ class MemberResource extends Resource
                         }),
                     DeleteAction::make()
                         ->modalDescription('Removes this member from active records: loans are safe-deleted first (ledger reversed), then bank/SMS lines, virtual accounts, the member row, and their login user (soft-deleted). Blocked while contribution records still exist — remove or soft-delete those first if you need to delete.')
-                        ->using(function (Member $record) {
-                            app(MemberDeletionService::class)->delete($record);
+                        ->using(function (Member $record): bool {
+                            try {
+                                app(MemberDeletionService::class)->delete($record);
 
-                            return true;
+                                return true;
+                            } catch (\RuntimeException $e) {
+                                Notification::make()
+                                    ->title('Cannot delete member')
+                                    ->body($e->getMessage())
+                                    ->danger()
+                                    ->send();
+
+                                return false;
+                            }
                         })
                         ->after(fn(Component $livewire) => static::dispatchMemberListHeaderWidgetsRefresh($livewire)),
                     RestoreAction::make()
@@ -595,6 +821,87 @@ class MemberResource extends Resource
                             static::dispatchMemberListHeaderWidgetsRefresh($livewire);
                         })
                         ->deselectRecordsAfterCompletion(),
+                    BulkAction::make('contribute')
+                        ->label('Contribute (selected cycle)')
+                        ->icon('heroicon-o-banknotes')
+                        ->color('success')
+                        ->modalHeading(fn(): string => 'Apply contributions')
+                        ->modalDescription(
+                            'Choose the contribution cycle. Each selected member is processed for that month: applied if they have no row yet, ' .
+                            'are not loan-exempt, and have enough cash; otherwise counted as insufficient or skipped.'
+                        )
+                        ->modalWidth('md')
+                        ->schema(fn(): array => [
+                            Forms\Components\Select::make('cycle')
+                                ->label('Contribution cycle')
+                                ->options(fn(): array => app(ContributionCycleService::class)->contributionCycleSelectOptionsForBulk())
+                                ->required()
+                                ->native(false)
+                                ->helperText('The same calendar month applies to every selected member.')
+                                ->columnSpanFull(),
+                        ])
+                        ->fillForm(function (): array {
+                            $svc = app(ContributionCycleService::class);
+                            [$m, $y] = $svc->currentOpenPeriod();
+
+                            return ['cycle' => $svc->contributionCycleKey($m, $y)];
+                        })
+                        ->authorizeIndividualRecords('update')
+                        ->action(function (array $data, EloquentCollection $records, Component $livewire): void {
+                            $svc = app(ContributionCycleService::class);
+                            $key = $data['cycle'] ?? null;
+
+                            if (!is_string($key) || $key === '') {
+                                Notification::make()
+                                    ->title('Select a contribution cycle')
+                                    ->danger()
+                                    ->send();
+
+                                return;
+                            }
+
+                            try {
+                                [$month, $year] = $svc->parseContributionCycleKey($key);
+                            } catch (\InvalidArgumentException) {
+                                Notification::make()
+                                    ->title('Invalid contribution cycle')
+                                    ->danger()
+                                    ->send();
+
+                                return;
+                            }
+
+                            $applied = 0;
+                            $insufficient = 0;
+                            $skipped = 0;
+
+                            foreach ($records as $record) {
+                                if (!$record instanceof Member || $record->trashed()) {
+                                    $skipped++;
+
+                                    continue;
+                                }
+
+                                $outcome = $svc->applyContributionForMemberForPeriod($record, $month, $year);
+
+                                match ($outcome) {
+                                    'applied' => $applied++,
+                                    'insufficient' => $insufficient++,
+                                    default => $skipped++,
+                                };
+                            }
+
+                            $period = $svc->periodLabel($month, $year);
+
+                            Notification::make()
+                                ->title('Bulk contribute finished')
+                                ->body("Period: {$period}. Applied: {$applied}. Insufficient cash: {$insufficient}. Skipped: {$skipped}.")
+                                ->color($insufficient > 0 ? 'warning' : 'success')
+                                ->send();
+
+                            static::dispatchMemberListHeaderWidgetsRefresh($livewire);
+                        })
+                        ->deselectRecordsAfterCompletion(),
                     DeleteBulkAction::make()
                         ->modalDescription('Deletes each selected member like single delete (loans safe-deleted first, then bank/SMS and accounts). Rows that fail (e.g. contributions still present) are skipped and reported.')
                         ->using(function (DeleteBulkAction $action, $records) {
@@ -604,7 +911,9 @@ class MemberResource extends Resource
                                     $svc->delete($record);
                                 } catch (\Throwable $e) {
                                     $action->reportBulkProcessingFailure(message: $e->getMessage());
-                                    report($e);
+                                    if (!$e instanceof \RuntimeException) {
+                                        report($e);
+                                    }
                                 }
                             }
                         })
@@ -671,9 +980,7 @@ class MemberResource extends Resource
         }
 
         static::dispatchLivewireWidgetsRefresh($livewire, [
-            MemberAccountStatsWidget::class,
-            MemberProfileWidget::class,
-            MemberActivityWidget::class,
+            MemberRecordInsightsWidget::class,
         ]);
     }
 

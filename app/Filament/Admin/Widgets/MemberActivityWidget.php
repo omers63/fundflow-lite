@@ -40,12 +40,16 @@ class MemberActivityWidget extends Widget
 
         $grid = $months->map(function (Carbon $m) use ($contribs, $monthlyContrib) {
             $row = $contribs->first(fn($c) => $c->month == $m->month && $c->year == $m->year);
+            $paid = $row !== null;
+            $underpaid = $paid && (float) $row->amount < (float) $monthlyContrib;
 
             return [
                 'label' => $m->format('M y'),
                 'amount' => $row ? (float) $row->amount : 0.0,
-                'paid' => $row !== null,
-                'late' => $row ? ($row->amount < $monthlyContrib) : false,
+                'paid' => $paid,
+                // "Late" = recorded after deadline (is_late), not merely underpaid vs allocation
+                'late' => $paid && (bool) $row->is_late,
+                'underpaid' => $underpaid,
                 'future' => $m->isFuture(),
             ];
         });

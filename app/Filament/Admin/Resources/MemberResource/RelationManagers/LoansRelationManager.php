@@ -2,6 +2,7 @@
 
 namespace App\Filament\Admin\Resources\MemberResource\RelationManagers;
 
+use App\Filament\Admin\Resources\MemberResource\Concerns\InteractsWithMemberCycleHeaderActions;
 use App\Models\FundTier;
 use App\Models\Loan;
 use App\Models\LoanTier;
@@ -17,9 +18,16 @@ use Filament\Tables\Table;
 
 class LoansRelationManager extends RelationManager
 {
+    use InteractsWithMemberCycleHeaderActions;
+
     protected static string $relationship = 'loans';
 
     protected static ?string $title = 'Loans';
+
+    public function isReadOnly(): bool
+    {
+        return false;
+    }
 
     public function form(Schema $schema): Schema
     {
@@ -32,6 +40,9 @@ class LoansRelationManager extends RelationManager
             ->recordTitleAttribute('id')
             ->defaultSort('applied_at', 'desc')
             ->striped()
+            ->headerActions([
+                $this->repaymentCycleHeaderAction(),
+            ])
             ->columns([
                 Tables\Columns\TextColumn::make('id')->label('Loan #')->toggleable(),
                 Tables\Columns\TextColumn::make('amount_requested')->label('Requested')->money('SAR')->toggleable(),

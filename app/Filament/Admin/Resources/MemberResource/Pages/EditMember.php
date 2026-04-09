@@ -3,30 +3,16 @@
 namespace App\Filament\Admin\Resources\MemberResource\Pages;
 
 use App\Filament\Admin\Resources\MemberResource;
-use App\Filament\Admin\Resources\MemberResource\Concerns\UsesAlpineRelationManagerTabs;
 use App\Filament\Admin\Widgets\MemberAccountStatsWidget;
 use App\Filament\Admin\Widgets\MemberActivityWidget;
 use App\Filament\Admin\Widgets\MemberProfileWidget;
+use App\Filament\Admin\Widgets\MemberRecordInsightsWidget;
+use App\Models\Member;
 use Filament\Resources\Pages\EditRecord;
 
 class EditMember extends EditRecord
 {
-    use UsesAlpineRelationManagerTabs;
-
     protected static string $resource = MemberResource::class;
-
-    /**
-     * @see ViewMember::hasCombinedRelationManagerTabsWithContent()
-     */
-    public function hasCombinedRelationManagerTabsWithContent(): bool
-    {
-        return true;
-    }
-
-    public function getContentTabLabel(): ?string
-    {
-        return 'Membershop';
-    }
 
     // Stash fields for related-model saves after the Member record is persisted
     private array $pendingUserUpdates = [];
@@ -43,9 +29,11 @@ class EditMember extends EditRecord
     protected function getHeaderWidgets(): array
     {
         return [
-            MemberAccountStatsWidget::class,
-            MemberProfileWidget::class,
-            MemberActivityWidget::class,
+                // MemberAccountStatsWidget::class,
+                // MemberProfileWidget::class,
+                // MemberActivityWidget::class,
+
+            MemberRecordInsightsWidget::class,
         ];
     }
 
@@ -156,6 +144,19 @@ class EditMember extends EditRecord
             }
         }
 
+        // Filament can omit `parent_id` from `getState()` when dehydration/validation does not
+        // include it, even though Livewire still has the value in `$this->data`. Merge explicitly.
+        $record = $this->record;
+        if (
+            $record instanceof Member
+            && !$record->dependents()->exists()
+            && is_array($this->data)
+            && array_key_exists('parent_id', $this->data)
+        ) {
+            $pid = $this->data['parent_id'];
+            $data['parent_id'] = ($pid === '' || $pid === null) ? null : (int) $pid;
+        }
+
         return $data;
     }
 
@@ -166,11 +167,11 @@ class EditMember extends EditRecord
      */
     protected function afterSave(): void
     {
-        if (! empty($this->pendingUserUpdates)) {
+        if (!empty($this->pendingUserUpdates)) {
             $this->record->user->update($this->pendingUserUpdates);
         }
 
-        if (! empty($this->pendingAppUpdates)) {
+        if (!empty($this->pendingAppUpdates)) {
             $this->record->user->membershipApplication()->updateOrCreate(
                 ['user_id' => $this->record->user_id],
                 $this->pendingAppUpdates,

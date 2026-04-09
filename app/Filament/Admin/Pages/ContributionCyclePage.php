@@ -159,10 +159,25 @@ class ContributionCyclePage extends Page implements HasTable
                                 ->body('SAR ' . number_format($record->monthly_contribution_amount) . " applied for {$record->user->name}.")
                                 ->success()
                                 ->send();
+                        } elseif ($outcome === 'already_contributed') {
+                            Notification::make()
+                                ->title('Already recorded')
+                                ->body(Contribution::duplicateCycleMessage($month, $year))
+                                ->warning()
+                                ->send();
+                        } elseif ($outcome === 'exempt') {
+                            Notification::make()
+                                ->title('Member exempt')
+                                ->body('This member is exempt from contributions while they have an approved or active loan.')
+                                ->warning()
+                                ->send();
                         } else {
                             Notification::make()
                                 ->title('Could Not Apply')
-                                ->body("Status: {$outcome}")
+                                ->body(match ($outcome) {
+                                    'insufficient' => 'Cash balance is below the required monthly amount.',
+                                    default => 'Status: ' . $outcome,
+                                })
                                 ->warning()
                                 ->send();
                         }
@@ -202,9 +217,7 @@ class ContributionCyclePage extends Page implements HasTable
     /** The "current open" period is the previous calendar month (contributions are collected in arrears). */
     private function currentOpenPeriod(): array
     {
-        $prev = now()->subMonthNoOverflow();
-
-        return [(int) $prev->month, (int) $prev->year];
+        return app(ContributionCycleService::class)->currentOpenPeriod();
     }
 
     private function periodLbl(int $month, int $year): string

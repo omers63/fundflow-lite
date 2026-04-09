@@ -1,4 +1,4 @@
-@php $d = $this->getData(); @endphp
+@php $d = $d ?? $this->getData(); @endphp
 
 @if(!($d['hasRecord'] ?? false))
     <div class="p-4 text-gray-400 text-sm">No member selected.</div>
@@ -16,12 +16,15 @@
                 </div>
                 <h3 class="font-semibold text-white">Contribution History</h3>
             </div>
-            <div class="flex items-center gap-3 text-sm text-white/80">
+            <div class="flex flex-wrap items-center gap-x-3 gap-y-1 text-sm text-white/80">
                 <span class="flex items-center gap-1">
                     <span class="w-3 h-3 rounded-sm bg-emerald-300 inline-block"></span> Paid
                 </span>
-                <span class="flex items-center gap-1">
+                <span class="flex items-center gap-1" title="Flagged is_late on the contribution (after deadline)">
                     <span class="w-3 h-3 rounded-sm bg-amber-300 inline-block"></span> Late
+                </span>
+                <span class="flex items-center gap-1" title="Paid but below monthly allocation">
+                    <span class="w-3 h-3 rounded-sm bg-orange-300 inline-block"></span> Short
                 </span>
                 <span class="flex items-center gap-1">
                     <span class="w-3 h-3 rounded-sm bg-red-300/70 inline-block"></span> Missed
@@ -50,11 +53,20 @@
         {{-- Month grid --}}
         <div class="px-5 pt-3 pb-2 grid grid-cols-6 gap-1.5">
             @foreach($d['grid'] as $cell)
-            <div class="group relative" title="{{ $cell['label'] }}: {{ $cell['paid'] ? 'SAR '.number_format($cell['amount'],2) : ($cell['future'] ? 'Future' : 'Missed') }}">
+            @php
+                $tip = $cell['label'].': ';
+                if ($cell['future'] ?? false) { $tip .= 'Future'; }
+                elseif (!($cell['paid'] ?? false)) { $tip .= 'Missed'; }
+                elseif ($cell['late'] ?? false) { $tip .= 'Late (after deadline) — SAR '.number_format($cell['amount'], 2); }
+                elseif (!empty($cell['underpaid'])) { $tip .= 'Short — SAR '.number_format($cell['amount'], 2).' / '.number_format($d['monthly_contrib']); }
+                else { $tip .= 'Paid — SAR '.number_format($cell['amount'], 2); }
+            @endphp
+            <div class="group relative" title="{{ $tip }}">
                 <div class="h-8 rounded-md cursor-default
-                    @if($cell['future']) bg-gray-100 dark:bg-gray-800 border border-dashed border-gray-300 dark:border-gray-700
-                    @elseif(!$cell['paid']) bg-red-200 dark:bg-red-900/50 border border-red-300 dark:border-red-700
-                    @elseif($cell['late']) bg-amber-200 dark:bg-amber-900/50 border border-amber-300 dark:border-amber-600
+                    @if($cell['future'] ?? false) bg-gray-100 dark:bg-gray-800 border border-dashed border-gray-300 dark:border-gray-700
+                    @elseif(!($cell['paid'] ?? false)) bg-red-200 dark:bg-red-900/50 border border-red-300 dark:border-red-700
+                    @elseif($cell['late'] ?? false) bg-amber-200 dark:bg-amber-900/50 border border-amber-300 dark:border-amber-600
+                    @elseif(!empty($cell['underpaid'])) bg-orange-200 dark:bg-orange-900/40 border border-orange-300 dark:border-orange-700
                     @else bg-emerald-200 dark:bg-emerald-900/50 border border-emerald-300 dark:border-emerald-700
                     @endif">
                 </div>
@@ -63,42 +75,46 @@
             @endforeach
         </div>
 
-        {{-- Bar chart --}}
-        <div class="px-5 pb-5"
-             x-data="{
-                 chart: null,
-                 init() {
-                     this.$nextTick(() => {
-                         const isDark = document.documentElement.classList.contains('dark');
-                         const gridColor = isDark ? 'rgba(255,255,255,0.07)' : 'rgba(0,0,0,0.06)';
-                         const textColor = isDark ? '#9ca3af' : '#6b7280';
-                         this.chart = new Chart(this.$refs.canvas.getContext('2d'), {
-                             type: 'bar',
-                             data: {
-                                 labels: {{ json_encode($d['chart_labels']) }},
-                                 datasets: [{
-                                     label: 'Amount',
-                                     data: {{ json_encode($d['chart_data']) }},
-                                     backgroundColor: function(ctx) {
-                                         const val = ctx.dataset.data[ctx.dataIndex];
-                                         return val > 0 ? 'rgba(16,185,129,0.7)' : 'rgba(239,68,68,0.5)';
-                                     },
-                                     borderRadius: 4,
-                                     borderSkipped: false,
-                                 }]
-                             },
-                             options: {
-                                 responsive: true, maintainAspectRatio: false,
-                                 plugins: { legend: { display: false } },
-                                 scales: {
-                                     x: { grid: { color: gridColor }, ticks: { color: textColor, font: { size: 10 } } },
-                                     y: { grid: { color: gridColor }, ticks: { color: textColor, font: { size: 10 }, callback: v => 'SAR '+v } }
-                                 }
-                             }
-                         });
-                     });
-                 }
-             }">
+        {{-- Bar chart: guard Chart.js; wire:ignore avoids morph issues (see contribution-trend widget) --}}
+        <div
+            class="px-5 pb-5"
+            wire:ignore
+            x-data="{
+                chart: null,
+                init() {
+                    this.$nextTick(() => {
+                        if (typeof Chart === 'undefined') return;
+                        const isDark = document.documentElement.classList.contains('dark');
+                        const gridColor = isDark ? 'rgba(255,255,255,0.07)' : 'rgba(0,0,0,0.06)';
+                        const textColor = isDark ? '#9ca3af' : '#6b7280';
+                        this.chart = new Chart(this.$refs.canvas, {
+                            type: 'bar',
+                            data: {
+                                labels: {{ json_encode($d['chart_labels']) }},
+                                datasets: [{
+                                    label: 'Amount',
+                                    data: {{ json_encode($d['chart_data']) }},
+                                    backgroundColor: function(ctx) {
+                                        const val = ctx.dataset.data[ctx.dataIndex];
+                                        return val > 0 ? 'rgba(16,185,129,0.7)' : 'rgba(239,68,68,0.5)';
+                                    },
+                                    borderRadius: 4,
+                                    borderSkipped: false,
+                                }]
+                            },
+                            options: {
+                                responsive: true, maintainAspectRatio: false,
+                                plugins: { legend: { display: false } },
+                                scales: {
+                                    x: { grid: { color: gridColor }, ticks: { color: textColor, font: { size: 10 } } },
+                                    y: { grid: { color: gridColor }, ticks: { color: textColor, font: { size: 10 }, callback: v => 'SAR '+v } }
+                                }
+                            }
+                        });
+                    });
+                },
+                destroy() { if (this.chart) { this.chart.destroy(); this.chart = null; } }
+            }">
             <div class="h-36 mt-3">
                 <canvas x-ref="canvas"></canvas>
             </div>

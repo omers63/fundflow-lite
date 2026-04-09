@@ -2001,6 +2001,270 @@ Single-row Approve and bulk approve both use this method, so both paths get the 
 Note: Existing members who were approved before this fix might still be missing accounts. If you want, we can add a one-off artisan command or migration script to backfill with ensureMemberAccounts where cash/fund rows are absent.
 
 ------------------------------
+Here’s what was implemented.
+
+Behaviour (aligned with Contribution Cycle)
+The “due” period is not the current calendar month. It’s the previous month (arrears), same as ContributionCyclePage (currentOpenPeriod()).
+
+ContributionCycleService
+Added currentOpenPeriod(): array → [month, year] from now()->subMonthNoOverflow().
+ContributionCyclePage now calls this so the definition lives in one place.
+Contributions relation manager (Member View/Edit)
+Header action Contribute (banknotes icon, success color).
+visible only when all of these hold:
+Member status === 'active'
+monthly_contribution_amount > 0
+Not contribution-exempt (isExemptFromContributions() — approved/active loan)
+No Contribution row yet for the open period (previous month/year)
+disabled when cash balance is below the required monthly amount (same idea as “Apply Now” on the cycle page).
+Confirmation modal explains debit/credit for the labeled period.
+action calls ContributionCycleService::applyOne() (cash debit + Contribution + observer fund postings + notifications), then shows success / insufficient / skipped Filament notifications.
+Files touched:
+app/Services/ContributionCycleService.php,
+app/Filament/Admin/Pages/ContributionCyclePage.php,
+app/Filament/Admin/Resources/MemberResource/RelationManagers/ContributionsRelationManager.php.
+
+---------------------------
+Here’s what was added and centralized.
+
+ContributionCycleService (shared rules)
+currentOpenPeriod() / currentOpenPeriodLabel() – open period = previous calendar month (arrears).
+shouldOfferOpenPeriodContribution(Member) – active, monthly amount > 0, not loan-exempt, no contribution row for that period.
+hasInsufficientCashForOpenPeriodContribution(Member) – cash < required amount.
+openPeriodContributionModalDescription(Member) – confirmation copy.
+applyOpenPeriodContributionForMember(Member) – calls existing applyOne() for that period.
+ContributionCyclePage now uses currentOpenPeriod() from this service (single definition).
+
+Members list table (MemberResource)
+Row (in the existing action group): Contribute – same visibility/disabled behaviour as on the member Contributions tab; update authorization; confirmation; notification + stats widget refresh.
+Bulk: Contribute (open period) – runs the same apply logic for each selected member; summary: applied / insufficient / skipped; authorizeIndividualRecords('update'); refreshes header widgets.
+Contributions relation tab
+The Contribute header action is restored and now delegates to ContributionCycleService so list, tab, and cycle stay aligned.
+
+The open period is always last month / arrears, matching the contribution cycle page.
+
+---------------------------------
+Table header action: “Import Contributions”
+In 102:154:c:\laragon\www\fundflow\app\Filament\Admin\Resources\ContributionResource.php, a green Import Contributions action (upload icon) opens a modal with a CSV upload (stored under storage/app/contribution-imports, then deleted after processing).
+Shown only when static::canCreate() is true (same idea as New Contribution).
+After import, a persistent notification reports Created / Skipped / Failed and up to 8 error lines; ContributionStatsWidget is refreshed the same way as the membership application import + stats widget.
+ContributionImportService
+New file: app/Services/ContributionImportService.php.
+Calls Gate::authorize('create', Contribution::class) before processing.
+CSV rules: header row; per row either member_id or member_number; month, year, amount required; month = 1–12 or month name; year = 2000–2100; paid_at optional (defaults to now); reference_number, notes, is_late, payment_method optional (empty payment_method → admin entry, same as the create form).
+Skips completely empty rows; duplicate member+month+year (active row) fails that row with the usual duplicate message; new rows use Contribution::create, so ContributionObserver still posts to the ledger.
+Pint was run on the touched files for style/import order.
+
+-------------------------------
+Creating samples/contributions-import-sample.csv beside the other sample files, with columns matching the importer and a few example rows (including optional fields).
+
+member_id,member_number,month,year,amount,paid_at,reference_number,notes,is_late,payment_method
+1,,3,2026,500,,IMP-2026-03-001,Sample row using member_id; replace 1 with a real id from your database,no,admin
+,10001,3,2026,1000,2026-03-05 14:30:00,IMP-2026-03-002,Sample using member_number; replace 10001 with a real member number,0,bank_transfer
+,10002,April,2026,500,,IMP-2026-04-003,Month can be a name (e.g. April) or 1-12,yes,cash
+,10003,5,2026,1500,2026-05-02,,Empty paid_at defaults to now at import time,0,online
+Created samples/contributions-import-sample.csv next to your other import samples.
+
+It includes:
+
+Header: member_id, member_number Month, year, amount, paid_at, reference_number, notes, is_late, payment_method
+Four example rows: one keyed by member_id, three by member_number (with blank member_id), optional fields filled where useful, payment_method values that match the app (admin, bank_transfer, cash, online).
+Replace 1, 10001, 10002, and 10003 with real IDs/numbers and adjust month/year so you do not hit duplicate-cycle or missing-member errors when you test the import.
+
+---------------------
+Here’s what was implemented:
+
+Modal create (admin contributions)
+CreateAction no longer uses ->url(...), so it uses Filament’s default modal with the resource form (same as other resources).
+modalWidth('2xl'), createAnother(false) for a simpler footer.
+mutateDataUsing sets payment_method to Contribution::PAYMENT_METHOD_ADMIN (same as the old create page).
+after calls dispatchContributionStatsRefresh so stats stay in sync, like the import action.
+The dedicated CreateContribution page and its route were removed from getPages(); the file was deleted.
+Clearer duplicate cycle handling
+Contribution::duplicateCycleMessage() now starts with “Duplicate contribution:” and tells the user to pick another period or edit the existing row.
+The year field has a closure rule that checks Contribution::activePeriodExists() using member_id, month, and year from the form (and ignores the current record on edit). Validation runs before save, so Filament shows the message on the year field instead of a vague failure.
+The model creating / updating checks are unchanged as a safety net; ValidationException still targets year for non-form code paths.
+You’ll use New Contribution on the list; it opens the modal and keeps you on the list after success.
+------------------------------
+Here’s what was implemented:
+
+Modal create (admin contributions)
+CreateAction no longer uses ->url(...), so it uses Filament’s default modal with the resource form (same as other resources).
+modalWidth('2xl'), createAnother(false) for a simpler footer.
+mutateDataUsing sets payment_method to Contribution::PAYMENT_METHOD_ADMIN (same as the old create page).
+after calls dispatchContributionStatsRefresh so stats stay in sync, like the import action.
+The dedicated CreateContribution page and its route were removed from getPages(); the file was deleted.
+Clearer duplicate cycle handling
+Contribution::duplicateCycleMessage() now starts with “Duplicate contribution:” and tells the user to pick another period or edit the existing row.
+The year field has a closure rule that checks Contribution::activePeriodExists() using member_id, month, and year from the form (and ignores the current record on edit). Validation runs before save, so Filament shows the message on the year field instead of a vague failure.
+The model creating / updating checks are unchanged as a safety net; ValidationException still targets year for non-form code paths.
+You’ll use New Contribution on the list; it opens the modal and keeps you on the list after success.
+
+----------------------------------
+Here’s what was implemented.
+
+ContributionCycleService
+shouldOfferOpenPeriodDependentAllocation(Member $parent) — true when the parent is active (not trashed), has dependents, and at min one active dependent still matches shouldOfferOpenPeriodContribution for the same open period (same rules as Contribute on dependents).
+LoanRepaymentService
+shouldOfferOpenPeriodRepayment(Member $member) — active member, active loan, and an unpaid installment whose due_date matches the current open period (same month/year as contributions: previous calendar month via ContributionCycleService::currentOpenPeriod()).
+hasInsufficientCashForOpenPeriodRepayment, openPeriodRepaymentModalDescription, applyOpenPeriodRepaymentForMember — same pattern as the contribution quick action (delegates to existing applyOne).
+MemberResource table actions
+Contribute — unchanged rules, plus !shouldOfferOpenPeriodRepayment so if a repayment action is offered, Contribute is hidden (repayment wins).
+Repayment — confirmation modal, debit/notification flow like Contribute, list header widgets refresh after run. Shown when shouldOfferOpenPeriodRepayment is true.
+Allocate — warning styling, opens the member’s edit screen (MemberResource::getUrl('edit', …)) so admins can use the Dependents tab (Set allocation / Fund cash). Shown when shouldOfferOpenPeriodDependentAllocation is true. Independent of Contribute/Repayment (can appear with either when the parent also has pending dependent work).
+So Contribute and Repayment never show together; Repayment overrides when both would apply. Allocate only reflects dependent work still due for the period.
+
+-----------------------------------------
+Here is what was going wrong and what we changed.
+
+1. MemberActivityWidget — unguarded new Chart()
+Your contribution-trend widget already uses the safe pattern:
+
+
+contribution-trend.blade.php
+Lines 52-58
+
+                    if (typeof Chart !== 'undefined') {
+                        this.chart = new Chart(this.$refs.canvas, {
+member-activity.blade.php did not check for Chart. If Chart is not defined on that screen (your app does not ship Chart.js in package.json, and nothing in bootstrap.js sets window.Chart), Alpine runs init(), hits new Chart(...), throws, and that can break the rest of the page’s Livewire/Alpine behavior — including the edit form’s wire:submit.
+
+Fix: Same pattern as contribution-trend: if (typeof Chart === 'undefined') return;, use new Chart(this.$refs.canvas, …) (canvas element, like your other widget), add wire:ignore on the chart block, and destroy() the chart on teardown.
+
+2. Shared $record was being mutated by widgets
+Header widgets receive the same Member instance as EditRecord (getWidgetsData() passes $this->record).
+
+MemberProfileWidget called $this->record->unsetRelation('user') and load(...) on that instance — mutating the form’s model while the page renders.
+MemberAccountStatsWidget used $this->record->load(['accounts', 'loans']) — same problem.
+That can mess with hydration, relation state, and what Livewire thinks the record looks like.
+
+Fix: Both widgets now load data with Member::query()->...->findOrFail($this->record->getKey()) so the edit form’s $record is never touched.
+
+After a refresh, Save should work with all three widgets enabled. If the contribution bar chart still doesn’t draw, add Chart.js to your admin bundle (e.g. npm chart.js and import it in the Filament theme entry) so typeof Chart !== 'undefined' is true — but it will no longer take down the page when Chart is missing.
+----------------------------------
+Here’s what was going wrong and what we changed.
+
+1. “Late” on the 12‑month heatmap was wrong
+The grid used amount < monthly_contribution_amount and called that “Late”. That is underpayment vs allocation, not late collection in your domain (deadline / contributions.is_late).
+
+late on each cell now follows Contribution.is_late (same as Finance / DB).
+underpaid is separate: paid, but amount below monthly allocation.
+Legend: Late = after deadline (is_late), Short = paid below allocation (orange cells).
+Tooltips describe Late vs Short.
+Updated in MemberRecordInsightsWidget, MemberActivityWidget, and member-activity.blade.php.
+
+2. Members list vs real contributions
+Late # / Late amount on members are denormalized (late_contributions_count / late_contributions_amount). They can get out of date if rows were changed without going through the observer (bulk SQL, old imports, etc.).
+
+Member::contributionsMarkedLateCount() and contributionsMarkedLateAmount() aggregate from the contributions relation (respects soft deletes), same rules as refreshLateContributionStats().
+Account stats widgets use these live numbers instead of the cached columns.
+Members table columns and the “Late contributions” filter use the same definition (is_late on contributions), with sort implemented via subqueries so sorting matches the displayed values.
+3. MemberProfileWidget / profile card
+That widget only drives compliance % (records ÷ months since join), not is_late. A short note was added under the compliance bar so it isn’t confused with late payments.
+
+To resync stored columns on members for reporting/exports after fixing data:
+
+Member::find($id)?->refreshLateContributionStats();
+Or resync everyone in tinker with a loop over Member::query()->cursor().
+
+If you want, we can add a small members:refresh-late-stats Artisan command so you don’t need tinker.
+
+-----------------------------------------
+Here is what was implemented to finish the feature.
+
+Shared trait: InteractsWithMemberCycleHeaderActions
+Allocate — visible when ContributionCycleService::shouldOfferOpenPeriodDependentCashTransfer is true (parent active, not trashed, at least one active dependent still needs the open-period contribution and cash shortfall > 0). Runs applyOpenPeriodDependentAllocationForParent and shows per-dependent notifications.
+Contribute — visible when shouldOfferOpenPeriodContribution and not LoanRepaymentService::shouldOfferOpenPeriodRepayment (same mutual exclusion as the member list). Disabled when cash is insufficient.
+Repayment — visible only when shouldOfferOpenPeriodRepayment is true (so Contribute and Repayment never show together).
+After a successful action, the trait calls MemberResource::dispatchMemberRecordHeaderWidgetsRefresh() and resetTable() when available.
+
+Relation managers
+Tab	Header actions
+Accounts
+Allocate, Contribute, Repayment (same visibility rules as above)
+Contributions
+Contribute only (reuses trait; same visibility as Accounts)
+Loans
+Repayment only
+Dependents
+Allocate only
+Accounts, Loans, and Dependents now use isReadOnly(): false so these actions work on view as well as edit, matching Contributions.
+
+Files touched
+app/Filament/Admin/Resources/MemberResource/Concerns/InteractsWithMemberCycleHeaderActions.php (new)
+AccountsRelationManager.php, ContributionsRelationManager.php, LoansRelationManager.php, DependentsRelationManager.php
+ContributionCycleService.php was already in good shape (no duplicate openPeriodContributionModalDescription). PHP syntax checks and php artisan about both succeed.
+
+--------------------------------
+Here’s what changed.
+
+Confirmation modal (openPeriodDependentAllocationModalDescription)
+Returns an HtmlString with a card-style bordered table (Dependent | Cash | Needed | Transfer).
+Uses only the dependent’s name in the first column (no member number).
+Shows your cash balance above the table and a short footnote under it explaining what confirming will do for the current open period.
+The Allocate action uses modalWidth('lg') so the table fits comfortably.
+After-run notifications
+formatAllocationResultDetailTableHtml() turns each result line into a small table with headers Dependent and Result.
+Lines like Name: Transferred SAR … are split on the first : so names stay in the first column; messages without a colon (e.g. the “no shortfall” message) span both columns.
+Allocation log lines (applyOpenPeriodDependentAllocationForParent)
+Success/skip/error lines now use dependentAllocationDetailLine(), which prefixes with the user’s name only (no member number).
+------------------------------
+Here’s what was implemented.
+
+ContributionCycleService
+contributionCycleKey / parseContributionCycleKey — values like 2026-04 for selects.
+memberCanApplyContributionForPeriod — active member, positive amount, not loan-exempt, no contribution row for that month/year.
+contributionCycleSelectOptionsForMember — up to 24 months back from the current open period, only cycles still payable for that member (newest first in the list).
+contributionCycleSelectOptionsForBulk — same window, all months (bulk applies the chosen month per member; each row succeeds or is skipped).
+defaultContributionCycleKeyForMember — prefers the current open period when it’s still in the list, otherwise the first available.
+memberHasPayableContributionCycle — used so Contribute shows whenever any cycle in that window is still payable (not only the open month).
+contributionModalDescriptionForMemberAndPeriod / contributionModalDescriptionForMemberAndCycleKey — debit text for the selected cycle.
+applyContributionForMemberForPeriod — applies for a given month/year; applyOpenPeriodContributionForMember delegates to it.
+UI
+Members table — Contribute: modal with Contribution cycle select, live helper text (amount/balance/period), default = current open period when possible.
+Bulk “Contribute (selected cycle)”: same idea — one cycle for all selected rows; summary includes the chosen period label.
+InteractsWithMemberCycleHeaderActions (Accounts / Contributions tabs): same select + helper text; runContributeForSelectedCycle applies the chosen cycle.
+Repayment behavior is unchanged. Allocate still follows the current open period only.
+
+If you want a different lookback (not 24 months) or to restrict bulk to only cycles with at least one pending member, that can be adjusted next.
+
+-------------------------------
+Here’s what changed.
+
+New rules for showing Allocate
+ContributionCycleService::shouldShowDependentAllocationAction() returns true only when:
+
+Member is not trashed and status is active
+There is at least one active dependent
+Parent cash ≥ total shortfall for the open period, where
+totalOpenPeriodDependentShortfallForParent() sums, for each active dependent who still owes the open-period contribution,
+max(0, monthly_contribution_amount − dependent cash).
+So the action is available for any parent who can cover all of those shortfalls in one go (including when the total shortfall is 0). It is hidden when parent cash is below that total (even if some dependents still have a shortfall).
+
+Other updates
+shouldOfferOpenPeriodDependentCashTransfer was removed; call sites use shouldShowDependentAllocationAction (members list row + InteractsWithMemberCycleHeaderActions).
+applyOpenPeriodDependentAllocationForParent no longer bails out only when “some shortfall existed”; it checks active dependents, then verifies parent cash against aggregate shortfall before transferring. If nothing is left to move, it returns a clear single-line message.
+Confirmation modal (when there are shortfalls): shows Your cash balance and Total to transfer (aggregate shortfall) above the table.
+This matches: parent + enough cash to fund all dependent shortfalls for the period; no requirement that shortfall be > 0 for the button to appear.
+-------------------------------------
+Here’s what was implemented.
+
+ContributionCycleService
+totalDependentShortfallForParentForPeriod($parent, $month, $year) — aggregate shortfall for active dependents who can still contribute in that month (memberCanApplyContributionForPeriod).
+allocationCycleSelectOptionsForParent($parent) — cycles in the same 24‑month lookback as contributions, where shortfall > 0 and parent cash ≥ that shortfall (same idea as before, but per month).
+defaultAllocationCycleKeyForParent($parent) — prefers the current open period when it appears in the list, otherwise the first option.
+applyDependentAllocationForParentForPeriod($parent, $month, $year) — performs transfers for that month; ledger note is Allocation — {month year}.
+applyOpenPeriodDependentAllocationForParent — still delegates to the current open period.
+dependentAllocationModalDescriptionForPeriod($parent, $month, $year) — HTML preview for that cycle; openPeriodDependentAllocationModalDescription delegates to the open period.
+UI (Dependents tab + Accounts tab via trait, and members table)
+Allocate opens a modal with:
+Allocation cycle Select (same Y-m keys as contributions).
+Placeholder preview that refreshes on change (balance, total to transfer, table).
+Submit runs applyDependentAllocationForParentForPeriod for the selected cycle.
+Visibility: Allocate stays visible when allocationCycleSelectOptionsForParent is non-empty (at least one month in the window has shortfall and the parent can cover it). Months with nothing to move are not listed.
+
+-------------------------------------
+
+
 
 
 

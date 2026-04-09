@@ -188,6 +188,87 @@ class LoanRepaymentService
     }
 
     // =========================================================================
+    // Open period (aligned with contribution cycle — previous calendar month)
+    // =========================================================================
+
+    /** Whether to show one-click repayment for the current open period (active loan, unpaid installment for that period). */
+    public function shouldOfferOpenPeriodRepayment(Member $member): bool
+    {
+        if ($member->trashed() || $member->status !== 'active') {
+            return false;
+        }
+
+        $loan = Loan::active()
+            ->where('member_id', $member->id)
+            ->first();
+
+        if ($loan === null) {
+            return false;
+        }
+
+        [$month, $year] = app(ContributionCycleService::class)->currentOpenPeriod();
+        $installment = $this->installmentForPeriod($loan, $month, $year);
+
+        return $installment !== null && !$installment->isPaid();
+    }
+
+    public function hasInsufficientCashForOpenPeriodRepayment(Member $member): bool
+    {
+        $loan = Loan::active()->where('member_id', $member->id)->first();
+        if ($loan === null) {
+            return true;
+        }
+
+        [$month, $year] = app(ContributionCycleService::class)->currentOpenPeriod();
+        $installment = $this->installmentForPeriod($loan, $month, $year);
+
+        if ($installment === null || $installment->isPaid()) {
+            return true;
+        }
+
+        return (float) $member->cash_balance < (float) $installment->amount;
+    }
+
+    public function openPeriodRepaymentModalDescription(Member $member): string
+    {
+        $loan = Loan::active()->where('member_id', $member->id)->first();
+        $amount = 0.0;
+        if ($loan !== null) {
+            [$month, $year] = app(ContributionCycleService::class)->currentOpenPeriod();
+            $installment = $this->installmentForPeriod($loan, $month, $year);
+            $amount = (float) ($installment?->amount ?? 0);
+        }
+
+        return sprintf(
+            'Debits SAR %s from the member cash account (balance: SAR %s) for loan repayment in %s. Fund postings match the repayment run.',
+            number_format($amount, 2),
+            number_format((float) $member->cash_balance, 2),
+            app(ContributionCycleService::class)->currentOpenPeriodLabel(),
+        );
+    }
+
+    /**
+     * Apply the installment due in the current open period for this member's active loan.
+     *
+     * @return 'applied'|'insufficient'|'skipped'
+     */
+    public function applyOpenPeriodRepaymentForMember(Member $member): string
+    {
+        $member->unsetRelation('accounts');
+        $member->load(['user', 'accounts']);
+
+        $loan = Loan::active()->where('member_id', $member->id)->first();
+        if ($loan === null) {
+            return 'skipped';
+        }
+
+        [$month, $year] = app(ContributionCycleService::class)->currentOpenPeriod();
+        $bucket = [];
+
+        return $this->applyOne($loan, $month, $year, null, $bucket);
+    }
+
+    // =========================================================================
     // Helpers
     // =========================================================================
 
