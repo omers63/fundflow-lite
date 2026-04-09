@@ -205,7 +205,17 @@
                 <div class="w-5 h-5 rounded-full bg-blue-100 dark:bg-blue-900/50 flex items-center justify-center flex-shrink-0">
                     <x-heroicon-o-arrow-up class="w-3 h-3 text-blue-600" />
                 </div>
-                <span class="text-gray-700 dark:text-gray-300">Sponsored by <span class="font-medium">{{ $d['parent_name'] }}</span>
+                <span class="text-gray-700 dark:text-gray-300">
+                    Sponsored by
+                    @if(!empty($d['parent_url']))
+                        <a
+                            href="{{ $d['parent_url'] }}"
+                            wire:navigate
+                            class="font-medium text-primary-600 hover:text-primary-500 dark:text-primary-400 dark:hover:text-primary-300 underline-offset-2 hover:underline"
+                        >{{ $d['parent_name'] }}</a>
+                    @else
+                        <span class="font-medium">{{ $d['parent_name'] }}</span>
+                    @endif
                     <span class="text-gray-400 dark:text-gray-500 text-xs">({{ $d['parent_number'] }})</span>
                 </span>
             </div>
@@ -222,7 +232,16 @@
                     <div class="w-5 h-5 rounded-full bg-purple-100 dark:bg-purple-900/50 flex items-center justify-center flex-shrink-0">
                         <x-heroicon-o-arrow-down class="w-3 h-3 text-purple-600" />
                     </div>
-                    <span class="text-gray-700 dark:text-gray-300">{{ $dep['name'] }}
+                    <span class="text-gray-700 dark:text-gray-300">
+                        @if(!empty($dep['url']))
+                            <a
+                                href="{{ $dep['url'] }}"
+                                wire:navigate
+                                class="font-medium text-primary-600 hover:text-primary-500 dark:text-primary-400 dark:hover:text-primary-300 underline-offset-2 hover:underline"
+                            >{{ $dep['name'] }}</a>
+                        @else
+                            {{ $dep['name'] }}
+                        @endif
                         <span class="text-gray-400 dark:text-gray-500 text-xs">({{ $dep['number'] }})</span>
                     </span>
                 </div>

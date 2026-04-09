@@ -2,6 +2,7 @@
 
 namespace App\Filament\Admin\Widgets;
 
+use App\Filament\Admin\Resources\MemberResource;
 use App\Filament\Admin\Resources\MembershipApplicationResource;
 use App\Models\Contribution;
 use App\Models\Member;
@@ -46,9 +47,18 @@ class MemberProfileWidget extends Widget
         $loanEligibleDate = $member->joined_at?->copy()->addMonths($eligibilityMonths);
         $isLoanEligibleAge = $loanEligibleDate?->isPast() ?? false;
 
+        $targetPage = $this->memberResourceTargetPage();
+
+        $parentUrl = null;
+        if ($member->parent_id !== null) {
+            $parentUrl = MemberResource::getUrl($targetPage, ['record' => $member->parent_id]);
+        }
+
         $dependents = $member->dependents->map(fn(Member $d) => [
+            'id' => $d->id,
             'number' => $d->member_number,
             'name' => $d->user?->name ?? '—',
+            'url' => MemberResource::getUrl($targetPage, ['record' => $d->id]),
         ]);
 
         return [
@@ -83,11 +93,19 @@ class MemberProfileWidget extends Widget
             // Relationships
             'parent_number' => $member->parent?->member_number,
             'parent_name' => $member->parent?->user?->name,
+            'parent_url' => $parentUrl,
             'dependents' => $dependents,
 
             'application_edit_url' => $app !== null
                 ? MembershipApplicationResource::getUrl('edit', ['record' => $app])
                 : null,
         ];
+    }
+
+    protected function memberResourceTargetPage(): string
+    {
+        return request()->routeIs('filament.admin.resources.members.edit')
+            ? 'edit'
+            : 'view';
     }
 }

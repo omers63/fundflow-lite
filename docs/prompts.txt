@@ -147,6 +147,6 @@ In the contribution confirmation, I need a selection box to select the contribut
 I am sorry, I mislead you. "Allocate" acion should always be available as long as the member is a parent and has sufficient cash account balance to fund all Dependents allocated amounts.
 In the allocation confirmation, I need a selection box to select the allocation cycle.
 Make sure that the concept of allocation/collection/repayment throughout the application is consistent as folowing: a cycle for a particular month (say June) starts at a particular day and ends one day less the following month. So, for June Cycle, it starts from the 6th of June and ends the 5th of July (considered the due date for the cycle). Make the due date be configurable via a setting page.
-
+In the view/edit member page, make the "Sponsored by" in the widget an active link that redirect me to the parent view/edit page respectively. Similarly, make the "Dependents"  redirect to the view/edit page of the particular Dependent.
 
 

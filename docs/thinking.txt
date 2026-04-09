@@ -2279,6 +2279,28 @@ Other alignment
 Loan::computeExemptionAndFirstRepayment — cutoff uses max(1, contributionCycleStartDay() - 1) instead of a hardcoded 5 (same pattern as “due on the 5th” when start is 6).
 ContributionAppliedNotification — late copy references the real cycleDueEndAt for that contribution’s month/year.
 Comments that referred to a fixed “5th” or “1st of following month” in ContributionCycleService were updated to describe the configurable cycle deadline.
+-----------------------------------------------------
+Here’s what was implemented.
+
+Behavior
+Sponsored by: The parent’s name is a link to the same “mode” as the current page — view when you’re on ViewMember, edit when you’re on EditMember.
+Dependents: Each dependent’s name links to that member’s view or edit page in the same way.
+Links use wire:navigate (same pattern as “Edit application”) and primary-colored, hover-underline styling.
+Code changes
+MemberRecordInsightsWidget::buildProfileData() (member-record-insights includes member-profile)
+
+Builds parent_url via MemberResource::getUrl(...).
+Adds id and url for each dependent.
+MemberProfileWidget::getData()
+
+Same logic so the standalone profile widget stays consistent if you turn it back on.
+resources/views/filament/admin/widgets/member-profile.blade.php
+
+Renders the sponsor name and each dependent name as <a> when parent_url / dep['url'] are set.
+memberResourceTargetPage()
+
+Uses request()->routeIs('filament.admin.resources.members.edit') to choose edit vs view; anything else (including the member view route) defaults to view links.
+Parent member number in parentheses stays plain text so the link is clearly the name; say if you want the whole line (including number) linked.
 
 
 
