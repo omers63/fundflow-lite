@@ -119,6 +119,8 @@ class TransactionsRelationManager extends RelationManager
                         'App\Models\Contribution' => 'Contribution',
                         'App\Models\Loan' => 'Loan',
                         'App\Models\LoanInstallment' => 'Loan installment',
+                        'App\Models\Member' => 'Member',
+                        'App\Models\User' => 'User (manual / system)',
                     ]),
                 Tables\Filters\Filter::make('amount')
                     ->schema([

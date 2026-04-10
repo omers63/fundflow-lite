@@ -836,10 +836,7 @@ class ContributionCycleService
 
         try {
             DB::transaction(function () use ($member, $month, $year, $amount, $isLate) {
-                // 1. Debit the member's cash account
-                $this->accounting->debitCashForContribution($member, $amount, $month, $year);
-
-                // 2. Create the Contribution record (ContributionObserver will credit fund accounts)
+                // ContributionObserver posts cash debit (cash_account) + fund credits in one flow.
                 $contribution = Contribution::create([
                     'member_id' => $member->id,
                     'amount' => $amount,

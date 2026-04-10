@@ -317,19 +317,15 @@ class QuickPostWorkflowService
             return 0;
         }
 
-        $this->accounting->debitCashForContribution($member, $amount, $now->month, $now->year);
-
-        $contribution = Contribution::create([
+        Contribution::create([
             'member_id' => $member->id,
             'amount' => $amount,
             'month' => $now->month,
             'year' => $now->year,
             'paid_at' => $now,
-            'payment_method' => 'bank_transfer',
+            'payment_method' => Contribution::PAYMENT_METHOD_CASH_ACCOUNT,
             'reference_number' => 'QP-' . now()->format('YmdHis'),
         ]);
-
-        $this->accounting->postContribution($contribution);
 
         return 1;
     }

@@ -14,6 +14,9 @@ class Contribution extends Model
     /** Recorded via Finance → Contributions create form (not user-picked). */
     public const PAYMENT_METHOD_ADMIN = 'admin';
 
+    /** Monthly cycle / member cash deduction before fund credit. */
+    public const PAYMENT_METHOD_CASH_ACCOUNT = 'cash_account';
+
     /** @return array<string, string> */
     public static function paymentMethodOptions(): array
     {

@@ -11,7 +11,9 @@ use App\Models\LoanDisbursement;
 use App\Models\LoanInstallment;
 use App\Models\Member;
 use App\Models\SmsTransaction;
+use App\Models\User;
 use Carbon\CarbonInterface;
+use Illuminate\Database\Eloquent\Model;
 use Illuminate\Support\Carbon;
 use Illuminate\Support\Facades\DB;
 
@@ -97,19 +99,19 @@ class AccountingService
 
         if ($cashAmount > 0) {
             $description = "Cash balance adjustment (member import) – {$label}";
-            $this->postEntry($masterCash, $cashAmount, 'credit', $description, null, $member->id);
-            $this->postEntry($memberCash, $cashAmount, 'credit', $description, null, $member->id);
+            $this->postEntry($masterCash, $cashAmount, 'credit', $description, $member, $member->id);
+            $this->postEntry($memberCash, $cashAmount, 'credit', $description, $member, $member->id);
         }
 
         if ($fundAmount > 0) {
             $description = "Fund balance adjustment — credit (member import) – {$label}";
-            $this->postEntry($masterFund, $fundAmount, 'credit', $description, null, $member->id);
-            $this->postEntry($memberFund, $fundAmount, 'credit', $description, null, $member->id);
+            $this->postEntry($masterFund, $fundAmount, 'credit', $description, $member, $member->id);
+            $this->postEntry($memberFund, $fundAmount, 'credit', $description, $member, $member->id);
         } elseif ($fundAmount < 0) {
             $amount = abs($fundAmount);
             $description = "Fund balance adjustment — debit (member import) – {$label}";
-            $this->postEntry($masterFund, $amount, 'debit', $description, null, $member->id);
-            $this->postEntry($memberFund, $amount, 'debit', $description, null, $member->id);
+            $this->postEntry($masterFund, $amount, 'debit', $description, $member, $member->id);
+            $this->postEntry($memberFund, $amount, 'debit', $description, $member, $member->id);
         }
     }
 
@@ -236,29 +238,51 @@ class AccountingService
     // =========================================================================
 
     /**
-     * Post a contribution to the master Fund Account and the member's Fund Account.
-     * Called automatically by ContributionObserver.
+     * Post ledger effects for a contribution: optional member cash debit (cash_account),
+     * then master + member fund credits. Used by ContributionObserver and restores.
      */
     public function postContribution(Contribution $contribution): void
     {
-        $member = $contribution->member;
-        $this->ensureMemberAccounts($member);
+        DB::transaction(function () use ($contribution) {
+            if ($contribution->payment_method === Contribution::PAYMENT_METHOD_CASH_ACCOUNT) {
+                $this->debitMemberCashForContribution($contribution);
+            }
 
-        $masterFund = Account::masterFund();
-        $memberFund = Account::where('type', Account::TYPE_MEMBER_FUND)
+            $member = $contribution->member;
+            $this->ensureMemberAccounts($member);
+
+            $masterFund = Account::masterFund();
+            $memberFund = Account::where('type', Account::TYPE_MEMBER_FUND)
+                ->where('member_id', $member->id)
+                ->firstOrFail();
+
+            $description = sprintf(
+                'Contribution – %s %s',
+                $contribution->month ? date('F', mktime(0, 0, 0, (int) $contribution->month, 1)) : '',
+                $contribution->year ?? ''
+            );
+
+            $this->postEntry($masterFund, (float) $contribution->amount, 'credit', $description, $contribution, $member->id);
+            $this->postEntry($memberFund, (float) $contribution->amount, 'credit', $description, $contribution, $member->id);
+        });
+    }
+
+    /**
+     * Debit member cash for a contribution cycle payment (source = the contribution row).
+     */
+    public function debitMemberCashForContribution(Contribution $contribution): void
+    {
+        $member = $contribution->member;
+        $member->loadMissing('user');
+
+        $cashAccount = Account::where('type', Account::TYPE_MEMBER_CASH)
             ->where('member_id', $member->id)
             ->firstOrFail();
 
-        $description = sprintf(
-            'Contribution – %s %s',
-            $contribution->month ? date('F', mktime(0, 0, 0, $contribution->month, 1)) : '',
-            $contribution->year ?? ''
-        );
+        $monthName = date('F', mktime(0, 0, 0, (int) $contribution->month, 1));
+        $description = "Contribution deduction – {$monthName} {$contribution->year}";
 
-        DB::transaction(function () use ($contribution, $member, $masterFund, $memberFund, $description) {
-            $this->postEntry($masterFund, $contribution->amount, 'credit', $description, $contribution, $member->id);
-            $this->postEntry($memberFund, $contribution->amount, 'credit', $description, $contribution, $member->id);
-        });
+        $this->postEntry($cashAccount, (float) $contribution->amount, 'debit', $description, $contribution, $member->id);
     }
 
     /**
@@ -547,26 +571,6 @@ class AccountingService
     }
 
     // =========================================================================
-    // Cash debit for contribution cycle
-    // =========================================================================
-
-    /**
-     * Debit a member's Cash Account as part of the contribution cycle.
-     * Called by ContributionCycleService before creating the Contribution record.
-     */
-    public function debitCashForContribution(Member $member, float $amount, int $month, int $year): void
-    {
-        $cashAccount = Account::where('type', Account::TYPE_MEMBER_CASH)
-            ->where('member_id', $member->id)
-            ->firstOrFail();
-
-        $monthName = date('F', mktime(0, 0, 0, $month, 1));
-        $description = "Contribution deduction – {$monthName} {$year}";
-
-        $this->postEntry($cashAccount, $amount, 'debit', $description, null, $member->id);
-    }
-
-    // =========================================================================
     // Parent → Dependent cash transfer
     // =========================================================================
 
@@ -604,8 +608,8 @@ class AccountingService
         $creditDesc = trim("Transfer from {$parent->user->name}'s cash account" . ($note ? " — {$note}" : ''));
 
         DB::transaction(function () use ($parent, $dependent, $parentCash, $dependentCash, $amount, $debitDesc, $creditDesc) {
-            $this->postEntry($parentCash, $amount, 'debit', $debitDesc, null, $parent->id);
-            $this->postEntry($dependentCash, $amount, 'credit', $creditDesc, null, $dependent->id);
+            $this->postEntry($parentCash, $amount, 'debit', $debitDesc, $parent, $parent->id);
+            $this->postEntry($dependentCash, $amount, 'credit', $creditDesc, $dependent, $dependent->id);
         });
     }
 
@@ -849,7 +853,10 @@ class AccountingService
         return DB::transaction(function () use ($account, $entryType, $amount, $trimmed, $memberId, $transactedAt) {
             $account = Account::query()->lockForUpdate()->findOrFail($account->id);
 
-            return $this->postEntry($account, $amount, $entryType, $trimmed, null, $memberId, $transactedAt);
+            $postedById = auth()->id() ?? 1;
+            $source = User::query()->findOrFail($postedById);
+
+            return $this->postEntry($account, $amount, $entryType, $trimmed, $source, $memberId, $transactedAt);
         });
     }
 
@@ -862,7 +869,7 @@ class AccountingService
         float $amount,
         string $entryType,
         string $description,
-        mixed $source,
+        Model $source,
         ?int $memberId = null,
         ?CarbonInterface $transactedAt = null,
     ): AccountTransaction {
@@ -871,8 +878,8 @@ class AccountingService
             'amount' => $amount,
             'entry_type' => $entryType,
             'description' => $description,
-            'source_type' => $source ? get_class($source) : null,
-            'source_id' => $source?->id,
+            'source_type' => $source->getMorphClass(),
+            'source_id' => $source->getKey(),
             'member_id' => $memberId,
             'posted_by' => auth()->id() ?? 1,
             'transacted_at' => $transactedAt ?? now(),

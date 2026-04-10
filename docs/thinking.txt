@@ -2841,3 +2841,29 @@ Migration already applied
 2026_04_11_100000_add_loan_disbursement_id_to_bank_transactions_table was run successfully.
 If you want, I can next add a compact Banking “quick actions” strip (New Bank, New Template, New Transaction, Open Failed Sessions) directly in the hero section.
 ----------------------------------------------
+Here is what was implemented so every ledger row (account_transactions) has a polymorphic source.
+
+1. AccountingService
+postEntry now requires an Illuminate\Database\Eloquent\Model as source and stores source_type / source_id via getMorphClass() and getKey().
+Member CSV import adjustments use the Member as source (same rows as today, but traceable).
+Parent → dependent cash transfer: debit line sources $parent, credit line sources $dependent.
+postManualLedgerEntry uses the User who posted (posted_by / auth()->id()), with User::findOrFail(1) as fallback only if that user is missing.
+postContribution runs in one transaction: if payment_method === Contribution::PAYMENT_METHOD_CASH_ACCOUNT, it calls debitMemberCashForContribution (cash lines use the Contribution as source), then posts the two fund credits (unchanged, still sourced to the contribution).
+Removed debitCashForContribution; cash for cycle contributions is handled inside postContribution.
+2. Contribution model
+Added PAYMENT_METHOD_CASH_ACCOUNT = 'cash_account' so the cash leg is keyed off a real constant.
+3. ContributionCycleService
+Stops debiting cash before create; Contribution::create with cash_account lets the observer run postContribution, which debits cash and credits funds with proper sources.
+4. QuickPostWorkflowService
+Drops the extra debit + duplicate postContribution.
+Creates the contribution with payment_method = PAYMENT_METHOD_CASH_ACCOUNT so the observer does cash + fund once (still inside the existing DB::transaction).
+5. Migration 2026_04_12_120000_backfill_and_require_account_transaction_source.php
+Backfills any rows with source_type null (including soft-deleted ledger rows), using description/member_id/posted_by heuristics, then source_type / source_id are NOT NULL.
+6. UI
+Ledger filter adds source types Member and User.
+Run migrations where this hasn’t been applied yet:
+
+php artisan migrate
+
+Note: Deleting a contribution still reverses all lines whose source is that contribution (cash deduction + fund credits). Quick-post contributions are now stored as cash_account (not bank_transfer) so that behavior stays correct.
+-----------------------------------------------------
