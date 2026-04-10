@@ -2328,7 +2328,67 @@ Allocation is offered when there is still shortfall (monthly amount − cash > 0
 It is blocked for the next run only when an allocation for that cycle is already recorded—not merely because a contribution exists.
 Note on existing data
 Rows are not backfilled from old ledger transfers. Cycles that were funded in the past only via account entries won’t have a row until someone runs Allocate again (or you add a one-off backfill). If you want, we can add a small artisan command to seed dependent_cash_allocations from past “Allocation — …” transactions.
+-------------------------------------------
+Here’s what was added.
 
+Command: fundflow:backfill-dependent-cash-allocations
+File: app/Console/Commands/BackfillDependentCashAllocations.php
+
+What it does
+
+Loads credit account_transactions on member cash accounts where the description looks like a parent→dependent transfer with an allocation note (Allocation — or Allocation -).
+Parses the trailing period with the same regex as in code (Allocation + dash + June 2026 style) and sums amount per dependent + month/year.
+Resolves parent_member_id from the dependent’s current parent_id (must be set).
+Creates dependent_cash_allocations rows when missing; with --force, updates amount (and parent_member_id) when a row already exists.
+Options
+
+--dry-run — prints the table and counts, no writes.
+--force — overwrite existing rows for that dependent/cycle so totals match the ledger.
+Examples
+
+php artisan fundflow:backfill-dependent-cash-allocations --dry-run
+php artisan fundflow:backfill-dependent-cash-allocations
+php artisan fundflow:backfill-dependent-cash-allocations --force
+Caveats
+
+Only lines that match Allocation — / Allocation - in the description are included (same as current fundDependentCashAccount notes).
+Dependents with no parent_id now are skipped and a warning is printed.
+Multiple credits for the same dependent cycle are summed into one row.
+If parent_id was changed after the transfer, the stored parent may not match history; fixing that would need a one-off data fix.
+A dry run on your machine reported 3 groups ready to create.
+
+---------------------------------
+Here’s what was going wrong and what we changed.
+
+Causes
+Mutable Carbon dates – Code used $member->joined_at->addMonths($n) without copy(). That changes joined_at on the model, so later checks and UI saw the wrong date. In LoanEligibilityService the “not yet eligible” branch even called addMonths twice, which pushed the “eligible from” date by 24 months instead of 12.
+MemberAccountStatsWidget and AccountBalancesWidget had the same kind of bug (including two addMonths on AccountBalancesWidget, so the displayed date was wrong).
+
+Only joined_at counted – Loan tenure ignored membership_applications.membership_date, so if the Membership Date on the application was older than members.joined_at (or joined_at was missing/wrong), tenure looked too short.
+
+Fixes
+Member::loanEligibilityStartDate() – Uses the earliest of:
+
+members.joined_at, and
+every non-null membership_date on that member’s applications (so the date you care about is included even when it only lived on the application).
+LoanEligibilityService – Uses loanEligibilityStartDate()->copy()->addMonths(...) for the tenure rule and for eligible_from (no mutation, single add).
+
+Widgets – MemberRecordInsightsWidget, MemberProfileWidget, MemberAccountStatsWidget, and AccountBalancesWidget now use loanEligibilityStartDate() and copy() for all loan tenure math.
+
+Loan eligibility still also requires fund balance ≥ minimum and no overdue installments, as before.
+-----------------------------------------
+Here’s what was implemented.
+
+Behavior
+After computeExemptionAndFirstRepayment() sets the initial first repayment month/year, we now check whether the borrower already has a contribution for that same calendar month/year. If they do, the first repayment is moved to the next month, and we keep moving forward (up to 24 months) until we hit a month without a contribution row, so the first installment lines up with a cycle where a contribution wasn’t already recorded.
+
+Code
+Loan::adjustFirstRepaymentIfContributionAlreadyMade(Member $member, array $exemption): array in app/Models/Loan.php — uses Contribution for that member_id + month + year (respects the normal query scope, including soft deletes).
+Disburse in LoanResource — runs this right after computeExemptionAndFirstRepayment() so generated installments use the adjusted start.
+LoanImportService — same adjustment when building imported loans so behavior matches live disbursement.
+exempted_month / exempted_year are unchanged; only first_repayment_month / first_repayment_year (and thus installment due_dates) are updated. Say if exemption should move with this as well.
+
+----------------------------------------------
 
 
 

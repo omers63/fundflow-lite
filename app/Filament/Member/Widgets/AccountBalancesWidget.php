@@ -45,8 +45,13 @@ class AccountBalancesWidget extends Widget
 
         $maxBorrow = $fund * Setting::loanMaxBorrowMultiplier();
         $loanMonths = Setting::loanEligibilityMonths();
-        $eligible = $member->joined_at->addMonths($loanMonths)->isPast() && $fund >= $minFund;
-        $eligibleDate = $member->joined_at->addMonths($loanMonths)->format('d M Y');
+        $loanStart = $member->loanEligibilityStartDate();
+        $eligible = $loanStart !== null
+            && $loanStart->copy()->addMonths($loanMonths)->isPast()
+            && $fund >= $minFund;
+        $eligibleDate = $loanStart !== null
+            ? $loanStart->copy()->addMonths($loanMonths)->format('d M Y')
+            : '—';
 
         $monthlyAlloc = (float) ($member->monthly_contribution_amount ?? 500);
 

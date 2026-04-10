@@ -281,6 +281,39 @@ class Loan extends Model
         ];
     }
 
+    /**
+     * If the member already has a contribution for the first scheduled repayment month/year,
+     * advance the first repayment month-by-month until a month without a contribution record
+     * is found (so installments align with cycles where a contribution is still due).
+     */
+    public static function adjustFirstRepaymentIfContributionAlreadyMade(Member $member, array $exemption): array
+    {
+        $m = (int) $exemption['first_repayment_month'];
+        $y = (int) $exemption['first_repayment_year'];
+
+        for ($i = 0; $i < 24; $i++) {
+            $hasContribution = Contribution::query()
+                ->where('member_id', $member->id)
+                ->where('month', $m)
+                ->where('year', $y)
+                ->exists();
+
+            if (!$hasContribution) {
+                break;
+            }
+
+            $next = Carbon::create($y, $m, 1)->addMonthNoOverflow();
+            $m = (int) $next->month;
+            $y = (int) $next->year;
+        }
+
+        return [
+            ...$exemption,
+            'first_repayment_month' => $m,
+            'first_repayment_year' => $y,
+        ];
+    }
+
     // -----------------------------------------------------------------------
     // Scopes
     // -----------------------------------------------------------------------

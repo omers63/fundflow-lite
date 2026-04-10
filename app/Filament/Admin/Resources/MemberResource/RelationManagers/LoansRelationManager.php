@@ -2,11 +2,14 @@
 
 namespace App\Filament\Admin\Resources\MemberResource\RelationManagers;
 
+use App\Filament\Admin\Resources\LoanResource;
 use App\Filament\Admin\Resources\MemberResource\Concerns\InteractsWithMemberCycleHeaderActions;
 use App\Models\FundTier;
 use App\Models\Loan;
 use App\Models\LoanTier;
 use App\Services\AccountingService;
+use App\Services\LoanEligibilityService;
+use Filament\Actions\Action;
 use Filament\Actions\BulkActionGroup;
 use Filament\Actions\DeleteAction;
 use Filament\Actions\DeleteBulkAction;
@@ -41,6 +44,12 @@ class LoansRelationManager extends RelationManager
             ->defaultSort('applied_at', 'desc')
             ->striped()
             ->headerActions([
+                Action::make('new_loan')
+                    ->label('New loan')
+                    ->icon('heroicon-o-plus-circle')
+                    ->url(fn(): string => LoanResource::getUrl('create') . '?member_id=' . $this->getOwnerRecord()->getKey())
+                    ->visible(fn(): bool => LoanResource::canCreate()
+                        && app(LoanEligibilityService::class)->isEligible($this->getOwnerRecord())),
                 $this->repaymentCycleHeaderAction(),
             ])
             ->columns([

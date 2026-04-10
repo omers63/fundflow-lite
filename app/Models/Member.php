@@ -6,6 +6,7 @@ use Illuminate\Database\Eloquent\Model;
 use Illuminate\Database\Eloquent\Relations\BelongsTo;
 use Illuminate\Database\Eloquent\Relations\HasMany;
 use Illuminate\Database\Eloquent\SoftDeletes;
+use Illuminate\Support\Carbon;
 use Illuminate\Support\Facades\DB;
 
 class Member extends Model
@@ -115,6 +116,32 @@ class Member extends Model
     public function latestMembershipApplication(): ?MembershipApplication
     {
         return $this->membershipApplications()->orderByDesc('id')->first();
+    }
+
+    /**
+     * Earliest date used for loan tenure rules: minimum of application membership date and member.joined_at.
+     * Avoids relying on joined_at alone when the application carries the canonical membership date.
+     */
+    public function loanEligibilityStartDate(): ?Carbon
+    {
+        $this->loadMissing('user');
+        $candidates = [];
+
+        if ($this->joined_at !== null) {
+            $candidates[] = Carbon::parse($this->joined_at)->startOfDay();
+        }
+
+        foreach ($this->membershipApplications()->whereNotNull('membership_date')->cursor() as $app) {
+            $candidates[] = Carbon::parse($app->membership_date)->startOfDay();
+        }
+
+        if ($candidates === []) {
+            return null;
+        }
+
+        return collect($candidates)
+            ->sortBy(fn(Carbon $d) => $d->timestamp)
+            ->first();
     }
 
     // -----------------------------------------------------------------------

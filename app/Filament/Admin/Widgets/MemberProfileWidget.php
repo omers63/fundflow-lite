@@ -44,7 +44,7 @@ class MemberProfileWidget extends Widget
             : 0;
 
         $eligibilityMonths = Setting::loanEligibilityMonths();
-        $loanEligibleDate = $member->joined_at?->copy()->addMonths($eligibilityMonths);
+        $loanEligibleDate = $member->loanEligibilityStartDate()?->copy()->addMonths($eligibilityMonths);
         $isLoanEligibleAge = $loanEligibleDate?->isPast() ?? false;
 
         $targetPage = $this->memberResourceTargetPage();

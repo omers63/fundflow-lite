@@ -57,8 +57,9 @@ class MemberAccountStatsWidget extends Widget
         $contribCount = Contribution::where('member_id', $member->id)->count();
 
         $eligibilityMonths = Setting::loanEligibilityMonths();
-        $eligible = $member->joined_at
-            && $member->joined_at->addMonths($eligibilityMonths)->isPast()
+        $loanStart = $member->loanEligibilityStartDate();
+        $eligible = $loanStart !== null
+            && $loanStart->copy()->addMonths($eligibilityMonths)->isPast()
             && $fundBalance >= $minFund;
 
         $maxBorrow = $fundBalance * Setting::loanMaxBorrowMultiplier();

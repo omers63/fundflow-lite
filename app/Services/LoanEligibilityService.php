@@ -17,28 +17,35 @@ class LoanEligibilityService
 
     public function getIneligibilityReason(Member $member): string
     {
-        if (! $member->isActive()) {
+        if (!$member->isActive()) {
             return 'Your membership status is not active.';
         }
 
-        // Must have been a member for the required number of months
+        $start = $member->loanEligibilityStartDate();
+        if ($start === null) {
+            return 'Membership start date is not set. Set membership date on the member or application.';
+        }
+
+        // Must have been a member for the required number of months (non-mutating date math)
         $requiredMonths = Setting::loanEligibilityMonths();
-        if ($member->joined_at->addMonths($requiredMonths)->isFuture()) {
-            $since = $member->joined_at->addMonths($requiredMonths)->format('d M Y');
+        $eligibleFrom = $start->copy()->addMonths($requiredMonths);
+        if ($eligibleFrom->isFuture()) {
+            $since = $eligibleFrom->format('d M Y');
+
             return "You are not yet eligible for a loan. Eligibility starts on {$since} "
-                 . "({$requiredMonths} months from joining).";
+                . "({$requiredMonths} months from membership start).";
         }
 
         // Fund account must meet the minimum balance
-        $minFund   = Setting::loanMinFundBalance();
-        $fundBal   = (float) ($member->fundAccount()?->balance ?? 0);
+        $minFund = Setting::loanMinFundBalance();
+        $fundBal = (float) ($member->fundAccount()?->balance ?? 0);
         if ($fundBal < $minFund) {
             return "Your fund account balance (SAR " . number_format($fundBal, 2) . ") "
-                 . "must be at least SAR " . number_format($minFund) . " to be eligible.";
+                . "must be at least SAR " . number_format($minFund) . " to be eligible.";
         }
 
         // No overdue installments on any loan
-        $hasOverdue = LoanInstallment::whereHas('loan', fn ($q) => $q->where('member_id', $member->id))
+        $hasOverdue = LoanInstallment::whereHas('loan', fn($q) => $q->where('member_id', $member->id))
             ->where('status', 'overdue')
             ->exists();
         if ($hasOverdue) {
@@ -54,7 +61,7 @@ class LoanEligibilityService
      */
     public function maxLoanAmount(Member $member): float
     {
-        $fundBal    = (float) ($member->fundAccount()?->balance ?? 0);
+        $fundBal = (float) ($member->fundAccount()?->balance ?? 0);
         $multiplier = Setting::loanMaxBorrowMultiplier();
         return $fundBal * $multiplier;
     }
@@ -72,18 +79,21 @@ class LoanEligibilityService
      */
     public function context(Member $member): array
     {
-        $fundBal    = (float) ($member->fundAccount()?->balance ?? 0);
-        $maxAmount  = $this->maxLoanAmount($member);
-        $eligible   = $this->isEligible($member);
-        $reason     = $eligible ? '' : $this->getIneligibilityReason($member);
+        $fundBal = (float) ($member->fundAccount()?->balance ?? 0);
+        $maxAmount = $this->maxLoanAmount($member);
+        $eligible = $this->isEligible($member);
+        $reason = $eligible ? '' : $this->getIneligibilityReason($member);
 
         return [
-            'eligible'         => $eligible,
-            'reason'           => $reason,
-            'fund_balance'     => $fundBal,
-            'max_loan_amount'  => $maxAmount,
+            'eligible' => $eligible,
+            'reason' => $reason,
+            'fund_balance' => $fundBal,
+            'max_loan_amount' => $maxAmount,
             'min_fund_balance' => Setting::loanMinFundBalance(),
-            'eligible_from'    => $member->joined_at->addMonths(Setting::loanEligibilityMonths())->format('d M Y'),
+            'eligible_from' => $member->loanEligibilityStartDate()
+                    ?->copy()
+                ->addMonths(Setting::loanEligibilityMonths())
+                ->format('d M Y') ?? '—',
         ];
     }
 }

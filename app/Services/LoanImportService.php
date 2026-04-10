@@ -211,6 +211,7 @@ class LoanImportService
 
         $disbursedAt = $this->parseDisbursedAt($this->cell($row, 'disbursed_at'));
         $exemption = Loan::computeExemptionAndFirstRepayment($disbursedAt);
+        $exemption = Loan::adjustFirstRepaymentIfContributionAlreadyMade($member, $exemption);
 
         $purpose = $this->cell($row, 'purpose');
         if ($purpose === '') {
@@ -244,29 +245,7 @@ class LoanImportService
 
         $accounting = app(AccountingService::class);
 
-        DB::transaction(function () use (
-            $member,
-            $loanTier,
-            $fundTier,
-            $amount,
-            $amountRequested,
-            $purpose,
-            $count,
-            $disbursedAt,
-            $exemption,
-            $threshold,
-            $isEmergency,
-            $memberPortion,
-            $masterPortion,
-            $accounting,
-            $paidCount,
-            $minInstall,
-            $totalRepaid,
-            $terminalStatus,
-            $settledAt,
-            $appliedAt,
-            $approvedAt,
-        ) {
+        DB::transaction(function () use ($member, $loanTier, $fundTier, $amount, $amountRequested, $purpose, $count, $disbursedAt, $exemption, $threshold, $isEmergency, $memberPortion, $masterPortion, $accounting, $paidCount, $minInstall, $totalRepaid, $terminalStatus, $settledAt, $appliedAt, $approvedAt, ) {
             $loan = Loan::create([
                 'member_id' => $member->id,
                 'loan_tier_id' => $loanTier?->id,
@@ -368,7 +347,7 @@ class LoanImportService
         }
 
         throw new \InvalidArgumentException(
-            'loan_status must be pending, approved, active, completed, or early_settled (got: '.$value.')'
+            'loan_status must be pending, approved, active, completed, or early_settled (got: ' . $value . ')'
         );
     }
 
@@ -397,7 +376,7 @@ class LoanImportService
             return null;
         }
 
-        if (! is_numeric($value)) {
+        if (!is_numeric($value)) {
             throw new \InvalidArgumentException("{$column} must be numeric (got: {$value})");
         }
 
@@ -409,7 +388,7 @@ class LoanImportService
      */
     private function parseAssociativeCsv(string $absolutePath): array
     {
-        if (! is_readable($absolutePath)) {
+        if (!is_readable($absolutePath)) {
             throw new \InvalidArgumentException('Cannot read the uploaded file.');
         }
 
@@ -421,7 +400,7 @@ class LoanImportService
         $content = preg_replace('/^\xEF\xBB\xBF/', '', $content) ?? $content;
 
         $lines = preg_split('/\r\n|\r|\n/', $content);
-        $lines = array_values(array_filter($lines, fn ($l) => trim((string) $l) !== ''));
+        $lines = array_values(array_filter($lines, fn($l) => trim((string) $l) !== ''));
 
         if (count($lines) < 2) {
             return [];
@@ -429,7 +408,7 @@ class LoanImportService
 
         $headerLine = array_shift($lines);
         $headers = str_getcsv((string) $headerLine);
-        $headers = array_map(fn ($h) => strtolower(trim((string) $h)), $headers);
+        $headers = array_map(fn($h) => strtolower(trim((string) $h)), $headers);
 
         $rows = [];
 
@@ -462,7 +441,7 @@ class LoanImportService
             throw new \InvalidArgumentException("{$column} is required.");
         }
 
-        if (! is_numeric($value)) {
+        if (!is_numeric($value)) {
             throw new \InvalidArgumentException("{$column} must be numeric (got: {$value})");
         }
 
@@ -482,7 +461,7 @@ class LoanImportService
             return Setting::loanSettlementThreshold();
         }
 
-        if (! is_numeric($value)) {
+        if (!is_numeric($value)) {
             throw new \InvalidArgumentException("settlement_threshold must be numeric (got: {$value})");
         }
 
@@ -526,7 +505,7 @@ class LoanImportService
             return $default;
         }
 
-        if (! ctype_digit($value)) {
+        if (!ctype_digit($value)) {
             throw new \InvalidArgumentException('installments_count must be a positive integer.');
         }
 
@@ -547,7 +526,7 @@ class LoanImportService
     ): int {
         $cell = $this->cell($row, 'installments_count');
         if ($cell !== '') {
-            if (! ctype_digit($cell)) {
+            if (!ctype_digit($cell)) {
                 throw new \InvalidArgumentException('installments_count must be a positive integer.');
             }
             $n = (int) $cell;
@@ -572,7 +551,7 @@ class LoanImportService
     ): int {
         $cell = $this->cell($row, 'installments_count');
         if ($cell !== '') {
-            if (! ctype_digit($cell)) {
+            if (!ctype_digit($cell)) {
                 throw new \InvalidArgumentException('installments_count must be a positive integer.');
             }
             $n = (int) $cell;
@@ -598,7 +577,7 @@ class LoanImportService
             return 0;
         }
 
-        if (! preg_match('/^\d+$/', $paidCell)) {
+        if (!preg_match('/^\d+$/', $paidCell)) {
             throw new \InvalidArgumentException('paid_installments_count must be a non-negative integer.');
         }
 
@@ -614,7 +593,7 @@ class LoanImportService
     {
         $tierNum = $this->cell($row, 'loan_tier_number');
         if ($tierNum !== '') {
-            if (! ctype_digit($tierNum)) {
+            if (!ctype_digit($tierNum)) {
                 throw new \InvalidArgumentException('loan_tier_number must be a non-negative integer.');
             }
             $tier = LoanTier::where('tier_number', (int) $tierNum)->where('is_active', true)->first();
@@ -644,7 +623,7 @@ class LoanImportService
     {
         $tierNum = $this->cell($row, 'loan_tier_number');
         if ($tierNum !== '') {
-            if (! ctype_digit($tierNum)) {
+            if (!ctype_digit($tierNum)) {
                 throw new \InvalidArgumentException('loan_tier_number must be a non-negative integer.');
             }
             $tier = LoanTier::where('tier_number', (int) $tierNum)->where('is_active', true)->first();
@@ -675,7 +654,7 @@ class LoanImportService
 
         $fundNum = $this->cell($row, 'fund_tier_number');
         if ($fundNum !== '') {
-            if (! ctype_digit($fundNum)) {
+            if (!ctype_digit($fundNum)) {
                 throw new \InvalidArgumentException('fund_tier_number must be a non-negative integer.');
             }
             $ft = FundTier::where('tier_number', (int) $fundNum)->where('is_active', true)->first();

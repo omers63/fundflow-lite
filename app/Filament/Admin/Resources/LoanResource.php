@@ -368,6 +368,7 @@ class LoanResource extends Resource
                     ->action(function (Loan $record) {
                         $disbursedAt = now();
                         $exemption = Loan::computeExemptionAndFirstRepayment($disbursedAt);
+                        $exemption = Loan::adjustFirstRepaymentIfContributionAlreadyMade($record->member, $exemption);
 
                         // Recompute at actual disbursement time with current fund balance
                         $fundBal = (float) ($record->member->fundAccount()?->balance ?? 0);

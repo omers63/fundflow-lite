@@ -92,8 +92,9 @@ class MemberRecordInsightsWidget extends Widget
         $contribCount = Contribution::where('member_id', $member->id)->count();
 
         $eligibilityMonths = Setting::loanEligibilityMonths();
-        $eligible = $member->joined_at
-            && $member->joined_at->copy()->addMonths($eligibilityMonths)->isPast()
+        $loanStart = $member->loanEligibilityStartDate();
+        $eligible = $loanStart !== null
+            && $loanStart->copy()->addMonths($eligibilityMonths)->isPast()
             && $fundBalance >= $minFund;
 
         $maxBorrow = $fundBalance * Setting::loanMaxBorrowMultiplier();
@@ -153,7 +154,7 @@ class MemberRecordInsightsWidget extends Widget
             : 0;
 
         $eligibilityMonths = Setting::loanEligibilityMonths();
-        $loanEligibleDate = $member->joined_at?->copy()->addMonths($eligibilityMonths);
+        $loanEligibleDate = $member->loanEligibilityStartDate()?->copy()->addMonths($eligibilityMonths);
         $isLoanEligibleAge = $loanEligibleDate?->isPast() ?? false;
 
         $targetPage = $this->memberResourceTargetPage();
