@@ -2389,20 +2389,58 @@ LoanImportService — same adjustment when building imported loans so behavior m
 exempted_month / exempted_year are unchanged; only first_repayment_month / first_repayment_year (and thus installment due_dates) are updated. Say if exemption should move with this as well.
 
 ----------------------------------------------
+The 2× fund balance cap on loan requests was already fully enforced on the member-facing form (MyLoansResource). The admin-side had no such guard. Two changes fix this:
 
+1. LoanResource.php — Admin Create Form (amount_requested field)
+Added ->live() reactive dependency on member_id (it was already .live() on the select)
+Added ->minValue(1000) and ->maxValue(fn($get) => ...) — dynamically computes 2× fund_balance for the selected member; null (uncapped) until a member is chosen
+Added ->helperText(fn($get) => ...) — shows "Max: SAR X (2× fund balance of SAR Y)" once a member is selected
+2. CreateLoan.php — Server-Side Guard
+Added mutateFormDataBeforeCreate() — final backstop before the record hits the DB: if amount_requested > maxLoanAmount(member), fires a danger notification with a detailed message and calls $this->halt() to abort the save
+The core calculation in LoanEligibilityService::maxLoanAmount() (which defaults to fund_balance × 2) remains the single source of truth used by both the member portal and the admin panel.
+--------------------------------------------------
+Now I have a complete picture. Here's the problem:
 
+The current LoanQueuePage only shows loans with fund_tier_id set, via getQueueForTier(int $fundTierId). Since pending loans don't have a fund_tier_id yet (it's only assigned at approval), they never appear in any fund tier's queue. They're completely invisible.
 
+The user's intent: the queue should show all incoming pending applications (awaiting review) plus approved loans awaiting disbursement, and active loans that are being repaid.
 
+I need to:
 
+Add a "Pending Applications" section — loans with status = 'pending' (no fund tier yet)
+Include active loans in the per-tier queue (loans being repaid are still "in the queue" lifecycle-wise)
+Update getQueueForTier to include active status
+Update the subheading/descriptions accordingly
 
+Done. Here's a summary of what changed and why:
 
+What was wrong
+The getQueueForTier() query filtered by fund_tier_id, but pending loans have no fund_tier_id — it's only assigned at approval. So all new loan requests were silently excluded from every tier section, making the queue appear empty.
 
+What changed
+LoanQueuePage.php
+Change	Details
+getPendingApplications() (new)	Fetches all status = 'pending' loans with fund_tier_id IS NULL — these are incoming requests not yet reviewed
+getQueueForTier()	Now filters ['approved', 'active'] instead of ['pending', 'approved'] — per-tier sections show loans that have been approved and are in the disbursement/repayment lifecycle
+Subheading	Updated to describe the two-section layout
+loan-queue.blade.php
+Section	What it shows
+Summary bar	"Pending requests" counter (amber) + "In-tier queue" counter (blue)
+Incoming Requests (Section 1, always visible)	All unreviewed pending applications with amber styling; "Review →" link; emergency badge
+Per-tier tables (Section 2)	Approved (sky badge) and Active (emerald pulsing badge) loans ordered by queue position
+2
+----------------------------------------------
+All changes are done. Here's a summary:
 
-
-
-
-
-
-
-
-
+What changed
+LoanResource.php — Approve action
+Before	After
+Tier determination	LoanTier::forAmount($data['amount_approved']) — admin-editable	LoanTier::forAmount($record->amount_requested) — immutable from member's request
+Helper text	"Repayment period and fund tier calculated automatically"	Explicitly states: "Loan tier and fund tier are auto-assigned from the requested amount (SAR X). Adjust this figure only for the disbursed amount."
+$requestedAmount is derived from $record->amount_requested (the locked input)
+$amount (from $data['amount_approved']) is still used for installment counts, portions, and the actual disbursement value — just not for tier assignment
+loan-queue.blade.php — Incoming Requests table
+Added "Loan / Fund Tier" column, computed per pending loan using LoanTier::forAmount($loan->amount_requested) and FundTier::forLoanTier()
+Shows the loan tier name + fund tier name in a two-line cell
+Shows "⚠ Out of tier range" if the requested amount falls outside all configured loan tiers — actionable signal for admins before they even open the approval form
+----------------------------------------

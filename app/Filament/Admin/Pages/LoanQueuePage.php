@@ -34,7 +34,7 @@ class LoanQueuePage extends Page
 
     public function getSubheading(): string|Htmlable|null
     {
-        return 'Pending and approved loans waiting for disbursement, ordered by position within each fund tier.';
+        return 'All incoming loan requests and disbursed loans, grouped by fund tier. Pending applications appear at the top before they are reviewed and assigned a tier.';
     }
 
     public function getHeaderActions(): array
@@ -61,13 +61,31 @@ class LoanQueuePage extends Page
     }
 
     /**
+     * Pending loan requests not yet assigned to any fund tier.
+     * These are incoming applications awaiting admin review.
+     *
+     * @return Collection<int, Loan>
+     */
+    public function getPendingApplications()
+    {
+        return Loan::query()
+            ->where('status', 'pending')
+            ->whereNull('fund_tier_id')
+            ->with(['member.user', 'loanTier'])
+            ->orderBy('applied_at')
+            ->get();
+    }
+
+    /**
+     * Loans in a specific fund tier: approved (awaiting disbursement) and active (being repaid).
+     *
      * @return Collection<int, Loan>
      */
     public function getQueueForTier(int $fundTierId)
     {
         return Loan::query()
             ->where('fund_tier_id', $fundTierId)
-            ->whereIn('status', ['pending', 'approved'])
+            ->whereIn('status', ['approved', 'active'])
             ->with(['member.user', 'loanTier'])
             ->orderBy('queue_position')
             ->orderBy('applied_at')
