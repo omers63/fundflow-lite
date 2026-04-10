@@ -162,3 +162,4 @@ In the "Post To Cash" confirmation, the member selection need to be optional. In
 Small change needed. For debit, make the loan disbursement field list all loans that had been either partially or fully disbursed.
 Minor change needed. Instead of using one field "Loan Disbursement", we will need to fields. First field list the member loan information only, second field allows me to select one of the loan disbursement transaction made to disburse the loan either partially or fully.
 Currently some Ledger Entries do not have a source. All Ledger Entries should have a source.
+Loading pages is extremely slow. Can you investigate the possiblities of additng intellegant indixing to speed things up.

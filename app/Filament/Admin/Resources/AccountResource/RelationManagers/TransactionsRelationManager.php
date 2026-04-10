@@ -9,6 +9,7 @@ use Filament\Actions\Action;
 use Filament\Actions\BulkActionGroup;
 use Filament\Actions\DeleteAction;
 use Filament\Actions\DeleteBulkAction;
+use Filament\Actions\EditAction;
 use Filament\Actions\ForceDeleteAction;
 use Filament\Actions\ForceDeleteBulkAction;
 use Filament\Forms;
@@ -18,6 +19,7 @@ use Filament\Schemas\Schema;
 use Filament\Support\Exceptions\Halt;
 use Filament\Tables;
 use Filament\Tables\Table;
+use Illuminate\Database\Eloquent\Model;
 
 class TransactionsRelationManager extends RelationManager
 {
@@ -25,9 +27,48 @@ class TransactionsRelationManager extends RelationManager
 
     protected static ?string $title = 'Ledger Entries';
 
+    /**
+     * Allow edit/create actions on account View pages when the panel would otherwise
+     * mark relation managers read-only.
+     */
+    public function isReadOnly(): bool
+    {
+        return false;
+    }
+
     public function form(Schema $schema): Schema
     {
-        return $schema->schema([]);
+        $account = $this->getOwnerRecord();
+
+        return $this->defaultForm($schema)->schema([
+            Forms\Components\TextInput::make('amount')
+                ->label('Amount (SAR)')
+                ->numeric()
+                ->required()
+                ->minValue(0.01)
+                ->step(0.01),
+            Forms\Components\Select::make('entry_type')
+                ->label('Type')
+                ->options(['credit' => 'Credit', 'debit' => 'Debit'])
+                ->required(),
+            Forms\Components\Textarea::make('description')
+                ->label('Description')
+                ->required()
+                ->rows(3)
+                ->maxLength(1000),
+            Forms\Components\DateTimePicker::make('transacted_at')
+                ->label('Transaction date')
+                ->required()
+                ->seconds(false),
+            Forms\Components\Select::make('member_id')
+                ->label('Member tag')
+                ->helperText('For master accounts only — ties this line to a member in filters and reports.')
+                ->options(fn() => Member::query()->with('user')->orderBy('member_number')->get()
+                    ->mapWithKeys(fn(Member $m) => [$m->id => "{$m->member_number} – {$m->user->name}"]))
+                ->searchable()
+                ->placeholder('—')
+                ->visible(fn() => $account->member_id === null),
+        ]);
     }
 
     public function table(Table $table): Table
@@ -136,6 +177,32 @@ class TransactionsRelationManager extends RelationManager
                 Tables\Filters\TrashedFilter::make(),
             ])
             ->recordActions([
+                EditAction::make()
+                    ->modalWidth('2xl')
+                    ->modalDescription(
+                        'Changes to amount or type adjust this account’s running balance. ' .
+                        'The linked source record is not changed here — use the relevant finance workflow if that must stay aligned.'
+                    )
+                    ->authorize(fn(): bool => auth()->user()?->can('update', $this->getOwnerRecord()) ?? false)
+                    ->using(function (array $data, Model $record): void {
+                        if (!$record instanceof AccountTransaction) {
+                            return;
+                        }
+
+                        try {
+                            app(AccountingService::class)->updateLedgerEntry($record, $data);
+                        } catch (\Throwable $e) {
+                            report($e);
+                            Notification::make()
+                                ->title('Could not save ledger entry')
+                                ->body($e->getMessage())
+                                ->danger()
+                                ->send();
+
+                            throw new Halt;
+                        }
+                    })
+                    ->after(fn() => $this->dispatchAccountWidgetsRefresh()),
                 DeleteAction::make()
                     ->authorize(fn() => auth()->user()?->can('update', $this->getOwnerRecord()) ?? false)
                     ->modalDescription('Reverses this line on the account balance and removes the row. If this was one leg of a paired posting, delete or adjust the other leg separately if needed.')

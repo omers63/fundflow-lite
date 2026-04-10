@@ -2867,3 +2867,39 @@ php artisan migrate
 
 Note: Deleting a contribution still reverses all lines whose source is that contribution (cash deduction + fund credits). Quick-post contributions are now stored as cash_account (not bank_transfer) so that behavior stays correct.
 -----------------------------------------------------
+Here is what was implemented and how to think about it.
+
+Migration added: 2026_04_12_120000_add_query_performance_indexes.php
+It has been applied on your current environment (php artisan migrate --force completed successfully).
+
+What was indexed
+Area	Indexes	Why
+Members
+(status, deleted_at)
+Member::active()-style filters
+Loans
+(member_id, status)
+Per-member loan lists and status filters
+Loan installments
+(loan_id, status), (status, due_date)
+Due/overdue and per-loan installment queries
+Contributions
+paid_at
+Sorting/filtering by payment date
+Account transactions
+(member_id, transacted_at), (account_id, deleted_at, transacted_at)
+Member ledger + Filament relation managers with soft deletes
+Bank & SMS transactions
+posted_at, created_at, (import_session_id, posted_at), (transaction_type, posted_at), (is_duplicate, posted_at), (posted_at, amount)
+Banking widgets (posted/unposted, duplicates, trends, “high value unposted”, type filters)
+Import sessions
+(bank_id, created_at), (status, created_at)
+Recent sessions and failed/partial lists
+Notes
+sms_import_sessions uses bank_id, not sms_gateway_id (that was corrected from the earlier sketch).
+A separate notifications composite was not added to avoid overlapping Laravel’s existing morph index on (notifiable_type, notifiable_id) unless you later prove unread counts are still hot and worth a dedicated composite.
+If loads are still slow
+Indexes help filter/sort/join cost, not everything. Next levers: eager loading on heavy Filament pages/widgets, caching for aggregate widgets, and EXPLAIN on the slowest queries in production to add one-off composites (e.g. loan_id + posted_at on bank rows if that pattern dominates).
+
+If you want, we can pick one slow URL and trace its queries (e.g. with Laravel Debugbar or DB::listen) to refine indexes further.
+--------------------------------

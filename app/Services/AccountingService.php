@@ -821,6 +821,86 @@ class AccountingService
     }
 
     /**
+     * Update ledger row fields and reconcile the account balance when amount or entry type changes.
+     * Does not alter polymorphic source (required for reversal and traceability).
+     *
+     * @param  array{description?: string, entry_type?: string, amount?: float|int|string, transacted_at?: mixed, member_id?: int|null}  $data
+     */
+    public function updateLedgerEntry(AccountTransaction $entry, array $data): AccountTransaction
+    {
+        $entry->loadMissing('account');
+        $account = $entry->account;
+        if ($account === null) {
+            throw new \InvalidArgumentException('Ledger entry has no account.');
+        }
+
+        $trimmed = trim((string) ($data['description'] ?? $entry->description ?? ''));
+        if ($trimmed === '') {
+            throw new \InvalidArgumentException('Description is required.');
+        }
+
+        $entryType = (string) ($data['entry_type'] ?? $entry->entry_type);
+        if (!in_array($entryType, ['credit', 'debit'], true)) {
+            throw new \InvalidArgumentException('Entry type must be credit or debit.');
+        }
+
+        $amount = round((float) ($data['amount'] ?? $entry->amount), 2);
+        if ($amount <= 0) {
+            throw new \InvalidArgumentException('Amount must be greater than zero.');
+        }
+
+        $transactedAt = $data['transacted_at'] ?? $entry->transacted_at;
+        if (!$transactedAt instanceof CarbonInterface) {
+            $transactedAt = Carbon::parse($transactedAt);
+        }
+
+        $memberId = array_key_exists('member_id', $data)
+            ? $data['member_id']
+            : $entry->member_id;
+        if ($memberId !== null && $memberId !== '') {
+            $memberId = (int) $memberId;
+        } else {
+            $memberId = null;
+        }
+
+        if ($account->member_id !== null) {
+            $memberId = (int) $account->member_id;
+        }
+
+        $oldType = (string) $entry->entry_type;
+        $oldAmount = round((float) $entry->amount, 2);
+        $balanceAffectingChanged = $oldType !== $entryType || abs($oldAmount - $amount) >= 0.005;
+
+        return DB::transaction(function () use ($entry, $account, $trimmed, $entryType, $amount, $transactedAt, $memberId, $balanceAffectingChanged, $oldType, $oldAmount) {
+            $lockedAccount = Account::query()->lockForUpdate()->findOrFail($account->id);
+
+            if ($balanceAffectingChanged) {
+                if ($oldType === 'credit') {
+                    $lockedAccount->decrement('balance', $oldAmount);
+                } else {
+                    $lockedAccount->increment('balance', $oldAmount);
+                }
+
+                if ($entryType === 'credit') {
+                    $lockedAccount->increment('balance', $amount);
+                } else {
+                    $lockedAccount->decrement('balance', $amount);
+                }
+            }
+
+            $entry->update([
+                'description' => $trimmed,
+                'entry_type' => $entryType,
+                'amount' => $amount,
+                'transacted_at' => $transactedAt,
+                'member_id' => $memberId,
+            ]);
+
+            return $entry->fresh();
+        });
+    }
+
+    /**
      * Post a single manual line on one account (no paired master/member posting).
      * Use for adjustments and corrections on the account ledger only.
      */
