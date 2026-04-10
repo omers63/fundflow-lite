@@ -28,6 +28,8 @@ class MemberPanelProvider extends PanelProvider
             ->id('member')
             ->path('member')
             ->login()
+            ->sidebarCollapsibleOnDesktop()
+            ->sidebarFullyCollapsibleOnDesktop()
             ->brandName('FundFlow Member')
             ->databaseNotifications()
             ->databaseNotificationsPolling('30s')

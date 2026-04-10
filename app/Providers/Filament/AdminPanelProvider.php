@@ -30,6 +30,8 @@ class AdminPanelProvider extends PanelProvider
             ->id('admin')
             ->path('admin')
             ->login()
+            ->sidebarCollapsibleOnDesktop()
+            ->sidebarFullyCollapsibleOnDesktop()
             ->brandName('FundFlow Admin')
             ->databaseNotifications()
             ->databaseNotificationsPolling('30s')

@@ -2796,3 +2796,48 @@ Notes
 No fund-account posting (master_fund / member_fund) is performed in this post_to_cash flow.
 Syntax checks passed.
 Remaining linter warnings are pre-existing type warnings in AccountingService reversal methods (unchanged by this work).
+------------------------------------
+Implemented a full Banking page modernization with a cleaner, more premium layout and new analytical widgets.
+
+What I changed
+Page redesign
+Updated resources/views/filament/admin/pages/banking.blade.php with:
+
+A modern gradient hero/header section
+Clear “Workspace” container for channel + sub-tab navigation
+Improved copy and spacing for better scanability
+Consistent card styling/tone across sections (aligned with Members-style visual language)
+New analytics widgets
+Added two new widgets and integrated them near the top of the page:
+
+app/Filament/Admin/Widgets/BankingHealthWidget.php
+resources/views/filament/admin/widgets/banking-health.blade.php
+
+Includes:
+
+Master Cash / Master Fund snapshot cards
+Posting coverage (overall + Bank/SMS progress bars)
+Pending queue counts + amounts (Bank/SMS)
+Loan reconciliation status (linked vs unlinked debit postings)
+7-day posted activity mini-chart
+app/Filament/Admin/Widgets/BankingActionCenterWidget.php
+resources/views/filament/admin/widgets/banking-action-center.blade.php
+
+Includes:
+
+Action-center checks:
+Failed import sessions (Bank + SMS)
+Duplicate queue
+Debits missing loan/disbursement link
+High-value unposted bank transactions
+Latest linked debit reconciliations
+Additional banking enhancements carried through
+As part of your prior requests and this polish pass, debit reconciliation now supports:
+
+Loan + specific disbursement linkage
+loan_disbursement_id persistence in bank transactions
+Linked values surfaced in views/table
+Migration already applied
+2026_04_11_100000_add_loan_disbursement_id_to_bank_transactions_table was run successfully.
+If you want, I can next add a compact Banking “quick actions” strip (New Bank, New Template, New Transaction, Open Failed Sessions) directly in the hero section.
+----------------------------------------------
