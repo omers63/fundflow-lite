@@ -242,6 +242,7 @@
                                 <th class="px-4 py-3 text-left text-xs font-semibold uppercase tracking-wide text-gray-400 dark:text-white/40">Purpose</th>
                                 <th class="px-4 py-3 text-left text-xs font-semibold uppercase tracking-wide text-gray-400 dark:text-white/40">Loan tier</th>
                                 <th class="px-4 py-3 text-right text-xs font-semibold uppercase tracking-wide text-gray-400 dark:text-white/40">Amount</th>
+                                <th class="px-4 py-3 text-left text-xs font-semibold uppercase tracking-wide text-gray-400 dark:text-white/40">Disbursement</th>
                                 <th class="px-4 py-3 text-left text-xs font-semibold uppercase tracking-wide text-gray-400 dark:text-white/40">Status</th>
                                 <th class="px-4 py-3 text-left text-xs font-semibold uppercase tracking-wide text-gray-400 dark:text-white/40">Applied</th>
                                 <th class="px-4 py-3"></th>
@@ -270,6 +271,37 @@
                                         <span class="font-mono font-semibold tabular-nums text-gray-900 dark:text-white">
                                             SAR {{ number_format($loan->amount_approved ?? $loan->amount_requested, 0) }}
                                         </span>
+                                    </td>
+                                    {{-- Disbursement progress --}}
+                                    <td class="px-4 py-3.5">
+                                        @php
+                                            $approved   = (float) ($loan->amount_approved ?? 0);
+                                            $disbursed  = (float) ($loan->amount_disbursed ?? 0);
+                                            $pct        = $approved > 0 ? min(100, round($disbursed / $approved * 100)) : 0;
+                                            $isPartial  = $disbursed > 0 && $disbursed < $approved;
+                                        @endphp
+                                        @if($loan->status === 'active')
+                                            <div class="flex items-center gap-2">
+                                                <div class="h-1.5 w-24 overflow-hidden rounded-full bg-gray-100 dark:bg-white/10">
+                                                    <div class="h-full rounded-full bg-emerald-500" style="width: 100%"></div>
+                                                </div>
+                                                <span class="text-xs text-emerald-600 dark:text-emerald-400 font-semibold whitespace-nowrap">Full</span>
+                                            </div>
+                                        @elseif($isPartial)
+                                            <div class="flex flex-col gap-1">
+                                                <div class="flex items-center gap-2">
+                                                    <div class="h-1.5 w-24 overflow-hidden rounded-full bg-gray-100 dark:bg-white/10">
+                                                        <div class="h-full rounded-full bg-amber-400" style="width: {{ $pct }}%"></div>
+                                                    </div>
+                                                    <span class="text-xs text-amber-600 dark:text-amber-400 font-semibold whitespace-nowrap">{{ $pct }}%</span>
+                                                </div>
+                                                <span class="text-xs text-gray-400 dark:text-white/40 whitespace-nowrap tabular-nums">
+                                                    SAR {{ number_format($disbursed, 0) }} / {{ number_format($approved, 0) }}
+                                                </span>
+                                            </div>
+                                        @else
+                                            <span class="text-xs text-gray-400 dark:text-white/40">Pending</span>
+                                        @endif
                                     </td>
                                     <td class="px-4 py-3.5">
                                         @if($loan->status === 'approved')

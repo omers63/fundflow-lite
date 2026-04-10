@@ -19,6 +19,7 @@ class Loan extends Model
         'queue_position',
         'amount_requested',
         'amount_approved',
+        'amount_disbursed',
         'member_portion',
         'master_portion',
         'repaid_to_master',
@@ -52,9 +53,10 @@ class Loan extends Model
     protected function casts(): array
     {
         return [
-            'amount_requested' => 'decimal:2',
-            'amount_approved' => 'decimal:2',
-            'member_portion' => 'decimal:2',
+            'amount_requested'       => 'decimal:2',
+            'amount_approved'        => 'decimal:2',
+            'amount_disbursed'       => 'decimal:2',
+            'member_portion'         => 'decimal:2',
             'master_portion' => 'decimal:2',
             'repaid_to_master' => 'decimal:2',
             'late_repayment_amount' => 'decimal:2',
@@ -103,6 +105,11 @@ class Loan extends Model
         return $this->hasMany(LoanInstallment::class);
     }
 
+    public function disbursements(): HasMany
+    {
+        return $this->hasMany(LoanDisbursement::class);
+    }
+
     public function account(): ?Account
     {
         return Account::where('loan_id', $this->id)->where('type', Account::TYPE_LOAN)->first();
@@ -141,6 +148,23 @@ class Loan extends Model
     public function isExemptingContributions(): bool
     {
         return in_array($this->status, ['approved', 'active']);
+    }
+
+    /**
+     * True when the total amount disbursed equals (or exceeds) the approved amount.
+     * Existing single-shot loans have amount_disbursed backfilled = amount_approved.
+     */
+    public function isFullyDisbursed(): bool
+    {
+        return (float) $this->amount_disbursed >= (float) $this->amount_approved - 0.001;
+    }
+
+    /**
+     * The outstanding amount still to be disbursed (approved − disbursed so far).
+     */
+    public function remainingToDisburse(): float
+    {
+        return max(0.0, (float) $this->amount_approved - (float) $this->amount_disbursed);
     }
 
     // -----------------------------------------------------------------------

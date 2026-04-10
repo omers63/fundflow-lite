@@ -2444,3 +2444,240 @@ Added "Loan / Fund Tier" column, computed per pending loan using LoanTier::forAm
 Shows the loan tier name + fund tier name in a two-line cell
 Shows "⚠ Out of tier range" if the requested amount falls outside all configured loan tiers — actionable signal for admins before they even open the approval form
 ----------------------------------------
+This is a significant architectural change. Let me carefully understand the requirements:
+
+
+Master fund cannot go negative
+- Currently the loan disbursement debits the master fund account. If there's not enough balance, it shouldn't proceed (or should partially disburse).
+
+
+Partial approval
+- A loan can be "approved" with an amount that might exceed current master fund balance. The approval is a commitment, not an actual disbursement.
+
+
+Partial disbursement
+- The loan can be disbursed in portions as funds become available in the master fund. So instead of one disburse action that does everything at once, we need to support partial disbursements.
+
+
+Fully disbursed
+means the total disbursed amount matches the approved amount.
+
+
+Repayment starts only after full disbursement
+- The repayment schedule (installments) is only generated after the loan is fully disbursed.
+
+
+Exemption during approval-to-disbursement period
+- From approval time until full disbursement, the member is exempt from contributions.
+
+
+This requires substantial changes: I need to add a disbursed_amount column to track how much has been disbursed so far, and likely a separate table to record individual disbursement transactions.
+
+
+I'm also reconsidering the disbursed_at column—it currently marks when the single disbursement happens, but with partial disbursements it should track the final disbursement date instead. The status flow needs to shift from pending → approved → active to account for the partial disbursement phase.
+
+
+Now I'm clarifying what "approved partially" actually means—is it that the loan request itself is approved for a smaller amount than requested, or that the approved amount is funded partially from the master fund and partially from the member's balance?
+
+
+Re-reading the requirements, I think the distinction is clearer: the master fund might not have enough to cover the full approved amount at approval time, so disbursements happen in portions as funds become available, and the loan only reaches active status once fully disbursed and the repayment schedule is generated. The exemption rules also need updating—currently members are exempt while a loan is approved or active, but that needs to change with the new flow.
+
+
+Now I'm weighing the implementation approaches: I could add a dedicated loan_disbursements table to track each partial disbursement event with timestamps, or keep it simpler with just a disbursed_amount column on the loans table to track the running total.
+
+
+Given that the user mentioned "disbursed in portions," Option A with a separate disbursements table makes more sense for auditability and tracking the history of each disbursal event. Looking at the current disburse action, it handles status transitions, installment calculations, and accounting posts all in one transaction—the new partial disbursement flow will need to handle incremental amounts instead, checking fund availability each time and only transitioning to active once fully disbursed.
+
+
+I'm designing a new loan_disbursements table to track each disbursement event...
+
+
+Now I need to update the loans table with an amount_disbursed field to track cumulative disbursements, and I'll keep disbursed_at as the final full disbursement date. The implementation requires a migration, a new LoanDisbursement model, relationship updates on the Loan model with helper properties like is_fully_disbursed and remaining_to_disburse, and modifications to the LoanResource to handle partial disbursements.
+
+
+For the disburse action, I need to add an amount input field to the modal, display the available master fund balance as a cap, and validate that the master fund won't go negative. The AccountingService's postLoanDisbursement method needs to properly handle partial amounts instead of assuming full disbursement. I should also check the exemption logic to see if approved loans should be included alongside active ones in isExemptFromContributions().
+
+
+Let me look at the AccountingService to understand how it currently posts loan disbursements. The partial disbursement should be manually triggered by the admin through the existing Disburse button, which I'll update to accept an amount field capped by available funds. For the database, I need to add a tracking column for total amount disbursed to the loans table and create a new loan_disbursements table to record each individual disbursement transaction. Then I'll add the corresponding model relationships and helper methods to track what's been disbursed versus what remains.
+
+
+For the service layer, I need to refactor the accounting logic to handle partial amounts instead of always disbursing the full loan, making sure the master fund deduction never exceeds the available balance. In the disburse action, I'll display the master fund balance in the modal, set the amount input's maximum to whichever is lower between remaining funds and master fund balance, and after recording the partial disbursement, check if the loan is now fully funded to trigger installment generation and status activation.
+
+
+The queue should display disbursement progress as a ratio of what's been disbursed against what was approved. Before diving into implementation, I should map out the full scope and get approval since this touches multiple layers. Looking at the existing code more carefully, I need to verify how isExemptFromContributions() works and what AccountingService::postLoanDisbursement currently does. The loan structure already tracks member versus master portions, so each partial disbursement would maintain that split.
+
+
+This is a significant architectural change involving database schema, accounting logic, status flow, and exemption rules. Let me research the current implementation thoroughly before planning.
+
+# Partial Loan Disbursement & Master Fund Guard
+
+## Background
+
+Currently the `disburse` action executes a single atomic disbursement of the full approved amount, builds the full installment schedule immediately, and sets loan status to `active`. The master fund balance is not checked before debiting.
+
+The required change introduces:
+1. **Master fund cannot go negative** — hard block on any debit that would push it below zero.
+2. **Partial disbursements** — the admin can disburse in portions as master fund capacity allows.
+3. **Repayment only after full disbursement** — installments are only generated once the total disbursed equals `amount_approved`.
+4. **Contribution exemption during approval-to-full-disbursement** — member stays exempt while `approved` (already true) AND while partially disbursed (currently we move to `active` at disbursement start — this needs fixing).
+
+---
+
+## User Review Required
+
+> [!IMPORTANT]
+> A new `loan_disbursements` table will be created to track each partial disbursement event. This is the cleanest approach for auditability.
+
+> [!WARNING]
+> The `disbursed_at` column on `loans` will now store the date of **final (full) disbursement**, not the first. Partial disbursements are tracked in `loan_disbursements`.
+
+> [!IMPORTANT]
+> **Status flow change:** A loan that has been partially (but not fully) disbursed will remain in `approved` status until the last portion is disbursed. Only then does it transition to `active` and generate the installment schedule.
+
+> [!CAUTION]
+> **Existing `active` loans are unaffected** — they were fully disbursed in a single shot. The new columns (`amount_disbursed`) will be filled from migrations with their `amount_approved` value so the `is_fully_disbursed` property works correctly for them.
+
+---
+
+## Proposed Changes
+
+### Database Layer
+
+---
+
+#### [NEW] `database/migrations/..._add_amount_disbursed_to_loans_table.php`
+- Adds `amount_disbursed DECIMAL(15,2) NOT NULL DEFAULT 0` after `amount_approved`.
+- Backfills existing `active` / `completed` / `early_settled` loans: sets `amount_disbursed = amount_approved`.
+
+#### [NEW] `database/migrations/..._create_loan_disbursements_table.php`
+- Creates `loan_disbursements` table:
+
+| Column | Type | Notes |
+|---|---|---|
+| `id` | bigint PK | |
+| `loan_id` | bigint FK loans | |
+| `amount` | decimal(15,2) | Portion disbursed in this event |
+| `member_portion` | decimal(15,2) | Member fund debit for this event |
+| `master_portion` | decimal(15,2) | Master fund debit for this event |
+| `disbursed_at` | timestamp | |
+| `disbursed_by_id` | bigint FK users nullable | |
+| `notes` | text nullable | |
+| `timestamps` | | |
+
+---
+
+### Models
+
+---
+
+#### [MODIFY] `app/Models/Loan.php`
+- Add `amount_disbursed` to `$fillable` and casts.
+- Add `$hasMany(LoanDisbursement::class)` relationship.
+- Add computed helpers:
+  - `isFullyDisbursed(): bool` — `amount_disbursed >= amount_approved`
+  - `remainingToDisbuse(): float` — `amount_approved - amount_disbursed`
+- **No change** to `isExemptingContributions()` — `approved` status already covers the partial-disbursement window since status stays `approved` until full disbursement.
+
+#### [NEW] `app/Models/LoanDisbursement.php`
+- `belongsTo(Loan::class)`, `belongsTo(User::class, 'disbursed_by_id')`.
+- `$fillable`: `loan_id, amount, member_portion, master_portion, disbursed_at, disbursed_by_id, notes`.
+
+---
+
+### Accounting Service
+
+---
+
+#### [MODIFY] `app/Services/AccountingService.php`
+- Add `postPartialLoanDisbursement(Loan $loan, float $amount, LoanDisbursement $disbursementRecord): void`:
+  - Loads fresh master fund balance **inside a DB lock (`lockForUpdate`)**.
+  - Computes member portion = `min(member_fund_balance, amount)`.
+  - Computes master portion = `amount - member_portion`.
+  - **Hard block**: throws `\RuntimeException` if `master_fund_balance < master_portion`.
+  - Posts entries: debit member fund, debit master fund, debit loan account.
+  - Snapshots portions onto the `LoanDisbursement` record.
+  - Increments `loans.amount_disbursed += amount`.
+- Update `postLoanDisbursement()` to add master fund guard (for backward compatibility with import paths).
+
+---
+
+### Resource / UI
+
+---
+
+#### [MODIFY] `app/Filament/Admin/Resources/LoanResource.php`
+
+**Disburse action changes:**
+
+- `modalHeading`: shows "Disburse – SAR X remaining of SAR Y (portion N of M)".
+- Adds `amount` `TextInput` to the modal schema:
+  - Default: `min(remaining_to_disburse, master_fund_balance)`.
+  - Max: `min(remaining_to_disburse, master_fund_balance)`.
+  - Helper text: shows master fund balance and remaining to disburse.
+  - **Blocked** (disabled/hidden) if master fund balance is 0.
+- `action` closure:
+  1. Validate `amount ≤ min(remaining, master_fund_balance)`.
+  2. Create `LoanDisbursement` record.
+  3. Call `AccountingService::postPartialLoanDisbursement()`.
+  4. If now fully disbursed:
+     - Generate installment schedule.
+     - Update loan: `status → active`, `disbursed_at → now()`, `due_date`, exemption fields.
+     - Send `LoanDisbursedNotification`.
+  5. Else (partial): send partial disbursement notification to admin only.
+
+**Approve action**: 
+- Add a guard in the `modalDescription` / `repayment_preview` placeholder: show master fund balance and warn if it's < `amount_approved` (but do NOT block approval — the loan can be approved and partially disbursed later).
+
+---
+
+#### [MODIFY] `resources/views/filament/admin/pages/loan-queue.blade.php`
+- In approved-loans table: show disbursement progress bar (e.g. `SAR X / SAR Y` with a thin progress fill).
+
+---
+
+### Verification Plan
+
+#### Automated Tests
+```bash
+php artisan test --filter=LoanDisbursementTest  # (new)
+php artisan test --filter=AccountingServiceTest # ensure master fund guard works
+```
+
+#### Manual Verification
+1. Approve a loan where master fund < full amount → approval succeeds, warning shown.
+2. Partially disburse → loan stays `approved`, member remains exempt from contributions.
+3. Partial disburse again (enough for full amount) → loan moves to `active`, installments generated.
+4. Attempt to disburse more than master fund balance → blocked with error.
+5. Existing `active` loans → unchanged behavior.
+
+---
+
+## Open Questions
+
+> [!NOTE]
+> **Partial disbursement notification**: When a partial disbursement happens (loan not yet fully funded), should the member receive a notification? Or only the admin? Currently `LoanDisbursedNotification` is sent only on full disbursement. I suggest admin-only notification for partial disbursements.
+
+> [!NOTE]
+> **Loan queue display**: Should the Loan Queue page show partially-disbursed loans differently (e.g. progress bar showing SAR X disbursed of SAR Y)?
+------------------------------------------
+Everything is done. All 6 phases complete with clean PHP syntax and successful migrations. Here's a summary:
+
+What Was Built
+New files
+File	Purpose
+migration: add_amount_disbursed_to_loans	Adds amount_disbursed column, backfills active/completed/early_settled loans
+migration: create_loan_disbursements_table	Audit trail of every disbursement event
+app/Models/LoanDisbursement.php	Model for individual disbursement records
+app/Notifications/LoanPartialDisbursementNotification.php	Member notified on every partial disbursement (mail, SMS, WhatsApp, DB)
+Changed files
+File	What changed
+Loan.php	amount_disbursed fillable/cast, disbursements() relationship, isFullyDisbursed(), remainingToDisburse()
+AccountingService.php	postPartialLoanDisbursement() (race-safe, locked), postLoanDisbursement() now also guarded
+LoanResource.php	Full disburse action rewrite with amount input; master fund warning in approve preview
+loan-queue.blade.php	Disbursement progress column (progress bar + SAR fraction)
+Key invariants enforced
+Master fund cannot go negative — enforced inside a lockForUpdate transaction in AccountingService
+Loan stays approved during partial disbursement — installments only created on full disbursement
+disbursed_at on the loan = date of final (100%) disbursement
+Contribution exemption from approval through full disbursement — no change needed since status stays approved throughout
+--------------------------------

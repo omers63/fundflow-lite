@@ -7,6 +7,7 @@ use App\Models\AccountTransaction;
 use App\Models\BankTransaction;
 use App\Models\Contribution;
 use App\Models\Loan;
+use App\Models\LoanDisbursement;
 use App\Models\LoanInstallment;
 use App\Models\Member;
 use App\Models\SmsTransaction;
@@ -237,13 +238,21 @@ class AccountingService
             ->where('member_id', $member->id)
             ->firstOrFail();
 
-        $totalAmount = (float) $loan->amount_approved;
+        $totalAmount  = (float) $loan->amount_approved;
         $memberPortion = min((float) $memberFund->balance, $totalAmount);
         $masterPortion = $totalAmount - $memberPortion;
 
         $description = "Loan #{$loan->id} disbursement – {$member->user->name}";
 
         DB::transaction(function () use ($loan, $member, $masterFund, $memberFund, $loanAccount, $description, $totalAmount, $memberPortion, $masterPortion) {
+            // Re-read master fund inside the lock to prevent negative balance
+            $masterFund = Account::query()->lockForUpdate()->findOrFail($masterFund->id);
+            if ($masterPortion > 0 && (float) $masterFund->balance < $masterPortion) {
+                throw new \RuntimeException(
+                    'Insufficient master fund balance. Available: SAR ' . number_format((float) $masterFund->balance, 2)
+                    . ', required: SAR ' . number_format($masterPortion, 2) . '.'
+                );
+            }
             // Debit member's fund (up to its full balance)
             if ($memberPortion > 0) {
                 $this->postEntry($memberFund, $memberPortion, 'debit', $description . ' (member portion)', $loan, $member->id);
@@ -257,9 +266,73 @@ class AccountingService
 
             // Snapshot portions onto the loan record
             $loan->update([
+                'member_portion'   => $memberPortion,
+                'master_portion'   => $masterPortion,
+                'amount_disbursed' => $totalAmount,
+            ]);
+        });
+    }
+
+    /**
+     * Post a **partial** loan disbursement.
+     *
+     * - Funds up to the member's current fund balance from the member account,
+     *   the remainder from the master fund.
+     * - Throws \RuntimeException if master fund would go negative.
+     * - Increments `loans.amount_disbursed` by $amount.
+     * - Snapshots portions onto the given $disbursementRecord.
+     *
+     * Must be called inside a surrounding DB::transaction if the caller needs
+     * atomicity with other writes (e.g. creating installments).
+     */
+    public function postPartialLoanDisbursement(
+        Loan $loan,
+        float $amount,
+        LoanDisbursement $disbursementRecord,
+    ): void {
+        $member = $loan->member;
+        $this->ensureMemberAccounts($member);
+        $loanAccount = $this->ensureLoanAccount($loan);
+
+        $memberFund = Account::where('type', Account::TYPE_MEMBER_FUND)
+            ->where('member_id', $member->id)
+            ->firstOrFail();
+
+        DB::transaction(function () use ($loan, $member, $memberFund, $loanAccount, $amount, $disbursementRecord) {
+            // Lock both accounts to prevent races
+            $memberFund  = Account::query()->lockForUpdate()->findOrFail($memberFund->id);
+            $masterFund  = Account::query()->lockForUpdate()->findOrFail(Account::masterFund()->id);
+
+            $memberPortion = min((float) $memberFund->balance, $amount);
+            $masterPortion = $amount - $memberPortion;
+
+            if ($masterPortion > 0 && (float) $masterFund->balance < $masterPortion) {
+                throw new \RuntimeException(
+                    'Insufficient master fund balance. Available: SAR '
+                    . number_format((float) $masterFund->balance, 2)
+                    . ', required: SAR ' . number_format($masterPortion, 2) . '.'
+                );
+            }
+
+            $seq  = $loan->disbursements()->count(); // 0-based before this one
+            $label = "Loan #{$loan->id} disbursement (#{$seq}) – {$member->user->name}";
+
+            if ($memberPortion > 0) {
+                $this->postEntry($memberFund, $memberPortion, 'debit', $label . ' (member portion)', $loan, $member->id);
+            }
+            if ($masterPortion > 0) {
+                $this->postEntry($masterFund, $masterPortion, 'debit', $label . ' (fund portion)', $loan, $member->id);
+            }
+            $this->postEntry($loanAccount, $amount, 'debit', $label, $loan, $member->id);
+
+            // Snapshot portions on the disbursement record
+            $disbursementRecord->update([
                 'member_portion' => $memberPortion,
                 'master_portion' => $masterPortion,
             ]);
+
+            // Accumulate running total on the loan
+            $loan->increment('amount_disbursed', $amount);
         });
     }
 
