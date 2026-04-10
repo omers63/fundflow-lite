@@ -2625,7 +2625,7 @@ The required change introduces:
      - Send `LoanDisbursedNotification`.
   5. Else (partial): send partial disbursement notification to admin only.
 
-**Approve action**: 
+**Approve action**:
 - Add a guard in the `modalDescription` / `repayment_preview` placeholder: show master fund balance and warn if it's < `amount_approved` (but do NOT block approval — the loan can be approved and partially disbursed later).
 
 ---
@@ -2681,3 +2681,118 @@ Loan stays approved during partial disbursement — installments only created on
 disbursed_at on the loan = date of final (100%) disbursement
 Contribution exemption from approval through full disbursement — no change needed since status stays approved throughout
 --------------------------------
+Here’s what was wrong and what we changed.
+
+Cause
+AccountingService::postPartialLoanDisbursement already does the right thing: it debits the member fund up to balance, then the master fund for the rest. The bug was in Filament’s Disburse action:
+
+maxAmount was min($remaining, $masterBal) only.
+Server-side checks rejected any amount above master fund alone.
+So if the member had enough in their fund to cover the disbursement you were allowed to enter (because that cap was tied to master only), the whole amount came from the member fund and master portion stayed 0. That looked like “master never debited.”
+
+Fix (in LoanResource.php)
+maxAmount is now min($remaining, $memberFundBal + $masterBal).
+Validation rejects amounts above that combined liquidity (with a clear notification).
+The modal summary shows member balance, master balance, and combined available; warnings use combined vs remaining instead of master-only.
+After this, a disbursement that needs both pools (e.g. 100k remaining, 80k member + 30k master) can be entered up to 100k, and postings will split 80k / 20k as before.
+
+Note: If a disbursement is fully covered by the member fund alone, the master fund is still correctly not debited—there is nothing left to take from master. If your product rule is different (e.g. always split with master), that would be a separate change in AccountingService.
+
+-----------------------------------
+You’re absolutely right — I’ve corrected it to match that accounting model.
+
+What I changed
+Updated loan disbursement posting in app/Services/AccountingService.php so both fund accounts are debited on every disbursement:
+master_fund: debited by full disbursement amount
+member_fund: debited by full disbursement amount (mirror entry)
+Applied this to both:
+postLoanDisbursement()
+postPartialLoanDisbursement()
+Updated portions recorded on loan/disbursement snapshots to reflect source-of-funds:
+master_portion = amount
+member_portion = 0
+Also aligned the disbursement UI/validation
+In app/Filament/Admin/Resources/LoanResource.php, I reverted the temporary combined-balance logic and restored master-only cap/validation, since funding source is master:
+
+Max disbursement = min(remaining, master_fund_balance)
+Validation checks amount against master fund balance only
+Helper/warning text now references master fund only
+Validation
+PHP syntax checks passed for both updated files.
+Linter warnings shown are pre-existing type warnings in AccountingService reversal methods (not introduced by this change).
+If you want, I can next align repayment-estimate math too (computeInstallmentsCount) so it no longer assumes member fund offsets master-funded principal.
+
+-----------------------------------
+What changed
+Updated Create Bank Transaction form in app/Filament/Admin/Resources/BankTransactionResource/Pages/CreateBankTransaction.php:
+
+Made the main form section card full-width using ->columns(1) on the form schema and ->columnSpanFull() on the section.
+Added conditional loan_id field:
+Visible only when transaction_type = debit
+Required when transaction_type = debit
+Options filtered to loans of the selected member (member_id) with status approved/active and remaining disbursement > 0
+Made member_id and transaction_type live/reactive, and resets loan_id when member changes.
+Added server-side validation in mutateFormDataBeforeCreate():
+debit requires both member_id and loan_id
+selected loan must belong to selected member
+selected loan must still have remaining amount to disburse
+Clears loan_id for non-debit transactions.
+Added DB support for linking a bank transaction to a loan:
+
+New migration: database/migrations/2026_04_10_120000_add_loan_id_to_bank_transactions_table.php
+Adds nullable FK loan_id on bank_transactions with nullOnDelete().
+Updated model:
+
+app/Models/BankTransaction.php
+Added loan_id to $fillable
+Added loan() relationship.
+Checks run
+PHP syntax checks passed.
+Lint checks passed for edited files.
+Next step
+Run migrations:
+
+php artisan migrate
+If you want, I can also add loan_id to the Bank Transaction table/view screens so admins can immediately see which debit transaction is linked to which loan.
+
+----------------------------------------------
+Implemented the Post To Cash behavior as requested.
+
+What changed
+post_to_cash modal (single-record action)
+Updated in both:
+
+app/Filament/Admin/Resources/BankTransactionResource.php
+app/Filament/Admin/Resources/BankImportSessionResource/RelationManagers/TransactionsRelationManager.php
+Behavior now:
+
+Credit transactions
+
+member_id is optional
+If no member selected: posting goes to master cash only
+If member selected: posting is mirrored to member cash too
+Debit transactions
+
+member_id is required
+Added loan_id field (Loan Disbursement) and it is required
+Loan options are filtered by selected member and only loans with remaining disbursement
+Used for disbursement reconciliation context (linking transaction to loan/member)
+Service layer changes
+Updated app/Services/AccountingService.php:
+
+Kept postBankTransactionToCash() for compatibility
+Added new method:
+postBankTransactionToCashWithOptionalMember(BankTransaction $tx, ?Member $member = null, ?Loan $loan = null)
+This method enforces:
+
+Debit must have member + loan
+Loan must belong to member, be approved/active, and not fully disbursed
+And handles posting:
+
+Always posts to master cash
+Mirrors to member cash only if member provided
+Updates bank_transactions.member_id, loan_id, posted_at, posted_by
+Notes
+No fund-account posting (master_fund / member_fund) is performed in this post_to_cash flow.
+Syntax checks passed.
+Remaining linter warnings are pre-existing type warnings in AccountingService reversal methods (unchanged by this work).

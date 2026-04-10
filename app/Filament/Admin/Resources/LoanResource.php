@@ -281,8 +281,8 @@ class LoanResource extends Resource
                         Forms\Components\Placeholder::make('repayment_preview')
                             ->label('Loan Schedule & Tier Assignment')
                             ->content(function () use ($record) {
-                                $amount   = (float) $record->amount_requested;
-                                $fundBal  = (float) ($record->member->fundAccount()?->balance ?? 0);
+                                $amount = (float) $record->amount_requested;
+                                $fundBal = (float) ($record->member->fundAccount()?->balance ?? 0);
                                 $loanTier = LoanTier::forAmount($amount);
                                 $threshold = Setting::loanSettlementThreshold();
 
@@ -295,13 +295,13 @@ class LoanResource extends Resource
                                     );
                                 }
 
-                                $minInstall   = (float) $loanTier->min_monthly_installment;
+                                $minInstall = (float) $loanTier->min_monthly_installment;
                                 $memberPortion = min($fundBal, $amount);
                                 $masterPortion = $amount - $memberPortion;
-                                $settleAmt    = $amount * $threshold;
-                                $count        = Loan::computeInstallmentsCount($amount, $fundBal, $minInstall, $threshold);
+                                $settleAmt = $amount * $threshold;
+                                $count = Loan::computeInstallmentsCount($amount, $fundBal, $minInstall, $threshold);
 
-                                $fundTier      = FundTier::forLoanTier($loanTier->id);
+                                $fundTier = FundTier::forLoanTier($loanTier->id);
                                 $fundTierLabel = $fundTier
                                     ? $fundTier->label . ' (SAR ' . number_format($fundTier->available_amount) . ' available)'
                                     : '⚠ No matching fund tier';
@@ -360,10 +360,10 @@ class LoanResource extends Resource
                             ->columnSpanFull(),
                     ])
                     ->action(function (Loan $record, array $data, Component $livewire) {
-                        $amount          = (float) $data['amount_approved'];
+                        $amount = (float) $data['amount_approved'];
                         $requestedAmount = (float) $record->amount_requested;
-                        $isEmergency     = (bool) ($data['is_emergency'] ?? false);
-                        $threshold       = Setting::loanSettlementThreshold();
+                        $isEmergency = (bool) ($data['is_emergency'] ?? false);
+                        $threshold = Setting::loanSettlementThreshold();
 
                         // Tier assignment: always based on the requested amount exclusively.
                         $loanTier = LoanTier::forAmount($requestedAmount);
@@ -431,21 +431,21 @@ class LoanResource extends Resource
                     ->requiresConfirmation(false)
                     ->modalWidth('lg')
                     ->modalHeading(function (Loan $r) {
-                        $remaining  = $r->remainingToDisburse();
-                        $approved   = (float) $r->amount_approved;
-                        $disbursed  = (float) $r->amount_disbursed;
-                        $portion    = $r->disbursements()->count() + 1;
+                        $remaining = $r->remainingToDisburse();
+                        $approved = (float) $r->amount_approved;
+                        $disbursed = (float) $r->amount_disbursed;
+                        $portion = $r->disbursements()->count() + 1;
                         return "Disburse Loan #{$r->id} — SAR " . number_format($remaining, 2)
                             . ' remaining (portion #' . $portion . ' of SAR ' . number_format($approved, 2) . ')';
                     })
                     ->schema(function (Loan $r) {
-                        $remaining  = $r->remainingToDisburse();
-                        $masterBal  = (float) (Account::masterFund()?->balance ?? 0);
-                        $maxAmount  = min($remaining, $masterBal);
-                        $fundBal    = (float) ($r->member->fundAccount()?->balance ?? 0);
+                        $remaining = $r->remainingToDisburse();
+                        $masterBal = (float) (Account::masterFund()?->balance ?? 0);
+                        $maxAmount = min($remaining, $masterBal);
+                        $fundBal = (float) ($r->member->fundAccount()?->balance ?? 0);
                         $minInstall = (float) ($r->loanTier?->min_monthly_installment ?? 1000);
-                        $threshold  = (float) $r->settlement_threshold;
-                        $count      = Loan::computeInstallmentsCount((float) $r->amount_approved, $fundBal, $minInstall, $threshold);
+                        $threshold = (float) $r->settlement_threshold;
+                        $count = Loan::computeInstallmentsCount((float) $r->amount_approved, $fundBal, $minInstall, $threshold);
 
                         $infoHtml = '<div class="overflow-x-auto rounded-lg border border-gray-200 bg-white dark:border-white/10 dark:bg-gray-900/40">'
                             . '<table class="w-full text-sm">'
@@ -487,11 +487,10 @@ class LoanResource extends Resource
                         ];
                     })
                     ->action(function (Loan $record, array $data, Component $livewire) {
-                        $amount     = (float) ($data['amount'] ?? 0);
-                        $notes      = $data['notes'] ?? null;
-                        $remaining  = $record->remainingToDisburse();
-                        $masterBal  = (float) (Account::masterFund()?->balance ?? 0);
-
+                        $amount = (float) ($data['amount'] ?? 0);
+                        $notes = $data['notes'] ?? null;
+                        $remaining = $record->remainingToDisburse();
+                        $masterBal = (float) (Account::masterFund()?->balance ?? 0);
                         if ($amount <= 0) {
                             Notification::make()->title('Enter a disbursement amount')->danger()->send();
                             return;
@@ -515,13 +514,13 @@ class LoanResource extends Resource
 
                         // Create the disbursement record (portions filled by AccountingService)
                         $disbursement = LoanDisbursement::create([
-                            'loan_id'         => $record->id,
-                            'amount'          => $amount,
-                            'member_portion'  => 0,
-                            'master_portion'  => 0,
-                            'disbursed_at'    => now(),
+                            'loan_id' => $record->id,
+                            'amount' => $amount,
+                            'member_portion' => 0,
+                            'master_portion' => 0,
+                            'disbursed_at' => now(),
                             'disbursed_by_id' => auth()->id(),
-                            'notes'           => $notes,
+                            'notes' => $notes,
                         ]);
 
                         try {
@@ -539,10 +538,10 @@ class LoanResource extends Resource
                         if ($record->isFullyDisbursed()) {
                             // Full disbursement — activate loan and build repayment schedule
                             $disbursedAt = now();
-                            $fundBal     = (float) ($record->member->fundAccount()?->balance ?? 0);
-                            $minInstall  = (float) ($record->loanTier?->min_monthly_installment ?? 1000);
-                            $threshold   = (float) $record->settlement_threshold;
-                            $count       = Loan::computeInstallmentsCount($amountApproved, $fundBal, $minInstall, $threshold);
+                            $fundBal = (float) ($record->member->fundAccount()?->balance ?? 0);
+                            $minInstall = (float) ($record->loanTier?->min_monthly_installment ?? 1000);
+                            $threshold = (float) $record->settlement_threshold;
+                            $count = Loan::computeInstallmentsCount($amountApproved, $fundBal, $minInstall, $threshold);
 
                             $exemption = Loan::computeExemptionAndFirstRepayment($disbursedAt);
                             $exemption = Loan::adjustFirstRepaymentIfContributionAlreadyMade($record->member, $exemption);
@@ -552,12 +551,12 @@ class LoanResource extends Resource
                                 $memberPortion = $amountApproved - $masterPortion;
 
                                 $record->update([
-                                    'status'             => 'active',
+                                    'status' => 'active',
                                     'installments_count' => $count,
-                                    'disbursed_at'       => $disbursedAt,
-                                    'due_date'           => $disbursedAt->copy()->addMonths($count)->toDateString(),
-                                    'member_portion'     => $memberPortion,
-                                    'master_portion'     => $masterPortion,
+                                    'disbursed_at' => $disbursedAt,
+                                    'due_date' => $disbursedAt->copy()->addMonths($count)->toDateString(),
+                                    'member_portion' => $memberPortion,
+                                    'master_portion' => $masterPortion,
                                 ] + $exemption);
 
                                 $startDate = Carbon::create(
@@ -568,11 +567,11 @@ class LoanResource extends Resource
 
                                 for ($i = 1; $i <= $count; $i++) {
                                     LoanInstallment::create([
-                                        'loan_id'             => $record->id,
-                                        'installment_number'  => $i,
-                                        'amount'              => $minInstall,
-                                        'due_date'            => $startDate->copy()->addMonths($i - 1)->toDateString(),
-                                        'status'              => 'pending',
+                                        'loan_id' => $record->id,
+                                        'installment_number' => $i,
+                                        'amount' => $minInstall,
+                                        'due_date' => $startDate->copy()->addMonths($i - 1)->toDateString(),
+                                        'status' => 'pending',
                                     ]);
                                 }
                             });
@@ -581,7 +580,8 @@ class LoanResource extends Resource
 
                             try {
                                 $record->member->user->notify(new LoanDisbursedNotification($record));
-                            } catch (\Throwable) {}
+                            } catch (\Throwable) {
+                            }
 
                             Notification::make()
                                 ->title('Loan Fully Disbursed')
@@ -595,7 +595,8 @@ class LoanResource extends Resource
                                     totalDisbursed: $totalDisbursed,
                                     amountApproved: $amountApproved,
                                 ));
-                            } catch (\Throwable) {}
+                            } catch (\Throwable) {
+                            }
 
                             Notification::make()
                                 ->title('Partial Disbursement Recorded')

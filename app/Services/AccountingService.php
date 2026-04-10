@@ -123,16 +123,53 @@ class AccountingService
      */
     public function postBankTransactionToCash(BankTransaction $tx, Member $member): void
     {
+        $this->postBankTransactionToCashWithOptionalMember($tx, $member);
+    }
+
+    /**
+     * Post a bank transaction to master cash, with optional member cash mirroring.
+     *
+     * - Credit: member is optional. If provided, mirror to member cash.
+     * - Debit: member + a specific {@see LoanDisbursement} are required for disbursement
+     *   reconciliation. Cash posting is still recorded on master cash (and mirrored to member
+     *   cash), but fund accounts are not touched here.
+     */
+    public function postBankTransactionToCashWithOptionalMember(
+        BankTransaction $tx,
+        ?Member $member = null,
+        ?LoanDisbursement $loanDisbursement = null,
+    ): void {
         if ($tx->isPosted()) {
             return;
         }
 
-        $this->ensureMemberAccounts($member);
-
         $masterCash = Account::masterCash();
-        $memberCash = Account::where('type', Account::TYPE_MEMBER_CASH)
-            ->where('member_id', $member->id)
-            ->firstOrFail();
+
+        $loan = null;
+        if ($tx->transaction_type === 'debit') {
+            if (!$member) {
+                throw new \InvalidArgumentException('Member is required when posting a debit bank transaction.');
+            }
+            if (!$loanDisbursement) {
+                throw new \InvalidArgumentException('A loan disbursement record is required when posting a debit bank transaction.');
+            }
+            $loanDisbursement->loadMissing('loan.member');
+            $loan = $loanDisbursement->loan;
+            if (!$loan) {
+                throw new \InvalidArgumentException('Loan disbursement is missing its loan.');
+            }
+            if ((int) $loan->member_id !== (int) $member->id) {
+                throw new \InvalidArgumentException('Selected disbursement must belong to the selected member’s loan.');
+            }
+        }
+
+        $memberCash = null;
+        if ($member) {
+            $this->ensureMemberAccounts($member);
+            $memberCash = Account::where('type', Account::TYPE_MEMBER_CASH)
+                ->where('member_id', $member->id)
+                ->firstOrFail();
+        }
 
         $entryType = $tx->transaction_type === 'credit' ? 'credit' : 'debit';
         $description = sprintf(
@@ -142,12 +179,16 @@ class AccountingService
             $tx->description ?? $tx->reference ?? 'Bank import'
         );
 
-        DB::transaction(function () use ($tx, $member, $masterCash, $memberCash, $entryType, $description) {
-            $this->postEntry($masterCash, $tx->amount, $entryType, $description, $tx, $member->id);
-            $this->postEntry($memberCash, $tx->amount, $entryType, $description, $tx, $member->id);
+        DB::transaction(function () use ($tx, $member, $loan, $loanDisbursement, $masterCash, $memberCash, $entryType, $description) {
+            $this->postEntry($masterCash, $tx->amount, $entryType, $description, $tx, $member?->id);
+            if ($memberCash) {
+                $this->postEntry($memberCash, $tx->amount, $entryType, $description, $tx, $member?->id);
+            }
 
             $tx->update([
-                'member_id' => $member->id,
+                'member_id' => $member?->id,
+                'loan_id' => $loan?->id,
+                'loan_disbursement_id' => $loanDisbursement?->id,
                 'posted_at' => now(),
                 'posted_by' => auth()->id(),
             ]);
@@ -221,11 +262,11 @@ class AccountingService
     }
 
     /**
-     * Post a loan disbursement with split funding:
-     *  - Member's fund account is debited first (member_portion = min(fund_balance, loan_amount)).
-     *  - Master fund account is debited for the remainder (master_portion).
+     * Post a loan disbursement funded by master fund and mirrored on member fund:
+     *  - Master fund account is debited for the full loan amount.
+     *  - Member fund account is debited for the same amount as a mirror entry.
      *  - Loan account records the total outstanding.
-     *  - Loan model is updated with the portion breakdown.
+     *  - Loan model records master_portion = amount, member_portion = 0.
      */
     public function postLoanDisbursement(Loan $loan): void
     {
@@ -238,9 +279,9 @@ class AccountingService
             ->where('member_id', $member->id)
             ->firstOrFail();
 
-        $totalAmount  = (float) $loan->amount_approved;
-        $memberPortion = min((float) $memberFund->balance, $totalAmount);
-        $masterPortion = $totalAmount - $memberPortion;
+        $totalAmount = (float) $loan->amount_approved;
+        $memberPortion = 0.0;
+        $masterPortion = $totalAmount;
 
         $description = "Loan #{$loan->id} disbursement – {$member->user->name}";
 
@@ -253,21 +294,16 @@ class AccountingService
                     . ', required: SAR ' . number_format($masterPortion, 2) . '.'
                 );
             }
-            // Debit member's fund (up to its full balance)
-            if ($memberPortion > 0) {
-                $this->postEntry($memberFund, $memberPortion, 'debit', $description . ' (member portion)', $loan, $member->id);
-            }
-            // Debit master fund for the remainder
-            if ($masterPortion > 0) {
-                $this->postEntry($masterFund, $masterPortion, 'debit', $description . ' (fund portion)', $loan, $member->id);
-            }
+            // Master-funded loan disbursement mirrored on member fund account.
+            $this->postEntry($masterFund, $masterPortion, 'debit', $description . ' (master funded)', $loan, $member->id);
+            $this->postEntry($memberFund, $masterPortion, 'debit', $description . ' (member mirror)', $loan, $member->id);
             // Loan account tracks total outstanding
             $this->postEntry($loanAccount, $totalAmount, 'debit', $description, $loan, $member->id);
 
             // Snapshot portions onto the loan record
             $loan->update([
-                'member_portion'   => $memberPortion,
-                'master_portion'   => $masterPortion,
+                'member_portion' => $memberPortion,
+                'master_portion' => $masterPortion,
                 'amount_disbursed' => $totalAmount,
             ]);
         });
@@ -276,11 +312,12 @@ class AccountingService
     /**
      * Post a **partial** loan disbursement.
      *
-     * - Funds up to the member's current fund balance from the member account,
-     *   the remainder from the master fund.
+     * - Funds are always sourced from the master fund.
+     * - Member fund is debited by the same amount as a mirror entry.
      * - Throws \RuntimeException if master fund would go negative.
      * - Increments `loans.amount_disbursed` by $amount.
-     * - Snapshots portions onto the given $disbursementRecord.
+     * - Snapshots portions onto the given $disbursementRecord with
+     *   member_portion = 0 and master_portion = $amount.
      *
      * Must be called inside a surrounding DB::transaction if the caller needs
      * atomicity with other writes (e.g. creating installments).
@@ -300,11 +337,11 @@ class AccountingService
 
         DB::transaction(function () use ($loan, $member, $memberFund, $loanAccount, $amount, $disbursementRecord) {
             // Lock both accounts to prevent races
-            $memberFund  = Account::query()->lockForUpdate()->findOrFail($memberFund->id);
-            $masterFund  = Account::query()->lockForUpdate()->findOrFail(Account::masterFund()->id);
+            $memberFund = Account::query()->lockForUpdate()->findOrFail($memberFund->id);
+            $masterFund = Account::query()->lockForUpdate()->findOrFail(Account::masterFund()->id);
 
-            $memberPortion = min((float) $memberFund->balance, $amount);
-            $masterPortion = $amount - $memberPortion;
+            $memberPortion = 0.0;
+            $masterPortion = $amount;
 
             if ($masterPortion > 0 && (float) $masterFund->balance < $masterPortion) {
                 throw new \RuntimeException(
@@ -314,15 +351,11 @@ class AccountingService
                 );
             }
 
-            $seq  = $loan->disbursements()->count(); // 0-based before this one
+            $seq = $loan->disbursements()->count(); // 0-based before this one
             $label = "Loan #{$loan->id} disbursement (#{$seq}) – {$member->user->name}";
 
-            if ($memberPortion > 0) {
-                $this->postEntry($memberFund, $memberPortion, 'debit', $label . ' (member portion)', $loan, $member->id);
-            }
-            if ($masterPortion > 0) {
-                $this->postEntry($masterFund, $masterPortion, 'debit', $label . ' (fund portion)', $loan, $member->id);
-            }
+            $this->postEntry($masterFund, $masterPortion, 'debit', $label . ' (master funded)', $loan, $member->id);
+            $this->postEntry($memberFund, $masterPortion, 'debit', $label . ' (member mirror)', $loan, $member->id);
             $this->postEntry($loanAccount, $amount, 'debit', $label, $loan, $member->id);
 
             // Snapshot portions on the disbursement record
@@ -646,6 +679,8 @@ class AccountingService
                 'posted_at' => null,
                 'posted_by' => null,
                 'member_id' => null,
+                'loan_id' => null,
+                'loan_disbursement_id' => null,
             ]);
         });
     }

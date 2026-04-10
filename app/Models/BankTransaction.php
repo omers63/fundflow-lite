@@ -14,6 +14,8 @@ class BankTransaction extends Model
         'bank_id',
         'import_session_id',
         'member_id',
+        'loan_id',
+        'loan_disbursement_id',
         'transaction_date',
         'amount',
         'transaction_type',
@@ -47,6 +49,16 @@ class BankTransaction extends Model
     public function member(): BelongsTo
     {
         return $this->belongsTo(Member::class);
+    }
+
+    public function loan(): BelongsTo
+    {
+        return $this->belongsTo(Loan::class);
+    }
+
+    public function loanDisbursement(): BelongsTo
+    {
+        return $this->belongsTo(LoanDisbursement::class);
     }
 
     public function postedBy(): BelongsTo
