@@ -12,6 +12,12 @@ return new class extends Migration {
             return;
         }
 
+        // InnoDB uses the composite unique index on (member_id, month, year) to support the
+        // member_id foreign key; drop the FK first or MySQL errors with HY000/1553.
+        Schema::table('contributions', function (Blueprint $table) {
+            $table->dropForeign(['member_id']);
+        });
+
         Schema::table('contributions', function (Blueprint $table) {
             $table->dropUnique(['member_id', 'month', 'year']);
         });
@@ -22,23 +28,21 @@ return new class extends Migration {
             DB::statement(
                 'CREATE UNIQUE INDEX contributions_member_period_active_unique ON contributions (member_id, month, year) WHERE deleted_at IS NULL'
             );
-
-            return;
-        }
-
-        if (in_array($driver, ['mysql', 'mariadb'], true)) {
+        } elseif (in_array($driver, ['mysql', 'mariadb'], true)) {
             DB::statement(
                 'ALTER TABLE contributions ADD COLUMN active_period_key VARCHAR(64)
                 AS (CASE WHEN deleted_at IS NULL THEN CONCAT(member_id, "-", month, "-", year) ELSE NULL END) STORED'
             );
             DB::statement('CREATE UNIQUE INDEX contributions_active_period_key_unique ON contributions (active_period_key)');
-
-            return;
+        } else {
+            DB::statement(
+                'CREATE UNIQUE INDEX contributions_member_period_active_unique ON contributions (member_id, month, year) WHERE deleted_at IS NULL'
+            );
         }
 
-        DB::statement(
-            'CREATE UNIQUE INDEX contributions_member_period_active_unique ON contributions (member_id, month, year) WHERE deleted_at IS NULL'
-        );
+        Schema::table('contributions', function (Blueprint $table) {
+            $table->foreign('member_id')->references('id')->on('members')->cascadeOnDelete();
+        });
     }
 
     public function down(): void
@@ -46,6 +50,10 @@ return new class extends Migration {
         if (!Schema::hasTable('contributions')) {
             return;
         }
+
+        Schema::table('contributions', function (Blueprint $table) {
+            $table->dropForeign(['member_id']);
+        });
 
         $driver = Schema::getConnection()->getDriverName();
 
@@ -64,6 +72,10 @@ return new class extends Migration {
 
         Schema::table('contributions', function (Blueprint $table) {
             $table->unique(['member_id', 'month', 'year']);
+        });
+
+        Schema::table('contributions', function (Blueprint $table) {
+            $table->foreign('member_id')->references('id')->on('members')->cascadeOnDelete();
         });
     }
 };
