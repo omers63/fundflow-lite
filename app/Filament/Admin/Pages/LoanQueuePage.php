@@ -5,10 +5,12 @@ namespace App\Filament\Admin\Pages;
 use App\Filament\Admin\Resources\LoanResource;
 use App\Models\FundTier;
 use App\Models\Loan;
+use App\Services\LoanQueueOrderingService;
 use Filament\Actions\Action;
 use Filament\Pages\Page;
 use Illuminate\Contracts\Support\Htmlable;
 use Illuminate\Database\Eloquent\Collection;
+use Illuminate\Support\Collection as SupportCollection;
 
 class LoanQueuePage extends Page
 {
@@ -34,7 +36,7 @@ class LoanQueuePage extends Page
 
     public function getSubheading(): string|Htmlable|null
     {
-        return 'All incoming loan requests and disbursed loans, grouped by fund tier. Pending applications appear at the top before they are reviewed and assigned a tier.';
+        return 'Incoming requests are ordered by emergency status, fund tier, loan tier (1 before higher tiers), time received, and available capacity. Tier queues use the same rules; positions refresh when loans are approved, rejected, cancelled, disbursed, or removed.';
     }
 
     public function getHeaderActions(): array
@@ -64,32 +66,38 @@ class LoanQueuePage extends Page
      * Pending loan requests not yet assigned to any fund tier.
      * These are incoming applications awaiting admin review.
      *
-     * @return Collection<int, Loan>
+     * @return SupportCollection<int, Loan>
      */
     public function getPendingApplications()
     {
-        return Loan::query()
+        $loans = Loan::query()
             ->where('status', 'pending')
             ->whereNull('fund_tier_id')
             ->with(['member.user', 'loanTier'])
-            ->orderBy('applied_at')
             ->get();
+
+        return LoanQueueOrderingService::orderIncomingPending($loans);
     }
 
     /**
      * Loans in a specific fund tier: approved (awaiting disbursement) and active (being repaid).
      *
-     * @return Collection<int, Loan>
+     * @return SupportCollection<int, Loan>
      */
     public function getQueueForTier(int $fundTierId)
     {
-        return Loan::query()
+        $fundTier = FundTier::query()->find($fundTierId);
+        if ($fundTier === null) {
+            return collect();
+        }
+
+        $loans = Loan::query()
             ->where('fund_tier_id', $fundTierId)
             ->whereIn('status', ['approved', 'active'])
             ->with(['member.user', 'loanTier'])
-            ->orderBy('queue_position')
-            ->orderBy('applied_at')
             ->get();
+
+        return LoanQueueOrderingService::orderTierQueue($loans, $fundTier);
     }
 
     public function loanViewUrl(Loan $loan): ?string

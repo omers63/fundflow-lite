@@ -201,7 +201,7 @@ class CreateMembershipApplication extends CreateRecord
     protected function handleRecordCreation(array $data): MembershipApplication
     {
         return DB::transaction(function () use ($data) {
-            $optionalString = static fn (array $d, string $key): ?string => filled($d[$key] ?? null) ? $d[$key] : null;
+            $optionalString = static fn(array $d, string $key): ?string => filled($d[$key] ?? null) ? $d[$key] : null;
 
             $mobile = $data['mobile_phone'] ?? null;
 
@@ -250,5 +250,11 @@ class CreateMembershipApplication extends CreateRecord
             ->title('Application created')
             ->body("Pending application for {$record->user->name} has been created.")
             ->success();
+    }
+
+    /** After a normal create, go to the applications list (not the record view). */
+    protected function getRedirectUrl(): string
+    {
+        return static::getResource()::getUrl('index');
     }
 }

@@ -153,7 +153,7 @@ class LoanImportService
             'member_id' => $member->id,
             'loan_tier_id' => $loanTier?->id,
             'fund_tier_id' => $fundTier->id,
-            'queue_position' => $fundTier->nextQueuePosition(),
+            'queue_position' => null,
             'amount_requested' => $amountRequested,
             'amount_approved' => $amount,
             'purpose' => $purpose,
@@ -165,6 +165,8 @@ class LoanImportService
             'settlement_threshold' => $threshold,
             'is_emergency' => $isEmergency,
         ]);
+
+        LoanQueueOrderingService::resequenceFundTier($fundTier->id);
     }
 
     /**
@@ -250,7 +252,7 @@ class LoanImportService
                 'member_id' => $member->id,
                 'loan_tier_id' => $loanTier?->id,
                 'fund_tier_id' => $fundTier->id,
-                'queue_position' => $fundTier->nextQueuePosition(),
+                'queue_position' => null,
                 'amount_requested' => $amountRequested,
                 'amount_approved' => $amount,
                 'purpose' => $purpose,
@@ -303,6 +305,8 @@ class LoanImportService
                 ]);
             }
         });
+
+        LoanQueueOrderingService::resequenceFundTier($fundTier->id);
     }
 
     /**

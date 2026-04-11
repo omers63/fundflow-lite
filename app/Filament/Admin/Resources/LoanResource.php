@@ -21,6 +21,7 @@ use App\Notifications\LoanPartialDisbursementNotification;
 use App\Notifications\MembershipRejectedNotification;
 use App\Services\AccountingService;
 use App\Services\LoanEligibilityService;
+use App\Services\LoanQueueOrderingService;
 use Carbon\Carbon;
 use Filament\Actions\Action;
 use Filament\Actions\BulkActionGroup;
@@ -34,10 +35,12 @@ use Filament\Actions\ViewAction;
 use Filament\Forms;
 use Filament\Infolists\Components\TextEntry;
 use Filament\Notifications\Notification;
+use Filament\Resources\Pages\EditRecord;
 use Filament\Resources\Resource;
 use Filament\Schemas\Components\Section;
 use Filament\Schemas\Schema;
 use Filament\Support\Enums\FontWeight;
+use Filament\Support\Facades\FilamentView;
 use Filament\Tables;
 use Filament\Tables\Filters\TrashedFilter;
 use Filament\Tables\Table;
@@ -156,6 +159,211 @@ class LoanResource extends Resource
     }
 
     // =========================================================================
+    // Approve / Reject (table row actions + view/edit record headers)
+    // =========================================================================
+
+    public static function approveLoanAction(): Action
+    {
+        return Action::make('approve')
+            ->label('Approve')
+            ->icon('heroicon-o-check-circle')
+            ->color('success')
+            ->visible(fn(Loan $r) => $r->status === 'pending')
+            ->fillForm(fn(Loan $r) => [
+                'amount_approved' => $r->amount_requested,
+                'is_emergency' => $r->is_emergency,
+            ])
+            ->schema(fn(Loan $record) => [
+                Forms\Components\TextInput::make('amount_approved')
+                    ->label('Approved Amount (SAR)')
+                    ->numeric()->prefix('SAR')->required()
+                    ->helperText(
+                        'Loan tier and fund tier are auto-assigned from the requested amount (SAR '
+                        . number_format((float) $record->amount_requested)
+                        . '). Adjust this figure only for the disbursed amount.'
+                    ),
+
+                Forms\Components\Toggle::make('is_emergency')
+                    ->label('Emergency Loan')
+                    ->helperText('Emergency loans bypass the standard loan-tier queue and are assigned to the Emergency fund tier.')
+                    ->default(false),
+
+                Forms\Components\Placeholder::make('repayment_preview')
+                    ->label('Loan Schedule & Tier Assignment')
+                    ->content(function () use ($record) {
+                        $amount = (float) $record->amount_requested;
+                        $fundBal = (float) ($record->member->fundAccount()?->balance ?? 0);
+                        $loanTier = LoanTier::forAmount($amount);
+                        $threshold = Setting::loanSettlementThreshold();
+
+                        if (!$loanTier) {
+                            return new HtmlString(
+                                '<div class="rounded-lg border border-red-200 bg-red-50 px-4 py-3 text-sm text-red-700 dark:border-red-500/30 dark:bg-red-500/10 dark:text-red-400">'
+                                . '⚠ No loan tier covers SAR ' . e(number_format($amount))
+                                . '. Adjust Loan Tiers in Settings before approving.'
+                                . '</div>'
+                            );
+                        }
+
+                        $minInstall = (float) $loanTier->min_monthly_installment;
+                        $memberPortion = min($fundBal, $amount);
+                        $masterPortion = $amount - $memberPortion;
+                        $settleAmt = $amount * $threshold;
+                        $count = Loan::computeInstallmentsCount($amount, $fundBal, $minInstall, $threshold);
+
+                        $fundTier = FundTier::forLoanTier($loanTier->id);
+                        $fundTierLabel = $fundTier
+                            ? $fundTier->label . ' (SAR ' . number_format($fundTier->available_amount) . ' available)'
+                            : '⚠ No matching fund tier';
+
+                        $row = fn(string $label, string $value, bool $highlight = false): string =>
+                            '<tr class="border-b border-gray-100 last:border-0 dark:border-white/10">'
+                            . '<td class="py-2.5 pl-3 pr-3 text-gray-500 dark:text-gray-400">' . e($label) . '</td>'
+                            . '<td class="py-2.5 pr-3 text-right tabular-nums ' . ($highlight ? 'font-semibold text-gray-950 dark:text-white' : 'text-gray-700 dark:text-gray-300') . '">' . e($value) . '</td>'
+                            . '</tr>';
+
+                        $masterFundBal = (float) (Account::masterFund()?->balance ?? 0);
+
+                        $masterClass = $masterFundBal < (float) $amount ? 'text-red-600 dark:text-red-400 font-semibold' : 'text-gray-700 dark:text-gray-300';
+                        $masterRow = '<tr class="border-b border-gray-100 last:border-0 dark:border-white/10">'
+                            . '<td class="py-2.5 pl-3 pr-3 text-gray-500 dark:text-gray-400">' . e('Master fund balance') . '</td>'
+                            . '<td class="py-2.5 pr-3 text-right tabular-nums ' . $masterClass . '">SAR ' . e(number_format($masterFundBal, 2)) . '</td>'
+                            . '</tr>';
+
+                        $loanTierValue = $loanTier->label
+                            . ' (SAR ' . number_format((float) $loanTier->min_amount)
+                            . ' – SAR ' . number_format((float) $loanTier->max_amount) . ')';
+                        $rows = $row('Loan tier (from requested amount)', $loanTierValue)
+                            . $row('Fund tier', $fundTierLabel)
+                            . $masterRow
+                            . $row('Member fund balance', 'SAR ' . number_format($fundBal, 2))
+                            . $row('Member portion', 'SAR ' . number_format($memberPortion, 2))
+                            . $row('Fund (master) portion', 'SAR ' . number_format($masterPortion, 2))
+                            . $row('Settlement top-up (' . ($threshold * 100) . '%)', 'SAR ' . number_format($settleAmt, 2))
+                            . $row('Monthly installment', 'SAR ' . number_format($minInstall, 2))
+                            . $row('Repayment period', $count . ' months', true);
+
+                        $table = '<div class="overflow-x-auto rounded-lg border border-gray-200 bg-white dark:border-white/10 dark:bg-gray-900/40">'
+                            . '<table class="w-full min-w-[20rem] text-sm">'
+                            . '<thead><tr class="border-b border-gray-200 bg-gray-50 dark:border-white/10 dark:bg-white/5">'
+                            . '<th scope="col" class="py-2.5 pl-3 pr-3 text-left text-xs font-semibold uppercase tracking-wide text-gray-500 dark:text-gray-400">Field</th>'
+                            . '<th scope="col" class="py-2.5 pr-3 text-right text-xs font-semibold uppercase tracking-wide text-gray-500 dark:text-gray-400">Value</th>'
+                            . '</tr></thead>'
+                            . '<tbody>' . $rows . '</tbody>'
+                            . '</table></div>';
+
+                        $warnHtml = '';
+                        if ($masterFundBal < (float) $amount) {
+                            $warnHtml = '<div class="rounded-lg border border-amber-200 bg-amber-50 px-4 py-3 text-sm text-amber-700 dark:border-amber-500/30 dark:bg-amber-500/10 dark:text-amber-400">'
+                                . '⚠ Master fund balance (SAR ' . e(number_format($masterFundBal, 2)) . ') is below the requested amount. '
+                                . 'This loan will require <strong>partial disbursements</strong> as funds become available.'
+                                . '</div>';
+                        }
+
+                        $note = '<p class="text-xs leading-relaxed text-gray-500 dark:text-gray-400">'
+                            . 'Tier assignment is based on the <span class="font-medium text-gray-700 dark:text-gray-300">requested amount</span>. '
+                            . 'Repayment period is re-computed at disbursement using the then-current fund balance.'
+                            . '</p>';
+
+                        return new HtmlString('<div class="space-y-3">' . $warnHtml . $table . $note . '</div>');
+                    })
+                    ->columnSpanFull(),
+            ])
+            ->action(function (Loan $record, array $data, Component $livewire) {
+                $amount = (float) $data['amount_approved'];
+                $requestedAmount = (float) $record->amount_requested;
+                $isEmergency = (bool) ($data['is_emergency'] ?? false);
+                $threshold = Setting::loanSettlementThreshold();
+
+                $loanTier = LoanTier::forAmount($requestedAmount);
+
+                $fundTier = $isEmergency
+                    ? FundTier::emergency()
+                    : ($loanTier ? FundTier::forLoanTier($loanTier->id) : null);
+
+                if (!$fundTier) {
+                    Notification::make()
+                        ->title('Cannot Approve')
+                        ->body('No active fund tier found for this loan. Configure Fund Tiers in Settings.')
+                        ->danger()->send();
+
+                    return;
+                }
+
+                $fundBal = (float) ($record->member->fundAccount()?->balance ?? 0);
+                $minInstall = (float) ($loanTier?->min_monthly_installment ?? 1000);
+                $count = Loan::computeInstallmentsCount($amount, $fundBal, $minInstall, $threshold);
+
+                $record->update([
+                    'status' => 'approved',
+                    'amount_approved' => $amount,
+                    'is_emergency' => $isEmergency,
+                    'installments_count' => $count,
+                    'loan_tier_id' => $loanTier?->id,
+                    'fund_tier_id' => $fundTier->id,
+                    'queue_position' => null,
+                    'approved_at' => now(),
+                    'approved_by_id' => auth()->id(),
+                    'settlement_threshold' => $threshold,
+                ]);
+
+                LoanQueueOrderingService::resequenceFundTier($fundTier->id);
+                $record->refresh();
+
+                $tierInfo = $isEmergency
+                    ? 'Emergency fund tier'
+                    : "{$fundTier->label} (queue position #{$record->queue_position})";
+
+                try {
+                    $record->member->user->notify(new LoanApprovedNotification(
+                        amount: $amount,
+                        installments: $count,
+                        dueDate: now()->addMonths($count)->format('d M Y')
+                    ));
+                } catch (\Throwable) {
+                }
+
+                Notification::make()
+                    ->title('Loan Approved')
+                    ->body("Assigned to {$tierInfo}. Repayment: {$count} months × SAR " . number_format($minInstall) . '/month.')
+                    ->success()->send();
+
+                static::dispatchLoanListHeaderWidgetsRefresh($livewire);
+
+                if ($livewire instanceof EditRecord) {
+                    $url = static::getUrl('view', ['record' => $record], shouldGuessMissingParameters: true);
+                    $livewire->redirect($url, navigate: FilamentView::hasSpaMode($url));
+                }
+            });
+    }
+
+    public static function rejectLoanAction(): Action
+    {
+        return Action::make('reject')
+            ->label('Reject')
+            ->icon('heroicon-o-x-circle')
+            ->color('danger')
+            ->visible(fn(Loan $r) => $r->status === 'pending')
+            ->schema([
+                Forms\Components\Textarea::make('rejection_reason')->label('Rejection Reason')->required(),
+            ])
+            ->action(function (Loan $record, array $data, Component $livewire) {
+                $record->update(['status' => 'rejected', 'rejection_reason' => $data['rejection_reason']]);
+                try {
+                    $record->member->user->notify(new MembershipRejectedNotification($data['rejection_reason']));
+                } catch (\Throwable) {
+                }
+                Notification::make()->title('Loan Rejected')->warning()->send();
+                static::dispatchLoanListHeaderWidgetsRefresh($livewire);
+
+                if ($livewire instanceof EditRecord) {
+                    $url = static::getUrl('view', ['record' => $record], shouldGuessMissingParameters: true);
+                    $livewire->redirect($url, navigate: FilamentView::hasSpaMode($url));
+                }
+            });
+    }
+
+    // =========================================================================
     // Table
     // =========================================================================
 
@@ -253,174 +461,7 @@ class LoanResource extends Resource
             ->recordActions([
                 ViewAction::make(),
 
-                // ── APPROVE ──
-                Action::make('approve')
-                    ->label('Approve')
-                    ->icon('heroicon-o-check-circle')
-                    ->color('success')
-                    ->visible(fn(Loan $r) => $r->status === 'pending')
-                    ->fillForm(fn(Loan $r) => [
-                        'amount_approved' => $r->amount_requested,
-                        'is_emergency' => $r->is_emergency,
-                    ])
-                    ->schema(fn(Loan $record) => [
-                        Forms\Components\TextInput::make('amount_approved')
-                            ->label('Approved Amount (SAR)')
-                            ->numeric()->prefix('SAR')->required()
-                            ->helperText(
-                                'Loan tier and fund tier are auto-assigned from the requested amount (SAR '
-                                . number_format((float) $record->amount_requested)
-                                . '). Adjust this figure only for the disbursed amount.'
-                            ),
-
-                        Forms\Components\Toggle::make('is_emergency')
-                            ->label('Emergency Loan')
-                            ->helperText('Emergency loans bypass the standard loan-tier queue and are assigned to the Emergency fund tier.')
-                            ->default(false),
-
-                        Forms\Components\Placeholder::make('repayment_preview')
-                            ->label('Loan Schedule & Tier Assignment')
-                            ->content(function () use ($record) {
-                                $amount = (float) $record->amount_requested;
-                                $fundBal = (float) ($record->member->fundAccount()?->balance ?? 0);
-                                $loanTier = LoanTier::forAmount($amount);
-                                $threshold = Setting::loanSettlementThreshold();
-
-                                if (!$loanTier) {
-                                    return new HtmlString(
-                                        '<div class="rounded-lg border border-red-200 bg-red-50 px-4 py-3 text-sm text-red-700 dark:border-red-500/30 dark:bg-red-500/10 dark:text-red-400">'
-                                        . '⚠ No loan tier covers SAR ' . e(number_format($amount))
-                                        . '. Adjust Loan Tiers in Settings before approving.'
-                                        . '</div>'
-                                    );
-                                }
-
-                                $minInstall = (float) $loanTier->min_monthly_installment;
-                                $memberPortion = min($fundBal, $amount);
-                                $masterPortion = $amount - $memberPortion;
-                                $settleAmt = $amount * $threshold;
-                                $count = Loan::computeInstallmentsCount($amount, $fundBal, $minInstall, $threshold);
-
-                                $fundTier = FundTier::forLoanTier($loanTier->id);
-                                $fundTierLabel = $fundTier
-                                    ? $fundTier->label . ' (SAR ' . number_format($fundTier->available_amount) . ' available)'
-                                    : '⚠ No matching fund tier';
-
-                                $row = fn(string $label, string $value, bool $highlight = false): string =>
-                                    '<tr class="border-b border-gray-100 last:border-0 dark:border-white/10">'
-                                    . '<td class="py-2.5 pl-3 pr-3 text-gray-500 dark:text-gray-400">' . e($label) . '</td>'
-                                    . '<td class="py-2.5 pr-3 text-right tabular-nums ' . ($highlight ? 'font-semibold text-gray-950 dark:text-white' : 'text-gray-700 dark:text-gray-300') . '">' . e($value) . '</td>'
-                                    . '</tr>';
-
-                                $masterFundBal = (float) (Account::masterFund()?->balance ?? 0);
-
-                                $masterClass = $masterFundBal < (float) $amount ? 'text-red-600 dark:text-red-400 font-semibold' : 'text-gray-700 dark:text-gray-300';
-                                $masterRow = '<tr class="border-b border-gray-100 last:border-0 dark:border-white/10">'
-                                    . '<td class="py-2.5 pl-3 pr-3 text-gray-500 dark:text-gray-400">' . e('Master fund balance') . '</td>'
-                                    . '<td class="py-2.5 pr-3 text-right tabular-nums ' . $masterClass . '">SAR ' . e(number_format($masterFundBal, 2)) . '</td>'
-                                    . '</tr>';
-
-                                $loanTierValue = $loanTier->label
-                                    . ' (SAR ' . number_format((float) $loanTier->min_amount)
-                                    . ' – SAR ' . number_format((float) $loanTier->max_amount) . ')';
-                                $rows = $row('Loan tier (from requested amount)', $loanTierValue)
-                                    . $row('Fund tier', $fundTierLabel)
-                                    . $masterRow
-                                    . $row('Member fund balance', 'SAR ' . number_format($fundBal, 2))
-                                    . $row('Member portion', 'SAR ' . number_format($memberPortion, 2))
-                                    . $row('Fund (master) portion', 'SAR ' . number_format($masterPortion, 2))
-                                    . $row('Settlement top-up (' . ($threshold * 100) . '%)', 'SAR ' . number_format($settleAmt, 2))
-                                    . $row('Monthly installment', 'SAR ' . number_format($minInstall, 2))
-                                    . $row('Repayment period', $count . ' months', true);
-
-                                $table = '<div class="overflow-x-auto rounded-lg border border-gray-200 bg-white dark:border-white/10 dark:bg-gray-900/40">'
-                                    . '<table class="w-full min-w-[20rem] text-sm">'
-                                    . '<thead><tr class="border-b border-gray-200 bg-gray-50 dark:border-white/10 dark:bg-white/5">'
-                                    . '<th scope="col" class="py-2.5 pl-3 pr-3 text-left text-xs font-semibold uppercase tracking-wide text-gray-500 dark:text-gray-400">Field</th>'
-                                    . '<th scope="col" class="py-2.5 pr-3 text-right text-xs font-semibold uppercase tracking-wide text-gray-500 dark:text-gray-400">Value</th>'
-                                    . '</tr></thead>'
-                                    . '<tbody>' . $rows . '</tbody>'
-                                    . '</table></div>';
-
-                                $warnHtml = '';
-                                if ($masterFundBal < (float) $amount) {
-                                    $warnHtml = '<div class="rounded-lg border border-amber-200 bg-amber-50 px-4 py-3 text-sm text-amber-700 dark:border-amber-500/30 dark:bg-amber-500/10 dark:text-amber-400">'
-                                        . '⚠ Master fund balance (SAR ' . e(number_format($masterFundBal, 2)) . ') is below the requested amount. '
-                                        . 'This loan will require <strong>partial disbursements</strong> as funds become available.'
-                                        . '</div>';
-                                }
-
-                                $note = '<p class="text-xs leading-relaxed text-gray-500 dark:text-gray-400">'
-                                    . 'Tier assignment is based on the <span class="font-medium text-gray-700 dark:text-gray-300">requested amount</span>. '
-                                    . 'Repayment period is re-computed at disbursement using the then-current fund balance.'
-                                    . '</p>';
-
-                                return new HtmlString('<div class="space-y-3">' . $warnHtml . $table . $note . '</div>');
-                            })
-                            ->columnSpanFull(),
-                    ])
-                    ->action(function (Loan $record, array $data, Component $livewire) {
-                        $amount = (float) $data['amount_approved'];
-                        $requestedAmount = (float) $record->amount_requested;
-                        $isEmergency = (bool) ($data['is_emergency'] ?? false);
-                        $threshold = Setting::loanSettlementThreshold();
-
-                        // Tier assignment: always based on the requested amount exclusively.
-                        $loanTier = LoanTier::forAmount($requestedAmount);
-
-                        // Fund tier: emergency flag overrides, otherwise derived from loan tier.
-                        $fundTier = $isEmergency
-                            ? FundTier::emergency()
-                            : ($loanTier ? FundTier::forLoanTier($loanTier->id) : null);
-
-                        if (!$fundTier) {
-                            Notification::make()
-                                ->title('Cannot Approve')
-                                ->body('No active fund tier found for this loan. Configure Fund Tiers in Settings.')
-                                ->danger()->send();
-
-                            return;
-                        }
-
-                        // Compute installments_count at approval time (using current fund balance as estimate)
-                        $fundBal = (float) ($record->member->fundAccount()?->balance ?? 0);
-                        $minInstall = (float) ($loanTier?->min_monthly_installment ?? 1000);
-                        $count = Loan::computeInstallmentsCount($amount, $fundBal, $minInstall, $threshold);
-                        $position = $fundTier->nextQueuePosition();
-
-                        $record->update([
-                            'status' => 'approved',
-                            'amount_approved' => $amount,
-                            'is_emergency' => $isEmergency,
-                            'installments_count' => $count,
-                            'loan_tier_id' => $loanTier?->id,
-                            'fund_tier_id' => $fundTier->id,
-                            'queue_position' => $position,
-                            'approved_at' => now(),
-                            'approved_by_id' => auth()->id(),
-                            'settlement_threshold' => $threshold,
-                        ]);
-
-                        $tierInfo = $isEmergency
-                            ? 'Emergency fund tier'
-                            : "{$fundTier->label} (queue position #{$position})";
-
-                        try {
-                            $record->member->user->notify(new LoanApprovedNotification(
-                                amount: $amount,
-                                installments: $count,
-                                dueDate: now()->addMonths($count)->format('d M Y')
-                            ));
-                        } catch (\Throwable) {
-                        }
-
-                        Notification::make()
-                            ->title('Loan Approved')
-                            ->body("Assigned to {$tierInfo}. Repayment: {$count} months × SAR " . number_format($minInstall) . '/month.')
-                            ->success()->send();
-
-                        static::dispatchLoanListHeaderWidgetsRefresh($livewire);
-                    }),
+                static::approveLoanAction(),
 
                 // ── DISBURSE ──
                 Action::make('disburse')
@@ -604,27 +645,11 @@ class LoanResource extends Resource
                                 ->info()->send();
                         }
 
+                        LoanQueueOrderingService::resequenceFundTier($record->fund_tier_id);
                         static::dispatchLoanListHeaderWidgetsRefresh($livewire);
                     }),
 
-                // ── REJECT ──
-                Action::make('reject')
-                    ->label('Reject')
-                    ->icon('heroicon-o-x-circle')
-                    ->color('danger')
-                    ->visible(fn(Loan $r) => $r->status === 'pending')
-                    ->schema([
-                        Forms\Components\Textarea::make('rejection_reason')->label('Rejection Reason')->required(),
-                    ])
-                    ->action(function (Loan $record, array $data, Component $livewire) {
-                        $record->update(['status' => 'rejected', 'rejection_reason' => $data['rejection_reason']]);
-                        try {
-                            $record->member->user->notify(new MembershipRejectedNotification($data['rejection_reason']));
-                        } catch (\Throwable) {
-                        }
-                        Notification::make()->title('Loan Rejected')->warning()->send();
-                        static::dispatchLoanListHeaderWidgetsRefresh($livewire);
-                    }),
+                static::rejectLoanAction(),
 
                 // ── CANCEL ──
                 Action::make('cancel')
@@ -636,10 +661,14 @@ class LoanResource extends Resource
                         Forms\Components\Textarea::make('cancellation_reason')->label('Cancellation Reason')->nullable(),
                     ])
                     ->action(function (Loan $record, array $data, Component $livewire) {
+                        $fundTierId = $record->fund_tier_id;
                         $record->update(['status' => 'cancelled', 'cancellation_reason' => $data['cancellation_reason'] ?? null]);
                         try {
                             $record->member->user->notify(new LoanCancelledNotification($record, $data['cancellation_reason'] ?? ''));
                         } catch (\Throwable) {
+                        }
+                        if ($fundTierId !== null) {
+                            LoanQueueOrderingService::resequenceFundTier((int) $fundTierId);
                         }
                         Notification::make()->title('Loan Cancelled')->send();
                         static::dispatchLoanListHeaderWidgetsRefresh($livewire);
@@ -672,6 +701,7 @@ class LoanResource extends Resource
                         } catch (\Throwable) {
                         }
 
+                        LoanQueueOrderingService::resequenceFundTier($record->fund_tier_id);
                         Notification::make()->title('Loan Early Settled')->success()->send();
                         static::dispatchLoanListHeaderWidgetsRefresh($livewire);
                     }),
@@ -681,7 +711,11 @@ class LoanResource extends Resource
                         'Reverses all ledger postings for this loan (disbursement, repayments, and any cash or guarantor lines tied to its installments), then soft-deletes installments, the loan account, and the loan. Restoring a loan from the trash does not rebuild ledger postings — use only when you understand the impact.'
                     )
                     ->using(function (Loan $record) {
+                        $fundTierId = $record->fund_tier_id;
                         app(AccountingService::class)->safeDeleteLoan($record);
+                        if ($fundTierId !== null) {
+                            LoanQueueOrderingService::resequenceFundTier((int) $fundTierId);
+                        }
 
                         return true;
                     })
@@ -699,13 +733,20 @@ class LoanResource extends Resource
                         )
                         ->using(function (DeleteBulkAction $action, $records) {
                             $accounting = app(AccountingService::class);
+                            $tierIds = [];
                             foreach ($records as $record) {
+                                if ($record->fund_tier_id !== null) {
+                                    $tierIds[(int) $record->fund_tier_id] = true;
+                                }
                                 try {
                                     $accounting->safeDeleteLoan($record);
                                 } catch (\Throwable $e) {
                                     $action->reportBulkProcessingFailure(message: $e->getMessage());
                                     report($e);
                                 }
+                            }
+                            foreach (array_keys($tierIds) as $tid) {
+                                LoanQueueOrderingService::resequenceFundTier($tid);
                             }
                         }),
                     RestoreBulkAction::make(),
@@ -866,6 +907,7 @@ class LoanResource extends Resource
             'index' => Pages\ListLoans::route('/'),
             'create' => Pages\CreateLoan::route('/create'),
             'view' => Pages\ViewLoan::route('/{record}'),
+            'edit' => Pages\EditLoan::route('/{record}/edit'),
         ];
     }
 

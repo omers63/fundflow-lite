@@ -2971,3 +2971,315 @@ Laravel Octane reduces bootstrap cost per request; it’s ops-heavy and not the 
 Minimal first step for your codebase: add Cache::remember around MemberStatsWidget::getData() (short TTL, e.g. 120s), then add explicit forget / version bump on member/contribution/loan writes when you’re ready. If you want this implemented in-repo next, say which widgets and TTL/invalidation style you prefer (TTL-only vs Redis tags vs max(updated_at) keys).
 
 --------------------------------
+I need to understand pending applications, which are currently ordered by applied_at. The ordering for incoming applications should prioritize emergency cases first, sorted by applied_at, followed by tier-1 requests (sorted by applied_at) among non-emergency applications, then other tiers in order of applied_at. This assumes "incoming" refers to unassigned tier requests, with tier priority determined by LoanTier model's tier_number ordering.
+
+To implement this:
+
+Sort by applied_at as base
+Move emergencies to top, sorting them by applied_at
+For non-emergencies, sort by loan tier priority (using LoanTier model)
+Then sort remaining by applied_at
+The FundTier model's available_amount logic may affect how these are assigned to funds, but the initial ordering remains based on applied_at and tier priority.
+
+
+Now I need a clear algorithm: - Emergency requests are prioritized first, sorted by applied_at in ascending order.
+
+Non-emergency requests are then processed by loan tier, with tier 1 requests coming before tier 2 requests, each sorted by applied_at.
+
+Within each loan tier, requests are further ordered by applied_at for those that fit within the available funds for that fund tier.
+
+Requests are only considered for processing if they have sufficient available funds in their expected fund tier to cover the requested amount. Requests should be reordered so that those which can be funded come before those that cannot. For non-emergency requests mapping to different fund tiers, ordering should follow tier priority. Within the same fund tier, requests are ordered by applied_at if they fit within the available funds for that fund tier. Requests are only considered for processing if they have sufficient available funds in their expected fund tier to cover the requested amount. Among loans targeting fund tier X, sort by applied_at but prioritize those fitting within the remaining available_amount. For operational purposes:
+
+Sort incoming requests by group_rank (0 = emergency, 1 = loan tier 1, 2 = loan tier 2+ or null tier) and applied_at ascending within each group.
+
+Within each fund tier section, only consider requests that fit within the available funds.
+
+Requests exceeding available funds are excluded from processing in that tier. Loan tier-1 requests are prioritized after emergencies and ordered by applied_at within the available funds for that fund tier. A credit allocation simulation will be implemented per expected fund tier to determine which requests can be fully funded based on remaining amounts.
+
+I need to create a LoanQueueOrderingService or use static methods on a class to encapsulate the logic for ordering loan queues. - sortIncomingPending(Collection|Builder $loans) - for incoming pending loans
+
+sortTierQueue(Collection $loans, FundTier $tier) - for per-tier approved and active loans
+For incoming pending loans (status pending, fund_tier_id null):
+
+Load loans with member.user, loanTier (may be null), amount_requested, is_emergency, applied_at
+For each loan, resolve effective loan tier: if $record->loan_tier_id exists, find it; otherwise, determine based on amount requested
+Resolve expected fund tier: if emergency, use FundTier::emergency(); otherwise, use FundTier::forLoanTier(loanTier->id)
+Sort accordingly
+For incoming pending loans, sort by:
+Emergency loans first (by applied_at ascending)
+Non-emergency loans by expected fund tier number (with emergency tier = 0), then loan tier number, then applied_at ascending
+Within each fund tier, partition by availability: simulate FIFO by applied_at, subtracting amounts from available funds to separate those that fit from those that exceed current availability, prioritizing those that fit Actually, user said "tier-1 requests come next within the available funds for this fund tier," which I interpret as: among loans for the same fund tier, tier-1 loan tiers are listed first (by applied_at), followed by tier-2+ (by applied_at). Capacity might reorder requeststhose that don't fit may appear below those that do.
+Capacity-aware ordering within a fund tier group (non-emergency):
+
+Get available funds for that fund tier (at display time)
+Sort candidates by: (1) loan tier number ascending (tier 1 first), (2) applied_at ascending Then stable reorder: greedily take loans in that order that fit in remaining budget to the "front", then the rest in applied_at order? That's complex.
+Simpler: two-level sort without knapsack:
+
+is_emergency desc, loan_tier_number asc (null=999), applied_at asc
+Add tertiary: expected_fund_tier tier_number asc (so same fund pool groups together)
+For "within available funds" in tier queue section (approved+active):
+
+Recompute queue_position for all loans in a fund tier whenever one is approved/rejected/changes state/emergency - For incoming pending loans, sort by emergency status first, then by expected fund tier and loan tier numbers, followed by applied_at.
+Within each fund tier, prioritize loans by loan tier number (tier 1 first), then by applied_at.
+Emergency loans are handled separately in their own fund tier and sorted by queue_position or applied_at.
+Each fund tier corresponds to exactly one loan tier, as defined in the schema. Then the "queue" in section 2 contains loans already assigned to a specific fund tiermeaning they all share the same fund tier, though their loan tier may vary if an admin adjusts the amount requested. On approval, both loan_tier_id and fund tier are set from the same resolution.
+Ordering within a tier queue:
+
+Emergency loans are handled separately in their own fund tier, so within a non-emergency tier, all loans have is_emergency = false.
+For non-emergency loans in a tier:
+Sort by loan tier number (tier 1 first), then by applied_at.
+Emergency loans are prioritized by queue_position or applied_at. If a fund tier maps to a specific loan tier (e.g., only loan tier 1), then all loans in that fund tier are treated as loan tier 1. Within such a fund tier, ordering can be simplified to FIFO based on applied_at. Emergency loans are prioritized at the top of the emergency fund tier, while non-emergency loans are ordered by loan tier number (tier 1 first) and then by applied_at. For incoming loans, sort by:
+Emergency loans first by applied_at ascending
+Non-emergency loans grouped by implied fund tier (by tier_number ascending)
+Within each fund tier, sort by loan tier number ascending
+Finally, sort by applied_at ascending within each loan tier group "Within available funds": for loans in the same implied fund tier, partition loans based on cumulative requested amounts in applied_at order, separating those that fit within available funds from those that exceed them.
+For the Incoming sort comparator:
+
+Primary: is_emergency descending (emergency loans first)
+Secondary: effective_loan_tier_number ascending (tier 1 first, nulls last as 999)
+Tertiary: expected_fund_tier_id for stable grouping
+Quaternary: applied_at ascending For "within available funds," simulate FIFO by applying rules 12 order: emergency loans are already separated, and within non-emergency loans in the same fund tier, sort by loan tier number and then applied_at. Greedily assign loans to priority bucketsbucket 0 if they fit within available funds, bucket 1 if notthen sort by bucket first, preserving relative order within each bucket.
+Implementation approach:
+
+Use amount_requested for pending loans
+Walk through sorted loans in order
+Track remaining = available funds
+Assign each loan to bucket 0 (if it fits) or bucket 1 (if it doesnt)
+Final sort: bucket 0 before bucket 1, then by applied_at within each bucket The sortIncomingPending method processes incoming loans by resolving their effective loan tier and sorting them based on emergency status, loan tier number, and application time. It uses a caching mechanism for efficiency and includes logic to handle loans without an explicit tier by determining their tier based on requested amount.
+A new service class App\Services\LoanQueueOrderingService is introduced to encapsulate ordering logic, reducing complexity in LoanQueuePage. For getQueueForTier, re-sort the collection as follows:
+
+If the fund tier is emergency, sort emergency loans by applied_at or queue_position.
+Otherwise, within available funds, prioritize loan tier-1 requests first, followed by other tiers, maintaining applied_at order within each tier.
+For approved and active loans in the same fund tier, prioritize loan tier-1 requests first, then follow received order within the available funds for that fund tier. Remaining loan tiers are ordered by applied_at within each fund tier, with tier-1 requests prioritized. For incoming loans, sort by emergency status, then by loan tier number, followed by applied_at. Loans are grouped by expected fund tier and sorted within each group by loan tier number and applied_at.
+
+For tier queues, sort by queue_position and then applied_at, with queue_position recalculated when loans are approved, rejected, or become active. - Re-sort tier queues on approval/rejection to reflect state changes.
+
+Compute sort order in PHP for freshness, avoiding DB updates unless queue_position is needed for other purposes.
+Replace orderBy('queue_position')->orderBy('applied_at') with a service-based comparator for tier internal queue ordering.
+
+For reject on pending, the notification type is labeled as MembershipRejectedNotification, which appears incorrect for loan scenarios, though this is outside the current task scope.
+
+When a loan is canceled, the fund_tier_id remains unchanged, so the loan stays associated with the same tier but is marked as canceled. getQueueForTier filters by status 'approved' and 'active', so canceled loans won't appear in queues. Queue positions can become stale, but resequencing would fix this for remaining loans.
+
+Implement the service and connect it to LoanQueuePage
+For LoanResource approve: replace $position = $fundTier->nextQueuePosition() with LoanQueueOrderingService::persistQueuePositionsForFundTier($fundTier->id) after updating the loan
+New loans require queue_position to be set by full sorting
+Flow on approve:
+Update loan with fund_tier_id, status approved, etc. (without queue_position initially or with temporary value)
+[Incomplete step]
+
+ViewLoan actions are limited to those available in the LoanResource infolist/table. Mutations use the same actions available in the LoanResource infolist/table. A LoanObserver for saved event will trigger when relevant fields change on pending loans, though incoming order is computed in PHP each request without a database column. Tier queue resequencing occurs on:
+
+approve
+cancel (if fund_tier exists)
+early_settle (removes from active)
+disburse (when becomes active - order remains same)
+soft delete?
+DeleteAction on loan needs verification.
+
+Capacity-based sorting for incoming loans groups by expected_fund_tier_id with nullable tiers placed last. Within each group, exclude emergencies and sort non-emergency loans by loan_tier_number ascending and then applied_at ascending. Then, partition the sorted list by capacity: iterate through the list, keeping track of remaining capacity, and group items that fit sequentially into a maximal prefix. Return an ordered collection where the first part consists of items that fit within the available capacity, maintaining their original sorted order.
+
+Let me code partitionByCapacity(Collection $sorted, float $available, callable $amountFn) which returns an ordered collection where the first part is the maximal prefix in sorted order that fits in available when processed sequentially. Actually, "within available funds" means requests that fit within the fund's available balance should appear before those that don't, while preserving the order of emergencies, tier 1, ..., received within each fund tier bucket.
+
+Within the same fund tier bucket (non-emergency):
+
+Sort by loan tier number ascending, then applied_at ascending baseOrder
+Set avail = fundTier.available_amount
+Walk baseOrder, assigning sort_key = (fits ? 0 : 1) where fits is determined by checking if the loan's requested amount can fit in the remaining available funds when processed in tier-1 order by applied_at. Greedy walk: for each loan in baseOrder, if amount remaining capacity then fits=true and subtract amount from remaining; otherwise fits=false. This creates two buckets: [fits in greedy order][rest in baseOrder].
+Implementation:
+
+Initialize $remaining = $available
+Initialize $fitsFirst = [] and $fitsRest = []
+For each loan in baseOrder:
+If loan amount remaining capacity:
+Add to $fitsFirst
+Subtract loan amount from remaining
+Else:
+Add to $fitsRest
+Return [$fitsFirst, $fitsRest] The code iterates through a sorted list of loans, placing each loan into either the $fitsFirst or $fitsRest group based on whether its requested amount fits within the remaining capacity. It returns a collection combining these groups in order.
+For incoming loans, split into emergencies and non-emergencies, then process each group per fund tier, prioritizing emergencies first overall and sorting non-emergencies by tier and application time within each fund tier. Sort $emergency by applied_at ascending.
+For $normal:
+
+Group by resolved FundTier id (with null ID last)
+Sort groups by fund tier's tier_number ascending (ensuring emergency fund tier 0 doesn't appear in normal)
+Within each group:
+a. Sort by loan tier's tier_number ascending (nulls last), then applied_at ascending
+b. Apply capacity-based greedy sorting using that tier's available_amount
+Concatenate groups in fund tier order
+Result = emergency concatenated with normalized groups
+For step 3b, load FundTier model keyed by id to access available_amount. For loans with null expected fund tier, sort by applied_at only and place at the end.
+
+Implement LoanQueueOrderingService:
+
+tierQueueOrdered: Loans already assigned to a fund tier.
+Separate emergencies first.
+Sort by loanTier.tier_number ascending, then applied_at ascending.
+Use FundTier model to access available_amount for capacity-based sorting.
+Group by resolved FundTier id (nulls last), sort groups by tier_number ascending.
+Within each group, sort by loanTier.tier_number ascending (nulls last), then applied_at ascending.
+Apply greedy capacity sorting using available_amount per fund tier.
+Concatenate groups in fund tier order. Capacity uses available_amount on the fund tier. For approved loans not yet disbursed, the amount affecting capacity is either remainingToDisburse or amount_approved, depending on exposure calculation needs. FundTier::active_exposure considers amount_approved for approved and active loans, so "available" already reflects approved amounts. For display ordering among approved waiting loans, simulate capacity to determine who receives funds nextFIFO by applied_at within the same loan tier. Tier-1 versus tier-2 within the same fund tier applies when one fund tier maps to one loan tier, ensuring all loans with the same tier_number are grouped accordingly. If multiple loan tiers map to the same fund tier, sorting by loan tier number within a card is unnecessary.
+getQueueForTier ordering:
+
+is_emergency DESC (emergencies first)
+loanTier.tier_number ASC (nulls last)
+For non-emergency loans, sort by applied_at ASC after emergency and tier number
+For approved vs. active status, prioritize approved loans in disbursement queue before active ones, but only sort by applied_at ASC after handling emergencies and loan tiers. Capacity within a fund tier is managed using a greedy approach based on available_amount. For disbursement purposes, amount_approved determines how much each loan consumes from the available funds, especially for approved loans that haven't been fully disbursed yet.
+A simplified tier queue ordering can be expressed as:
+
+Emergencies first (is_emergency DESC)
+Then by loan_tiers.tier_number ASC
+Then by status priority: approved before active (using a CASE statement)
+Finally, by applied_at ASC
+This results in a clean sequence where emergencies are prioritized, followed by tiered loan tiers, then status-based sorting, and finally chronological order.
+
+Implementation steps:
+
+Order loans by is_emergency descending
+Then by loan_tiers.tier_number ascending
+Then by status using a CASE expression to prioritize approved over active
+Finally, order by Sort loans byis_emergencydescending, then byloan_tiers.tier_numberascending, and finally byapplied_at` ascending.
+For capacity-based reordering within a tier queue, prioritize approved loans with remainingToDisburse less than or equal to available funds, using a greedy approach based on applied_at order. This adds an optional complexity layer for approved loans only. User specified that tier-1 loans should be processed next within available funds, with incoming loans being the primary concern. The tier section should follow is_emergency DESC, applied_at ASC, and maintain position persistence.
+
+Implement service file:
+
+Create LoanQueueOrderingService class
+Define method to order loans by is_emergency descending, then loan_tiers.tier_number ascending, and finally applied_at ascending
+Handle capacity-based sorting using available_amount per fund tier
+Support for approved loans with remainingToDisburse consideration
+Maintain existing queue logic for emergencies and normal loans The code orders incoming pending loans by separating emergencies from regular loans, then processes each group according to fund tier availability and loan tier priority. Emergency loans are prioritized first, followed by non-emergency loans grouped and sorted by fund tier and loan tier numbers. Each loan is assigned to a fund tier based on its expected_fund_tier_id, with null IDs placed last. Loans are then sorted by applied_at within each fund tier group. For approved loans not yet disbursed, the amount affecting capacity is determined by remainingToDisburse or amount_approved, depending on exposure calculations. The system uses a greedy algorithm to allocate funds based on available amounts per fund tier, ensuring that loans with lower applied_at timestamps are prioritized within each tier. The final result combines emergency loans with sorted non-emergency loans, maintaining the correct order for disbursement purposes. Sort emergency loans by applied_at ascending.
+For non-emergency loans, first group by fund tier using expectedFundTierId, then sort by loan tier number within each group. If loan tiers are equal, sort by applied_at ascending. Use available_amount per fund tier to manage capacity during sorting. Group loans by fund tier and sort fund tier keys by tier number ascending. For each fund tier group, sort loans by loanTier.tier_number ascending, then by applied_at ascending. Apply capacity-based sorting within each group using available_amount per fund tier. Reorder groups by fund tier number ascending and concatenate results. For approved loans not yet disbursed, consider remainingToDisburse or amount_approved when calculating capacity. Use a greedy algorithm to allocate funds based on available amounts per fund tier, prioritizing loans with earlier applied_at timestamps. Ensure emergencies are prioritized first, followed by tiered loan tiers, then status-based sorting, and finally chronological order.
+
+For tier queue capacity within available, sum the remainingToDisburse() for approved items in greedy order, prioritizing those waiting first. For display purposes, prioritize loans that can be fully covered by current slack (available_amount) for their remaining disbursement.
+
+Loans eligible for immediate disbursement based on current slack should be prioritized.
+Current slack is calculated as available_amount minus already approved amounts.
+This ensures future disbursements align with available capacity. For loans with remaining amounts (R), a loan "fits" if R current remaining capacity. The process starts with rem = available_amount and iterates through loans in order, updating rem by subtracting R when a loan fits. Active loans with R = 0 always fit for ordering purposes.
+The tier queue is implemented as follows:
+
+is_emergency DESC
+loanTierNumber ASC
+Applied_at ASC
+Optional capacity bucket using amountFn = approved ? remainingToDisburse : 0, greedy
+
+I will add the LoanQueueOrderingService use statement to LoanResource and invoke the resequence method after approve and cancel operations when fund_tier is set. Also update LoanImportService to call resequence instead of nextQueuePosition after batch import, or call resequence at the end of the import method. For import, call resequence at the end of the import method. For approve/cancel/disburse operations, resequence fund tier of that loan. When disbursement occurs, resequence to maintain proper ordering of approved before active loans.
+
+Call resequence after import row
+Call resequence at end of import method
+Resequence fund tier on approve/cancel/delete
+Resequence after disburse to maintain approved-before-active order LoanImportService will call resequence for each touched fund tier after the import loop, though this may be skipped to limit scope.
+Implement LoanQueueOrderingService::resequenceFundTier to reorder loans within a fund tier by status and priority. DB::transaction is used to update queue positions in bulk, avoiding observer triggers. The orderTierQueue method orders loans within a fund tier by status and priority, ensuring proper sequencing. $loans are sorted by emergency status, then by effective tier number, and finally by status with approved loans before active ones. The sorting logic compares loan statuses, prioritizing approved loans over pending ones, and sorts by application time when statuses match. The amountFor function assigns a zero amount to active loans, which causes issues in capacity bucketing where active loans incorrectly take precedence.
+In applyCapacityBucket, active loans with zero amounts are incorrectly prioritized at the front of the bucket, leading to improper allocation since they should not jump to the front when their amount is zero. Change amountFor to consider only approved loans with remaining > 0 for capacity splitting, excluding active loans from greedy capacity allocation. Active loans should be ordered after fits in the bucket, maintaining their original relative order.
+
+Reorder tier logic:
+
+Emergency loans first (is_emergency, applied_at)
+Non-emergency approved: capacity greedy on remainingToDisburse
+Non-emergency active: applied_at
+public static function orderTierQueue(...)
+{ - Emergency loans are sorted by applied_at time.
+- Approved loans are sorted by effective tier number and then by applied_at time.
+- Active loans are sorted by applied_at time.
+- Loans are partitioned into emergency, approved, and active categories.
+- Capacity bucketing is applied to approved loans based on remainingToDisburse.
+- Final ordering combines emergency loans, bucketed approved loans, and sorted active loans.
+
+DeleteAction uses safeDeleteLoan; I should add an after callback to resequence fund tier and capture fund_tier_id before deletion. DeleteAction uses safeDeleteLoan; I should add an after callback to resequence fund tier and capture fund_tier_id before deletion.
+
+Capture fund_tier_id before deletion using ->before callback
+Use ->using to call AccountingService::safeDeleteLoan
+Resequence fund tier after deletion using LoanQueueOrderingService::resequenceFundTier
+Soft deleted loans are excluded from resequencing queries by default
+Resequence queries filter for approved, active loans only Fund tier available_amount is recalculated during orderIncomingPending, with FundTier model loading master balance and recalculatingthis is acceptable in a loop for grouping purposes since fresh available amounts are needed and no transaction is involved.
+Issue: effectiveLoanTier for pending uses forAmount, but FundTier::forLoanTier uses loan tier id; if forAmount returns null (out of range), expectedFundTierId becomes null, resulting in group 'none'.
+
+N+1 problem occurs when getPendingApplications loads all records and then service calls FundTier::find in groupBy keysload once instead.
+
+LoanQueuePage getPendingApplications loads all pending applications.
+
+Implementing LoanQueueOrderingService and wiring it into LoanQueuePage and LoanResource (approve, cancel, disburse, early settle, delete).
+
+Strict mapping exists per loan tier. Good. Fix incoming grouping to use FundTier::where('loan_tier_id', $lt->id)->where('is_active', true)->first() for non-emergency cases. Emergency loans correctly map to emergency fund tier id.
+
+Implement applyCapacityBucket as public static in service for testing purposes, keeping it protected otherwise.
+
+Use tier_number from FundTier when available for fund tier sort keys; assign PHP_INT_MAX to 'none' for sorting last.
+
+Group sorting logic:
+
+Compare keys; return 0 if equal
+Place 'none' after other keys
+Sort other keys numerically Use cached FundTier models retrieved via FundTier::query()->where('is_active', true)->get()->keyBy('id') for tier_number and availability checks.
+Implement sorting logic using tier_number from FundTier models, defaulting to PHP_INT_MAX for 'none' entries to ensure they appear last during sorting. The orderIncomingPending method sorts incoming loans by emergency status, fund tier priority, loan tier, and FIFO order. It uses a collection of loans and returns a sorted collection. Emergency loans are prioritized, followed by fund tier and loan tier sorting, with capacity-aware ordering within each fund tier bucket. If the collection is empty, return it as-is. Otherwise, retrieve active fund tiers and group loans by their expected fund tier ID, with a fallback to 'none' for unassigned tiers. Sort these groups by fund tier priority using tier_number from the cached fund tier models, placing 'none' entries last. Emergency loans are sorted first by application time, followed by non-emergency loans grouped and ordered by fund tier and loan tier priorities. The sorting logic compares fund tier keys, returning appropriate values for ordering. For 'none' entries, it ensures proper placement at the end. It retrieves fund tier models from a cached collection to determine tier_number for numerical sorting. If a model isn't found, it handles the missing data gracefully. Finally, it sorts groups by fund tier priority and processes each group accordingly. The sorting logic compares effective loan tier numbers; if equal, it orders by application time. For 'none' entries, available amount is set to PHP_FLOAT_MAX. Otherwise, it retrieves the available amount from cached fund tiers, defaulting to 0 if not found. $out = $out->concat(self::applyCapacityBucket($sorted, $avail, fn (Loan $l) => (float) $l->amount_requested));
+
+Return the concatenated result after applying capacity bucket logic.
+
+/**
+
+@param SupportCollection<int, Loan>|Collection<int, Loan> $loans
+@return SupportCollection<int, Loan> */ public static function orderTierQueue(SupportCollection|Collection $loans, FundTier $fundTier): SupportCollection { $c = $loans instanceof SupportCollection ? $loans : collect($loans->all()); if ($c->isEmpty()) { return $c; }
+Process loans in a tier queue, returning an ordered collection. If the input is empty, return it as-is. Otherwise, handle the collection appropriately for further processing. $available = (float) $fundTier->available_amount;
+
+Emergency loans are sorted by application time, while non-emergency loans are partitioned into approved and active categories. Approved loans are sorted by effective loan tier number, with ties broken by application time. Active loans follow a similar sorting approach based on tier numbers and application times. The sorting logic for emergency loans is applied first, followed by approved and active loans sorted by application time. The applyCapacityBucket function is used to process approved loans with available amounts, and active loans are sorted and appended afterward. Emergency loans are prioritized based on application time, while non-emergency loans are grouped and ordered by fund tier and loan tier priorities.
+
+For resequencing fund tiers, if the provided ID is null, no action is taken. Otherwise, the corresponding fund tier is retrieved, and if it does not exist, no further action is performed. This ensures that only valid fund tiers are considered for resequencing.
+
+I'll add after line 607 (before dispatch) or after dispatch:
+
+Add the new code before the dispatch function
+Place it at line 607, before the dispatch function starts
+Alternatively, place it after the dispatch function ends After refreshing, use $record->fund_tier_id to call LoanQueueOrderingService::resequenceFundTier().
+For approve actions, invoke LoanQueueOrderingService after updates.
+
+For LoanQueuePage, consider adding #[Livewire] refresh for immediate updates when staying on the page, or use Filament's wire:poll if needed.
+
+Use inline numbers in Blade for pending items within the sorted collection. effectiveLoanTier retrieves the loan tier directly from the loan object, avoiding N+1 queries when loan_tier_id is set but loanTier isn't loaded. Since getPendingApplications eager loads loanTier, this approach is efficient.
+
+For orderTierQueue greedy allocation on approved loans with available, active loans consume exposure through amount_approved, while available_amount reflects allocated minus exposure. The "remaining slack" for new disbursements is available.
+
+When computing exposure, FundTier::active_exposure equals the sum of amount_approved for all approved and active loans. available = allocated - exposure.
+
+For approved loans, the remaining R to disburse counts toward exposure even if not yet fully released. The "slack" for tagging "fits" should be loans where the additional draw fits within available funds. The available amount reflects what's not yet allocated to approved totals, while available_amount shows how much remains in the pool for undrawn parts. This involves complex accounting logic. Simpler tier queue: Skip capacity greedy logic for tier sectionsuse emergency FIFO, ordered by tier_number and applied_at, with active loans sorted by applied_at.
+
+For tier-1, "within allocated fund-tier limits" refers to the incoming capacity bucket managing tier mix. Within each tier, all loans share the same pool; greedy sorting by remainingToDisburse and available may misorder if exposure already includes full amount_approved.
+
+Example: With 100k allocated, one approved loan has amount_approved of 80k and available of 20k. If remainingToDisburse is 80k, then 80k > 20k doesnt fit, so it goes to "later". That's correct for determining "who can be disbursed next with current slack."
+
+For the second approved loan of 10k, it fits within the remaining slack of 20k after the first loan is marked as not fitting. The order among approved loans should be: [second loan, first loan] which is good.
+
+In the greedy ordering by tier sort, the first loan (80k) doesn't fit because 80k > 20k, while the second loan (10k) fits since 10k 20k. After the second loan fits, the remaining slack becomes 20k - 10k = 10k. So the output order is: loan2, loan1. This is correct.
+
+Implementing LoanQueueOrderingService and wiring it into LoanQueuePage and LoanResource (approve, cancel, disburse, early settle, delete).
+
+Laravel's collection partition method returns [Collection, Collection] instead of a keyed array. The user fixed this by using list assignment correctly. In Laravel, Collection::sort() uses the spaceship operator when the callback accepts two arguments. The sort method in Illuminate\Support\Collection passes a Comparator in Laravel 10+. For Laravel 11, Collection::sort() may require the callback to return an integer. Alternatively, sortBy can be used with a composite key. The user initially used sort() with a callback that accepted two arguments but encountered issues with string comparison. They clarified that in Laravel 10, Collection::sort(null) sorts by value, while in Laravel 11, sort(?callable $callback = null) behaves similarlysorting items when no callback is provided, and comparing two items when a callback is given.
+
+The user corrected their approach to use sort() properly with callbacks.
+They noted that sorting behavior depends on whether the callback accepts one or two arguments.
+A duplicate sort call was also fixed.
+--------------------------------------------------------------
+Here is what was implemented.
+
+Central logic: App\Services\LoanQueueOrderingService
+Incoming (pending, no fund_tier_id) — orderIncomingPending()
+
+Emergencies first, ordered by applied_at (oldest first).
+Everyone else, grouped by target fund tier (direct loan_tier_id → fund tier, or LoanTier::forAmount on amount_requested; no emergency fallback so rows don’t jump into the emergency pool by mistake).
+Groups ordered by fund tier_number (tier 1 fund before tier 2, …; “no mapping” last).
+Inside each group: loan tier_number ascending (tier 1 before 2…), then applied_at.
+Capacity pass: within that ordering, any request whose amount_requested fits in the fund tier’s current available_amount (greedy, in that order) is listed before those that don’t—still respecting tier‑1‑before‑higher and FIFO among equals.
+Per–fund-tier queue (approved + active) — orderTierQueue()
+
+Emergencies first (applied_at).
+Approved loans: same loan tier number then applied_at, then a capacity pass using each loan’s remainingToDisburse() vs that tier’s available_amount.
+Active loans after that, by applied_at.
+resequenceFundTier(?int $id)
+
+Reloads loans in that fund tier, applies orderTierQueue, and writes queue_position 1…n so stored positions match the UI.
+Wiring
+LoanQueuePage: getPendingApplications() and getQueueForTier() use the service (no more plain orderBy('applied_at') / queue_position only). Subheading text describes the behaviour.
+LoanResource: After approve, disburse, cancel (when a tier was set), early settle, delete, and bulk delete, resequenceFundTier runs so tier queues stay consistent. Approve sets queue_position to null then resequences.
+LoanImportService: Imported approved / active rows use queue_position null plus resequenceFundTier so imports follow the same rules.
+Reloading the Loan queue page always recomputes incoming order from current data, so rejecting a pending request (or any DB change) is reflected on the next load. Approve / cancel / disburse / delete / settle update queue_position for everyone in that fund tier immediately via resequenceFundTier.
+
+If you later add inline edits to pending loans (e.g. is_emergency or amount_requested outside these actions), call LoanQueueOrderingService::resequenceFundTier (or rely on the next queue page load for incoming only) from that save path too.
+

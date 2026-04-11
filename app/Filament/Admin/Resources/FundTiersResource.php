@@ -42,24 +42,25 @@ class FundTiersResource extends Resource
     public static function form(Schema $schema): Schema
     {
         return $schema->schema([
-            Section::make()->schema([
-                Forms\Components\TextInput::make('tier_number')->label('Tier #')->numeric()->required()->minValue(0)->maxValue(20),
-                Forms\Components\TextInput::make('label')->label('Label')->maxLength(100)->placeholder('e.g. Emergency'),
-                Forms\Components\Select::make('loan_tier_id')
-                    ->label('Linked Loan Tier')
-                    ->options(LoanTier::all()->pluck('label', 'id'))
-                    ->nullable()
-                    ->placeholder('Emergency (standalone)'),
-                Forms\Components\TextInput::make('percentage')
-                    ->label('% of Master Fund')
-                    ->numeric()
-                    ->suffix('%')
-                    ->minValue(1)
-                    ->maxValue(100)
-                    ->default(100)
-                    ->required(),
-                Forms\Components\Toggle::make('is_active')->label('Active')->default(true),
-            ])->columns(3),
+            Section::make('Fund tier')
+                ->schema([
+                    Forms\Components\TextInput::make('tier_number')->label('Tier #')->numeric()->required()->minValue(0)->maxValue(20),
+                    Forms\Components\TextInput::make('label')->label('Label')->maxLength(100)->placeholder('e.g. Emergency'),
+                    Forms\Components\Select::make('loan_tier_id')
+                        ->label('Linked Loan Tier')
+                        ->options(LoanTier::all()->pluck('label', 'id'))
+                        ->nullable()
+                        ->placeholder('Emergency (standalone)'),
+                    Forms\Components\TextInput::make('percentage')
+                        ->label('% of Master Fund')
+                        ->numeric()
+                        ->suffix('%')
+                        ->minValue(1)
+                        ->maxValue(100)
+                        ->default(100)
+                        ->required(),
+                    Forms\Components\Toggle::make('is_active')->label('Active')->default(true),
+                ])->columns(3),
         ]);
     }
 
@@ -102,7 +103,8 @@ class FundTiersResource extends Resource
                 TrashedFilter::make(),
             ])
             ->recordActions([
-                EditAction::make(),
+                EditAction::make()
+                    ->schema(fn(Schema $schema): Schema => static::form($schema)),
                 DeleteAction::make(),
                 RestoreAction::make(),
                 ForceDeleteAction::make(),

@@ -40,14 +40,15 @@ class LoanTiersResource extends Resource
     public static function form(Schema $schema): Schema
     {
         return $schema->schema([
-            Section::make()->schema([
-                Forms\Components\TextInput::make('tier_number')->label('Tier #')->numeric()->required()->minValue(1)->maxValue(20),
-                Forms\Components\TextInput::make('label')->label('Label')->maxLength(100)->placeholder('e.g. Tier 1'),
-                Forms\Components\TextInput::make('min_amount')->label('Min Amount (SAR)')->numeric()->prefix('SAR')->required(),
-                Forms\Components\TextInput::make('max_amount')->label('Max Amount (SAR)')->numeric()->prefix('SAR')->required(),
-                Forms\Components\TextInput::make('min_monthly_installment')->label('Min Monthly Installment (SAR)')->numeric()->prefix('SAR')->required(),
-                Forms\Components\Toggle::make('is_active')->label('Active')->default(true),
-            ])->columns(3),
+            Section::make('Loan tier')
+                ->schema([
+                    Forms\Components\TextInput::make('tier_number')->label('Tier #')->numeric()->required()->minValue(1)->maxValue(20),
+                    Forms\Components\TextInput::make('label')->label('Label')->maxLength(100)->placeholder('e.g. Tier 1'),
+                    Forms\Components\TextInput::make('min_amount')->label('Min Amount (SAR)')->numeric()->prefix('SAR')->required(),
+                    Forms\Components\TextInput::make('max_amount')->label('Max Amount (SAR)')->numeric()->prefix('SAR')->required(),
+                    Forms\Components\TextInput::make('min_monthly_installment')->label('Min Monthly Installment (SAR)')->numeric()->prefix('SAR')->required(),
+                    Forms\Components\Toggle::make('is_active')->label('Active')->default(true),
+                ])->columns(3),
         ]);
     }
 
@@ -69,7 +70,8 @@ class LoanTiersResource extends Resource
                 TrashedFilter::make(),
             ])
             ->recordActions([
-                EditAction::make(),
+                EditAction::make()
+                    ->schema(fn(Schema $schema): Schema => static::form($schema)),
                 DeleteAction::make(),
                 RestoreAction::make(),
                 ForceDeleteAction::make(),

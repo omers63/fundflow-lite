@@ -6,6 +6,7 @@ use App\Filament\Admin\Resources\LoanResource;
 use App\Models\Loan;
 use App\Services\AccountingService;
 use Filament\Actions\DeleteAction;
+use Filament\Actions\EditAction;
 use Filament\Resources\Pages\ViewRecord;
 
 class ViewLoan extends ViewRecord
@@ -15,6 +16,9 @@ class ViewLoan extends ViewRecord
     protected function getHeaderActions(): array
     {
         return [
+            LoanResource::approveLoanAction(),
+            LoanResource::rejectLoanAction(),
+            EditAction::make(),
             DeleteAction::make()
                 ->modalDescription(
                     'Reverses all ledger postings for this loan (disbursement, repayments, and any cash or guarantor lines tied to its installments), deletes installments and the loan account, then removes the loan. This cannot be undone.'
