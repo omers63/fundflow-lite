@@ -177,6 +177,7 @@ class LoanResource extends Resource
                 Forms\Components\TextInput::make('amount_approved')
                     ->label('Approved Amount (SAR)')
                     ->numeric()->prefix('SAR')->required()
+                    ->live()
                     ->helperText(
                         'Loan tier and fund tier are auto-assigned from the requested amount (SAR '
                         . number_format((float) $record->amount_requested)
@@ -185,13 +186,16 @@ class LoanResource extends Resource
 
                 Forms\Components\Toggle::make('is_emergency')
                     ->label('Emergency Loan')
+                    ->live()
                     ->helperText('Emergency loans bypass the standard loan-tier queue and are assigned to the Emergency fund tier.')
                     ->default(false),
 
                 Forms\Components\Placeholder::make('repayment_preview')
                     ->label('Loan Schedule & Tier Assignment')
-                    ->content(function () use ($record) {
+                    ->content(function ($get) use ($record) {
                         $amount = (float) $record->amount_requested;
+                        $previewApproved = (float) ($get('amount_approved') ?? $amount);
+                        $isEmergency = (bool) ($get('is_emergency') ?? $record->is_emergency);
                         $fundBal = (float) ($record->member->fundAccount()?->balance ?? 0);
                         $loanTier = LoanTier::forAmount($amount);
                         $threshold = Setting::loanSettlementThreshold();
@@ -206,15 +210,27 @@ class LoanResource extends Resource
                         }
 
                         $minInstall = (float) $loanTier->min_monthly_installment;
-                        $memberPortion = min($fundBal, $amount);
-                        $masterPortion = $amount - $memberPortion;
-                        $settleAmt = $amount * $threshold;
-                        $count = Loan::computeInstallmentsCount($amount, $fundBal, $minInstall, $threshold);
+                        $memberPortion = min($fundBal, $previewApproved);
+                        $masterPortion = $previewApproved - $memberPortion;
+                        $settleAmt = $previewApproved * $threshold;
+                        $count = Loan::computeInstallmentsCount($previewApproved, $fundBal, $minInstall, $threshold);
 
-                        $fundTier = FundTier::forLoanTier($loanTier->id);
+                        $fundTier = $isEmergency
+                            ? FundTier::emergency()
+                            : FundTier::forLoanTier($loanTier->id);
                         $fundTierLabel = $fundTier
-                            ? $fundTier->label . ' (SAR ' . number_format($fundTier->available_amount) . ' available)'
+                            ? $fundTier->label . ' (SAR ' . number_format((float) $fundTier->available_amount, 2) . ' uncommitted)'
                             : '⚠ No matching fund tier';
+
+                        $declaredPool = $fundTier ? (float) $fundTier->allocated_amount : 0.0;
+                        $declaredRow = $fundTier
+                            ? '<tr class="border-b border-gray-100 last:border-0 dark:border-white/10">'
+                            . '<td class="py-2.5 pl-3 pr-3 text-gray-500 dark:text-gray-400">' . e('Fund tier declared pool') . '</td>'
+                            . '<td class="py-2.5 pr-3 text-right tabular-nums font-semibold text-gray-950 dark:text-white">SAR '
+                            . e(number_format($declaredPool, 2))
+                            . ' <span class="block text-xs font-normal text-gray-500 dark:text-gray-400">('
+                            . e((string) $fundTier->percentage) . '% of master fund)</span></td></tr>'
+                            : '';
 
                         $row = fn(string $label, string $value, bool $highlight = false): string =>
                             '<tr class="border-b border-gray-100 last:border-0 dark:border-white/10">'
@@ -224,9 +240,9 @@ class LoanResource extends Resource
 
                         $masterFundBal = (float) (Account::masterFund()?->balance ?? 0);
 
-                        $masterClass = $masterFundBal < (float) $amount ? 'text-red-600 dark:text-red-400 font-semibold' : 'text-gray-700 dark:text-gray-300';
+                        $masterClass = $masterFundBal < $previewApproved ? 'text-amber-600 dark:text-amber-400 font-semibold' : 'text-gray-700 dark:text-gray-300';
                         $masterRow = '<tr class="border-b border-gray-100 last:border-0 dark:border-white/10">'
-                            . '<td class="py-2.5 pl-3 pr-3 text-gray-500 dark:text-gray-400">' . e('Master fund balance') . '</td>'
+                            . '<td class="py-2.5 pl-3 pr-3 text-gray-500 dark:text-gray-400">' . e('Master fund balance (cash ledger)') . '</td>'
                             . '<td class="py-2.5 pr-3 text-right tabular-nums ' . $masterClass . '">SAR ' . e(number_format($masterFundBal, 2)) . '</td>'
                             . '</tr>';
 
@@ -235,6 +251,7 @@ class LoanResource extends Resource
                             . ' – SAR ' . number_format((float) $loanTier->max_amount) . ')';
                         $rows = $row('Loan tier (from requested amount)', $loanTierValue)
                             . $row('Fund tier', $fundTierLabel)
+                            . $declaredRow
                             . $masterRow
                             . $row('Member fund balance', 'SAR ' . number_format($fundBal, 2))
                             . $row('Member portion', 'SAR ' . number_format($memberPortion, 2))
@@ -253,10 +270,15 @@ class LoanResource extends Resource
                             . '</table></div>';
 
                         $warnHtml = '';
-                        if ($masterFundBal < (float) $amount) {
+                        if ($fundTier && $declaredPool + 0.01 < $previewApproved) {
                             $warnHtml = '<div class="rounded-lg border border-amber-200 bg-amber-50 px-4 py-3 text-sm text-amber-700 dark:border-amber-500/30 dark:bg-amber-500/10 dark:text-amber-400">'
-                                . '⚠ Master fund balance (SAR ' . e(number_format($masterFundBal, 2)) . ') is below the requested amount. '
-                                . 'This loan will require <strong>partial disbursements</strong> as funds become available.'
+                                . '⚠ Approved amount (SAR ' . e(number_format($previewApproved, 2)) . ') is above this fund tier’s declared pool (SAR '
+                                . e(number_format($declaredPool, 2)) . '). Disbursements will be capped to that pool; use a lower approved amount or adjust fund tiers.'
+                                . '</div>';
+                        } elseif ($masterFundBal + 0.01 < $previewApproved) {
+                            $warnHtml = '<div class="rounded-lg border border-amber-200 bg-amber-50 px-4 py-3 text-sm text-amber-700 dark:border-amber-500/30 dark:bg-amber-500/10 dark:text-amber-400">'
+                                . 'ℹ Master fund cash (SAR ' . e(number_format($masterFundBal, 2)) . ') is below the approved amount. '
+                                . 'Disbursement size is capped by the <strong>fund tier declared pool</strong>, not this balance; the ledger still must have enough cash when you post each disbursement.'
                                 . '</div>';
                         }
 
@@ -482,27 +504,44 @@ class LoanResource extends Resource
                     ->schema(function (Loan $r) {
                         $remaining = $r->remainingToDisburse();
                         $masterBal = (float) (Account::masterFund()?->balance ?? 0);
-                        $maxAmount = min($remaining, $masterBal);
+                        $fundTier = $r->fundTier;
+                        $declaredPool = $fundTier ? max(0.0, (float) $fundTier->allocated_amount) : $remaining;
+                        $maxAmount = min($remaining, $declaredPool);
                         $fundBal = (float) ($r->member->fundAccount()?->balance ?? 0);
                         $minInstall = (float) ($r->loanTier?->min_monthly_installment ?? 1000);
                         $threshold = (float) $r->settlement_threshold;
                         $count = Loan::computeInstallmentsCount((float) $r->amount_approved, $fundBal, $minInstall, $threshold);
 
+                        $tierPct = $fundTier ? (string) $fundTier->percentage : '—';
                         $infoHtml = '<div class="overflow-x-auto rounded-lg border border-gray-200 bg-white dark:border-white/10 dark:bg-gray-900/40">'
                             . '<table class="w-full text-sm">'
                             . '<tbody>'
                             . '<tr class="border-b border-gray-100 dark:border-white/10"><td class="py-2 pl-3 pr-3 text-gray-500 dark:text-gray-400">Approved amount</td><td class="py-2 pr-3 text-right tabular-nums text-gray-700 dark:text-gray-300">SAR ' . number_format((float) $r->amount_approved, 2) . '</td></tr>'
                             . '<tr class="border-b border-gray-100 dark:border-white/10"><td class="py-2 pl-3 pr-3 text-gray-500 dark:text-gray-400">Already disbursed</td><td class="py-2 pr-3 text-right tabular-nums text-gray-700 dark:text-gray-300">SAR ' . number_format((float) $r->amount_disbursed, 2) . '</td></tr>'
                             . '<tr class="border-b border-gray-100 dark:border-white/10"><td class="py-2 pl-3 pr-3 text-gray-500 dark:text-gray-400">Remaining to disburse</td><td class="py-2 pr-3 text-right tabular-nums font-semibold text-gray-950 dark:text-white">SAR ' . number_format($remaining, 2) . '</td></tr>'
-                            . '<tr class="border-b border-gray-100 dark:border-white/10"><td class="py-2 pl-3 pr-3 text-gray-500 dark:text-gray-400">Master fund balance</td><td class="py-2 pr-3 text-right tabular-nums ' . ($masterBal < $remaining ? 'text-amber-600 dark:text-amber-400 font-semibold' : 'text-gray-700 dark:text-gray-300') . '">SAR ' . number_format($masterBal, 2) . '</td></tr>'
+                            . '<tr class="border-b border-gray-100 dark:border-white/10"><td class="py-2 pl-3 pr-3 text-gray-500 dark:text-gray-400">Fund tier declared pool</td><td class="py-2 pr-3 text-right tabular-nums font-semibold text-gray-950 dark:text-white">SAR ' . number_format($declaredPool, 2) . ' <span class="block text-xs font-normal text-gray-500 dark:text-gray-400">(' . e($tierPct) . '% of master)</span></td></tr>'
+                            . '<tr class="border-b border-gray-100 dark:border-white/10"><td class="py-2 pl-3 pr-3 text-gray-500 dark:text-gray-400">Master fund balance (ledger)</td><td class="py-2 pr-3 text-right tabular-nums ' . ($masterBal < $remaining ? 'text-amber-600 dark:text-amber-400 font-semibold' : 'text-gray-700 dark:text-gray-300') . '">SAR ' . number_format($masterBal, 2) . '</td></tr>'
                             . '<tr><td class="py-2 pl-3 pr-3 text-gray-500 dark:text-gray-400">Est. repayment period</td><td class="py-2 pr-3 text-right tabular-nums text-gray-700 dark:text-gray-300">' . $count . ' months</td></tr>'
                             . '</tbody></table></div>';
 
-                        $warnHtml = $maxAmount <= 0
-                            ? '<div class="rounded-lg border border-red-200 bg-red-50 px-4 py-3 text-sm text-red-700 dark:border-red-500/30 dark:bg-red-500/10 dark:text-red-400">⚠ Master fund has no available balance. Wait until contributions are received before disbursing.</div>'
-                            : ($masterBal < $remaining
-                                ? '<div class="rounded-lg border border-amber-200 bg-amber-50 px-4 py-3 text-sm text-amber-700 dark:border-amber-500/30 dark:bg-amber-500/10 dark:text-amber-400">⚠ Master fund can only cover SAR ' . number_format($masterBal, 2) . ' of the remaining SAR ' . number_format($remaining, 2) . '. A partial disbursement will be made. Repayment starts only after full disbursement.</div>'
-                                : '');
+                        $warnHtml = '';
+                        if ($maxAmount <= 0) {
+                            $warnHtml = '<div class="rounded-lg border border-red-200 bg-red-50 px-4 py-3 text-sm text-red-700 dark:border-red-500/30 dark:bg-red-500/10 dark:text-red-400">⚠ '
+                                . ($fundTier
+                                    ? 'Fund tier declared pool is SAR 0 — adjust fund tier percentages or master fund before disbursing.'
+                                    : 'This loan has no fund tier; assign a fund tier before disbursing.')
+                                . '</div>';
+                        } elseif ($declaredPool + 0.01 < $remaining) {
+                            $warnHtml = '<div class="rounded-lg border border-amber-200 bg-amber-50 px-4 py-3 text-sm text-amber-700 dark:border-amber-500/30 dark:bg-amber-500/10 dark:text-amber-400">⚠ '
+                                . 'Per policy, each disbursement is capped at the fund tier’s declared pool (SAR ' . number_format($declaredPool, 2)
+                                . ') even though SAR ' . number_format($remaining, 2) . ' remains on the loan. Repayment starts only after full disbursement.'
+                                . '</div>';
+                        }
+                        if ($maxAmount > 0 && $masterBal + 0.01 < $maxAmount) {
+                            $warnHtml .= '<div class="rounded-lg border border-amber-200 bg-amber-50 px-4 py-3 text-sm text-amber-700 dark:border-amber-500/30 dark:bg-amber-500/10 dark:text-amber-400">ℹ '
+                                . 'Master fund cash (SAR ' . number_format($masterBal, 2) . ') is below the disbursement cap shown; posting may still fail until the ledger has enough balance.'
+                                . '</div>';
+                        }
 
                         return [
                             Forms\Components\Placeholder::make('disburse_info')
@@ -516,7 +555,7 @@ class LoanResource extends Resource
                                 ->maxValue($maxAmount)
                                 ->default(fn() => $maxAmount)
                                 ->suffix('SAR')
-                                ->helperText('Max: SAR ' . number_format($maxAmount, 2) . ' (limited by master fund balance and remaining loan amount).')
+                                ->helperText('Max: SAR ' . number_format($maxAmount, 2) . ' (lesser of remaining approved and fund tier declared pool; master fund balance is shown for reference).')
                                 ->disabled($maxAmount <= 0)
                                 ->required($maxAmount > 0)
                                 ->columnSpanFull(),
@@ -528,10 +567,12 @@ class LoanResource extends Resource
                         ];
                     })
                     ->action(function (Loan $record, array $data, Component $livewire) {
+                        $record->loadMissing('fundTier');
                         $amount = (float) ($data['amount'] ?? 0);
                         $notes = $data['notes'] ?? null;
                         $remaining = $record->remainingToDisburse();
-                        $masterBal = (float) (Account::masterFund()?->balance ?? 0);
+                        $fundTier = $record->fundTier;
+                        $declaredCap = $fundTier ? max(0.0, (float) $fundTier->allocated_amount) : $remaining;
                         if ($amount <= 0) {
                             Notification::make()->title('Enter a disbursement amount')->danger()->send();
                             return;
@@ -545,10 +586,10 @@ class LoanResource extends Resource
                             return;
                         }
 
-                        if ($amount > $masterBal + 0.01) {
+                        if ($amount > $declaredCap + 0.01) {
                             Notification::make()
-                                ->title('Amount exceeds master fund balance')
-                                ->body('Available: SAR ' . number_format($masterBal, 2))
+                                ->title('Amount exceeds fund tier declared pool')
+                                ->body('Declared pool: SAR ' . number_format($declaredCap, 2) . ' (master fund balance is not used as this cap).')
                                 ->danger()->send();
                             return;
                         }

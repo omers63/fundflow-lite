@@ -3282,4 +3282,148 @@ LoanImportService: Imported approved / active rows use queue_position null plus 
 Reloading the Loan queue page always recomputes incoming order from current data, so rejecting a pending request (or any DB change) is reflected on the next load. Approve / cancel / disburse / delete / settle update queue_position for everyone in that fund tier immediately via resequenceFundTier.
 
 If you later add inline edits to pending loans (e.g. is_emergency or amount_requested outside these actions), call LoanQueueOrderingService::resequenceFundTier (or rely on the next queue page load for incoming only) from that save path too.
+-------------------------------------------
+Here is what was added and how it fits together.
 
+Approach
+Hard checks (critical)
+
+Stored balance vs ledger: For every non-deleted accounts row, balance must match SUM(credits − debits) on account_transactions (within 0.03 SAR). Any mismatch is a critical failure.
+Orphan loan accounts: type = loan with a loan_id that does not exist in loans is critical.
+Advisory checks (warnings)
+
+Global trial: Total credits vs total debits on all lines (warn if unequal — one-sided or manual flows).
+Master vs Σ(member) cash/fund: Compare master_cash / master_fund to the sum of member mirrors — warnings only, because repayments debit member cash only and guarantor flows can debit member fund without a matching master line.
+Active loans: Compare loan-account outstanding (max(0, −balance)) to remaining_amount (pending + overdue installments) — warning if difference > 1 SAR.
+Pipeline: Counts (and amounts) of unposted bank/SMS rows (non-duplicates).
+Period context
+
+Real-time: as_of = now, no period.
+Daily: Previous calendar day in config('app.timezone') for period_start / period_end, plus full checks as of now.
+Monthly: Previous calendar month for the period, plus full checks as of now.
+Period metrics: ledger line count and posted import counts in that window.
+Each run stores a snapshot (summary JSON for the UI, full report JSON for audit/export).
+
+What was implemented
+Piece	Role
+database/migrations/2026_04_10_120000_create_reconciliation_snapshots_table.php
+Persists mode, as_of, optional period, pass/fail counts, summary, full report, created_by_id.
+app/Models/ReconciliationSnapshot.php
+Eloquent model + mode constants.
+app/Services/FinanceReconciliationService.php
+buildReport() + persistSnapshot().
+app/Console/Commands/FundReconcileCommand.php
+CLI: --realtime, --daily, --monthly, --no-store; default when no mode flag is daily (yesterday). Exit non-zero if critical issues.
+routes/console.php
+fund:reconcile --daily at 06:20, fund:reconcile --monthly on the 2nd at 06:30.
+app/Filament/Admin/Pages/ReconciliationPage.php
+Finance nav item (navigationSort 2), slug /admin/reconciliation, header actions for the three modes.
+resources/views/filament/admin/pages/reconciliation.blade.php
+Left sidebar (Overview / Snapshots / Methodology) + main panel, snapshot table, JSON download.
+Navigation: Finance → Reconciliation → https://…/admin/reconciliation.
+
+Filament Shield: If you use generated permissions, run your usual Shield generator so the new page is allowed for the right roles.
+
+Commands
+php artisan fund:reconcile --realtime
+php artisan fund:reconcile --daily
+php artisan fund:reconcile --monthly
+php artisan fund:reconcile --no-store   # daily snapshot logic, print only
+The UI header actions mirror real-time, daily, and monthly and always store a snapshot (same engine as the command).
+
+Possible extensions (not built)
+Bank statement balance vs master_cash (needs an explicit “book cash” cutoff and statement balance field).
+Contribution subsystem vs fund ledger (needs clear posting rules per Contribution state).
+PDF export (currently full JSON report only).
+If you want, we can add Shield permissions, a PDF wrapper, or tighter loan rules (e.g. include approved partial disbursements) in a follow-up.
+
+Here is what was completed.
+
+1. Bank statement vs book (master_cash)
+Optional on each run: statement balance (SAR), statement date, treat variance as critical (modal fields on all three run actions).
+Scheduled / CLI: FinanceReconciliationService::bankOptionsFromSettings() reads:
+reconciliation.bank_statement_balance
+reconciliation.bank_statement_date (e.g. Y-m-d)
+reconciliation.bank_variance_critical (truthy = critical instead of warning)
+FundReconcileCommand merges these into every buildReport() call.
+2. Contributions vs fund ledger
+Critical if a non-deleted contributions row has no account_transactions for that source.
+Warning if SUM(contributions.amount) ≠ Σ master_fund credits where source_type is Contribution.
+3. Tighter loan rules
+approved_loans_disbursement_vs_ledger: status = approved and amount_disbursed > 0.
+No installments yet → expected outstanding = amount_disbursed (partial disbursement before schedule).
+Installments exist → expected = remaining_amount (same idea as active).
+4. PDF export
+App\Services\ReconciliationPdfService using barryvdh/laravel-dompdf.
+View: resources/views/pdf/reconciliation-snapshot.blade.php (verdict, check table, pipeline, truncated JSON — full data stays on JSON download).
+5. Filament Shield
+config/filament-shield.php: custom_permissions tab enabled; custom permissions:
+reconciliation_view — page / navigation (ReconciliationPage::canAccess()).
+reconciliation_run — header run actions.
+reconciliation_export — JSON + PDF (canExportDownloads() / authorizeExport()).
+database/seeders/ReconciliationPermissionsSeeder.php: creates the three permissions, attaches them to super_admin, assigns super_admin to admin@fundflow.sa if missing.
+DatabaseSeeder calls that seeder after the default admin user is created.
+Existing DBs: run
+php artisan db:seed --class=ReconciliationPermissionsSeeder --force
+(or full db:seed).
+
+6. Files touched (summary)
+app/Services/FinanceReconciliationService.php — extended checks + bankOptionsFromSettings().
+app/Services/ReconciliationPdfService.php — new.
+resources/views/pdf/reconciliation-snapshot.blade.php — new.
+app/Filament/Admin/Pages/ReconciliationPage.php — Shield access, bank modal schema, PDF download, export authorization.
+resources/views/filament/.../reconciliation.blade.php — PDF buttons, methodology, settings keys.
+app/Console/Commands/FundReconcileCommand.php — bank options from settings.
+config/filament-shield.php, database/seeders/*, DatabaseSeeder.php.
+If your Shield package expects associative custom_permissions (label per key) and the panel errors, say what you see and we can align the config to the exact v4 format.
+
+-----------------------------------------------
+You can get something that feels like a Windows 11 app, but there is no single button that turns this Laravel + Filament stack into a normal .exe the way a WinForms or WPF project works. The app is a server-rendered web app (PHP, DB, queues, etc.), so a “standalone” desktop build is really about how you host and wrap that stack.
+
+Realistic approaches
+Installed web stack + app shell (most common)
+Ship PHP + your code + SQLite/MySQL (or use Laragon/XAMPP-style layout) and a small launcher that:
+
+starts php artisan serve (or nginx/php-fpm),
+opens Edge in app mode or a WebView2 window pointed at http://127.0.0.1:....
+The “Windows app” is the launcher + embedded browser; the product is still your Laravel app.
+Electron / Tauri + your URL
+A thin desktop window that loads only your site (e.g. https://your-domain/admin).
+Simple to ship, but it’s not offline and not “standalone” unless the backend runs locally (see option 1).
+
+PWA (installable site)
+In Edge: install site as app → icon on taskbar, separate window.
+Good UX, minimal work, still needs network (or local server) for Laravel.
+
+NativePHP for Laravel
+Projects that package Laravel into a desktop binary with an embedded PHP runtime exist (e.g. NativePHP). This is the closest to “one executable” for Laravel, but you still need to handle database, updates, signing, antivirus, and Filament’s expectations (assets, storage, permissions). It’s a dedicated project, not a quick export.
+
+Full rewrite (UWP / WinUI / .NET MAUI)
+Rebuild UI and business rules in another stack. Not derived automatically from this codebase.
+
+Practical recommendation
+If “standalone” means runs on a PC without installing Laragon manually: plan for local server + WebView2/Electron launcher or evaluate NativePHP with your constraints (DB, backups, updates).
+If “standalone” means icon on Windows that opens FundFlow: PWA or Edge app + your hosted URL is the fastest.
+I can’t materialize a signed MSIX/EXE for the whole product in one shot here without you choosing a path (local server vs hosted URL vs NativePHP) and target (admin panel only vs full app). If you say which you want—for example “WebView2 launcher that starts artisan serve and opens /admin” or “Electron loading production URL”—I can outline or add a small scaffold (scripts, README, optional GitHub Actions for building) in your repo as a follow-up.
+
+---------------------------------------
+Here is what was implemented.
+
+Disbursement cap
+Before: maxAmount = min(remaining, master fund balance) and the action rejected amounts above master cash.
+After: maxAmount = min(remaining, fund tier declared pool) where the declared pool is FundTier::allocated_amount (same rule as Fund Tiers: % of master fund). If the loan has no fund_tier_id, the cap falls back to remaining only.
+Master fund is still shown in the disburse modal and triggers an informational notice if cash is below the cap; AccountingService::postPartialLoanDisbursement() still refuses posting if the ledger cannot cover the debit.
+Loan approval confirmation
+Preview table now includes:
+Fund tier declared pool — SAR + “(% of master fund)”
+Master fund balance (cash ledger) — same data as before, label clarified
+Fund tier line text updated to “uncommitted” instead of overloading “available”.
+Preview reacts to approved amount and emergency via ->live() on those fields.
+Warnings:
+If approved amount > declared pool → amber (policy / disbursement expectation).
+If master < approved amount but declared pool is OK → amber info (ledger vs policy, not the disburse cap).
+Files touched
+app/Filament/Admin/Resources/LoanResource.php — approve placeholder + disburse schema + disburse action validation.
+If you want approval itself to be blocked when amount_approved exceeds tier uncommitted headroom (available_amount), that can be added as a separate server-side check in the approve action; it was not requested explicitly, so only the UI warning for “above declared pool” was added there.
+
+----------------------- Deployment-----------------------------------------------

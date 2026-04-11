@@ -28,3 +28,7 @@ Schedule::command('loans:check-defaults')->monthlyOn(6, '08:00');
 
 // Daily — auto-settle loans whose conditions are fully met.
 Schedule::command('loans:check-settlements')->dailyAt('10:00');
+
+// Financial reconciliation snapshots (ledger integrity, controls, pipeline).
+Schedule::command('fund:reconcile --daily')->dailyAt('06:20');
+Schedule::command('fund:reconcile --monthly')->monthlyOn(2, '06:30');
