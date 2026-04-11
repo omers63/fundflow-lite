@@ -2902,4 +2902,72 @@ If loads are still slow
 Indexes help filter/sort/join cost, not everything. Next levers: eager loading on heavy Filament pages/widgets, caching for aggregate widgets, and EXPLAIN on the slowest queries in production to add one-off composites (e.g. loan_id + posted_at on bank rows if that pattern dominates).
 
 If you want, we can pick one slow URL and trace its queries (e.g. with Laravel Debugbar or DB::listen) to refine indexes further.
+
+Here’s the minimal change that was applied: one richer list query plus three column tweaks.
+
+1. Eager aggregates + relation loads in getEloquentQuery()
+    public static function getEloquentQuery(): Builder
+    {
+        return parent::getEloquentQuery()
+            ->withExists('membershipApplications')
+            ->with(['user', 'parent.user'])
+            ->withSum('contributions', 'amount')
+            ->withCount([
+                'contributions as late_contributions_marked_count' => fn ($q) => $q->where('is_late', true),
+            ])
+            ->withSum([
+                'contributions as late_contributions_marked_amount' => fn ($q) => $q->where('is_late', true),
+            ], 'amount');
+    }
+withSum('contributions', 'amount') → attribute contributions_sum_amount (same name Laravel already uses, so the column can stay make('contributions_sum_amount')).
+Late # / Late amount use aliased withCount / withSum so they don’t clash with the denormalized DB columns late_contributions_count / late_contributions_amount on members.
+with(['user', 'parent.user']) removes N+1 on name/email/parent columns.
+Soft-deleted contributions stay excluded because the contributions relation uses SoftDeletes on Contribution.
+
+2. Table columns
+Total contributions: removed getStateUsing(...->sum('amount')); state comes from contributions_sum_amount on the query.
+Late # / Late amount: make('late_contributions_marked_count') and make('late_contributions_marked_amount'), removed getStateUsing; existing sortable(query: …) subqueries are unchanged.
+Behavior stays aligned with the old helpers (contributions()->where('is_late', true)), not the denormalized member columns (which can drift).
+
+Before: per row, extra queries for total + late count + late sum (and lazy user / parent).
+After: one list query with a few subselects + two relation loads, independent of page size for those fields.
+
+Tests in this repo still fail in ExampleTest for an unrelated SQLite setup (no such table: members); nothing in this change depends on that.
+
+Here’s a practical way to think about caching for this app (Laravel + Filament admin, heavy widgets, aggregates).
+
+1. Production Laravel basics (big wins, low risk)
+php artisan config:cache and route:cache in production so every request isn’t reparsing config/routes.
+php artisan view:cache if you ship compiled Blade (Filament uses a lot of views).
+composer install --optimize-autoloader --no-dev on deploy.
+These don’t change your code; they cut bootstrap cost.
+
+2. Cache expensive read-mostly aggregates (fits your widgets)
+Places like MemberStatsWidget::getData() and banking overview widgets run many count() / whereHas() / avg() queries on every load. Good pattern:
+
+Wrap the whole getData() result (or each logical block) in Cache::remember($key, $ttl, fn () => ...).
+Key by something that changes when data changes, e.g. member_stats:v1 plus a version or max(updated_at) from members (cheap query) so you don’t serve stale numbers forever without invalidation.
+Invalidate (or bump version) when members, contributions, loans, or installments change—e.g. in model observers, event listeners, or after Filament actions that mutate those tables.
+TTL alone (e.g. 60–300 seconds) is the minimal approach if you don’t want event wiring yet; it’s simple but can show slightly stale numbers.
+
+Store: use Redis or Memcached in production if you can; file/database drivers work but add I/O and don’t scale as well for many keys.
+
+3. Cache::tags() (Redis only)
+If you use Redis, tag caches like ['members', 'contributions'] and Cache::tags(...)->flush() when those domains change. Without tags, you either use TTL, manual forget, or a global “stats version” integer in cache/DB that you increment on writes.
+
+4. Per-user vs global
+Global dashboards (totals, charts): cache one payload for all admins (key does not include user_id), invalidate on data changes.
+Permission-sensitive fragments: if the cached blob differs by role, include a role or permission hash in the key, or keep those bits uncached.
+5. Filament / Livewire specifics
+Full page admin UI is mostly Livewire; you typically don’t cache HTML. You cache data the widgets compute.
+databaseNotificationsPolling('30s') causes recurring requests; caching doesn’t replace that, but ensuring notification queries are indexed and cheap helps. Reducing poll interval or using broadcasting for “new notification” is a different lever than Cache::remember.
+After mutations, you already refresh widgets in places (dispatchMemberListHeaderWidgetsRefresh); you can Cache::forget(...) (or bump version) in the same place so the next render recomputes once.
+6. What not to cache blindly
+Per-row Filament table data: caching is awkward because of filters, search, sort, and pagination; you already improved that with eager aggregates. Prefer indexes + query shape there.
+User-specific mutable state without a clear invalidation story.
+7. Optional advanced pieces
+HTTP cache (Cache-Control) for public assets and any anonymous routes; admin sessions rarely benefit.
+Laravel Octane reduces bootstrap cost per request; it’s ops-heavy and not the same as Cache::remember, but it pairs well with in-memory caches.
+Minimal first step for your codebase: add Cache::remember around MemberStatsWidget::getData() (short TTL, e.g. 120s), then add explicit forget / version bump on member/contribution/loan writes when you’re ready. If you want this implemented in-repo next, say which widgets and TTL/invalidation style you prefer (TTL-only vs Redis tags vs max(updated_at) keys).
+
 --------------------------------

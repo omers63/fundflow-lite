@@ -310,11 +310,9 @@ class MemberResource extends Resource
                     ->label('Total Contributions')
                     ->money('SAR')
                     ->sortable()
-                    ->getStateUsing(fn($record) => $record->contributions()->sum('amount'))
                     ->toggleable(),
-                Tables\Columns\TextColumn::make('late_contributions_count')
+                Tables\Columns\TextColumn::make('late_contributions_marked_count')
                     ->label('Late #')
-                    ->getStateUsing(fn(Member $record): int => $record->contributionsMarkedLateCount())
                     ->sortable(query: function (Builder $query, string $direction): Builder {
                         return $query->orderBy(
                             Contribution::query()
@@ -328,9 +326,8 @@ class MemberResource extends Resource
                     ->badge()
                     ->color(fn($state) => $state > 0 ? 'warning' : 'success')
                     ->toggleable(),
-                Tables\Columns\TextColumn::make('late_contributions_amount')
+                Tables\Columns\TextColumn::make('late_contributions_marked_amount')
                     ->label('Late Amount')
-                    ->getStateUsing(fn(Member $record): float => $record->contributionsMarkedLateAmount())
                     ->money('SAR')
                     ->sortable(query: function (Builder $query, string $direction): Builder {
                         return $query->orderBy(
@@ -953,7 +950,16 @@ class MemberResource extends Resource
 
     public static function getEloquentQuery(): Builder
     {
-        return parent::getEloquentQuery()->withExists('membershipApplications');
+        return parent::getEloquentQuery()
+            ->withExists('membershipApplications')
+            ->with(['user', 'parent.user'])
+            ->withSum('contributions', 'amount')
+            ->withCount([
+                'contributions as late_contributions_marked_count' => fn($q) => $q->where('is_late', true),
+            ])
+            ->withSum([
+                'contributions as late_contributions_marked_amount' => fn($q) => $q->where('is_late', true),
+            ], 'amount');
     }
 
     /**
