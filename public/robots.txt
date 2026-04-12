@@ -1,2 +1,13 @@
+# FundFlow — family fund / membership management (not a public marketing site).
+# Crawlers: index only the public entry if needed; do not index authenticated panels.
+
 User-agent: *
-Disallow:
+Allow: /
+
+# Filament admin & member panels (auth required)
+Disallow: /admin
+Disallow: /member
+
+# Laravel internals
+Disallow: /livewire/
+Disallow: /storage/
