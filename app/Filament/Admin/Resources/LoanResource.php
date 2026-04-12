@@ -567,7 +567,7 @@ class LoanResource extends Resource
                         ];
                     })
                     ->action(function (Loan $record, array $data, Component $livewire) {
-                        $record->loadMissing('fundTier');
+                        $record->loadMissing(['fundTier', 'member.accounts']);
                         $amount = (float) ($data['amount'] ?? 0);
                         $notes = $data['notes'] ?? null;
                         $remaining = $record->remainingToDisburse();
@@ -593,6 +593,10 @@ class LoanResource extends Resource
                                 ->danger()->send();
                             return;
                         }
+
+                        // Pre-posting balance: semantic member vs. master split and installment count only.
+                        // Ledger: full disbursement still debits master + mirrors the same amount on member fund.
+                        $memberFundBalanceBefore = (float) ($record->member->fundAccount()?->balance ?? 0);
 
                         // Create the disbursement record (portions filled by AccountingService)
                         $disbursement = LoanDisbursement::create([
@@ -620,17 +624,16 @@ class LoanResource extends Resource
                         if ($record->isFullyDisbursed()) {
                             // Full disbursement — activate loan and build repayment schedule
                             $disbursedAt = now();
-                            $fundBal = (float) ($record->member->fundAccount()?->balance ?? 0);
                             $minInstall = (float) ($record->loanTier?->min_monthly_installment ?? 1000);
                             $threshold = (float) $record->settlement_threshold;
-                            $count = Loan::computeInstallmentsCount($amountApproved, $fundBal, $minInstall, $threshold);
+                            $count = Loan::computeInstallmentsCount($amountApproved, $memberFundBalanceBefore, $minInstall, $threshold);
 
                             $exemption = Loan::computeExemptionAndFirstRepayment($disbursedAt);
                             $exemption = Loan::adjustFirstRepaymentIfContributionAlreadyMade($record->member, $exemption);
 
-                            DB::transaction(function () use ($record, $disbursedAt, $exemption, $count, $minInstall, $amountApproved, $fundBal) {
-                                $masterPortion = max(0, $amountApproved - $fundBal);
-                                $memberPortion = $amountApproved - $masterPortion;
+                            DB::transaction(function () use ($record, $disbursedAt, $exemption, $count, $minInstall, $amountApproved, $memberFundBalanceBefore) {
+                                $memberPortion = min(max(0.0, $memberFundBalanceBefore), $amountApproved);
+                                $masterPortion = $amountApproved - $memberPortion;
 
                                 $record->update([
                                     'status' => 'active',

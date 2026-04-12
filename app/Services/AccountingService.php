@@ -336,12 +336,15 @@ class AccountingService
     /**
      * Post a **partial** loan disbursement.
      *
-     * - Funds are always sourced from the master fund.
-     * - Member fund is debited by the same amount as a mirror entry.
+     * The full tranche is debited from the master fund and the **same amount** is mirrored on the
+     * member fund account (operational / ledger symmetry). Member vs. master **split** used for
+     * installment count and loan `member_portion` / `master_portion` is computed separately from
+     * the member’s fund balance **before** disbursement (see admin disburse flow), not from these lines.
+     *
      * - Throws \RuntimeException if master fund would go negative.
      * - Increments `loans.amount_disbursed` by $amount.
-     * - Snapshots portions onto the given $disbursementRecord with
-     *   member_portion = 0 and master_portion = $amount.
+     * - Snapshots portions on the disbursement record as member_portion = 0, master_portion = amount
+     *   (ledger mirror totals; semantic portions live on the loan at activation).
      *
      * Must be called inside a surrounding DB::transaction if the caller needs
      * atomicity with other writes (e.g. creating installments).

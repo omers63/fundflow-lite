@@ -242,7 +242,7 @@ class Loan extends Model
      *                        / min_monthly_installment )
      *
      * Where:
-     *   master_portion  = loan_amount − min(member_fund_balance, loan_amount)
+     *   master_portion  = loan_amount − min(max(0, member_fund_balance), loan_amount)
      *   settlement_threshold × loan_amount = the extra 16% (configurable) the
      *     member must accumulate in their fund account to achieve full settlement.
      */
@@ -252,7 +252,7 @@ class Loan extends Model
         float $minMonthlyInstallment,
         float $settlementThresholdPct,
     ): int {
-        $memberPortion = min($memberFundBalance, $loanAmount);
+        $memberPortion = min(max(0.0, $memberFundBalance), $loanAmount);
         $masterPortion = $loanAmount - $memberPortion;
         $settlementAmt = $loanAmount * $settlementThresholdPct;
         $totalToRepay = $masterPortion + $settlementAmt;
@@ -284,6 +284,10 @@ class Loan extends Model
      * the next cycle starts (see Setting::contributionCycleStartDay). If disbursed on or before
      * that day number in the month (e.g. day 5 when cycle starts on the 6th), exempt the previous
      * calendar month's contribution; otherwise exempt the current month.
+     *
+     * The member may skip one contribution cycle; the first loan installment is therefore always
+     * scheduled for the **following** calendar month after the initial repayment anchor (so the
+     * first due date does not fall in the same cycle window as the exemption).
      */
     public static function computeExemptionAndFirstRepayment(Carbon $disbursedAt): array
     {
@@ -291,11 +295,13 @@ class Loan extends Model
 
         if ($disbursedAt->day <= $cutoffDay) {
             $exempted = $disbursedAt->copy()->subMonthNoOverflow();
-            $first = $disbursedAt->copy(); // repayment starts this month
+            $first = $disbursedAt->copy();
         } else {
             $exempted = $disbursedAt->copy();
             $first = $disbursedAt->copy()->addMonthNoOverflow();
         }
+
+        $first = $first->copy()->addMonthNoOverflow();
 
         return [
             'exempted_month' => (int) $exempted->month,

@@ -2,61 +2,67 @@
 
 return [
 
-    // Navigation Groups
-    'nav.group.membership' => 'العضوية',
-    'nav.group.finance' => 'المالية',
-    'nav.group.reports' => 'التقارير',
+    /*
+    |--------------------------------------------------------------------------
+    | تطبيق FundFlow — ترجمات الواجهة (العربية الفصحى المعاصرة)
+    |--------------------------------------------------------------------------
+    */
+
+    // مجموعات التنقل
+    'nav.group.membership' => 'العضويات والطلبات',
+    'nav.group.finance' => 'المالية والصندوق',
+    'nav.group.reports' => 'التقارير والكشوف',
     'nav.group.settings' => 'الإعدادات',
-    'nav.group.system' => 'النظام',
+    'nav.group.system' => 'النظام والصيانة',
     'nav.group.my_finance' => 'ماليتي',
     'nav.group.account' => 'حسابي',
 
-    // Resources
-    'resource.member' => 'العضو',
+    // الموارد (أسماء الجداول/القوائم)
+    'resource.member' => 'عضو',
     'resource.members' => 'الأعضاء',
-    'resource.application' => 'الطلب',
+    'resource.application' => 'طلب عضوية',
     'resource.applications' => 'طلبات العضوية',
-    'resource.contribution' => 'المساهمة',
+    'resource.contribution' => 'مساهمة',
     'resource.contributions' => 'المساهمات',
-    'resource.loan' => 'القرض',
+    'resource.loan' => 'قرض',
     'resource.loans' => 'القروض',
-    'resource.installment' => 'القسط',
+    'resource.installment' => 'قسط',
     'resource.installments' => 'الأقساط',
-    'resource.statement' => 'كشف الحساب',
-    'resource.statements' => 'كشوف الحساب',
-    'resource.role' => 'الدور',
+    'resource.statement' => 'كشف حساب',
+    'resource.statements' => 'الكشوف الشهرية',
+    'resource.role' => 'دور',
     'resource.roles' => 'الأدوار والصلاحيات',
 
-    // Statuses
+    // الحالات
     'status.pending' => 'قيد الانتظار',
-    'status.approved' => 'موافق عليه',
+    'status.approved' => 'معتمد',
     'status.rejected' => 'مرفوض',
     'status.active' => 'نشط',
     'status.completed' => 'مكتمل',
-    'status.suspended' => 'موقوف',
-    'status.terminated' => 'منهي العضوية',
-    'status.delinquent' => 'متأخر',
-    'status.overdue' => 'متأخر السداد',
-    'status.paid' => 'مدفوع',
+    'status.suspended' => 'معلّق مؤقتًا',
+    'status.terminated' => 'منتهي',
+    'status.delinquent' => 'متعثر',
+    'status.overdue' => 'متأخر عن السداد',
+    'status.paid' => 'مسدد',
 
-    // Fields
-    'field.member_number' => 'رقم العضو',
+    // الحقول
+    'field.member_number' => 'رقم العضوية',
     'field.member' => 'العضو',
     'field.amount' => 'المبلغ',
-    'field.amount_requested' => 'المبلغ المطلوب (ريال)',
-    'field.amount_approved' => 'المبلغ المعتمد (ريال)',
-    'field.purpose' => 'الغرض',
+    'field.amount_requested' => 'المبلغ المطلوب (ر.س.)',
+    'field.amount_approved' => 'المبلغ المعتمد (ر.س.)',
+    'field.purpose' => 'الغرض من الطلب',
     'field.installments' => 'الأقساط',
     'field.installments_count' => 'عدد الأقساط',
     'field.status' => 'الحالة',
     'field.payment_method' => 'طريقة الدفع',
-    'field.reference_number' => 'الرقم المرجعي',
+    'field.reference_number' => 'المرجع',
     'field.notes' => 'ملاحظات',
     'field.month' => 'الشهر',
     'field.year' => 'السنة',
-    'field.paid_at' => 'تاريخ الدفع',
+    'field.paid_at' => 'تاريخ السداد',
     'field.applied_at' => 'تاريخ التقديم',
-    'field.approved_at' => 'تاريخ الموافقة',
+    'field.approved_at' => 'تاريخ الاعتماد',
     'field.due_date' => 'تاريخ الاستحقاق',
     'field.rejection_reason' => 'سبب الرفض',
     'field.period' => 'الفترة',
@@ -66,35 +72,35 @@ return [
     'field.total_repayments' => 'إجمالي السداد',
     'field.name' => 'الاسم',
     'field.email' => 'البريد الإلكتروني',
-    'field.phone' => 'الهاتف',
+    'field.phone' => 'رقم الجوال',
     'field.joined_at' => 'تاريخ الانضمام',
 
-    // Actions
-    'action.approve' => 'موافقة',
+    // الإجراءات
+    'action.approve' => 'اعتماد',
     'action.reject' => 'رفض',
     'action.approve_loan' => 'اعتماد القرض',
     'action.reject_loan' => 'رفض القرض',
     'action.apply_loan' => 'طلب قرض',
-    'action.generate' => 'توليد كشوف هذا الشهر',
+    'action.generate' => 'توليد كشوف الشهر الحالي',
 
-    // Payment methods
-    'payment.cash' => 'نقداً',
+    // طرق الدفع
+    'payment.cash' => 'نقدًا',
     'payment.bank_transfer' => 'تحويل بنكي',
     'payment.online' => 'دفع إلكتروني',
 
-    // Dashboard / Widgets
+    // لوحة المعلومات والودجات
     'widget.active_members' => 'الأعضاء النشطون',
-    'widget.pending_applications' => 'الطلبات المعلقة',
-    'widget.total_fund' => 'إجمالي الصندوق (ريال)',
-    'widget.active_loans' => 'القروض النشطة',
-    'widget.overdue_installments' => 'الأقساط المتأخرة',
-    'widget.delinquent_members' => 'الأعضاء المتأخرون',
+    'widget.pending_applications' => 'طلبات بانتظار المراجعة',
+    'widget.total_fund' => 'رصيد الصندوق (ر.س.)',
+    'widget.active_loans' => 'القروض الجارية',
+    'widget.overdue_installments' => 'أقساط متأخرة',
+    'widget.delinquent_members' => 'أعضاء متعثرون',
     'widget.total_contributions' => 'إجمالي مساهماتي',
-    'widget.pending_loan' => 'قرض قيد الانتظار',
+    'widget.pending_loan' => 'قرض قيد الاعتماد',
     'widget.outstanding_balance' => 'الرصيد المستحق',
 
-    // Brand names
-    'brand.admin' => 'فند فلو - الإدارة',
-    'brand.member' => 'فند فلو - الأعضاء',
+    // العلامة التجارية (يُفضّل الإبقاء على الاسم اللاتيني للتعرّف)
+    'brand.admin' => 'FundFlow — الإدارة',
+    'brand.member' => 'FundFlow — بوابة العضو',
 
 ];
