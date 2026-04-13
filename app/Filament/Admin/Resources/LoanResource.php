@@ -193,24 +193,25 @@ class LoanResource extends Resource
                 Forms\Components\Placeholder::make('repayment_preview')
                     ->label('Loan Schedule & Tier Assignment')
                     ->content(function ($get) use ($record) {
-                        $amount = (float) $record->amount_requested;
-                        $previewApproved = (float) ($get('amount_approved') ?? $amount);
+                        $requestedAmount = (float) $record->amount_requested;
+                        $previewApproved = (float) ($get('amount_approved') ?? $requestedAmount);
                         $isEmergency = (bool) ($get('is_emergency') ?? $record->is_emergency);
                         $fundBal = (float) ($record->member->fundAccount()?->balance ?? 0);
-                        $loanTier = LoanTier::forAmount($amount);
+                        // Tier and min installment must match the same principal as computeInstallmentsCount().
+                        $loanTier = LoanTier::forAmount($previewApproved);
                         $threshold = Setting::loanSettlementThreshold();
 
                         if (!$loanTier) {
                             return new HtmlString(
                                 '<div class="rounded-lg border border-red-200 bg-red-50 px-4 py-3 text-sm text-red-700 dark:border-red-500/30 dark:bg-red-500/10 dark:text-red-400">'
-                                . '⚠ No loan tier covers SAR ' . e(number_format($amount))
+                                . '⚠ No loan tier covers SAR ' . e(number_format($previewApproved))
                                 . '. Adjust Loan Tiers in Settings before approving.'
                                 . '</div>'
                             );
                         }
 
                         $minInstall = (float) $loanTier->min_monthly_installment;
-                        $memberPortion = min($fundBal, $previewApproved);
+                        $memberPortion = min(max(0.0, $fundBal), $previewApproved);
                         $masterPortion = $previewApproved - $memberPortion;
                         $settleAmt = $previewApproved * $threshold;
                         $count = Loan::computeInstallmentsCount($previewApproved, $fundBal, $minInstall, $threshold);
@@ -249,7 +250,7 @@ class LoanResource extends Resource
                         $loanTierValue = $loanTier->label
                             . ' (SAR ' . number_format((float) $loanTier->min_amount)
                             . ' – SAR ' . number_format((float) $loanTier->max_amount) . ')';
-                        $rows = $row('Loan tier (from requested amount)', $loanTierValue)
+                        $rows = $row('Loan tier (from approved amount in form)', $loanTierValue)
                             . $row('Fund tier', $fundTierLabel)
                             . $declaredRow
                             . $masterRow
@@ -293,15 +294,24 @@ class LoanResource extends Resource
             ])
             ->action(function (Loan $record, array $data, Component $livewire) {
                 $amount = (float) $data['amount_approved'];
-                $requestedAmount = (float) $record->amount_requested;
                 $isEmergency = (bool) ($data['is_emergency'] ?? false);
                 $threshold = Setting::loanSettlementThreshold();
 
-                $loanTier = LoanTier::forAmount($requestedAmount);
+                // Same principal for tier assignment and installment count (must match approve modal preview).
+                $loanTier = LoanTier::forAmount($amount);
+
+                if (!$loanTier) {
+                    Notification::make()
+                        ->title('Cannot Approve')
+                        ->body('No loan tier covers SAR ' . number_format($amount) . '. Adjust Loan Tiers or the approved amount.')
+                        ->danger()->send();
+
+                    return;
+                }
 
                 $fundTier = $isEmergency
                     ? FundTier::emergency()
-                    : ($loanTier ? FundTier::forLoanTier($loanTier->id) : null);
+                    : FundTier::forLoanTier($loanTier->id);
 
                 if (!$fundTier) {
                     Notification::make()
@@ -313,7 +323,7 @@ class LoanResource extends Resource
                 }
 
                 $fundBal = (float) ($record->member->fundAccount()?->balance ?? 0);
-                $minInstall = (float) ($loanTier?->min_monthly_installment ?? 1000);
+                $minInstall = (float) $loanTier->min_monthly_installment;
                 $count = Loan::computeInstallmentsCount($amount, $fundBal, $minInstall, $threshold);
 
                 $record->update([
@@ -321,7 +331,7 @@ class LoanResource extends Resource
                     'amount_approved' => $amount,
                     'is_emergency' => $isEmergency,
                     'installments_count' => $count,
-                    'loan_tier_id' => $loanTier?->id,
+                    'loan_tier_id' => $loanTier->id,
                     'fund_tier_id' => $fundTier->id,
                     'queue_position' => null,
                     'approved_at' => now(),

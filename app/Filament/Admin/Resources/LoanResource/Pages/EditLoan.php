@@ -3,7 +3,10 @@
 namespace App\Filament\Admin\Resources\LoanResource\Pages;
 
 use App\Filament\Admin\Resources\LoanResource;
+use App\Models\Loan;
+use App\Models\LoanTier;
 use App\Models\Member;
+use App\Models\Setting;
 use App\Services\LoanEligibilityService;
 use App\Services\LoanQueueOrderingService;
 use Filament\Notifications\Notification;
@@ -46,6 +49,14 @@ class EditLoan extends EditRecord
                         ->send();
 
                     $this->halt();
+                }
+
+                if ($this->getRecord()->status === 'pending') {
+                    $fundBal = (float) ($member->fundAccount()?->balance ?? 0);
+                    $threshold = Setting::loanSettlementThreshold();
+                    $loanTier = LoanTier::forAmount($amount);
+                    $minInstall = (float) ($loanTier?->min_monthly_installment ?? 1000);
+                    $data['installments_count'] = Loan::computeInstallmentsCount($amount, $fundBal, $minInstall, $threshold);
                 }
             }
         }

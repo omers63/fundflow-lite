@@ -3,7 +3,10 @@
 namespace App\Filament\Admin\Resources\LoanResource\Pages;
 
 use App\Filament\Admin\Resources\LoanResource;
+use App\Models\Loan;
+use App\Models\LoanTier;
 use App\Models\Member;
+use App\Models\Setting;
 use App\Services\LoanEligibilityService;
 use Filament\Notifications\Notification;
 use Filament\Resources\Pages\CreateRecord;
@@ -29,7 +32,8 @@ class CreateLoan extends CreateRecord
     protected function mutateFormDataBeforeCreate(array $data): array
     {
         $memberId = $data['member_id'] ?? null;
-        $amount   = (float) ($data['amount_requested'] ?? 0);
+        $amount = (float) ($data['amount_requested'] ?? 0);
+        $member = null;
 
         if ($memberId) {
             $member = Member::with('accounts')->find($memberId);
@@ -50,6 +54,17 @@ class CreateLoan extends CreateRecord
                     $this->halt();
                 }
             }
+        }
+
+        // Avoid DB default (12): estimate months from requested amount + tier + fund balance.
+        if ($member && $amount > 0) {
+            $fundBal = (float) ($member->fundAccount()?->balance ?? 0);
+            $threshold = Setting::loanSettlementThreshold();
+            $loanTier = LoanTier::forAmount($amount);
+            $minInstall = (float) ($loanTier?->min_monthly_installment ?? 1000);
+            $data['installments_count'] = Loan::computeInstallmentsCount($amount, $fundBal, $minInstall, $threshold);
+        } else {
+            $data['installments_count'] = 0;
         }
 
         return $data;

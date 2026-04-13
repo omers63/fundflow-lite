@@ -3427,3 +3427,49 @@ app/Filament/Admin/Resources/LoanResource.php — approve placeholder + disburse
 If you want approval itself to be blocked when amount_approved exceeds tier uncommitted headroom (available_amount), that can be added as a separate server-side check in the approve action; it was not requested explicitly, so only the UI warning for “above declared pool” was added there.
 
 ----------------------- Deployment-----------------------------------------------
+--------------------------------------
+Here is what was going wrong and what we changed.
+
+Root cause
+Installments and portions after disbursement
+On full disbursement the code called Loan::computeInstallmentsCount() and derived member_portion / master_portion from the member fund balance after postPartialLoanDisbursement(). That posting debited the member fund by the full disbursement (as a mirror of the master leg), so the balance dropped (often below zero). Then min(fundBalance, loanAmount) acted like no (or negative) member cover, so the formula behaved as if almost the whole loan were master-funded and the installment count blew up (e.g. 14 instead of 4).
+
+Ledger vs. intended split
+postPartialLoanDisbursement always debited the master fund for the tranche and debited the same amount again on the member fund. That does not match the intended split (member fund up to balance, rest from master), as already documented for postLoanDisbursementWithPortions.
+
+First repayment month
+computeExemptionAndFirstRepayment() could put the first installment in the same cycle window as the contribution skip. You wanted the next cycle after that skip.
+
+Fixes (in code)
+Area	Change
+LoanResource disburse action
+Store memberFundBalanceBefore before accounting runs; use it for computeInstallmentsCount and for member_portion / master_portion when the loan becomes active.
+AccountingService::postPartialLoanDisbursement
+Debit min(member fund balance, tranche) from the member fund and the remainder from the master fund (per tranche, so split multi-disbursements correctly).
+Loan::computeInstallmentsCount
+Use min(max(0, memberFundBalance), loanAmount) so a negative balance cannot distort the split.
+Loan::computeExemptionAndFirstRepayment
+After the existing cutoff logic, move first_repayment forward by one calendar month so the first installment is scheduled in the following cycle.
+Your numeric example is unchanged in policy: 16% × 12,000 = 1,920 (not a round 2,000); with 2,000 master and 1,000/month tier,
+⌈
+(
+2000
++
+1920
+)
+/
+1000
+⌉
+=
+4
+⌈(2000+1920)/1000⌉=4 installments.
+
+Tests
+tests/Feature/LoanComputationTest.php covers the 12K/10K/1K/16% → 4 case, negative-balance clamping, and the new exemption/first-repayment months for two disbursement dates.
+
+Run them locally (when vendor is installed):
+
+.\vendor\bin\phpunit tests\Feature\LoanComputationTest.php
+
+Note: Existing loans that were already activated with wrong schedules or ledger rows are not auto-corrected; those need a data fix or manual adjustment if you rely on historical accuracy.
+
