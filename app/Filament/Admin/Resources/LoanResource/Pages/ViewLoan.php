@@ -17,6 +17,7 @@ class ViewLoan extends ViewRecord
     {
         return [
             LoanResource::approveLoanAction(),
+            LoanResource::disburseLoanAction(),
             LoanResource::rejectLoanAction(),
             EditAction::make(),
             DeleteAction::make()

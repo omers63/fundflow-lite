@@ -136,6 +136,10 @@ class LoanResource extends Resource
                         $fundBal = (float) ($member->fundAccount()?->balance ?? 0);
                         return 'Max: SAR ' . number_format($max) . ' (2× fund balance of SAR ' . number_format($fundBal) . ')';
                     }),
+                Forms\Components\DatePicker::make('applied_at')
+                    ->label('Request Date')
+                    ->default(now()->toDateString())
+                    ->required(),
                 Forms\Components\Toggle::make('is_emergency')
                     ->label('Emergency Loan')
                     ->helperText('Assigns this loan to the Emergency fund tier upon approval.')
@@ -395,6 +399,216 @@ class LoanResource extends Resource
             });
     }
 
+    public static function disburseLoanAction(): Action
+    {
+        return Action::make('disburse')
+            ->label(fn(Loan $r) => $r->isFullyDisbursed() ? 'Disbursed' : 'Disburse')
+            ->icon('heroicon-o-banknotes')
+            ->color('primary')
+            ->visible(fn(Loan $r) => $r->status === 'approved')
+            ->requiresConfirmation(false)
+            ->modalWidth('lg')
+            ->modalHeading(function (Loan $r) {
+                $remaining = $r->remainingToDisburse();
+                $approved = (float) $r->amount_approved;
+                $disbursed = (float) $r->amount_disbursed;
+                $portion = $r->disbursements()->count() + 1;
+                return "Disburse Loan #{$r->id} — SAR " . number_format($remaining, 2)
+                    . ' remaining (portion #' . $portion . ' of SAR ' . number_format($approved, 2) . ')';
+            })
+            ->schema(function (Loan $r) {
+                $remaining = $r->remainingToDisburse();
+                $masterBal = (float) (Account::masterFund()?->balance ?? 0);
+                $fundTier = $r->fundTier;
+                $declaredPool = $fundTier ? max(0.0, (float) $fundTier->allocated_amount) : $remaining;
+                $maxAmount = min($remaining, $declaredPool);
+                $fundBal = (float) ($r->member->fundAccount()?->balance ?? 0);
+                $minInstall = (float) ($r->loanTier?->min_monthly_installment ?? 1000);
+                $threshold = (float) $r->settlement_threshold;
+                $count = Loan::computeInstallmentsCount((float) $r->amount_approved, $fundBal, $minInstall, $threshold);
+
+                $tierPct = $fundTier ? (string) $fundTier->percentage : '—';
+                $infoHtml = '<div class="overflow-x-auto rounded-lg border border-gray-200 bg-white dark:border-white/10 dark:bg-gray-900/40">'
+                    . '<table class="w-full text-sm">'
+                    . '<tbody>'
+                    . '<tr class="border-b border-gray-100 dark:border-white/10"><td class="py-2 pl-3 pr-3 text-gray-500 dark:text-gray-400">Approved amount</td><td class="py-2 pr-3 text-right tabular-nums text-gray-700 dark:text-gray-300">SAR ' . number_format((float) $r->amount_approved, 2) . '</td></tr>'
+                    . '<tr class="border-b border-gray-100 dark:border-white/10"><td class="py-2 pl-3 pr-3 text-gray-500 dark:text-gray-400">Already disbursed</td><td class="py-2 pr-3 text-right tabular-nums text-gray-700 dark:text-gray-300">SAR ' . number_format((float) $r->amount_disbursed, 2) . '</td></tr>'
+                    . '<tr class="border-b border-gray-100 dark:border-white/10"><td class="py-2 pl-3 pr-3 text-gray-500 dark:text-gray-400">Remaining to disburse</td><td class="py-2 pr-3 text-right tabular-nums font-semibold text-gray-950 dark:text-white">SAR ' . number_format($remaining, 2) . '</td></tr>'
+                    . '<tr class="border-b border-gray-100 dark:border-white/10"><td class="py-2 pl-3 pr-3 text-gray-500 dark:text-gray-400">Fund tier declared pool</td><td class="py-2 pr-3 text-right tabular-nums font-semibold text-gray-950 dark:text-white">SAR ' . number_format($declaredPool, 2) . ' <span class="block text-xs font-normal text-gray-500 dark:text-gray-400">(' . e($tierPct) . '% of master)</span></td></tr>'
+                    . '<tr class="border-b border-gray-100 dark:border-white/10"><td class="py-2 pl-3 pr-3 text-gray-500 dark:text-gray-400">Master fund balance (ledger)</td><td class="py-2 pr-3 text-right tabular-nums ' . ($masterBal < $remaining ? 'text-amber-600 dark:text-amber-400 font-semibold' : 'text-gray-700 dark:text-gray-300') . '">SAR ' . number_format($masterBal, 2) . '</td></tr>'
+                    . '<tr><td class="py-2 pl-3 pr-3 text-gray-500 dark:text-gray-400">Est. repayment period</td><td class="py-2 pr-3 text-right tabular-nums text-gray-700 dark:text-gray-300">' . $count . ' months</td></tr>'
+                    . '</tbody></table></div>';
+
+                $warnHtml = '';
+                if ($maxAmount <= 0) {
+                    $warnHtml = '<div class="rounded-lg border border-red-200 bg-red-50 px-4 py-3 text-sm text-red-700 dark:border-red-500/30 dark:bg-red-500/10 dark:text-red-400">⚠ '
+                        . ($fundTier
+                            ? 'Fund tier declared pool is SAR 0 — adjust fund tier percentages or master fund before disbursing.'
+                            : 'This loan has no fund tier; assign a fund tier before disbursing.')
+                        . '</div>';
+                } elseif ($declaredPool + 0.01 < $remaining) {
+                    $warnHtml = '<div class="rounded-lg border border-amber-200 bg-amber-50 px-4 py-3 text-sm text-amber-700 dark:border-amber-500/30 dark:bg-amber-500/10 dark:text-amber-400">⚠ '
+                        . 'Per policy, each disbursement is capped at the fund tier’s declared pool (SAR ' . number_format($declaredPool, 2)
+                        . ') even though SAR ' . number_format($remaining, 2) . ' remains on the loan. Repayment starts only after full disbursement.'
+                        . '</div>';
+                }
+                if ($maxAmount > 0 && $masterBal + 0.01 < $maxAmount) {
+                    $warnHtml .= '<div class="rounded-lg border border-amber-200 bg-amber-50 px-4 py-3 text-sm text-amber-700 dark:border-amber-500/30 dark:bg-amber-500/10 dark:text-amber-400">ℹ '
+                        . 'Master fund cash (SAR ' . number_format($masterBal, 2) . ') is below the disbursement cap shown; posting may still fail until the ledger has enough balance.'
+                        . '</div>';
+                }
+
+                return [
+                    Forms\Components\Placeholder::make('disburse_info')
+                        ->label('')
+                        ->content(new \Illuminate\Support\HtmlString('<div class="space-y-3">' . $infoHtml . $warnHtml . '</div>'))
+                        ->columnSpanFull(),
+                    Forms\Components\TextInput::make('amount')
+                        ->label('Amount to disburse (SAR)')
+                        ->numeric()
+                        ->minValue(0.01)
+                        ->maxValue($maxAmount)
+                        ->default(fn() => $maxAmount)
+                        ->suffix('SAR')
+                        ->helperText('Max: SAR ' . number_format($maxAmount, 2) . ' (lesser of remaining approved and fund tier declared pool; master fund balance is shown for reference).')
+                        ->disabled($maxAmount <= 0)
+                        ->required($maxAmount > 0)
+                        ->columnSpanFull(),
+                    Forms\Components\Textarea::make('notes')
+                        ->label('Notes (optional)')
+                        ->nullable()
+                        ->rows(2)
+                        ->columnSpanFull(),
+                ];
+            })
+            ->action(function (Loan $record, array $data, Component $livewire) {
+                $record->loadMissing(['fundTier', 'member.accounts']);
+                $amount = (float) ($data['amount'] ?? 0);
+                $notes = $data['notes'] ?? null;
+                $remaining = $record->remainingToDisburse();
+                $fundTier = $record->fundTier;
+                $declaredCap = $fundTier ? max(0.0, (float) $fundTier->allocated_amount) : $remaining;
+                if ($amount <= 0) {
+                    Notification::make()->title('Enter a disbursement amount')->danger()->send();
+                    return;
+                }
+
+                if ($amount > $remaining + 0.01) {
+                    Notification::make()
+                        ->title('Amount exceeds remaining to disburse')
+                        ->body('Remaining: SAR ' . number_format($remaining, 2))
+                        ->danger()->send();
+                    return;
+                }
+
+                if ($amount > $declaredCap + 0.01) {
+                    Notification::make()
+                        ->title('Amount exceeds fund tier declared pool')
+                        ->body('Declared pool: SAR ' . number_format($declaredCap, 2) . ' (master fund balance is not used as this cap).')
+                        ->danger()->send();
+                    return;
+                }
+
+                // Pre-posting balance: semantic member vs. master split and installment count only.
+                // Ledger: full disbursement still debits master + mirrors the same amount on member fund.
+                $memberFundBalanceBefore = (float) ($record->member->fundAccount()?->balance ?? 0);
+
+                // Create the disbursement record (portions filled by AccountingService)
+                $disbursement = LoanDisbursement::create([
+                    'loan_id' => $record->id,
+                    'amount' => $amount,
+                    'member_portion' => 0,
+                    'master_portion' => 0,
+                    'disbursed_at' => now(),
+                    'disbursed_by_id' => auth()->id(),
+                    'notes' => $notes,
+                ]);
+
+                try {
+                    app(AccountingService::class)->postPartialLoanDisbursement($record, $amount, $disbursement);
+                } catch (\Throwable $e) {
+                    $disbursement->delete();
+                    Notification::make()->title('Disbursement failed')->body($e->getMessage())->danger()->send();
+                    return;
+                }
+
+                $record->refresh();
+                $totalDisbursed = (float) $record->amount_disbursed;
+                $amountApproved = (float) $record->amount_approved;
+
+                if ($record->isFullyDisbursed()) {
+                    // Full disbursement — activate loan and build repayment schedule
+                    $disbursedAt = now();
+                    $minInstall = (float) ($record->loanTier?->min_monthly_installment ?? 1000);
+                    $threshold = (float) $record->settlement_threshold;
+                    $count = Loan::computeInstallmentsCount($amountApproved, $memberFundBalanceBefore, $minInstall, $threshold);
+
+                    $exemption = Loan::computeExemptionAndFirstRepayment($disbursedAt);
+                    $exemption = Loan::adjustFirstRepaymentIfContributionAlreadyMade($record->member, $exemption);
+
+                    DB::transaction(function () use ($record, $disbursedAt, $exemption, $count, $minInstall, $amountApproved, $memberFundBalanceBefore) {
+                        $memberPortion = min(max(0.0, $memberFundBalanceBefore), $amountApproved);
+                        $masterPortion = $amountApproved - $memberPortion;
+
+                        $record->update([
+                            'status' => 'active',
+                            'installments_count' => $count,
+                            'disbursed_at' => $disbursedAt,
+                            'due_date' => $disbursedAt->copy()->addMonths($count)->toDateString(),
+                            'member_portion' => $memberPortion,
+                            'master_portion' => $masterPortion,
+                        ] + $exemption);
+
+                        $startDate = Carbon::create(
+                            $exemption['first_repayment_year'],
+                            $exemption['first_repayment_month'],
+                            5
+                        );
+
+                        for ($i = 1; $i <= $count; $i++) {
+                            LoanInstallment::create([
+                                'loan_id' => $record->id,
+                                'installment_number' => $i,
+                                'amount' => $minInstall,
+                                'due_date' => $startDate->copy()->addMonths($i - 1)->toDateString(),
+                                'status' => 'pending',
+                            ]);
+                        }
+                    });
+
+                    $record->refresh();
+
+                    try {
+                        $record->member->user->notify(new LoanDisbursedNotification($record));
+                    } catch (\Throwable) {
+                    }
+
+                    Notification::make()
+                        ->title('Loan Fully Disbursed')
+                        ->body("{$count} installments of SAR " . number_format($minInstall) . '/month. First repayment: ' . ($exemption['first_repayment_month'] . '/' . $exemption['first_repayment_year']))
+                        ->success()->send();
+                } else {
+                    // Partial disbursement — loan stays approved, notify member
+                    try {
+                        $record->member->user->notify(new LoanPartialDisbursementNotification(
+                            disbursement: $disbursement,
+                            totalDisbursed: $totalDisbursed,
+                            amountApproved: $amountApproved,
+                        ));
+                    } catch (\Throwable) {
+                    }
+
+                    Notification::make()
+                        ->title('Partial Disbursement Recorded')
+                        ->body('SAR ' . number_format($amount, 2) . ' disbursed. Remaining: SAR ' . number_format($record->remainingToDisburse(), 2) . '. Repayment will start after full disbursement.')
+                        ->info()->send();
+                }
+
+                LoanQueueOrderingService::resequenceFundTier($record->fund_tier_id);
+                static::dispatchLoanListHeaderWidgetsRefresh($livewire);
+            });
+    }
+
     // =========================================================================
     // Table
     // =========================================================================
@@ -494,214 +708,7 @@ class LoanResource extends Resource
                 ViewAction::make(),
 
                 static::approveLoanAction(),
-
-                // ── DISBURSE ──
-                Action::make('disburse')
-                    ->label(fn(Loan $r) => $r->isFullyDisbursed() ? 'Disbursed' : 'Disburse')
-                    ->icon('heroicon-o-banknotes')
-                    ->color('primary')
-                    ->visible(fn(Loan $r) => $r->status === 'approved')
-                    ->requiresConfirmation(false)
-                    ->modalWidth('lg')
-                    ->modalHeading(function (Loan $r) {
-                        $remaining = $r->remainingToDisburse();
-                        $approved = (float) $r->amount_approved;
-                        $disbursed = (float) $r->amount_disbursed;
-                        $portion = $r->disbursements()->count() + 1;
-                        return "Disburse Loan #{$r->id} — SAR " . number_format($remaining, 2)
-                            . ' remaining (portion #' . $portion . ' of SAR ' . number_format($approved, 2) . ')';
-                    })
-                    ->schema(function (Loan $r) {
-                        $remaining = $r->remainingToDisburse();
-                        $masterBal = (float) (Account::masterFund()?->balance ?? 0);
-                        $fundTier = $r->fundTier;
-                        $declaredPool = $fundTier ? max(0.0, (float) $fundTier->allocated_amount) : $remaining;
-                        $maxAmount = min($remaining, $declaredPool);
-                        $fundBal = (float) ($r->member->fundAccount()?->balance ?? 0);
-                        $minInstall = (float) ($r->loanTier?->min_monthly_installment ?? 1000);
-                        $threshold = (float) $r->settlement_threshold;
-                        $count = Loan::computeInstallmentsCount((float) $r->amount_approved, $fundBal, $minInstall, $threshold);
-
-                        $tierPct = $fundTier ? (string) $fundTier->percentage : '—';
-                        $infoHtml = '<div class="overflow-x-auto rounded-lg border border-gray-200 bg-white dark:border-white/10 dark:bg-gray-900/40">'
-                            . '<table class="w-full text-sm">'
-                            . '<tbody>'
-                            . '<tr class="border-b border-gray-100 dark:border-white/10"><td class="py-2 pl-3 pr-3 text-gray-500 dark:text-gray-400">Approved amount</td><td class="py-2 pr-3 text-right tabular-nums text-gray-700 dark:text-gray-300">SAR ' . number_format((float) $r->amount_approved, 2) . '</td></tr>'
-                            . '<tr class="border-b border-gray-100 dark:border-white/10"><td class="py-2 pl-3 pr-3 text-gray-500 dark:text-gray-400">Already disbursed</td><td class="py-2 pr-3 text-right tabular-nums text-gray-700 dark:text-gray-300">SAR ' . number_format((float) $r->amount_disbursed, 2) . '</td></tr>'
-                            . '<tr class="border-b border-gray-100 dark:border-white/10"><td class="py-2 pl-3 pr-3 text-gray-500 dark:text-gray-400">Remaining to disburse</td><td class="py-2 pr-3 text-right tabular-nums font-semibold text-gray-950 dark:text-white">SAR ' . number_format($remaining, 2) . '</td></tr>'
-                            . '<tr class="border-b border-gray-100 dark:border-white/10"><td class="py-2 pl-3 pr-3 text-gray-500 dark:text-gray-400">Fund tier declared pool</td><td class="py-2 pr-3 text-right tabular-nums font-semibold text-gray-950 dark:text-white">SAR ' . number_format($declaredPool, 2) . ' <span class="block text-xs font-normal text-gray-500 dark:text-gray-400">(' . e($tierPct) . '% of master)</span></td></tr>'
-                            . '<tr class="border-b border-gray-100 dark:border-white/10"><td class="py-2 pl-3 pr-3 text-gray-500 dark:text-gray-400">Master fund balance (ledger)</td><td class="py-2 pr-3 text-right tabular-nums ' . ($masterBal < $remaining ? 'text-amber-600 dark:text-amber-400 font-semibold' : 'text-gray-700 dark:text-gray-300') . '">SAR ' . number_format($masterBal, 2) . '</td></tr>'
-                            . '<tr><td class="py-2 pl-3 pr-3 text-gray-500 dark:text-gray-400">Est. repayment period</td><td class="py-2 pr-3 text-right tabular-nums text-gray-700 dark:text-gray-300">' . $count . ' months</td></tr>'
-                            . '</tbody></table></div>';
-
-                        $warnHtml = '';
-                        if ($maxAmount <= 0) {
-                            $warnHtml = '<div class="rounded-lg border border-red-200 bg-red-50 px-4 py-3 text-sm text-red-700 dark:border-red-500/30 dark:bg-red-500/10 dark:text-red-400">⚠ '
-                                . ($fundTier
-                                    ? 'Fund tier declared pool is SAR 0 — adjust fund tier percentages or master fund before disbursing.'
-                                    : 'This loan has no fund tier; assign a fund tier before disbursing.')
-                                . '</div>';
-                        } elseif ($declaredPool + 0.01 < $remaining) {
-                            $warnHtml = '<div class="rounded-lg border border-amber-200 bg-amber-50 px-4 py-3 text-sm text-amber-700 dark:border-amber-500/30 dark:bg-amber-500/10 dark:text-amber-400">⚠ '
-                                . 'Per policy, each disbursement is capped at the fund tier’s declared pool (SAR ' . number_format($declaredPool, 2)
-                                . ') even though SAR ' . number_format($remaining, 2) . ' remains on the loan. Repayment starts only after full disbursement.'
-                                . '</div>';
-                        }
-                        if ($maxAmount > 0 && $masterBal + 0.01 < $maxAmount) {
-                            $warnHtml .= '<div class="rounded-lg border border-amber-200 bg-amber-50 px-4 py-3 text-sm text-amber-700 dark:border-amber-500/30 dark:bg-amber-500/10 dark:text-amber-400">ℹ '
-                                . 'Master fund cash (SAR ' . number_format($masterBal, 2) . ') is below the disbursement cap shown; posting may still fail until the ledger has enough balance.'
-                                . '</div>';
-                        }
-
-                        return [
-                            Forms\Components\Placeholder::make('disburse_info')
-                                ->label('')
-                                ->content(new \Illuminate\Support\HtmlString('<div class="space-y-3">' . $infoHtml . $warnHtml . '</div>'))
-                                ->columnSpanFull(),
-                            Forms\Components\TextInput::make('amount')
-                                ->label('Amount to disburse (SAR)')
-                                ->numeric()
-                                ->minValue(0.01)
-                                ->maxValue($maxAmount)
-                                ->default(fn() => $maxAmount)
-                                ->suffix('SAR')
-                                ->helperText('Max: SAR ' . number_format($maxAmount, 2) . ' (lesser of remaining approved and fund tier declared pool; master fund balance is shown for reference).')
-                                ->disabled($maxAmount <= 0)
-                                ->required($maxAmount > 0)
-                                ->columnSpanFull(),
-                            Forms\Components\Textarea::make('notes')
-                                ->label('Notes (optional)')
-                                ->nullable()
-                                ->rows(2)
-                                ->columnSpanFull(),
-                        ];
-                    })
-                    ->action(function (Loan $record, array $data, Component $livewire) {
-                        $record->loadMissing(['fundTier', 'member.accounts']);
-                        $amount = (float) ($data['amount'] ?? 0);
-                        $notes = $data['notes'] ?? null;
-                        $remaining = $record->remainingToDisburse();
-                        $fundTier = $record->fundTier;
-                        $declaredCap = $fundTier ? max(0.0, (float) $fundTier->allocated_amount) : $remaining;
-                        if ($amount <= 0) {
-                            Notification::make()->title('Enter a disbursement amount')->danger()->send();
-                            return;
-                        }
-
-                        if ($amount > $remaining + 0.01) {
-                            Notification::make()
-                                ->title('Amount exceeds remaining to disburse')
-                                ->body('Remaining: SAR ' . number_format($remaining, 2))
-                                ->danger()->send();
-                            return;
-                        }
-
-                        if ($amount > $declaredCap + 0.01) {
-                            Notification::make()
-                                ->title('Amount exceeds fund tier declared pool')
-                                ->body('Declared pool: SAR ' . number_format($declaredCap, 2) . ' (master fund balance is not used as this cap).')
-                                ->danger()->send();
-                            return;
-                        }
-
-                        // Pre-posting balance: semantic member vs. master split and installment count only.
-                        // Ledger: full disbursement still debits master + mirrors the same amount on member fund.
-                        $memberFundBalanceBefore = (float) ($record->member->fundAccount()?->balance ?? 0);
-
-                        // Create the disbursement record (portions filled by AccountingService)
-                        $disbursement = LoanDisbursement::create([
-                            'loan_id' => $record->id,
-                            'amount' => $amount,
-                            'member_portion' => 0,
-                            'master_portion' => 0,
-                            'disbursed_at' => now(),
-                            'disbursed_by_id' => auth()->id(),
-                            'notes' => $notes,
-                        ]);
-
-                        try {
-                            app(AccountingService::class)->postPartialLoanDisbursement($record, $amount, $disbursement);
-                        } catch (\Throwable $e) {
-                            $disbursement->delete();
-                            Notification::make()->title('Disbursement failed')->body($e->getMessage())->danger()->send();
-                            return;
-                        }
-
-                        $record->refresh();
-                        $totalDisbursed = (float) $record->amount_disbursed;
-                        $amountApproved = (float) $record->amount_approved;
-
-                        if ($record->isFullyDisbursed()) {
-                            // Full disbursement — activate loan and build repayment schedule
-                            $disbursedAt = now();
-                            $minInstall = (float) ($record->loanTier?->min_monthly_installment ?? 1000);
-                            $threshold = (float) $record->settlement_threshold;
-                            $count = Loan::computeInstallmentsCount($amountApproved, $memberFundBalanceBefore, $minInstall, $threshold);
-
-                            $exemption = Loan::computeExemptionAndFirstRepayment($disbursedAt);
-                            $exemption = Loan::adjustFirstRepaymentIfContributionAlreadyMade($record->member, $exemption);
-
-                            DB::transaction(function () use ($record, $disbursedAt, $exemption, $count, $minInstall, $amountApproved, $memberFundBalanceBefore) {
-                                $memberPortion = min(max(0.0, $memberFundBalanceBefore), $amountApproved);
-                                $masterPortion = $amountApproved - $memberPortion;
-
-                                $record->update([
-                                    'status' => 'active',
-                                    'installments_count' => $count,
-                                    'disbursed_at' => $disbursedAt,
-                                    'due_date' => $disbursedAt->copy()->addMonths($count)->toDateString(),
-                                    'member_portion' => $memberPortion,
-                                    'master_portion' => $masterPortion,
-                                ] + $exemption);
-
-                                $startDate = Carbon::create(
-                                    $exemption['first_repayment_year'],
-                                    $exemption['first_repayment_month'],
-                                    5
-                                );
-
-                                for ($i = 1; $i <= $count; $i++) {
-                                    LoanInstallment::create([
-                                        'loan_id' => $record->id,
-                                        'installment_number' => $i,
-                                        'amount' => $minInstall,
-                                        'due_date' => $startDate->copy()->addMonths($i - 1)->toDateString(),
-                                        'status' => 'pending',
-                                    ]);
-                                }
-                            });
-
-                            $record->refresh();
-
-                            try {
-                                $record->member->user->notify(new LoanDisbursedNotification($record));
-                            } catch (\Throwable) {
-                            }
-
-                            Notification::make()
-                                ->title('Loan Fully Disbursed')
-                                ->body("{$count} installments of SAR " . number_format($minInstall) . '/month. First repayment: ' . ($exemption['first_repayment_month'] . '/' . $exemption['first_repayment_year']))
-                                ->success()->send();
-                        } else {
-                            // Partial disbursement — loan stays approved, notify member
-                            try {
-                                $record->member->user->notify(new LoanPartialDisbursementNotification(
-                                    disbursement: $disbursement,
-                                    totalDisbursed: $totalDisbursed,
-                                    amountApproved: $amountApproved,
-                                ));
-                            } catch (\Throwable) {
-                            }
-
-                            Notification::make()
-                                ->title('Partial Disbursement Recorded')
-                                ->body('SAR ' . number_format($amount, 2) . ' disbursed. Remaining: SAR ' . number_format($record->remainingToDisburse(), 2) . '. Repayment will start after full disbursement.')
-                                ->info()->send();
-                        }
-
-                        LoanQueueOrderingService::resequenceFundTier($record->fund_tier_id);
-                        static::dispatchLoanListHeaderWidgetsRefresh($livewire);
-                    }),
+                static::disburseLoanAction(),
 
                 static::rejectLoanAction(),
 

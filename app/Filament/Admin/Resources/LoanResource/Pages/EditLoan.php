@@ -20,6 +20,7 @@ class EditLoan extends EditRecord
     {
         return [
             LoanResource::approveLoanAction(),
+            LoanResource::disburseLoanAction(),
             LoanResource::rejectLoanAction(),
         ];
     }
