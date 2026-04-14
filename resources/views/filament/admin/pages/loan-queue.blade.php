@@ -28,7 +28,7 @@
     </div>
 
     {{-- ══════════════════════════════════════════════════════════════════
-         Section 1: Incoming Pending Requests (not yet assigned to a tier)
+         Section 1: Incoming Requests (pending + not fully disbursed)
          ══════════════════════════════════════════════════════════════════ --}}
     <div class="overflow-hidden rounded-2xl border border-amber-200 bg-white shadow-sm dark:border-amber-500/30 dark:bg-gray-900">
 
@@ -44,12 +44,12 @@
                 </div>
                 <div>
                     <h2 class="text-base font-bold text-gray-900 dark:text-white">Incoming Requests</h2>
-                    <p class="text-xs text-gray-500 dark:text-gray-400">Loan applications awaiting review — not yet assigned to a fund tier</p>
+                    <p class="text-xs text-gray-500 dark:text-gray-400">Loan applications awaiting review or final disbursement completion</p>
                 </div>
             </div>
             @if($totalPending > 0)
                 <span class="inline-flex items-center rounded-full bg-amber-100 px-3 py-1 text-sm font-semibold text-amber-800 dark:bg-amber-500/20 dark:text-amber-300">
-                    {{ $totalPending }} pending
+                    {{ $totalPending }} incoming
                 </span>
             @endif
         </div>
@@ -77,6 +77,7 @@
                             <th class="px-4 py-3 text-right text-xs font-semibold uppercase tracking-wide text-gray-400 dark:text-white/40">Requested</th>
                             <th class="px-4 py-3 text-left text-xs font-semibold uppercase tracking-wide text-gray-400 dark:text-white/40">Loan / Fund Tier</th>
                             <th class="px-4 py-3 text-left text-xs font-semibold uppercase tracking-wide text-gray-400 dark:text-white/40">Emergency</th>
+                            <th class="px-4 py-3 text-left text-xs font-semibold uppercase tracking-wide text-gray-400 dark:text-white/40">Disbursement</th>
                             <th class="px-4 py-3 text-left text-xs font-semibold uppercase tracking-wide text-gray-400 dark:text-white/40">Applied</th>
                             <th class="px-4 py-3"></th>
                         </tr>
@@ -89,6 +90,11 @@
                                 $expectedFundTier = $loan->is_emergency
                                     ? \App\Models\FundTier::emergency()
                                     : ($expectedLoanTier ? \App\Models\FundTier::forLoanTier($expectedLoanTier->id) : null);
+                                $displayLoanTier  = $loan->loanTier ?? $expectedLoanTier;
+                                $displayFundTier  = $loan->fundTier ?? $expectedFundTier;
+                                $approved         = (float) ($loan->amount_approved ?? 0);
+                                $disbursed        = (float) ($loan->amount_disbursed ?? 0);
+                                $disbursementPct  = $approved > 0 ? min(100, round($disbursed / $approved * 100)) : 0;
                             @endphp
                             <tr class="{{ $index % 2 === 0 ? '' : 'bg-amber-50/40 dark:bg-amber-500/[0.03]' }} border-b border-gray-100 transition-colors last:border-0 hover:bg-amber-50/60 dark:border-white/5 dark:hover:bg-amber-500/5">
                                 <td class="px-4 py-3.5">
@@ -109,10 +115,10 @@
                                     </span>
                                 </td>
                                 <td class="px-4 py-3.5">
-                                    @if($expectedLoanTier)
-                                        <p class="text-xs font-semibold text-gray-700 dark:text-gray-200">{{ $expectedLoanTier->label }}</p>
+                                    @if($displayLoanTier)
+                                        <p class="text-xs font-semibold text-gray-700 dark:text-gray-200">{{ $displayLoanTier->label }}</p>
                                         <p class="text-xs text-gray-400 dark:text-white/40">
-                                            {{ $expectedFundTier ? $expectedFundTier->label : '⚠ No fund tier' }}
+                                            {{ $displayFundTier ? $displayFundTier->label : '⚠ No fund tier' }}
                                         </p>
                                     @else
                                         <span class="text-xs text-red-500 dark:text-red-400 font-medium">⚠ Out of tier range</span>
@@ -128,6 +134,23 @@
                                         </span>
                                     @else
                                         <span class="text-xs text-gray-300 dark:text-white/20">—</span>
+                                    @endif
+                                </td>
+                                <td class="px-4 py-3.5">
+                                    @if($approved <= 0)
+                                        <span class="text-xs text-gray-400 dark:text-white/40">Pending</span>
+                                    @else
+                                        <div class="flex flex-col gap-1">
+                                            <div class="flex items-center gap-2">
+                                                <div class="h-1.5 w-24 overflow-hidden rounded-full bg-gray-100 dark:bg-white/10">
+                                                    <div class="h-full rounded-full {{ $disbursementPct >= 100 ? 'bg-emerald-500' : 'bg-amber-400' }}" style="width: {{ $disbursementPct }}%"></div>
+                                                </div>
+                                                <span class="text-xs {{ $disbursementPct >= 100 ? 'text-emerald-600 dark:text-emerald-400' : 'text-amber-600 dark:text-amber-400' }} font-semibold whitespace-nowrap">{{ $disbursementPct }}%</span>
+                                            </div>
+                                            <span class="text-xs text-gray-400 dark:text-white/40 whitespace-nowrap tabular-nums">
+                                                SAR {{ number_format($disbursed, 0) }} / {{ number_format($approved, 0) }}
+                                            </span>
+                                        </div>
                                     @endif
                                 </td>
                                 <td class="whitespace-nowrap px-4 py-3.5 text-xs text-gray-400 dark:text-white/40">

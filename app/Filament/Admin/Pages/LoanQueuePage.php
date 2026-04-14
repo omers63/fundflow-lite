@@ -36,7 +36,7 @@ class LoanQueuePage extends Page
 
     public function getSubheading(): string|Htmlable|null
     {
-        return 'Incoming requests are ordered by emergency status, fund tier, loan tier (1 before higher tiers), time received, and available capacity. Tier queues use the same rules; positions refresh when loans are approved, rejected, cancelled, disbursed, or removed.';
+        return 'Incoming requests stay visible until full disbursement, and are ordered by emergency status, fund tier, loan tier (1 before higher tiers), time received, and available capacity. Tier queues use the same rules; positions refresh when loans are approved, rejected, cancelled, disbursed, or removed.';
     }
 
     public function getHeaderActions(): array
@@ -63,17 +63,24 @@ class LoanQueuePage extends Page
     }
 
     /**
-     * Pending loan requests not yet assigned to any fund tier.
-     * These are incoming applications awaiting admin review.
+     * Incoming loan requests: pending plus approved loans that are not yet fully disbursed.
      *
      * @return SupportCollection<int, Loan>
      */
     public function getPendingApplications()
     {
         $loans = Loan::query()
-            ->where('status', 'pending')
-            ->whereNull('fund_tier_id')
-            ->with(['member.user', 'loanTier'])
+            ->where(function ($query) {
+                $query->where('status', 'pending')
+                    ->orWhere(function ($approvedQuery) {
+                        $approvedQuery->where('status', 'approved')
+                            ->where(function ($disbursementQuery) {
+                                $disbursementQuery->whereNull('amount_approved')
+                                    ->orWhereColumn('amount_disbursed', '<', 'amount_approved');
+                            });
+                    });
+            })
+            ->with(['member.user', 'loanTier', 'fundTier'])
             ->get();
 
         return LoanQueueOrderingService::orderIncomingPending($loans);
