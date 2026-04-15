@@ -38,6 +38,7 @@ use Filament\Notifications\Notification;
 use Filament\Resources\Pages\EditRecord;
 use Filament\Resources\Resource;
 use Filament\Schemas\Components\Section;
+use Filament\Schemas\Components\Utilities\Get;
 use Filament\Schemas\Schema;
 use Filament\Support\Enums\FontWeight;
 use Filament\Support\Facades\FilamentView;
@@ -421,7 +422,8 @@ class LoanResource extends Resource
                 $masterBal = (float) (Account::masterFund()?->balance ?? 0);
                 $fundTier = $r->fundTier;
                 $declaredPool = $fundTier ? max(0.0, (float) $fundTier->allocated_amount) : $remaining;
-                $maxAmount = min($remaining, $declaredPool);
+                $policyMax = min($remaining, $declaredPool);
+                $masterMax = min($remaining, $masterBal);
                 $fundBal = (float) ($r->member->fundAccount()?->balance ?? 0);
                 $minInstall = (float) ($r->loanTier?->min_monthly_installment ?? 1000);
                 $threshold = (float) $r->settlement_threshold;
@@ -440,21 +442,30 @@ class LoanResource extends Resource
                     . '</tbody></table></div>';
 
                 $warnHtml = '';
-                if ($maxAmount <= 0) {
+                if ($remaining <= 0.01) {
                     $warnHtml = '<div class="rounded-lg border border-red-200 bg-red-50 px-4 py-3 text-sm text-red-700 dark:border-red-500/30 dark:bg-red-500/10 dark:text-red-400">⚠ '
-                        . ($fundTier
-                            ? 'Fund tier declared pool is SAR 0 — adjust fund tier percentages or master fund before disbursing.'
-                            : 'This loan has no fund tier; assign a fund tier before disbursing.')
+                        . 'Nothing remains to be disbursed on this loan.'
                         . '</div>';
-                } elseif ($declaredPool + 0.01 < $remaining) {
+                } elseif ($masterMax <= 0.01) {
+                    $warnHtml = '<div class="rounded-lg border border-red-200 bg-red-50 px-4 py-3 text-sm text-red-700 dark:border-red-500/30 dark:bg-red-500/10 dark:text-red-400">⚠ '
+                        . 'Master fund ledger balance (SAR ' . number_format($masterBal, 2) . ') is not enough to post a disbursement against remaining approved principal.'
+                        . '</div>';
+                } elseif ($fundTier && $declaredPool <= 0.01 && $masterMax > 0.01) {
+                    $warnHtml = '<div class="rounded-lg border border-amber-200 bg-amber-50 px-4 py-3 text-sm text-amber-700 dark:border-amber-500/30 dark:bg-amber-500/10 dark:text-amber-400">⚠ '
+                        . 'This fund tier’s declared pool is SAR 0. Check <strong>Force</strong> below to disburse up to SAR '
+                        . number_format($masterMax, 2) . ' (lesser of remaining approved and master ledger balance).'
+                        . '</div>';
+                } elseif ($declaredPool + 0.01 < $remaining && $policyMax > 0.01) {
                     $warnHtml = '<div class="rounded-lg border border-amber-200 bg-amber-50 px-4 py-3 text-sm text-amber-700 dark:border-amber-500/30 dark:bg-amber-500/10 dark:text-amber-400">⚠ '
                         . 'Per policy, each disbursement is capped at the fund tier’s declared pool (SAR ' . number_format($declaredPool, 2)
                         . ') even though SAR ' . number_format($remaining, 2) . ' remains on the loan. Repayment starts only after full disbursement.'
+                        . ' Check <strong>Force</strong> to allow up to SAR ' . number_format($masterMax, 2)
+                        . ' for this posting (lesser of remaining approved and master ledger balance).'
                         . '</div>';
                 }
-                if ($maxAmount > 0 && $masterBal + 0.01 < $maxAmount) {
+                if ($policyMax > 0.01 && $masterBal + 0.01 < $policyMax) {
                     $warnHtml .= '<div class="rounded-lg border border-amber-200 bg-amber-50 px-4 py-3 text-sm text-amber-700 dark:border-amber-500/30 dark:bg-amber-500/10 dark:text-amber-400">ℹ '
-                        . 'Master fund cash (SAR ' . number_format($masterBal, 2) . ') is below the disbursement cap shown; posting may still fail until the ledger has enough balance.'
+                        . 'Master fund cash (SAR ' . number_format($masterBal, 2) . ') is below the tier declared pool cap; without <strong>Force</strong> you can still enter up to the pool, but posting will fail until the ledger has enough balance. With <strong>Force</strong>, the maximum follows master cash (SAR ' . number_format($masterMax, 2) . ').'
                         . '</div>';
                 }
 
@@ -463,16 +474,35 @@ class LoanResource extends Resource
                         ->label('')
                         ->content(new \Illuminate\Support\HtmlString('<div class="space-y-3">' . $infoHtml . $warnHtml . '</div>'))
                         ->columnSpanFull(),
+                    Forms\Components\Checkbox::make('force')
+                        ->label('Force')
+                        ->helperText('Override the per-disbursement cap from the fund tier’s declared pool. The amount is still limited by remaining approved principal and master fund ledger balance.')
+                        ->visible($fundTier !== null && $declaredPool + 0.01 < $remaining)
+                        ->live()
+                        ->afterStateUpdated(function ($state, $set) use ($remaining, $masterBal, $policyMax) {
+                            if ($state) {
+                                $set('amount', min($remaining, $masterBal));
+                            } else {
+                                $set('amount', $policyMax > 0.01 ? $policyMax : null);
+                            }
+                        })
+                        ->columnSpanFull(),
                     Forms\Components\TextInput::make('amount')
                         ->label('Amount to disburse (SAR)')
                         ->numeric()
                         ->minValue(0.01)
-                        ->maxValue($maxAmount)
-                        ->default(fn() => $maxAmount)
+                        ->maxValue(fn (Get $get) => $get('force') ? $masterMax : ($policyMax > 0.01 ? $policyMax : 0.01))
+                        ->default(fn() => $policyMax > 0.01 ? $policyMax : null)
                         ->suffix('SAR')
-                        ->helperText('Max: SAR ' . number_format($maxAmount, 2) . ' (lesser of remaining approved and fund tier declared pool; master fund balance is shown for reference).')
-                        ->disabled($maxAmount <= 0)
-                        ->required($maxAmount > 0)
+                        ->helperText(function (Get $get) use ($masterBal, $policyMax, $masterMax) {
+                            if ($get('force')) {
+                                return 'Max: SAR ' . number_format($masterMax, 2) . ' (lesser of remaining approved and master fund ledger balance).';
+                            }
+
+                            return 'Max: SAR ' . number_format($policyMax, 2) . ' (lesser of remaining approved and fund tier declared pool). Master ledger SAR ' . number_format($masterBal, 2) . ' is enforced on submit.';
+                        })
+                        ->disabled(fn (Get $get) => $remaining <= 0.01 || $masterMax <= 0.01 || (!$get('force') && $policyMax < 0.01))
+                        ->required(fn (Get $get) => !($remaining <= 0.01 || $masterMax <= 0.01 || (!$get('force') && $policyMax < 0.01)))
                         ->columnSpanFull(),
                     Forms\Components\Textarea::make('notes')
                         ->label('Notes (optional)')
@@ -485,9 +515,11 @@ class LoanResource extends Resource
                 $record->loadMissing(['fundTier', 'member.accounts']);
                 $amount = (float) ($data['amount'] ?? 0);
                 $notes = $data['notes'] ?? null;
+                $force = (bool) ($data['force'] ?? false);
                 $remaining = $record->remainingToDisburse();
                 $fundTier = $record->fundTier;
                 $declaredCap = $fundTier ? max(0.0, (float) $fundTier->allocated_amount) : $remaining;
+                $masterBal = (float) (Account::masterFund()?->balance ?? 0);
                 if ($amount <= 0) {
                     Notification::make()->title('Enter a disbursement amount')->danger()->send();
                     return;
@@ -501,10 +533,18 @@ class LoanResource extends Resource
                     return;
                 }
 
-                if ($amount > $declaredCap + 0.01) {
+                if (!$force && $amount > $declaredCap + 0.01) {
                     Notification::make()
                         ->title('Amount exceeds fund tier declared pool')
-                        ->body('Declared pool: SAR ' . number_format($declaredCap, 2) . ' (master fund balance is not used as this cap).')
+                        ->body('Declared pool: SAR ' . number_format($declaredCap, 2) . '. Check Force to override this cap, within master fund balance.')
+                        ->danger()->send();
+                    return;
+                }
+
+                if ($amount > $masterBal + 0.01) {
+                    Notification::make()
+                        ->title('Amount exceeds master fund balance')
+                        ->body('Available on master ledger: SAR ' . number_format($masterBal, 2))
                         ->danger()->send();
                     return;
                 }
@@ -606,6 +646,7 @@ class LoanResource extends Resource
 
                 LoanQueueOrderingService::resequenceFundTier($record->fund_tier_id);
                 static::dispatchLoanListHeaderWidgetsRefresh($livewire);
+                $livewire->dispatch('fundflow-refresh-loan-installments');
             });
     }
 

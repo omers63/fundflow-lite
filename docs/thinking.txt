@@ -3472,4 +3472,48 @@ Run them locally (when vendor is installed):
 .\vendor\bin\phpunit tests\Feature\LoanComputationTest.php
 
 Note: Existing loans that were already activated with wrong schedules or ledger rows are not auto-corrected; those need a data fix or manual adjustment if you rely on historical accuracy.
+------------------------------------------------
+Here is what was implemented.
 
+Behavior
+Force checkbox (only when the loan has a fund tier and that tier’s declared pool is below remaining approved): overrides the per-disbursement tier declared pool cap so the amount can go up to min(remaining, master ledger balance).
+Master fund is always enforced on submit: amounts above Account::masterFund()->balance are rejected with a clear notification, before calling AccountingService::postPartialLoanDisbursement() (ledger rules unchanged).
+Without Force, behavior matches the previous policy cap (min(remaining, declared pool) in the form; server still rejects above declared pool).
+Force is hidden when there is no fund tier or when the declared pool does not sit below remaining (so it never only “shrinks” the allowed amount).
+UX details
+Reactive max / helper text on the amount field from force.
+Toggling Force resets the amount to the new cap (tier cap when off, master-limited cap when on).
+Warnings were adjusted: e.g. zero declared pool, tier vs remaining, and master vs tier cap, including when Force applies.
+Files
+419:511:app/Filament/Admin/Resources/LoanResource.php — disburse modal schema (policyMax / masterMax, checkbox, reactive amount).
+514:550:app/Filament/Admin/Resources/LoanResource.php — action: $force, conditional tier check, always master balance check.
+php artisan test still reports one failure in LoanComputationTest (installment count expectation); that test is unrelated to these edits.
+-----------------------------------------
+Here is what was going wrong and what we changed.
+
+Cause
+After the last disbursement, installments are created in the database, but the Installments relation manager keeps Filament’s cached table rows and can keep a loaded installments relation on the in-memory ownerRecord, so the UI does not show the new rows until a full reload.
+
+Fix
+InstallmentsRelationManager – listen for a Livewire event, then clear the owner’s installments relation and run resetTable() (which flushes the table record cache):
+
+InstallmentsRelationManager.php
+Lines 21-31
+    #[On('fundflow-refresh-loan-installments')]
+    public function refreshInstallmentsTable(): void
+    {
+        $this->ownerRecord->unsetRelation('installments');
+        $this->resetTable();
+    }
+LoanResource::disburseLoanAction() – after a successful disburse (partial or full), dispatch that event from the current page so nested relation managers update:
+
+LoanResource.php
+Lines 647-650
+                LoanQueueOrderingService::resequenceFundTier($record->fund_tier_id);
+                static::dispatchLoanListHeaderWidgetsRefresh($livewire);
+                $livewire->dispatch('fundflow-refresh-loan-installments');
+This applies on View loan and Edit loan (both register relation managers). On the loans list there is no installments manager; the extra dispatch is harmless.
+
+If anything still looks stale in your environment, say which page you use (view vs edit) and we can add a targeted fallback (e.g. refresh-page on the resource page only).
+
+------------------------------

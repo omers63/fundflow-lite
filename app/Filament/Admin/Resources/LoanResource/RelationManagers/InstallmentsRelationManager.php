@@ -10,12 +10,24 @@ use Filament\Resources\RelationManagers\RelationManager;
 use Filament\Schemas\Schema;
 use Filament\Tables;
 use Filament\Tables\Table;
+use Livewire\Attributes\On;
 
 class InstallmentsRelationManager extends RelationManager
 {
     protected static string $relationship = 'installments';
 
     protected static ?string $title = 'Installments';
+
+    /**
+     * Loan disbursement (e.g. final tranche) creates installments on the server; the relation
+     * table cache and eager-loaded relations otherwise stay stale until navigation.
+     */
+    #[On('fundflow-refresh-loan-installments')]
+    public function refreshInstallmentsTable(): void
+    {
+        $this->ownerRecord->unsetRelation('installments');
+        $this->resetTable();
+    }
 
     public function form(Schema $schema): Schema
     {
