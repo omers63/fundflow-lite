@@ -34,11 +34,22 @@ class CreateLoan extends CreateRecord
         $memberId = $data['member_id'] ?? null;
         $amount = (float) ($data['amount_requested'] ?? 0);
         $member = null;
+        $eligibility = app(LoanEligibilityService::class);
 
         if ($memberId) {
             $member = Member::with('accounts')->find($memberId);
             if ($member) {
-                $max = app(LoanEligibilityService::class)->maxLoanAmount($member);
+                if (!$eligibility->isEligible($member)) {
+                    Notification::make()
+                        ->title('Loan request is not allowed')
+                        ->body($eligibility->getIneligibilityReason($member))
+                        ->danger()
+                        ->send();
+
+                    $this->halt();
+                }
+
+                $max = $eligibility->maxLoanAmount($member);
                 if ($amount > $max) {
                     $fundBal = (float) ($member->fundAccount()?->balance ?? 0);
                     Notification::make()

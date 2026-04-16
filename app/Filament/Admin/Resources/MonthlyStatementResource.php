@@ -29,11 +29,11 @@ class MonthlyStatementResource extends Resource
 
     protected static ?string $navigationLabel = 'Statements';
 
-    protected static ?int $navigationSort = 1;
+    protected static ?int $navigationSort = 99;
 
     public static function getNavigationGroup(): ?string
     {
-        return __('app.nav.group.reports');
+        return __('app.nav.group.membership');
     }
 
     public static function form(Schema $schema): Schema

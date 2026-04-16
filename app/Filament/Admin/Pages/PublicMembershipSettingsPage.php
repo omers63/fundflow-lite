@@ -14,6 +14,8 @@ class PublicMembershipSettingsPage extends Page
 {
     protected string $view = 'filament.admin.pages.public-membership-settings';
 
+    protected static bool $shouldRegisterNavigation = false;
+
     protected static ?string $navigationLabel = 'Public membership';
 
     protected static string|\BackedEnum|null $navigationIcon = 'heroicon-o-globe-alt';
@@ -28,6 +30,11 @@ class PublicMembershipSettingsPage extends Page
     public function getTitle(): string
     {
         return 'Public membership';
+    }
+
+    public function mount(): void
+    {
+        $this->redirect(SystemSettingsPage::getUrl(['activeTab' => 'public-membership']));
     }
 
     public function getHeaderActions(): array

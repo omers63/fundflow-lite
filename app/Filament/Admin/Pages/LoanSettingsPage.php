@@ -14,6 +14,8 @@ class LoanSettingsPage extends Page
 {
     protected string $view = 'filament.admin.pages.loan-settings';
 
+    protected static bool $shouldRegisterNavigation = false;
+
     protected static ?string $navigationLabel = 'Loans';
 
     protected static string|\BackedEnum|null $navigationIcon = 'heroicon-o-credit-card';
@@ -45,9 +47,7 @@ class LoanSettingsPage extends Page
 
     public function mount(): void
     {
-        if (! in_array($this->activeTab, ['settings', 'loan-tiers', 'fund-tiers'], true)) {
-            $this->activeTab = 'settings';
-        }
+        $this->redirect(SystemSettingsPage::getUrl(['activeTab' => 'loans', 'loanSubTab' => 'loan-rules']));
     }
 
     public function getHeaderActions(): array

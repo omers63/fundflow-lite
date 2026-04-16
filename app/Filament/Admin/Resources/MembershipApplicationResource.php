@@ -11,12 +11,10 @@ use App\Notifications\MembershipApprovedNotification;
 use App\Notifications\MembershipRejectedNotification;
 use App\Services\AccountingService;
 use App\Services\MemberNumberService;
-use App\Services\MembershipApplicationImportService;
 use Filament\Actions\Action;
 use Filament\Actions\ActionGroup;
 use Filament\Actions\BulkAction;
 use Filament\Actions\BulkActionGroup;
-use Filament\Actions\CreateAction;
 use Filament\Actions\DeleteAction;
 use Filament\Actions\DeleteBulkAction;
 use Filament\Actions\EditAction;
@@ -38,7 +36,6 @@ use Filament\Tables\Table;
 use Illuminate\Database\Eloquent\Builder;
 use Illuminate\Database\Eloquent\Collection as EloquentCollection;
 use Illuminate\Support\Facades\DB;
-use Illuminate\Support\Facades\Storage;
 use Illuminate\Support\HtmlString;
 use Livewire\Component;
 
@@ -337,67 +334,6 @@ class MembershipApplicationResource extends Resource
                     }),
                 TrashedFilter::make(),
             ])
-            ->headerActions([
-                Action::make('importApplications')
-                    ->label('Import Applications')
-                    ->icon('heroicon-o-arrow-up-tray')
-                    ->color('success')
-                    ->visible(fn(): bool => static::canCreate() || (bool) auth()->user()?->can('Update:MembershipApplication'))
-                    ->modalHeading('Import applications from CSV')
-                    ->modalDescription(fn(): HtmlString => new HtmlString(
-                        view('filament.admin.membership-application-import-csv-help')->render()
-                    ))
-                    ->modalWidth('2xl')
-                    ->schema([
-                        Forms\Components\FileUpload::make('csv_file')
-                            ->label('CSV file')
-                            ->disk('local')
-                            ->directory('membership-application-imports')
-                            ->acceptedFileTypes(['text/csv', 'text/plain', 'application/csv', 'application/vnd.ms-excel'])
-                            ->required(),
-                        Forms\Components\TextInput::make('default_password')
-                            ->label('Default password')
-                            ->password()
-                            ->revealable()
-                            ->required()
-                            ->minLength(8)
-                            ->helperText('Used when the password column is empty or shorter than 8 characters. Applicants should change it after first login.'),
-                    ])
-                    ->action(function (array $data, Component $livewire): void {
-                        $relative = $data['csv_file'];
-                        $fullPath = Storage::disk('local')->path($relative);
-
-                        try {
-                            $result = app(MembershipApplicationImportService::class)->import($fullPath, $data['default_password']);
-                        } finally {
-                            Storage::disk('local')->delete($relative);
-                        }
-
-                        $body = "Created: {$result['created']} · Skipped: {$result['skipped']} · Failed: {$result['failed']}";
-
-                        if ($result['errors'] !== []) {
-                            $preview = implode("\n", array_slice($result['errors'], 0, 8));
-                            if (count($result['errors']) > 8) {
-                                $preview .= "\n… and " . (count($result['errors']) - 8) . ' more';
-                            }
-                            $body .= "\n\n" . $preview;
-                        }
-
-                        Notification::make()
-                            ->title('Application import finished')
-                            ->body($body)
-                            ->color($result['failed'] > 0 || $result['errors'] !== [] ? 'warning' : 'success')
-                            ->persistent()
-                            ->send();
-
-                        static::dispatchApplicationStatsRefresh($livewire);
-                    }),
-                CreateAction::make()
-                    ->label('New Application')
-                    ->icon('heroicon-o-plus-circle')
-                    ->url(static::getUrl('create'))
-                    ->visible(fn(): bool => static::canCreate()),
-            ])
             ->recordActions([
                 ActionGroup::make([
                     ViewAction::make(),
@@ -570,7 +506,7 @@ class MembershipApplicationResource extends Resource
             ]);
     }
 
-    protected static function dispatchApplicationStatsRefresh(?Component $livewire): void
+    public static function dispatchApplicationStatsRefresh(?Component $livewire): void
     {
         if ($livewire === null) {
             return;

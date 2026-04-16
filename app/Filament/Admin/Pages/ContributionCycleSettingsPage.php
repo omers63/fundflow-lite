@@ -14,6 +14,8 @@ class ContributionCycleSettingsPage extends Page
 {
     protected string $view = 'filament.admin.pages.contribution-cycle-settings';
 
+    protected static bool $shouldRegisterNavigation = false;
+
     protected static ?string $navigationLabel = 'Contribution cycles';
 
     protected static string|\BackedEnum|null $navigationIcon = 'heroicon-o-arrow-path-rounded-square';
@@ -28,6 +30,11 @@ class ContributionCycleSettingsPage extends Page
     public function getTitle(): string
     {
         return 'Contribution & repayment cycles';
+    }
+
+    public function mount(): void
+    {
+        $this->redirect(SystemSettingsPage::getUrl(['activeTab' => 'contribution-cycles']));
     }
 
     public function getHeaderActions(): array

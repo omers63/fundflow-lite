@@ -4,6 +4,8 @@ namespace App\Providers\Filament;
 
 use App\Filament\Admin\Pages\Dashboard;
 use App\Filament\Admin\Pages\ReconciliationPage;
+use App\Filament\Admin\Pages\SystemMaintenancePage;
+use App\Filament\Admin\Pages\SystemSettingsPage;
 use App\Filament\Admin\Widgets\AdminStatsOverview;
 use BezhanSalleh\FilamentShield\FilamentShieldPlugin;
 use Filament\Http\Middleware\Authenticate;
@@ -43,7 +45,8 @@ class AdminPanelProvider extends PanelProvider
             ])
             ->plugins([
                 FilamentShieldPlugin::make()
-                    ->navigationGroup('Settings')
+                    ->navigationGroup(__('app.nav.group.system'))
+                    ->navigationLabel('System Roles')
                     ->navigationSort(1)
                     ->gridColumns([
                         'default' => 1,
@@ -63,7 +66,6 @@ class AdminPanelProvider extends PanelProvider
             ->navigationGroups([
                 NavigationGroup::make(__('app.nav.group.membership')),
                 NavigationGroup::make(__('app.nav.group.finance')),
-                NavigationGroup::make(__('app.nav.group.reports')),
                 NavigationGroup::make(__('app.nav.group.settings'))
                     ->collapsed(),
                 NavigationGroup::make(__('app.nav.group.system'))
@@ -75,6 +77,8 @@ class AdminPanelProvider extends PanelProvider
             ->pages([
                 Dashboard::class,
                 ReconciliationPage::class,
+                SystemSettingsPage::class,
+                SystemMaintenancePage::class,
             ])
             ->discoverWidgets(in: app_path('Filament/Admin/Widgets'), for: 'App\Filament\Admin\Widgets')
             ->widgets([

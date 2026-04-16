@@ -21,6 +21,16 @@ class LoanEligibilityService
             return 'Your membership status is not active.';
         }
 
+        // A member may not start a second loan request while another one is in-flight
+        // (pending review or already active and not fully paid).
+        $hasPendingOrActiveLoan = Loan::query()
+            ->where('member_id', $member->id)
+            ->whereIn('status', ['pending', 'active'])
+            ->exists();
+        if ($hasPendingOrActiveLoan) {
+            return 'You already have a pending or active loan. Cancel the pending loan or fully settle the active loan before applying again.';
+        }
+
         $start = $member->loanEligibilityStartDate();
         if ($start === null) {
             return 'Membership start date is not set. Set membership date on the member or application.';

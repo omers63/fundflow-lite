@@ -10,18 +10,18 @@ use App\Filament\Admin\Resources\MemberResource\RelationManagers\AccountsRelatio
 use App\Filament\Admin\Resources\MemberResource\RelationManagers\ContributionsRelationManager;
 use App\Filament\Admin\Resources\MemberResource\RelationManagers\DependentsRelationManager;
 use App\Filament\Admin\Resources\MemberResource\RelationManagers\LoansRelationManager;
+use App\Models\Account;
 use App\Models\Contribution;
 use App\Models\Member;
 use App\Models\MembershipApplication;
 use App\Services\ContributionCycleService;
+use App\Services\LoanEligibilityService;
 use App\Services\LoanRepaymentService;
 use App\Services\MemberDeletionService;
-use App\Services\MemberImportService;
 use Filament\Actions\Action;
 use Filament\Actions\ActionGroup;
 use Filament\Actions\BulkAction;
 use Filament\Actions\BulkActionGroup;
-use Filament\Actions\CreateAction;
 use Filament\Actions\DeleteAction;
 use Filament\Actions\DeleteBulkAction;
 use Filament\Actions\EditAction;
@@ -41,7 +41,7 @@ use Filament\Tables\Filters\TrashedFilter;
 use Filament\Tables\Table;
 use Illuminate\Database\Eloquent\Builder;
 use Illuminate\Database\Eloquent\Collection as EloquentCollection;
-use Illuminate\Support\Facades\Storage;
+use Illuminate\Support\Facades\DB;
 use Illuminate\Support\HtmlString;
 use Livewire\Component;
 
@@ -266,23 +266,10 @@ class MemberResource extends Resource
         return $table
             ->striped()
             ->columns([
-                Tables\Columns\TextColumn::make('member_number')
-                    ->searchable()
-                    ->sortable()
-                    ->copyable()
-                    ->toggleable(),
                 Tables\Columns\TextColumn::make('user.name')
                     ->label('Name')
                     ->searchable()
-                    ->sortable()
-                    ->toggleable(),
-                Tables\Columns\TextColumn::make('user.email')
-                    ->label('Email')
-                    ->searchable()
-                    ->toggleable(),
-                Tables\Columns\TextColumn::make('user.phone')
-                    ->label('Phone')
-                    ->toggleable(),
+                    ->sortable(),
                 Tables\Columns\TextColumn::make('status')
                     ->badge()
                     ->color(fn(string $state) => match ($state) {
@@ -291,26 +278,35 @@ class MemberResource extends Resource
                         'delinquent' => 'danger',
                         'terminated' => 'danger',
                         default => 'gray',
-                    })
-                    ->toggleable(),
-                Tables\Columns\TextColumn::make('joined_at')
-                    ->date('d M Y')
-                    ->sortable()
-                    ->toggleable(),
+                    }),
+                Tables\Columns\TextColumn::make('user.phone')
+                    ->label('Phone')
+                    ->searchable(),
+                Tables\Columns\TextColumn::make('user.email')
+                    ->label('Email')
+                    ->searchable(),
+                Tables\Columns\TextColumn::make('cash_balance')
+                    ->label('Cash Balance')
+                    ->formatStateUsing(fn($state) => 'SAR ' . number_format(abs((float) $state), 2))
+                    ->color(fn($state) => ((float) $state) < 0 ? 'danger' : 'success')
+                    ->sortable(),
+                Tables\Columns\TextColumn::make('fund_balance')
+                    ->label('Fund Balance')
+                    ->formatStateUsing(fn($state) => 'SAR ' . number_format(abs((float) $state), 2))
+                    ->color(fn($state) => ((float) $state) < 0 ? 'danger' : 'success')
+                    ->sortable(),
+                Tables\Columns\TextColumn::make('loan_balance')
+                    ->label('Loan Balance')
+                    ->formatStateUsing(fn($state) => 'SAR ' . number_format(abs((float) $state), 2))
+                    ->color(fn($state) => ((float) $state) < 0 ? 'danger' : 'success')
+                    ->sortable(),
                 Tables\Columns\TextColumn::make('monthly_contribution_amount')
-                    ->label('Monthly Alloc.')
+                    ->label('Allocation Amount')
                     ->money('SAR')
-                    ->sortable()
-                    ->toggleable(),
+                    ->sortable(),
                 Tables\Columns\TextColumn::make('parent.user.name')
                     ->label('Parent')
-                    ->placeholder('—')
-                    ->toggleable(),
-                Tables\Columns\TextColumn::make('contributions_sum_amount')
-                    ->label('Total Contributions')
-                    ->money('SAR')
-                    ->sortable()
-                    ->toggleable(),
+                    ->placeholder('—'),
                 Tables\Columns\TextColumn::make('late_contributions_marked_count')
                     ->label('Late #')
                     ->sortable(query: function (Builder $query, string $direction): Builder {
@@ -324,89 +320,9 @@ class MemberResource extends Resource
                         );
                     })
                     ->badge()
-                    ->color(fn($state) => $state > 0 ? 'warning' : 'success')
-                    ->toggleable(),
-                Tables\Columns\TextColumn::make('late_contributions_marked_amount')
-                    ->label('Late Amount')
-                    ->money('SAR')
-                    ->sortable(query: function (Builder $query, string $direction): Builder {
-                        return $query->orderBy(
-                            Contribution::query()
-                                ->selectRaw('coalesce(sum(contributions.amount),0)')
-                                ->whereColumn('contributions.member_id', 'members.id')
-                                ->where('contributions.is_late', true)
-                                ->whereNull('contributions.deleted_at'),
-                            $direction
-                        );
-                    })
-                    ->color(fn($state) => $state > 0 ? 'warning' : 'gray')
-                    ->toggleable(),
+                    ->color(fn($state) => $state > 0 ? 'warning' : 'success'),
             ])
             ->columnManager()
-            ->headerActions([
-                Action::make('importMembers')
-                    ->label('Import Members')
-                    ->icon('heroicon-o-arrow-up-tray')
-                    ->color('success')
-                    ->visible(fn(): bool => static::canCreate() || (bool) auth()->user()?->can('Update:Member'))
-                    ->modalHeading('Import members from CSV')
-                    ->modalDescription(
-                        'First row must be headers. Required: email; name required for new members only (balance-only rows for existing emails may leave name blank). Optional: password, phone, joined_at, status, monthly_contribution_amount, parent_member_number, ' .
-                        'cash_balance (≥ 0), fund_balance (may be negative — paired debit on master + member fund, e.g. master-funded loan). ' .
-                        'Existing email: if the user already has a member, applies cash/fund adjustments only (other columns ignored); requires Update:Member. No member record → error. ' .
-                        'New members require Create:Member. Parent rows before dependents. Status: active, suspended, delinquent, terminated. Contribution: 500–3000 in steps of 500.'
-                    )
-                    ->modalWidth('2xl')
-                    ->schema([
-                        Forms\Components\FileUpload::make('csv_file')
-                            ->label('CSV file')
-                            ->disk('local')
-                            ->directory('member-imports')
-                            ->acceptedFileTypes(['text/csv', 'text/plain', 'application/csv', 'application/vnd.ms-excel'])
-                            ->required(),
-                        Forms\Components\TextInput::make('default_password')
-                            ->label('Default password')
-                            ->password()
-                            ->revealable()
-                            ->required()
-                            ->minLength(8)
-                            ->helperText('Used when the password column is empty or shorter than 8 characters. Members should change it after first login.'),
-                    ])
-                    ->action(function (array $data, Component $livewire): void {
-                        $relative = $data['csv_file'];
-                        $fullPath = Storage::disk('local')->path($relative);
-
-                        try {
-                            $result = app(MemberImportService::class)->import($fullPath, $data['default_password']);
-                        } finally {
-                            Storage::disk('local')->delete($relative);
-                        }
-
-                        $body = "Created: {$result['created']} · Updated (balances): {$result['updated']} · Skipped: {$result['skipped']} · Failed: {$result['failed']}";
-
-                        if ($result['errors'] !== []) {
-                            $preview = implode("\n", array_slice($result['errors'], 0, 8));
-                            if (count($result['errors']) > 8) {
-                                $preview .= "\n… and " . (count($result['errors']) - 8) . ' more';
-                            }
-                            $body .= "\n\n" . $preview;
-                        }
-
-                        Notification::make()
-                            ->title('Member import finished')
-                            ->body($body)
-                            ->color($result['failed'] > 0 || $result['errors'] !== [] ? 'warning' : 'success')
-                            ->persistent()
-                            ->send();
-
-                        static::dispatchMemberListHeaderWidgetsRefresh($livewire);
-                    }),
-                CreateAction::make()
-                    ->label('New Member')
-                    ->icon('heroicon-o-plus-circle')
-                    ->url(static::getUrl('create'))
-                    ->visible(fn(): bool => static::canCreate()),
-            ])
             ->filters([
                 Tables\Filters\SelectFilter::make('status')
                     ->options(['active' => 'Active', 'suspended' => 'Suspended', 'delinquent' => 'Delinquent', 'terminated' => 'Terminated']),
@@ -456,6 +372,16 @@ class MemberResource extends Resource
                 ActionGroup::make([
                     ViewAction::make(),
                     EditAction::make(),
+                    Action::make('requestLoan')
+                        ->label('Request Loan')
+                        ->icon('heroicon-o-document-currency-dollar')
+                        ->color('primary')
+                        ->url(fn(Member $record): string => LoanResource::getUrl('create') . '?member_id=' . $record->getKey())
+                        ->visible(
+                            fn(Member $record): bool => !$record->trashed()
+                            && LoanResource::canCreate()
+                            && app(LoanEligibilityService::class)->isEligible($record)
+                        ),
                     Action::make('viewApplication')
                         ->label('Application')
                         ->icon('heroicon-o-clipboard-document-check')
@@ -953,7 +879,26 @@ class MemberResource extends Resource
         return parent::getEloquentQuery()
             ->withExists('membershipApplications')
             ->with(['user', 'parent.user'])
-            ->withSum('contributions', 'amount')
+            ->withSum(
+                [
+                    'accounts as cash_balance' => fn(Builder $q) => $q->where('type', Account::TYPE_MEMBER_CASH),
+                ],
+                'balance'
+            )
+            ->withSum(
+                [
+                    'accounts as fund_balance' => fn(Builder $q) => $q->where('type', Account::TYPE_MEMBER_FUND),
+                ],
+                'balance'
+            )
+            ->selectSub(
+                DB::table('loan_installments')
+                    ->join('loans', 'loans.id', '=', 'loan_installments.loan_id')
+                    ->whereColumn('loans.member_id', 'members.id')
+                    ->whereIn('loan_installments.status', ['pending', 'overdue'])
+                    ->selectRaw('COALESCE(SUM(loan_installments.amount), 0)'),
+                'loan_balance'
+            )
             ->withCount([
                 'contributions as late_contributions_marked_count' => fn($q) => $q->where('is_late', true),
             ])
