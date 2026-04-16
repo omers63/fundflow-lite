@@ -6,6 +6,7 @@ use App\Filament\Member\Widgets\AccountBalancesWidget;
 use App\Filament\Member\Widgets\ContributionHistoryWidget;
 use App\Filament\Member\Widgets\LoanRepaymentProgressWidget;
 use App\Filament\Member\Widgets\MemberStatsOverview;
+use App\Filament\Member\Widgets\MemberStatusWidget;
 use App\Filament\Member\Widgets\MemberWelcomeBannerWidget;
 use App\Filament\Member\Widgets\UpcomingPaymentsWidget;
 use Filament\Pages\Dashboard as BaseDashboard;
@@ -35,6 +36,7 @@ class Dashboard extends BaseDashboard
     protected function getMainDashboardWidgets(): array
     {
         return [
+            MemberStatusWidget::class,
             MemberStatsOverview::class,
             AccountBalancesWidget::class,
             UpcomingPaymentsWidget::class,

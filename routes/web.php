@@ -1,8 +1,11 @@
 <?php
 
+use App\Http\Controllers\Admin\AdminStatementPdfController;
 use App\Http\Controllers\Admin\DatabaseBackupDownloadController;
 use App\Http\Controllers\Admin\StoredDatabaseBackupDownloadController;
 use App\Http\Controllers\ContributionReceiptController;
+use App\Http\Controllers\LoanSchedulePdfController;
+use App\Http\Controllers\MembershipCertificateController;
 use App\Http\Controllers\MembershipApplicationFormTemplateController;
 use App\Http\Controllers\StatementPdfController;
 use App\Http\Livewire\ApplicationStatusPage;
@@ -25,6 +28,15 @@ Route::middleware(['auth'])->group(function () {
 
     Route::get('/member/contributions/{contribution}/receipt', [ContributionReceiptController::class, 'download'])
         ->name('member.contribution.receipt');
+
+    Route::get('/member/certificate', [MembershipCertificateController::class, 'download'])
+        ->name('member.certificate');
+
+    Route::get('/member/loans/{loan}/schedule', [LoanSchedulePdfController::class, 'download'])
+        ->name('member.loan.schedule');
+
+    Route::get('/admin/statements/{statement}/pdf', AdminStatementPdfController::class)
+        ->name('admin.statement.pdf');
 
     Route::get('/admin/system/backup-download', DatabaseBackupDownloadController::class)
         ->name('admin.system.backup-download');

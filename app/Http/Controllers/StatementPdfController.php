@@ -3,6 +3,7 @@
 namespace App\Http\Controllers;
 
 use App\Models\MonthlyStatement;
+use App\Models\Setting; // kept for statementPdfConfig()
 use Barryvdh\DomPDF\Facade\Pdf;
 use Illuminate\Http\Response;
 
@@ -13,12 +14,16 @@ class StatementPdfController extends Controller
         $member = auth()->user()?->member;
 
         abort_if(
-            ! $member || $statement->member_id !== $member->id,
+            !$member || (int) $statement->member_id !== (int) $member->id,
             403,
             'You do not have access to this statement.'
         );
 
-        $pdf = Pdf::loadView('pdf.monthly-statement', compact('statement'));
+        $statement->load('member.user');
+
+        $cfg = Setting::statementPdfConfig();
+
+        $pdf = Pdf::loadView('pdf.monthly-statement', compact('statement', 'cfg'));
 
         return $pdf->download("statement-{$statement->period}.pdf");
     }

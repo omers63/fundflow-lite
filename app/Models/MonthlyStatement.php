@@ -18,16 +18,20 @@ class MonthlyStatement extends Model
         'total_repayments',
         'closing_balance',
         'generated_at',
+        'details',
+        'notified_at',
     ];
 
     protected function casts(): array
     {
         return [
-            'opening_balance' => 'decimal:2',
+            'opening_balance'     => 'decimal:2',
             'total_contributions' => 'decimal:2',
-            'total_repayments' => 'decimal:2',
-            'closing_balance' => 'decimal:2',
-            'generated_at' => 'datetime',
+            'total_repayments'    => 'decimal:2',
+            'closing_balance'     => 'decimal:2',
+            'generated_at'        => 'datetime',
+            'notified_at'         => 'datetime',
+            'details'             => 'array',
         ];
     }
 

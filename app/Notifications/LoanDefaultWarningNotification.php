@@ -20,7 +20,13 @@ class LoanDefaultWarningNotification extends Notification
         public readonly int             $graceCount,
     ) {}
 
-    public function via(mixed $notifiable): array { return ['mail', 'database']; }
+    public function via(mixed $notifiable): array
+    {
+        return \App\Services\NotificationPreferenceService::resolveMailOnly(
+            $notifiable,
+            \App\Services\NotificationPreferenceService::LOAN_ALERTS,
+        );
+    }
 
     public function toDatabase(mixed $notifiable): array
     {

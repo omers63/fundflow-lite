@@ -3812,3 +3812,209 @@ Contribution Receipt PDF
 Nothing was left incomplete. All 13 features are implemented and syntax-verified.
 
 -----------------------------------
+
+All 9 enhancements are complete. Here's a summary of everything implemented:
+
+N1 — Navigation Structure Added nav.group.loans to lang/en/app.php. Reorganized the member portal navigation into three groups: Loans (My Loans, My Installments, Loans I Guarantee, Loan Calculator), My Finance (Contributions, Statements, Account Ledger), and Account (My Profile, Contribution Settings, My Dependents, Support, My Inbox).
+
+N2 — Self-Service Loan Repayment Added a Pay Now record action to MyInstallmentsResource and a Pay Installment header action on ViewMyLoan. Both use LoanRepaymentService — visibility checks (shouldOfferOpenPeriodRepayment), balance checks (hasInsufficientCashForOpenPeriodRepayment), and confirm modal with cost breakdown.
+
+N3 — Account Transaction Ledger Created MyAccountLedgerResource (new nav item under My Finance) showing all AccountTransaction records for the member's accounts — date, account type (Cash/Fund), transaction type (credit/debit with color badges), amount, and description. Filters by account type, transaction type, date range, and amount range.
+
+N4 — Membership Certificate PDF MembershipCertificateController generates a styled professional PDF with member details, fund/cash balances, compliance summary, and signature lines. Route: GET /member/certificate. "Download Certificate" header action added to My Profile.
+
+N5 — Loan Repayment Schedule PDF LoanSchedulePdfController generates a full installment schedule PDF with progress summary, per-installment status badges, paid/remaining totals, and late fees. Route: GET /member/loans/{loan}/schedule. "Download Schedule" header action on ViewMyLoan (visible for all loan statuses).
+
+N6 — Support & Requests Page New "Support & Requests" page in the Account group. "Submit Request" modal lets members select a category (Cash Deposit, Loan Inquiry, Complaint, etc.), write a subject and message — this dispatches a database notification to all admin users. The page displays an overview of available categories and typical response time.
+
+N7 — Actionable Dashboard Banner The welcome banner widget now:
+
+Shows contextual alert strips (red for overdue installments, blue for due installments, amber for contribution due, green for loan eligibility)
+Shows pending loan status with queue position
+Has a row of Quick Action pill buttons: My Loans, Installments, Contributions, Statements, Account Ledger, My Profile, Support
+N8 — Rich Member Status Widget New MemberStatusWidget added to the dashboard and a Compliance & Standing History section added to My Profile, both showing:
+
+A circular compliance score gauge
+Contribution standing (on-time/late counts + fees + streak)
+Loan repayment standing (late counts + fees)
+Current overdue installments (count, amounts, late fees)
+Delinquency/suspension alert with date
+N9 — Private Messaging System
+
+Migration: direct_messages table (sender, recipient, parent_id for threads, subject, body, read_at, soft deletes)
+Model: DirectMessage with sender, recipient, replies, parent relations, markRead(), scopeRoot(), scopeThread()
+Admin "Send Message" action on both MemberResource table rows and ViewMember header — creates a thread and triggers an in-app notification with "View Inbox" link
+Member MyInboxPage: threaded conversation view, auto-marks messages read on open, Alpine.js reply form with sendReply(threadId, body) Livewire method, unread badge in navigation
+Admin AdminInboxPage: same conversation UI from the admin's perspective with reply functionality, unread badge in admin sidebar
+---------------------------------------------
+Everything is clean. Here's a complete summary of what was built:
+
+Monthly Statement System — Complete
+What was built (8 components)
+S1 — Migration (2026_04_16_110713_enhance_monthly_statements_table.php)
+
+Added details (JSON) and notified_at (timestamp) columns to monthly_statements
+Seeded 9 configurable statement settings into the settings table
+S2 — MonthlyStatementService (app/Services/MonthlyStatementService.php)
+
+generateForAllMembers(period, notify) — batch generates for all active members
+generateForMember(member, period, notify) — generates one rich statement with full details JSON containing: cash/fund balances at period open/close, itemized contributions, itemized installments paid, account transactions, loan standing, overdue installments, late fees, and a member snapshot
+sendNotification(statement) — sends email + DB notification, marks notified_at
+S3 — MonthlyStatementNotification (app/Notifications/MonthlyStatementNotification.php)
+
+Email channel: styled summary with PDF attached inline
+Database channel: clickable notification with link to member portal
+Writes a NotificationLog entry for audit
+S4 — GenerateMonthlyStatements command + schedule
+
+php artisan statements:generate [--period=YYYY-MM] [--notify] [--member=ID] [--current-month]
+Scheduled to run on the 3rd of each month at 08:00, generating previous month's statements with notifications
+S5 — Rich PDF template (resources/views/pdf/monthly-statement.blade.php)
+
+Professional multi-section layout: KPI summary boxes, member details, period summary table with itemized rows, account transactions table, loan standing with progress bar, compliance snapshot with score, signature block, watermark, full-width footer
+All sections conditional based on settings
+S6 — Setting model helpers — 9 new typed methods (statementBrandName(), statementAccentColor(), etc.) plus statementPdfConfig() that returns the full config array
+
+S7 — System Settings — Statements tab
+
+New tab in Admin → System Settings → Statements
+Shows live preview of current values (brand, color, auto-email, toggles, disclaimer)
+"Save statement settings" action edits: organization name, tagline, accent color (with hex validation), footer disclaimer, signature line, auto-email toggle, and 3 content section toggles
+S8 — Admin Statements Resource (enhanced)
+
+"Generate + Send" header action — generates previous month for all members with one click
+"Generate for Period…" — pick any YYYY-MM period, optionally a specific member, toggle notification
+"Download PDF" per-record — admin can download any member's statement
+"Send to Member" per-record — resend email to member on demand
+"Regenerate" per-record — recalculate all figures from live data
+Navigation badge shows count of recently generated but not yet notified statements
+------------------------------------
+All clean. Here's the complete summary of what was built:
+
+Communication Preferences — Complete
+Architecture
+The system uses a category-based preference model where each member picks which delivery channels they want for each notification group. The resolver enforces certain channels as non-removable (forced), and only delivers to channels the notification class actually implements.
+
+What was built (6 components)
+P1 — Migration (member_communication_preferences)
+
+Stores user_id + notification_type + channels (JSON array) with a unique constraint per user/type
+TTL-cached per (user, type) pair for performance
+P2 — MemberCommunicationPreference model
+
+channelsFor(userId, type, default) — cached lookup, falls back to defaults
+saveFor(userId, type, channels, forced) — enforces forced channels on write
+Cache invalidation on save/delete
+P3 — NotificationPreferenceService
+
+8 notification category constants (CONTRIBUTIONS, LOAN_REPAYMENT, LOAN_ACTIVITY, LOAN_ALERTS, MEMBERSHIP, STATEMENTS, BROADCASTS, ACCOUNT_ALERTS)
+CATEGORIES array — full metadata per category: label, description, icon, supported channels, defaults, forced channels
+resolve($notifiable, $type, $supportedLogical) — intersects user preferences with what the notification class supports, enforces forced channels, maps to Laravel driver strings
+resolveMailOnly() — shorthand for notifications without SMS/WhatsApp
+P4 — All 20 notification via() methods updated
+
+10 with full SMS+WhatsApp support now use resolve() with 4 channels
+10 mail-only notifications use resolveMailOnly()
+Each routed to the correct category constant
+P5 — MyNotificationPreferencesPage (member portal, Account → Notification Preferences)
+
+Livewire properties for live toggle state
+toggleChannel(type, channel) — instant toggle with forced/unsupported guards
+save() — validates, enforces forced, writes to DB, cache-busts
+isEnabled/isForced/isSupported helpers for the view
+P6 — Blade view
+
+Channel legend at the top explaining all 4 channels with icons and descriptions
+Category grid — each row shows category icon, name, description, "Required" badges for forced channels, and 4 interactive toggle buttons
+Toggle button states: enabled (colored + checkmark badge), off (neutral), forced (amber "Required" label, non-clickable), N/A (greyed out, not supported)
+Save bar at the bottom with loading spinner, last-saved timestamp, and profile link tip
+Channel rules by category
+Category	Forced Always	Available to Toggle
+Contributions
+In-App
+Email, SMS, WhatsApp
+Loan Repayments
+In-App
+Email, SMS, WhatsApp
+Loan Activity
+In-App
+Email, SMS, WhatsApp
+Loan Alerts
+In-App + Email
+(none — both required)
+Membership
+In-App
+Email, SMS, WhatsApp
+Statements
+In-App
+Email
+Admin Announcements
+In-App
+Email
+Account Alerts
+In-App + Email
+SMS, WhatsApp
+---------------------------------------------
+All 6 tasks complete. Here's what was built end-to-end:
+
+What was implemented
+Database (A1)
+New dependent_allocation_changes table: parent_member_id, dependent_member_id, old_amount, new_amount, changed_by_user_id, note, timestamps. Every allocation change is permanently audited here.
+DependentAllocationChange model with isIncrease(), isDecrease(), delta(), deltaLabel() helpers.
+Two new relationships on Member: allocationChangesReceived() and allocationChangesSent().
+AllocationService (A2)
+changeAllocation($parent, $dependent, $newAmount, $note) — updates the member, writes the audit row, dispatches notifications. Returns null if the amount didn't change (no-op guard).
+changeMultiple($parent, $updates[]) — batch version for the bulk form.
+buildSummary($results) — human-readable feedback for the UI.
+Notifications (A3)
+DependentAllocationChangedNotification with a $role parameter ('dependent' | 'parent' | 'admin'):
+
+Audience	Channels
+Dependent
+In-app + Email + SMS + WhatsApp (based on their notification preferences)
+Parent
+In-app + Email (confirmation of what they just did)
+All admins
+In-app only
+All three get rich in-app messages with directional arrows (↑ increase / ↓ decrease).
+
+Notification Preferences (A4)
+New allocations category added to NotificationPreferenceService — defaults to In-App + Email, with In-App forced, supports all four channels. Visible on the member's Notification Preferences page.
+
+Member Portal — My Dependents (A5)
+Three new capabilities in the table:
+
+"Update All Allocations" header action — opens a modal with one selector per dependent, a shared note field, and saves all changes in one click. Only actual changes trigger notifications.
+"Last Changed" column — shows direction, delta amount, and relative time (e.g. ↑ +SAR 500 · 3 days ago) or "Never changed".
+"History" record action — opens a modal table listing every past allocation change for that dependent (date, old → new, delta, who changed it).
+The existing "Set Allocation" record action now also routes through AllocationService (sends notifications, writes audit row) and accepts an optional note.
+
+Admin — Dependents Relation Manager (A6)
+"Set Allocation" now calls AllocationService::changeAllocation() — the dependent and all admins are notified, and the change is audited. Includes an "Admin Note" field visible to the member.
+New "History" record action showing the full audit trail with parent name and who made the change.
+-----------------------------------------
+All done. Here's a summary of everything built:
+
+What was implemented
+Setting model — new helpers
+Setting::commChannelEnabled(string $channel): bool — reads communication.channel.<ch> from DB; defaults to true (all channels on).
+Setting::commEnabledChannels(): array — returns the list of currently-enabled logical channels (e.g. ['in_app','email','sms']).
+Setting::setCommChannel(string $channel, bool $enabled) — saves the toggle and busts the cache.
+Setting::COMM_CHANNELS constant — defines labels, icons, and description strings for all 4 channels, used by both the admin UI and member portal.
+NotificationPreferenceService::resolve()
+After the user-preference logic resolves which channels to use, the result is now intersected with Setting::commEnabledChannels(). A system-disabled channel is never used, even if it's a "forced" channel in the category config. The only safety net: if in_app is system-enabled and the notification supports it, it's always guaranteed as a fallback.
+
+Admin → System Settings → Communication tab
+4 status cards at the top — each shows the channel name, icon, description, and a colored "Enabled / Disabled" badge that reflects the live setting.
+"Disabled by administrator" overlay on cards for currently-off channels.
+Info box explaining how the system-wide toggle interacts with member preferences.
+Notification Category Coverage matrix — a table showing every category × every channel, with icons for: ✓ Supported, 🔒 Required (forced), ✗ System-disabled, — Not applicable.
+"Save communication settings" header action — four toggles (one per channel) with helper text, saved with one click.
+Member portal → Notification Preferences page
+When the admin disables a channel:
+
+The legend card for that channel gets a red "Unavailable" overlay instead of the normal colored style.
+Every toggle button for that channel across all categories shows as red-tinted, non-clickable, and labeled "Admin Off" instead of "On" / "Off" / "Required".
+A footnote explains the behavior: "Channels marked Unavailable have been disabled by the administrator."
+Member preferences for disabled channels are preserved in the DB — if the admin re-enables a channel, members automatically resume their previous settings.
+-------------------------------------

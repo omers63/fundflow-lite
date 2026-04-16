@@ -3,10 +3,10 @@
 namespace App\Filament\Admin\Resources;
 
 use App\Filament\Admin\Resources\MonthlyStatementResource\Pages;
-use App\Models\Contribution;
-use App\Models\LoanInstallment;
 use App\Models\Member;
 use App\Models\MonthlyStatement;
+use App\Models\Setting;
+use App\Services\MonthlyStatementService;
 use Filament\Actions\Action;
 use Filament\Actions\DeleteAction;
 use Filament\Actions\EditAction;
@@ -29,11 +29,24 @@ class MonthlyStatementResource extends Resource
 
     protected static ?string $navigationLabel = 'Statements';
 
-    protected static ?int $navigationSort = 99;
+    protected static ?int $navigationSort = 5;
 
     public static function getNavigationGroup(): ?string
     {
-        return __('app.nav.group.membership');
+        return __('app.nav.group.finance');
+    }
+
+    public static function getNavigationBadge(): ?string
+    {
+        $count = MonthlyStatement::whereNull('notified_at')
+            ->where('generated_at', '>=', now()->subDays(7))
+            ->count();
+        return $count > 0 ? (string) $count : null;
+    }
+
+    public static function getNavigationBadgeColor(): ?string
+    {
+        return 'warning';
     }
 
     public static function form(Schema $schema): Schema
@@ -41,7 +54,8 @@ class MonthlyStatementResource extends Resource
         return $schema->schema([
             Forms\Components\Select::make('member_id')
                 ->label('Member')
-                ->options(fn() => Member::with('user')->get()->pluck('user.name', 'id'))
+                ->options(fn() => Member::with('user')->orderBy('member_number')->get()
+                    ->mapWithKeys(fn(Member $m) => [$m->id => "{$m->member_number} — {$m->user->name}"]))
                 ->searchable()
                 ->required(),
             Forms\Components\TextInput::make('period')
@@ -60,21 +74,38 @@ class MonthlyStatementResource extends Resource
             ->columns([
                 Tables\Columns\TextColumn::make('member.member_number')
                     ->label('Member #')
-                    ->searchable(),
+                    ->searchable()
+                    ->sortable(),
                 Tables\Columns\TextColumn::make('member.user.name')
                     ->label('Member')
                     ->searchable(),
                 Tables\Columns\TextColumn::make('period')
                     ->sortable(),
-                Tables\Columns\TextColumn::make('opening_balance')->money('SAR'),
-                Tables\Columns\TextColumn::make('total_contributions')->money('SAR'),
-                Tables\Columns\TextColumn::make('total_repayments')->money('SAR'),
+                Tables\Columns\TextColumn::make('opening_balance')
+                    ->label('Opening')
+                    ->money('SAR'),
+                Tables\Columns\TextColumn::make('total_contributions')
+                    ->label('Contributions')
+                    ->money('SAR'),
+                Tables\Columns\TextColumn::make('total_repayments')
+                    ->label('Repayments')
+                    ->money('SAR'),
                 Tables\Columns\TextColumn::make('closing_balance')
+                    ->label('Closing')
                     ->money('SAR')
                     ->weight('bold'),
                 Tables\Columns\TextColumn::make('generated_at')
+                    ->label('Generated')
                     ->dateTime('d M Y')
                     ->sortable(),
+                Tables\Columns\IconColumn::make('notified_at')
+                    ->label('Notified')
+                    ->boolean()
+                    ->trueIcon('heroicon-o-check-circle')
+                    ->falseIcon('heroicon-o-clock')
+                    ->trueColor('success')
+                    ->falseColor('warning')
+                    ->getStateUsing(fn(MonthlyStatement $r) => $r->notified_at !== null),
             ])
             ->defaultSort('period', 'desc')
             ->filters([
@@ -82,7 +113,7 @@ class MonthlyStatementResource extends Resource
                     ->label('Member')
                     ->searchable()
                     ->options(fn() => Member::with('user')->orderBy('member_number')->get()
-                        ->mapWithKeys(fn(Member $m) => [$m->id => "{$m->member_number} – {$m->user->name}"])),
+                        ->mapWithKeys(fn(Member $m) => [$m->id => "{$m->member_number} — {$m->user->name}"])),
                 Tables\Filters\Filter::make('period')
                     ->schema([Forms\Components\TextInput::make('period')->placeholder('YYYY-MM')])
                     ->query(fn($query, $data) => $data['period'] ? $query->where('period', $data['period']) : $query),
@@ -93,55 +124,117 @@ class MonthlyStatementResource extends Resource
                         range((int) now()->year, (int) now()->year - 15)
                     ))
                     ->query(fn($query, $state) => $state ? $query->where('period', 'like', $state . '-%') : $query),
+                Tables\Filters\Filter::make('not_notified')
+                    ->label('Not yet notified')
+                    ->query(fn($q) => $q->whereNull('notified_at')),
                 TrashedFilter::make(),
             ])
             ->headerActions([
-                Action::make('generate_all')
-                    ->label('Generate This Month')
+                // ── Generate previous month + send ────────────────────────
+                Action::make('generate_and_send')
+                    ->label('Generate + Send')
                     ->icon('heroicon-o-arrow-path')
                     ->color('primary')
+                    ->requiresConfirmation()
+                    ->modalHeading('Generate & send statements')
+                    ->modalDescription(function () {
+                        $period = now()->subMonth()->format('Y-m');
+                        $autoEmail = Setting::statementAutoEmail() ? 'Yes' : 'No (auto-email disabled in settings)';
+                        return "Generate statements for all active members for {$period} and email them the PDF. Auto-email setting: {$autoEmail}.";
+                    })
                     ->action(function () {
-                        $period = now()->format('Y-m');
-                        $generated = 0;
+                        $period  = now()->subMonth()->format('Y-m');
+                        $notify  = Setting::statementAutoEmail();
+                        $count   = app(MonthlyStatementService::class)->generateForAllMembers($period, $notify);
+                        $msg     = "Generated {$count} statements for {$period}.";
+                        if ($notify) {
+                            $msg .= ' Notifications sent.';
+                        }
+                        Notification::make()->title($msg)->success()->send();
+                    }),
 
-                        Member::active()->with(['contributions', 'loans.installments'])->each(function (Member $member) use ($period, &$generated) {
-                            [$year, $month] = explode('-', $period);
+                // ── Generate for any chosen period ────────────────────────
+                Action::make('generate_for_period')
+                    ->label('Generate for Period…')
+                    ->icon('heroicon-o-calendar-days')
+                    ->color('info')
+                    ->schema([
+                        Forms\Components\TextInput::make('period')
+                            ->label('Period (YYYY-MM)')
+                            ->required()
+                            ->placeholder(now()->subMonth()->format('Y-m'))
+                            ->regex('/^\d{4}-\d{2}$/'),
+                        Forms\Components\Toggle::make('send_notification')
+                            ->label('Email members after generation')
+                            ->default(Setting::statementAutoEmail()),
+                        Forms\Components\Select::make('member_id')
+                            ->label('Specific member (leave blank for all)')
+                            ->searchable()
+                            ->options(fn() => Member::with('user')->orderBy('member_number')->get()
+                                ->mapWithKeys(fn(Member $m) => [$m->id => "{$m->member_number} — {$m->user->name}"]))
+                            ->placeholder('All active members'),
+                    ])
+                    ->action(function (array $data) {
+                        $svc    = app(MonthlyStatementService::class);
+                        $period = $data['period'];
+                        $notify = (bool) ($data['send_notification'] ?? false);
 
-                            $contributions = Contribution::where('member_id', $member->id)
-                                ->where('month', (int) $month)
-                                ->where('year', (int) $year)
-                                ->sum('amount');
+                        if ($data['member_id'] ?? null) {
+                            $member = Member::find((int) $data['member_id']);
+                            if (!$member) {
+                                Notification::make()->title('Member not found')->danger()->send();
+                                return;
+                            }
+                            $stmt = $svc->generateForMember($member, $period, $notify);
+                            Notification::make()->title("Statement #{$stmt->id} generated for {$member->member_number}.") ->success()->send();
+                            return;
+                        }
 
-                            $repayments = LoanInstallment::whereHas('loan', fn($q) => $q->where('member_id', $member->id))
-                                ->whereMonth('due_date', $month)
-                                ->whereYear('due_date', $year)
-                                ->where('status', 'paid')
-                                ->sum('amount');
-
-                            $lastStatement = MonthlyStatement::where('member_id', $member->id)
-                                ->orderByDesc('period')
-                                ->first();
-
-                            $opening = $lastStatement?->closing_balance ?? 0;
-                            $closing = $opening + $contributions - $repayments;
-
-                            MonthlyStatement::upsertForMember($member->id, $period, [
-                                'opening_balance' => $opening,
-                                'total_contributions' => $contributions,
-                                'total_repayments' => $repayments,
-                                'closing_balance' => $closing,
-                                'generated_at' => now(),
-                            ]);
-                            $generated++;
-                        });
-
+                        $count = $svc->generateForAllMembers($period, $notify);
                         Notification::make()
-                            ->title("Generated {$generated} statements for {$period}")
+                            ->title("Generated {$count} statements for {$period}." . ($notify ? ' Notifications sent.' : ''))
                             ->success()
                             ->send();
                     }),
             ])
             ->recordActions([
+                // ── Download PDF ──────────────────────────────────────────
+                Action::make('download_pdf')
+                    ->label('Download PDF')
+                    ->icon('heroicon-o-arrow-down-tray')
+                    ->color('gray')
+                    ->url(fn(MonthlyStatement $r) => route('admin.statement.pdf', $r))
+                    ->openUrlInNewTab(),
+
+                // ── Send to member ────────────────────────────────────────
+                Action::make('send_to_member')
+                    ->label('Send to Member')
+                    ->icon('heroicon-o-envelope')
+                    ->color('info')
+                    ->requiresConfirmation()
+                    ->modalHeading(fn(MonthlyStatement $r) => "Send statement to {$r->member->user->name}")
+                    ->modalDescription(fn(MonthlyStatement $r) => "This will email the statement PDF for {$r->period_formatted} to {$r->member->user->email}.")
+                    ->action(function (MonthlyStatement $record) {
+                        app(MonthlyStatementService::class)->sendNotification($record);
+                        Notification::make()->title("Statement sent to {$record->member->user->name}")->success()->send();
+                    }),
+
+                // ── Regenerate ────────────────────────────────────────────
+                Action::make('regenerate')
+                    ->label('Regenerate')
+                    ->icon('heroicon-o-arrow-path')
+                    ->color('warning')
+                    ->requiresConfirmation()
+                    ->modalDescription('This will recalculate all financial figures for this statement. Existing data will be overwritten.')
+                    ->action(function (MonthlyStatement $record) {
+                        $stmt = app(MonthlyStatementService::class)->generateForMember(
+                            $record->member,
+                            $record->period,
+                            false,
+                        );
+                        Notification::make()->title("Statement #{$stmt->id} regenerated for {$record->period}.")->success()->send();
+                    }),
+
                 EditAction::make(),
                 DeleteAction::make(),
                 RestoreAction::make(),
@@ -152,9 +245,9 @@ class MonthlyStatementResource extends Resource
     public static function getPages(): array
     {
         return [
-            'index' => Pages\ListMonthlyStatements::route('/'),
+            'index'  => Pages\ListMonthlyStatements::route('/'),
             'create' => Pages\CreateMonthlyStatement::route('/create'),
-            'edit' => Pages\EditMonthlyStatement::route('/{record}/edit'),
+            'edit'   => Pages\EditMonthlyStatement::route('/{record}/edit'),
         ];
     }
 

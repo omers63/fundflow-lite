@@ -23,7 +23,7 @@ class MyGuaranteedLoansResource extends Resource
 
     public static function getNavigationGroup(): ?string
     {
-        return __('app.nav.group.my_finance');
+        return __('app.nav.group.loans');
     }
 
     /** Only show in the sidebar if the member is actually a guarantor for at least one loan. */

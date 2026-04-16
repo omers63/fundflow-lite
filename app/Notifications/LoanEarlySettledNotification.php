@@ -14,7 +14,13 @@ class LoanEarlySettledNotification extends Notification
 
     public function __construct(public readonly Loan $loan) {}
 
-    public function via(mixed $notifiable): array { return ['mail', 'database']; }
+    public function via(mixed $notifiable): array
+    {
+        return \App\Services\NotificationPreferenceService::resolveMailOnly(
+            $notifiable,
+            \App\Services\NotificationPreferenceService::LOAN_ACTIVITY,
+        );
+    }
 
     public function toDatabase(mixed $notifiable): array
     {

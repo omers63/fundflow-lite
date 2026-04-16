@@ -23,7 +23,11 @@ class LoanApprovedNotification extends Notification
 
     public function via(mixed $notifiable): array
     {
-        return ['mail', 'database', TwilioChannel::class, TwilioWhatsAppChannel::class];
+        return \App\Services\NotificationPreferenceService::resolve(
+            $notifiable,
+            \App\Services\NotificationPreferenceService::LOAN_ACTIVITY,
+            ['in_app', 'email', 'sms', 'whatsapp'],
+        );
     }
 
     public function toDatabase(mixed $notifiable): array

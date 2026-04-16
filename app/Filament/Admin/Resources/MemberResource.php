@@ -12,6 +12,7 @@ use App\Filament\Admin\Resources\MemberResource\RelationManagers\DependentsRelat
 use App\Filament\Admin\Resources\MemberResource\RelationManagers\LoansRelationManager;
 use App\Models\Account;
 use App\Models\Contribution;
+use App\Models\DirectMessage;
 use App\Models\Member;
 use App\Models\MembershipApplication;
 use App\Notifications\AdminBroadcastNotification;
@@ -686,6 +687,50 @@ class MemberResource extends Resource
 
                             static::dispatchMemberListHeaderWidgetsRefresh($livewire);
                             static::dispatchMemberRecordHeaderWidgetsRefresh($livewire);
+                        }),
+
+                    Action::make('send_message')
+                        ->label('Send Message')
+                        ->icon('heroicon-o-chat-bubble-left-right')
+                        ->color('info')
+                        ->visible(fn(Member $record): bool => !$record->trashed() && $record->user !== null)
+                        ->modalHeading(fn(Member $record): string => "Send Message to {$record->user->name}")
+                        ->modalWidth('lg')
+                        ->schema([
+                            Forms\Components\TextInput::make('subject')
+                                ->label('Subject')
+                                ->required()
+                                ->maxLength(150),
+                            Forms\Components\Textarea::make('body')
+                                ->label('Message')
+                                ->required()
+                                ->rows(5)
+                                ->maxLength(3000),
+                        ])
+                        ->action(function (array $data, Member $record): void {
+                            DirectMessage::create([
+                                'from_user_id' => auth()->id(),
+                                'to_user_id'   => $record->user_id,
+                                'subject'      => $data['subject'],
+                                'body'         => $data['body'],
+                            ]);
+
+                            Notification::make()
+                                ->title('New Message from Administration')
+                                ->body($data['subject'] . ': ' . mb_strimwidth($data['body'], 0, 100, '…'))
+                                ->icon('heroicon-o-chat-bubble-left-right')
+                                ->iconColor('info')
+                                ->actions([
+                                    \Filament\Notifications\Actions\Action::make('view')
+                                        ->label('View Inbox')
+                                        ->url(route('filament.member.pages.my-inbox-page')),
+                                ])
+                                ->sendToDatabase($record->user);
+
+                            Notification::make()
+                                ->title('Message sent to ' . $record->user->name)
+                                ->success()
+                                ->send();
                         }),
 
                     Action::make('suspend')

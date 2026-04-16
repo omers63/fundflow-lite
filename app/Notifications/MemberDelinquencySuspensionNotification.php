@@ -21,7 +21,11 @@ class MemberDelinquencySuspensionNotification extends Notification
 
     public function via(mixed $notifiable): array
     {
-        return ['mail', 'database', TwilioChannel::class, TwilioWhatsAppChannel::class];
+        return \App\Services\NotificationPreferenceService::resolve(
+            $notifiable,
+            \App\Services\NotificationPreferenceService::ACCOUNT_ALERTS,
+            ['in_app', 'email', 'sms', 'whatsapp'],
+        );
     }
 
     public function toDatabase(mixed $notifiable): array

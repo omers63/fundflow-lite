@@ -23,7 +23,7 @@ class SystemSettingsPage extends Page
 
     protected static ?int $navigationSort = 0;
 
-    /** @var 'loans'|'contribution-cycles'|'public-membership'|'roles' */
+    /** @var 'loans'|'contribution-cycles'|'public-membership'|'statements'|'communication'|'roles' */
     #[Url]
     public string $activeTab = 'loans';
 
@@ -71,7 +71,7 @@ class SystemSettingsPage extends Page
             $this->activeTab = $legacyTop[$this->activeTab];
         }
 
-        $allowedTop = ['loans', 'contribution-cycles', 'public-membership', 'roles'];
+        $allowedTop = ['loans', 'contribution-cycles', 'public-membership', 'statements', 'communication', 'roles'];
         if (!in_array($this->activeTab, $allowedTop, true)) {
             $this->activeTab = 'loans';
         }
@@ -267,6 +267,92 @@ class SystemSettingsPage extends Page
                         ->success()
                         ->send();
                 }),
+            Action::make('save_statement_settings')
+                ->label('Save statement settings')
+                ->icon('heroicon-o-check')
+                ->color('primary')
+                ->visible(fn(): bool => $this->activeTab === 'statements')
+                ->fillForm(fn() => [
+                    'brand_name'          => Setting::statementBrandName(),
+                    'tagline'             => Setting::statementTagline(),
+                    'accent_color'        => Setting::statementAccentColor(),
+                    'footer_disclaimer'   => Setting::statementFooterDisclaimer(),
+                    'signature_line'      => Setting::statementSignatureLine(),
+                    'auto_email'          => Setting::statementAutoEmail(),
+                    'include_transactions'=> Setting::statementIncludeTransactions(),
+                    'include_loan_section'=> Setting::statementIncludeLoanSection(),
+                    'include_compliance'  => Setting::statementIncludeCompliance(),
+                ])
+                ->schema([
+                    Section::make('Branding')
+                        ->description('These values appear on every generated PDF statement.')
+                        ->schema([
+                            Forms\Components\TextInput::make('brand_name')
+                                ->label('Organization Name')
+                                ->required()
+                                ->maxLength(80)
+                                ->helperText('Printed at the top of every statement.'),
+                            Forms\Components\TextInput::make('tagline')
+                                ->label('Tagline / Sub-brand')
+                                ->maxLength(120)
+                                ->helperText('Small text under the organization name.'),
+                            Forms\Components\TextInput::make('accent_color')
+                                ->label('Header Accent Color (hex)')
+                                ->required()
+                                ->maxLength(7)
+                                ->placeholder('#059669')
+                                ->helperText('Must be a valid 6-digit hex code, e.g. #059669 (green), #1d4ed8 (blue), #7c3aed (purple).'),
+                        ])->columns(3),
+                    Section::make('Footer & Signature')
+                        ->schema([
+                            Forms\Components\Textarea::make('footer_disclaimer')
+                                ->label('Footer Disclaimer')
+                                ->rows(2)
+                                ->columnSpanFull()
+                                ->helperText('Printed at the bottom of every PDF, e.g. "Confidential — for named member only."'),
+                            Forms\Components\TextInput::make('signature_line')
+                                ->label('Authorized Signature Line')
+                                ->maxLength(100)
+                                ->helperText('Appears in the signature block of the PDF.'),
+                        ]),
+                    Section::make('Delivery & Content')
+                        ->description('Control what is included in each generated PDF and how members are notified.')
+                        ->schema([
+                            Forms\Components\Toggle::make('auto_email')
+                                ->label('Auto-email members on generation')
+                                ->helperText('When enabled, each member receives an email with the statement PDF attached when statements are generated.'),
+                            Forms\Components\Toggle::make('include_transactions')
+                                ->label('Include account transaction detail table')
+                                ->helperText('Shows every credit/debit on the member\'s accounts for the period.'),
+                            Forms\Components\Toggle::make('include_loan_section')
+                                ->label('Include loan standing section')
+                                ->helperText('Shows active loan balance, installment progress, and overdue alerts.'),
+                            Forms\Components\Toggle::make('include_compliance')
+                                ->label('Include compliance snapshot')
+                                ->helperText('Shows compliance score, late contribution/repayment counts.'),
+                        ])->columns(2),
+                ])
+                ->action(function (array $data): void {
+                    Setting::set('statement.brand_name',          trim($data['brand_name']));
+                    Setting::set('statement.tagline',             trim($data['tagline'] ?? ''));
+                    // Validate hex before storing
+                    $color = trim($data['accent_color']);
+                    if (preg_match('/^#[0-9a-fA-F]{6}$/', $color)) {
+                        Setting::set('statement.accent_color', $color);
+                    }
+                    Setting::set('statement.footer_disclaimer',   trim($data['footer_disclaimer'] ?? ''));
+                    Setting::set('statement.signature_line',      trim($data['signature_line'] ?? ''));
+                    Setting::set('statement.auto_email',          $data['auto_email'] ? '1' : '0');
+                    Setting::set('statement.include_transactions', $data['include_transactions'] ? '1' : '0');
+                    Setting::set('statement.include_loan_section', $data['include_loan_section'] ? '1' : '0');
+                    Setting::set('statement.include_compliance',  $data['include_compliance'] ? '1' : '0');
+
+                    Notification::make()
+                        ->title('Statement settings saved')
+                        ->success()
+                        ->send();
+                }),
+
             Action::make('save_public_membership_settings')
                 ->label('Save public membership settings')
                 ->icon('heroicon-o-check')
@@ -316,6 +402,60 @@ class SystemSettingsPage extends Page
 
                     Notification::make()
                         ->title('Public membership settings saved')
+                        ->success()
+                        ->send();
+                }),
+
+            Action::make('save_communication_settings')
+                ->label('Save communication settings')
+                ->icon('heroicon-o-check')
+                ->color('primary')
+                ->visible(fn(): bool => $this->activeTab === 'communication')
+                ->fillForm(fn() => [
+                    'channel_in_app'   => Setting::commChannelEnabled('in_app'),
+                    'channel_email'    => Setting::commChannelEnabled('email'),
+                    'channel_sms'      => Setting::commChannelEnabled('sms'),
+                    'channel_whatsapp' => Setting::commChannelEnabled('whatsapp'),
+                ])
+                ->schema([
+                    Section::make('Communication Channels')
+                        ->description(
+                            'Enable or disable each outbound communication channel system-wide. ' .
+                            'When a channel is disabled, no notifications of any type will be sent through it, ' .
+                            'regardless of individual member preferences.'
+                        )
+                        ->schema([
+                            Forms\Components\Toggle::make('channel_in_app')
+                                ->label('In-App Inbox')
+                                ->helperText('Shows notifications inside the member portal. Disabling this silences all in-app alerts — use with caution.')
+                                ->onColor('success')
+                                ->offColor('danger'),
+                            Forms\Components\Toggle::make('channel_email')
+                                ->label('Email')
+                                ->helperText('Sends emails via the configured SMTP/mail driver (MAIL_* environment variables).')
+                                ->onColor('success')
+                                ->offColor('danger'),
+                            Forms\Components\Toggle::make('channel_sms')
+                                ->label('SMS')
+                                ->helperText('Sends SMS messages via Twilio (TWILIO_* environment variables must be set).')
+                                ->onColor('success')
+                                ->offColor('danger'),
+                            Forms\Components\Toggle::make('channel_whatsapp')
+                                ->label('WhatsApp')
+                                ->helperText('Sends WhatsApp messages via Twilio. Requires a verified WhatsApp sender number.')
+                                ->onColor('success')
+                                ->offColor('danger'),
+                        ])
+                        ->columns(2),
+                ])
+                ->action(function (array $data): void {
+                    Setting::setCommChannel('in_app',   (bool) $data['channel_in_app']);
+                    Setting::setCommChannel('email',    (bool) $data['channel_email']);
+                    Setting::setCommChannel('sms',      (bool) $data['channel_sms']);
+                    Setting::setCommChannel('whatsapp', (bool) $data['channel_whatsapp']);
+
+                    Notification::make()
+                        ->title('Communication settings saved')
                         ->success()
                         ->send();
                 }),

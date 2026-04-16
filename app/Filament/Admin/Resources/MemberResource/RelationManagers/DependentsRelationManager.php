@@ -4,8 +4,10 @@ namespace App\Filament\Admin\Resources\MemberResource\RelationManagers;
 
 use App\Filament\Admin\Resources\MemberResource\Concerns\InteractsWithMemberCycleHeaderActions;
 use App\Models\Account;
+use App\Models\DependentAllocationChange;
 use App\Models\Member;
 use App\Services\AccountingService;
+use App\Services\AllocationService;
 use Filament\Actions\Action;
 use Filament\Forms;
 use Filament\Notifications\Notification;
@@ -13,6 +15,7 @@ use Filament\Resources\RelationManagers\RelationManager;
 use Filament\Schemas\Schema;
 use Filament\Tables;
 use Filament\Tables\Table;
+use Illuminate\Support\HtmlString;
 
 class DependentsRelationManager extends RelationManager
 {
@@ -95,31 +98,118 @@ class DependentsRelationManager extends RelationManager
                     }),
             ])
             ->recordActions([
-                // Change this dependent's allocation amount
+                // Change this dependent's allocation amount (notifies dependent + admin)
                 Action::make('set_allocation')
                     ->label('Set Allocation')
                     ->icon('heroicon-o-adjustments-horizontal')
                     ->color('warning')
                     ->fillForm(fn(Member $record) => [
                         'monthly_contribution_amount' => $record->monthly_contribution_amount,
+                        'note' => null,
                     ])
                     ->schema([
                         Forms\Components\Select::make('monthly_contribution_amount')
                             ->label('Monthly Contribution Amount')
                             ->options(Member::contributionAmountOptions())
-                            ->required(),
+                            ->required()
+                            ->helperText(fn(Member $record) => 'Current: SAR ' . number_format($record->monthly_contribution_amount)),
+                        Forms\Components\TextInput::make('note')
+                            ->label('Admin Note (optional)')
+                            ->maxLength(200)
+                            ->placeholder('Reason for change (sent to member)'),
                     ])
                     ->action(function (Member $record, array $data) {
-                        $record->update([
-                            'monthly_contribution_amount' => $data['monthly_contribution_amount'],
-                        ]);
+                        $parent = $record->parent;
+                        if (!$parent) {
+                            // No parent: direct update without parent context
+                            $old = $record->monthly_contribution_amount;
+                            $new = (int) $data['monthly_contribution_amount'];
+                            $record->update(['monthly_contribution_amount' => $new]);
+                            Notification::make()
+                                ->title('Allocation Updated')
+                                ->body("SAR " . number_format($old) . " → SAR " . number_format($new) . " (no parent; no allocation change record).")
+                                ->warning()
+                                ->send();
+                            return;
+                        }
+
+                        $change = app(AllocationService::class)->changeAllocation(
+                            parent: $parent,
+                            dependent: $record,
+                            newAmount: (int) $data['monthly_contribution_amount'],
+                            note: $data['note'] ?? null,
+                        );
+
+                        if ($change === null) {
+                            Notification::make()->title('No change — same amount selected.')->info()->send();
+                            return;
+                        }
 
                         Notification::make()
                             ->title('Allocation Updated')
-                            ->body("Monthly allocation for {$record->user->name} set to SAR " . number_format($data['monthly_contribution_amount']))
+                            ->body("{$record->user->name}: SAR " . number_format($change->old_amount) . " → SAR " . number_format($change->new_amount) . ". Member notified.")
                             ->success()
                             ->send();
                     }),
+
+                // View allocation change history for this dependent
+                Action::make('view_allocation_history')
+                    ->label('History')
+                    ->icon('heroicon-o-clock')
+                    ->color('gray')
+                    ->modalHeading(fn(Member $record) => "Allocation History — {$record->user->name}")
+                    ->modalContent(function (Member $record): HtmlString {
+                        $changes = DependentAllocationChange::where('dependent_member_id', $record->id)
+                            ->with('changedBy', 'parent.user')
+                            ->latest()
+                            ->limit(50)
+                            ->get();
+
+                        if ($changes->isEmpty()) {
+                            return new HtmlString('<p class="text-sm text-gray-500 p-4">No allocation changes recorded.</p>');
+                        }
+
+                        $rows = '';
+                        foreach ($changes as $c) {
+                            $dir   = $c->isIncrease()
+                                ? '<span class="text-emerald-600 font-bold">↑</span>'
+                                : '<span class="text-amber-600 font-bold">↓</span>';
+                            $delta = $c->isIncrease()
+                                ? '<span class="text-emerald-600">+SAR ' . number_format(abs($c->delta())) . '</span>'
+                                : '<span class="text-amber-600">−SAR ' . number_format(abs($c->delta())) . '</span>';
+                            $parent = e($c->parent?->user?->name ?? '—');
+                            $by    = e($c->changedBy?->name ?? 'System');
+                            $note  = $c->note ? '<br><span class="text-gray-400 text-xs">' . e($c->note) . '</span>' : '';
+                            $date  = $c->created_at->format('d M Y H:i');
+
+                            $rows .= "
+                                <tr class=\"border-b border-gray-100 dark:border-gray-700\">
+                                    <td class=\"py-2 px-3 text-xs text-gray-500\">{$date}</td>
+                                    <td class=\"py-2 px-3\">{$dir} SAR {$c->old_amount} → SAR {$c->new_amount}</td>
+                                    <td class=\"py-2 px-3\">{$delta}</td>
+                                    <td class=\"py-2 px-3\">{$parent}</td>
+                                    <td class=\"py-2 px-3\">{$by}{$note}</td>
+                                </tr>";
+                        }
+
+                        return new HtmlString("
+                            <div class=\"overflow-x-auto\">
+                                <table class=\"w-full text-sm\">
+                                    <thead>
+                                        <tr class=\"bg-gray-50 dark:bg-gray-800 text-xs uppercase text-gray-500\">
+                                            <th class=\"py-2 px-3 text-left\">Date</th>
+                                            <th class=\"py-2 px-3 text-left\">Change</th>
+                                            <th class=\"py-2 px-3 text-left\">Delta</th>
+                                            <th class=\"py-2 px-3 text-left\">Parent</th>
+                                            <th class=\"py-2 px-3 text-left\">Changed By</th>
+                                        </tr>
+                                    </thead>
+                                    <tbody>{$rows}</tbody>
+                                </table>
+                            </div>");
+                    })
+                    ->modalSubmitAction(false)
+                    ->modalCancelActionLabel('Close'),
 
                 // Fund dependent's cash account from this parent's cash account
                 Action::make('fund_cash')

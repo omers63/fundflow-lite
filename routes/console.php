@@ -32,3 +32,6 @@ Schedule::command('loans:check-settlements')->dailyAt('10:00');
 // Financial reconciliation snapshots (ledger integrity, controls, pipeline).
 Schedule::command('fund:reconcile --daily')->dailyAt('06:20');
 Schedule::command('fund:reconcile --monthly')->monthlyOn(2, '06:30');
+
+// 3rd of each month at 08:00 — generate previous month's statements and email members.
+Schedule::command('statements:generate --notify')->monthlyOn(3, '08:00');

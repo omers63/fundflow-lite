@@ -6,6 +6,7 @@ use App\Filament\Member\Resources\MyLoansResource;
 use App\Models\Loan;
 use App\Models\Member;
 use App\Services\LoanEarlySettlementService;
+use App\Services\LoanRepaymentService;
 use Filament\Actions\Action;
 use Filament\Notifications\Notification;
 use Filament\Resources\Pages\ViewRecord;
@@ -29,11 +30,47 @@ class ViewMyLoan extends ViewRecord
         /** @var Loan $record */
         $record = $this->getRecord();
 
+        $downloadSchedule = Action::make('download_schedule')
+            ->label('Download Schedule')
+            ->icon('heroicon-o-arrow-down-tray')
+            ->color('gray')
+            ->url(fn() => route('member.loan.schedule', $record))
+            ->openUrlInNewTab();
+
         if ($record->status !== 'active') {
-            return [];
+            return [$downloadSchedule];
         }
 
+        $me = Member::where('user_id', auth()->id())->with('accounts')->first();
+        $svc = app(LoanRepaymentService::class);
+        $canPay = $me && $svc->shouldOfferOpenPeriodRepayment($me);
+        $insufficientCash = !$me || $svc->hasInsufficientCashForOpenPeriodRepayment($me);
+
         return [
+            Action::make('pay_installment')
+                ->label('Pay Installment')
+                ->icon('heroicon-o-credit-card')
+                ->color('primary')
+                ->visible($canPay)
+                ->disabled($insufficientCash)
+                ->requiresConfirmation()
+                ->modalHeading('Pay Your Loan Installment')
+                ->modalDescription($me ? $svc->openPeriodRepaymentModalDescription($me) : '')
+                ->modalSubmitActionLabel('Pay Now')
+                ->action(function () use ($record) {
+                    $member = Member::where('user_id', auth()->id())->with(['user', 'accounts'])->first();
+                    if (!$member || (int) $record->member_id !== (int) $member->id) {
+                        Notification::make()->title('Unauthorized')->danger()->send();
+                        return;
+                    }
+                    $outcome = app(LoanRepaymentService::class)->applyOpenPeriodRepaymentForMember($member);
+                    match ($outcome) {
+                        'applied' => Notification::make()->title('Installment Paid')->body('Your installment for this period has been paid.')->success()->send(),
+                        'insufficient' => Notification::make()->title('Insufficient Balance')->body('Not enough cash balance to cover this installment.')->danger()->send(),
+                        default => Notification::make()->title('Nothing to Pay')->body('No installment is due for the current period.')->warning()->send(),
+                    };
+                }),
+
             Action::make('early_settle')
                 ->label('Pay Off Early')
                 ->icon('heroicon-o-check-badge')
@@ -80,6 +117,8 @@ class ViewMyLoan extends ViewRecord
 
                     $this->redirect(MyLoansResource::getUrl('index'));
                 }),
+
+            $downloadSchedule,
         ];
     }
 }

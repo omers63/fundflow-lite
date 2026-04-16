@@ -18,7 +18,7 @@ class MyProfilePage extends Page
 
     protected static string|\BackedEnum|null $navigationIcon = 'heroicon-o-user-circle';
 
-    protected static ?int $navigationSort = 9;
+    protected static ?int $navigationSort = 1;
 
     public static function getNavigationGroup(): ?string
     {
@@ -38,6 +38,13 @@ class MyProfilePage extends Page
     public function getHeaderActions(): array
     {
         return [
+            Action::make('download_certificate')
+                ->label('Download Certificate')
+                ->icon('heroicon-o-document-arrow-down')
+                ->color('success')
+                ->url(fn() => route('member.certificate'))
+                ->openUrlInNewTab(),
+
             Action::make('update_phone')
                 ->label('Update Phone')
                 ->icon('heroicon-o-phone')

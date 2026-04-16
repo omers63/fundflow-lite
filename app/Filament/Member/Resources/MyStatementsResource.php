@@ -18,7 +18,7 @@ class MyStatementsResource extends Resource
 
     protected static ?string $navigationLabel = 'My Statements';
 
-    protected static ?int $navigationSort = 4;
+    protected static ?int $navigationSort = 2;
 
     public static function getNavigationGroup(): ?string
     {

@@ -5,6 +5,9 @@ namespace App\Filament\Member\Widgets;
 use App\Models\Contribution;
 use App\Models\Loan;
 use App\Models\LoanInstallment;
+use App\Models\Member;
+use App\Services\LoanEligibilityService;
+use App\Services\LoanRepaymentService;
 use Filament\Widgets\Widget;
 
 class MemberWelcomeBannerWidget extends Widget
@@ -79,18 +82,45 @@ class MemberWelcomeBannerWidget extends Widget
             ->where('year', $now->year)
             ->exists();
 
+        // Eligibility check
+        $eligService  = app(LoanEligibilityService::class);
+        $isEligible   = $eligService->isEligible($member);
+
+        // Pending loan check
+        $pendingLoan  = Loan::where('member_id', $member->id)->where('status', 'pending')->first();
+
+        // Repayment availability
+        $repayService = app(LoanRepaymentService::class);
+        $canRepay     = $repayService->shouldOfferOpenPeriodRepayment($member);
+        $repayInsufficient = $canRepay && $repayService->hasInsufficientCashForOpenPeriodRepayment($member);
+
+        // Contribution status
+        $contributionDue = !$paidThisMonth && $member->isActive();
+
+        // Overdue installment amounts
+        $overdueAmount = LoanInstallment::whereHas('loan', fn($q) => $q->where('member_id', $member->id))
+            ->where('status', 'overdue')
+            ->sum('amount');
+
         return [
             'greeting' => $greeting,
             'name' => $user->name,
             'memberNumber' => $member->member_number,
             'date' => $now->format('l, F j Y'),
             'hasMember' => true,
+            'memberStatus' => $member->status,
             'cash' => $cash,
             'fund' => $fund,
             'activeLoan' => $activeLoan,
             'nextPayment' => $nextPayment,
             'overdueCount' => $overdueCount,
+            'overdueAmount' => (float) $overdueAmount,
             'paidThisMonth' => $paidThisMonth,
+            'contributionDue' => $contributionDue,
+            'isEligible' => $isEligible,
+            'pendingLoan' => $pendingLoan,
+            'canRepay' => $canRepay,
+            'repayInsufficient' => $repayInsufficient,
         ];
     }
 }

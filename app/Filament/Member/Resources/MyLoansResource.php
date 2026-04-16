@@ -29,11 +29,11 @@ class MyLoansResource extends Resource
 
     protected static ?string $navigationLabel = 'My Loans';
 
-    protected static ?int $navigationSort = 2;
+    protected static ?int $navigationSort = 1;
 
     public static function getNavigationGroup(): ?string
     {
-        return __('app.nav.group.my_finance');
+        return __('app.nav.group.loans');
     }
 
     public static function form(Schema $schema): Schema

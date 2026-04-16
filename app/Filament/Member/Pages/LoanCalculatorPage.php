@@ -16,7 +16,7 @@ class LoanCalculatorPage extends Page
 
     protected static string|\BackedEnum|null $navigationIcon = 'heroicon-o-calculator';
 
-    protected static ?int $navigationSort = 8;
+    protected static ?int $navigationSort = 4;
 
     public static function getNavigationGroup(): ?string
     {

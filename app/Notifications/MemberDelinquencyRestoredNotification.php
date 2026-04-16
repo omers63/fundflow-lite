@@ -11,7 +11,10 @@ class MemberDelinquencyRestoredNotification extends Notification
 
     public function via(mixed $notifiable): array
     {
-        return ['database'];
+        return \App\Services\NotificationPreferenceService::resolveMailOnly(
+            $notifiable,
+            \App\Services\NotificationPreferenceService::ACCOUNT_ALERTS,
+        );
     }
 
     public function toDatabase(mixed $notifiable): array

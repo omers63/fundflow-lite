@@ -91,6 +91,18 @@ class Member extends Model
         return $this->hasMany(DependentCashAllocation::class, 'parent_member_id');
     }
 
+    /** Audit log of all monthly-allocation changes where this member is the dependent. */
+    public function allocationChangesReceived(): HasMany
+    {
+        return $this->hasMany(DependentAllocationChange::class, 'dependent_member_id');
+    }
+
+    /** Audit log of all monthly-allocation changes initiated by this member as parent. */
+    public function allocationChangesSent(): HasMany
+    {
+        return $this->hasMany(DependentAllocationChange::class, 'parent_member_id');
+    }
+
     public function loans(): HasMany
     {
         return $this->hasMany(Loan::class);

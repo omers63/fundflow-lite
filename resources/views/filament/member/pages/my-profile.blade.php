@@ -112,6 +112,80 @@
     @endif
     @endif
 
+    {{-- ── Compliance & Standing ───────────────────────────────────────────── --}}
+    @if($member)
+    @php
+        $totalContrib  = $member->contributions()->count();
+        $lateContrib   = (int) ($member->late_contributions_count ?? 0);
+        $lateRepay     = (int) ($member->late_repayment_count ?? 0);
+        $onTime        = max(0, $totalContrib - $lateContrib);
+        $compliancePct = $totalContrib > 0 ? (int) round($onTime / $totalContrib * 100) : 100;
+        $scoreColor    = $compliancePct >= 90 ? 'emerald' : ($compliancePct >= 70 ? 'amber' : 'red');
+    @endphp
+    <div class="rounded-xl bg-white dark:bg-gray-800 ring-1 ring-gray-200 dark:ring-gray-700 shadow-sm overflow-hidden">
+        <div class="px-5 py-4 border-b border-gray-100 dark:border-gray-700">
+            <h3 class="text-sm font-semibold text-gray-900 dark:text-white">Compliance & Standing History</h3>
+        </div>
+        <div class="p-5">
+            <table class="w-full text-sm">
+                <tbody class="divide-y divide-gray-100 dark:divide-gray-700">
+                    <tr class="py-2">
+                        <td class="py-3 text-gray-500 dark:text-gray-400 w-48">Compliance Score</td>
+                        <td class="py-3 font-semibold text-{{ $scoreColor }}-600 dark:text-{{ $scoreColor }}-400">{{ $compliancePct }}%</td>
+                    </tr>
+                    <tr>
+                        <td class="py-3 text-gray-500 dark:text-gray-400">Total Contributions</td>
+                        <td class="py-3 font-semibold text-gray-900 dark:text-white">{{ $totalContrib }}</td>
+                    </tr>
+                    <tr>
+                        <td class="py-3 text-gray-500 dark:text-gray-400">Late Contributions</td>
+                        <td class="py-3 font-semibold {{ $lateContrib > 0 ? 'text-amber-600 dark:text-amber-400' : 'text-emerald-600 dark:text-emerald-400' }}">
+                            {{ $lateContrib }}
+                            @if($lateContrib > 0)
+                                <span class="text-xs text-gray-500 ml-1">(SAR {{ number_format((float)$member->late_contributions_amount, 2) }} in fees)</span>
+                            @endif
+                        </td>
+                    </tr>
+                    <tr>
+                        <td class="py-3 text-gray-500 dark:text-gray-400">Late Loan Repayments</td>
+                        <td class="py-3 font-semibold {{ $lateRepay > 0 ? 'text-red-600 dark:text-red-400' : 'text-emerald-600 dark:text-emerald-400' }}">
+                            {{ $lateRepay }}
+                            @if($lateRepay > 0)
+                                <span class="text-xs text-gray-500 ml-1">(SAR {{ number_format((float)$member->late_repayment_amount, 2) }} in fees)</span>
+                            @endif
+                        </td>
+                    </tr>
+                    <tr>
+                        <td class="py-3 text-gray-500 dark:text-gray-400">Account Status</td>
+                        <td class="py-3">
+                            <span class="inline-flex items-center rounded-full px-2 py-0.5 text-xs font-semibold
+                                {{ $member->status === 'active' ? 'bg-emerald-100 dark:bg-emerald-900 text-emerald-700 dark:text-emerald-300' :
+                                   'bg-red-100 dark:bg-red-900 text-red-700 dark:text-red-300' }}">
+                                {{ ucfirst($member->status) }}
+                            </span>
+                        </td>
+                    </tr>
+                    @if($member->delinquency_suspended_at)
+                    <tr>
+                        <td class="py-3 text-gray-500 dark:text-gray-400">Suspended On</td>
+                        <td class="py-3 font-semibold text-red-600 dark:text-red-400">{{ $member->delinquency_suspended_at->format('d F Y') }}</td>
+                    </tr>
+                    @endif
+                    <tr>
+                        <td class="py-3 text-gray-500 dark:text-gray-400">Member Since</td>
+                        <td class="py-3 font-semibold text-gray-900 dark:text-white">
+                            {{ $member->joined_at?->format('d F Y') ?? '—' }}
+                            @if($member->joined_at)
+                                <span class="text-xs text-gray-400 ml-1">({{ $member->joined_at->diffForHumans() }})</span>
+                            @endif
+                        </td>
+                    </tr>
+                </tbody>
+            </table>
+        </div>
+    </div>
+    @endif
+
     {{-- ── Account security ────────────────────────────────────────────────── --}}
     <div class="rounded-xl bg-white dark:bg-gray-800 ring-1 ring-gray-200 dark:ring-gray-700 p-5 shadow-sm">
         <h3 class="text-sm font-semibold text-gray-900 dark:text-white mb-3">Account Security</h3>

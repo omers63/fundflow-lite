@@ -24,5 +24,6 @@ class DatabaseSeeder extends Seeder
         );
 
         $this->call(ReconciliationPermissionsSeeder::class);
+        $this->call(MemberPortalPermissionsSeeder::class);
     }
 }

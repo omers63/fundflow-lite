@@ -25,7 +25,11 @@ class ContributionDueNotification extends Notification
 
     public function via(mixed $notifiable): array
     {
-        return ['mail', 'database', TwilioChannel::class, TwilioWhatsAppChannel::class];
+        return \App\Services\NotificationPreferenceService::resolve(
+            $notifiable,
+            \App\Services\NotificationPreferenceService::CONTRIBUTIONS,
+            ['in_app', 'email', 'sms', 'whatsapp'],
+        );
     }
 
     private function periodLabel(): string

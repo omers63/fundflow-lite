@@ -5,7 +5,11 @@ namespace App\Filament\Member\Resources;
 use App\Filament\Member\Resources\MyInstallmentsResource\Pages;
 use App\Models\Loan;
 use App\Models\LoanInstallment;
+use App\Models\Member;
+use App\Services\LoanRepaymentService;
+use Filament\Actions\Action;
 use Filament\Forms;
+use Filament\Notifications\Notification;
 use Filament\Resources\Resource;
 use Filament\Tables;
 use Filament\Tables\Table;
@@ -18,11 +22,11 @@ class MyInstallmentsResource extends Resource
 
     protected static ?string $navigationLabel = 'My Installments';
 
-    protected static ?int $navigationSort = 3;
+    protected static ?int $navigationSort = 2;
 
     public static function getNavigationGroup(): ?string
     {
-        return __('app.nav.group.my_finance');
+        return __('app.nav.group.loans');
     }
 
     public static function getNavigationBadge(): ?string
@@ -79,6 +83,41 @@ class MyInstallmentsResource extends Resource
                     ->placeholder('—'),
             ])
             ->defaultSort('due_date', 'asc')
+            ->recordActions([
+                Action::make('pay_installment')
+                    ->label('Pay Now')
+                    ->icon('heroicon-o-credit-card')
+                    ->color('success')
+                    ->visible(function () {
+                        $member = Member::where('user_id', auth()->id())->first();
+                        return $member && app(LoanRepaymentService::class)->shouldOfferOpenPeriodRepayment($member);
+                    })
+                    ->disabled(function () {
+                        $member = Member::where('user_id', auth()->id())->first();
+                        return !$member || app(LoanRepaymentService::class)->hasInsufficientCashForOpenPeriodRepayment($member);
+                    })
+                    ->requiresConfirmation()
+                    ->modalHeading('Pay Your Loan Installment')
+                    ->modalDescription(function () {
+                        $member = Member::where('user_id', auth()->id())->with('accounts')->first();
+                        if (!$member) return 'Member record not found.';
+                        return app(LoanRepaymentService::class)->openPeriodRepaymentModalDescription($member);
+                    })
+                    ->modalSubmitActionLabel('Pay Now')
+                    ->action(function () {
+                        $member = Member::where('user_id', auth()->id())->with(['user', 'accounts'])->first();
+                        if (!$member) {
+                            Notification::make()->title('Member record not found')->danger()->send();
+                            return;
+                        }
+                        $outcome = app(LoanRepaymentService::class)->applyOpenPeriodRepaymentForMember($member);
+                        match ($outcome) {
+                            'applied' => Notification::make()->title('Installment Paid')->body('Your loan installment has been paid successfully.')->success()->send(),
+                            'insufficient' => Notification::make()->title('Insufficient Balance')->body('Your cash account does not have enough balance to cover this installment.')->danger()->send(),
+                            default => Notification::make()->title('Nothing to Pay')->body('No installment is due for the current period.')->warning()->send(),
+                        };
+                    }),
+            ])
             ->filters([
                 Tables\Filters\SelectFilter::make('loan_id')
                     ->label('Loan')

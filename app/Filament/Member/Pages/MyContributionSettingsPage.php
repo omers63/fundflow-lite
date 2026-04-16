@@ -16,7 +16,7 @@ class MyContributionSettingsPage extends Page
 
     protected static string|\BackedEnum|null $navigationIcon = 'heroicon-o-adjustments-horizontal';
 
-    protected static ?int $navigationSort = 10;
+    protected static ?int $navigationSort = 2;
 
     public int $monthly_contribution_amount = 500;
 

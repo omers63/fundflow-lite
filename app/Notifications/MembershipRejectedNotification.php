@@ -17,7 +17,10 @@ class MembershipRejectedNotification extends Notification
 
     public function via(mixed $notifiable): array
     {
-        return ['mail', 'database'];
+        return \App\Services\NotificationPreferenceService::resolveMailOnly(
+            $notifiable,
+            \App\Services\NotificationPreferenceService::MEMBERSHIP,
+        );
     }
 
     public function toDatabase(mixed $notifiable): array

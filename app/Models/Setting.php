@@ -143,4 +143,105 @@ class Setting extends Model
     {
         return max(0.0, (float) static::get("late_fee.repayment_day_{$minDays}", 0));
     }
+
+    // ── Statement Settings ────────────────────────────────────────────────
+
+    public static function statementBrandName(): string
+    {
+        return (string) static::get('statement.brand_name', 'FundFlow');
+    }
+
+    public static function statementTagline(): string
+    {
+        return (string) static::get('statement.tagline', 'Member Fund Management');
+    }
+
+    public static function statementAccentColor(): string
+    {
+        $color = (string) static::get('statement.accent_color', '#059669');
+        // Validate hex; fall back to green
+        return preg_match('/^#[0-9a-fA-F]{6}$/', $color) ? $color : '#059669';
+    }
+
+    public static function statementFooterDisclaimer(): string
+    {
+        return (string) static::get('statement.footer_disclaimer', 'This is a computer-generated statement. Confidential.');
+    }
+
+    public static function statementSignatureLine(): string
+    {
+        return (string) static::get('statement.signature_line', 'FundFlow Administration');
+    }
+
+    public static function statementAutoEmail(): bool
+    {
+        return (bool) static::get('statement.auto_email', '1');
+    }
+
+    public static function statementIncludeTransactions(): bool
+    {
+        return (bool) static::get('statement.include_transactions', '1');
+    }
+
+    public static function statementIncludeLoanSection(): bool
+    {
+        return (bool) static::get('statement.include_loan_section', '1');
+    }
+
+    public static function statementIncludeCompliance(): bool
+    {
+        return (bool) static::get('statement.include_compliance', '1');
+    }
+
+    // ── Communication Channel Settings ────────────────────────────────────────
+
+    /**
+     * All four logical channels and their human labels/icons, used by both
+     * the settings page and the notification resolver.
+     */
+    public const COMM_CHANNELS = [
+        'in_app'   => ['label' => 'In-App Inbox',   'icon' => 'heroicon-o-bell',        'desc' => 'Notifications inside the member portal. Disabling this will silence all in-app alerts.'],
+        'email'    => ['label' => 'Email',           'icon' => 'heroicon-o-envelope',    'desc' => 'Delivery via the configured SMTP/mail driver.'],
+        'sms'      => ['label' => 'SMS',             'icon' => 'heroicon-o-device-phone-mobile', 'desc' => 'Text messages via Twilio SMS. Requires Twilio credentials.'],
+        'whatsapp' => ['label' => 'WhatsApp',        'icon' => 'heroicon-o-chat-bubble-left-right', 'desc' => 'WhatsApp messages via Twilio. Requires a verified WhatsApp sender number.'],
+    ];
+
+    /** True when the given channel is enabled system-wide. Default: all enabled. */
+    public static function commChannelEnabled(string $channel): bool
+    {
+        return (bool) static::get("communication.channel.{$channel}", '1');
+    }
+
+    /**
+     * Return the list of logical channels currently enabled system-wide.
+     * Used by NotificationPreferenceService to gate all outbound sends.
+     */
+    public static function commEnabledChannels(): array
+    {
+        return array_values(array_filter(
+            array_keys(self::COMM_CHANNELS),
+            fn(string $ch) => static::commChannelEnabled($ch),
+        ));
+    }
+
+    /** Set enabled/disabled for a single channel and bust its cache. */
+    public static function setCommChannel(string $channel, bool $enabled): void
+    {
+        static::set("communication.channel.{$channel}", $enabled ? '1' : '0');
+    }
+
+    /** Return the full cfg array used by the PDF template and controller. */
+    public static function statementPdfConfig(): array
+    {
+        return [
+            'brand'              => static::statementBrandName(),
+            'tagline'            => static::statementTagline(),
+            'accent_color'       => static::statementAccentColor(),
+            'footer_disclaimer'  => static::statementFooterDisclaimer(),
+            'signature_line'     => static::statementSignatureLine(),
+            'include_txns'       => static::statementIncludeTransactions(),
+            'include_loan'       => static::statementIncludeLoanSection(),
+            'include_compliance' => static::statementIncludeCompliance(),
+        ];
+    }
 }
