@@ -147,11 +147,15 @@ class ContributionCyclePage extends Page implements HasTable
                         fn(Member $r) => 'This will debit SAR ' . number_format($r->monthly_contribution_amount) .
                         ' from their cash account (balance: SAR ' . number_format($r->cash_balance, 2) . ').'
                     )
-                    ->disabled(fn(Member $r) => $r->cash_balance < $r->monthly_contribution_amount)
+                    ->disabled(function (Member $r) use ($month, $year) {
+                        $late = app(ContributionCycleService::class)->lateFeeForContributionPeriod($month, $year);
+
+                        return (float) $r->cash_balance < (float) $r->monthly_contribution_amount + $late;
+                    })
                     ->action(function (Member $record) use ($month, $year) {
                         $service = app(ContributionCycleService::class);
                         $dummy = [];
-                        $outcome = $service->applyOne($record, $month, $year, null, $dummy);
+                        $outcome = $service->applyOne($record, $month, $year, $dummy);
 
                         if ($outcome === 'applied') {
                             Notification::make()

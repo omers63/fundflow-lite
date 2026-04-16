@@ -157,6 +157,17 @@ class SystemSettingsPage extends Page
                 ->visible(fn(): bool => $this->activeTab === 'contribution-cycles')
                 ->fillForm([
                     'cycle_start_day' => Setting::contributionCycleStartDay(),
+                    'delinquency_consecutive' => Setting::delinquencyConsecutiveMissThreshold(),
+                    'delinquency_total' => Setting::delinquencyTotalMissThreshold(),
+                    'delinquency_lookback_months' => Setting::delinquencyTotalMissLookbackMonths(),
+                    'late_fee_contribution_1d' => Setting::lateFeeContributionTier(1),
+                    'late_fee_contribution_10d' => Setting::lateFeeContributionTier(10),
+                    'late_fee_contribution_20d' => Setting::lateFeeContributionTier(20),
+                    'late_fee_contribution_30d' => Setting::lateFeeContributionTier(30),
+                    'late_fee_repayment_1d' => Setting::lateFeeRepaymentTier(1),
+                    'late_fee_repayment_10d' => Setting::lateFeeRepaymentTier(10),
+                    'late_fee_repayment_20d' => Setting::lateFeeRepaymentTier(20),
+                    'late_fee_repayment_30d' => Setting::lateFeeRepaymentTier(30),
                 ])
                 ->schema([
                     Section::make('Cycle boundaries')
@@ -173,9 +184,83 @@ class SystemSettingsPage extends Page
                                 ->default(6)
                                 ->helperText('Example: 6 means June cycle runs 6 Jun through 5 Jul. Limited to 28 for February consistency.'),
                         ]),
+                    Section::make('Delinquency policy')
+                        ->description(
+                            'Daily job `fund:check-delinquency` evaluates missed monthly contributions (when due) and unpaid loan installments for active loans. ' .
+                            'Breaching either threshold suspends the member (member portal blocked) and shifts active loan repayment collection to the guarantor until restored.'
+                        )
+                        ->schema([
+                            Forms\Components\TextInput::make('delinquency_consecutive')
+                                ->label('Consecutive missed cycles')
+                                ->numeric()
+                                ->required()
+                                ->minValue(1)
+                                ->maxValue(36)
+                                ->default(3)
+                                ->helperText('Trailing streak of closed months where any required contribution or repayment was still missed.'),
+                            Forms\Components\TextInput::make('delinquency_total')
+                                ->label('Total misses (rolling window)')
+                                ->numeric()
+                                ->required()
+                                ->minValue(1)
+                                ->maxValue(240)
+                                ->default(15)
+                                ->helperText('Count of missed months within the lookback window below (spread-out misses).'),
+                            Forms\Components\TextInput::make('delinquency_lookback_months')
+                                ->label('Rolling window (months)')
+                                ->numeric()
+                                ->required()
+                                ->minValue(1)
+                                ->maxValue(240)
+                                ->default(60)
+                                ->helperText('How far back to count toward the total-miss threshold.'),
+                        ])->columns(3),
+                    Section::make('Late fees (tiered by days after due)')
+                        ->description(
+                            'Due is the end of the contribution/repayment cycle for that month. Calendar days after that are counted; ' .
+                            'the highest tier reached (30+ ≥ 20+ ≥ 10+ ≥ 1+) with a non-zero SAR amount applies — if a tier is 0, the next lower tier is used. ' .
+                            'Cash-account debits bundle principal and late fee; late fees credit master cash only (not master fund).'
+                        )
+                        ->schema([
+                            Forms\Components\TextInput::make('late_fee_contribution_1d')
+                                ->label('Contribution — 1+ days late (SAR)')
+                                ->numeric()->prefix('SAR')->required()->minValue(0)->default(0),
+                            Forms\Components\TextInput::make('late_fee_contribution_10d')
+                                ->label('Contribution — 10+ days late (SAR)')
+                                ->numeric()->prefix('SAR')->required()->minValue(0)->default(0),
+                            Forms\Components\TextInput::make('late_fee_contribution_20d')
+                                ->label('Contribution — 20+ days late (SAR)')
+                                ->numeric()->prefix('SAR')->required()->minValue(0)->default(0),
+                            Forms\Components\TextInput::make('late_fee_contribution_30d')
+                                ->label('Contribution — 30+ days late (SAR)')
+                                ->numeric()->prefix('SAR')->required()->minValue(0)->default(0),
+                            Forms\Components\TextInput::make('late_fee_repayment_1d')
+                                ->label('Repayment — 1+ days late (SAR)')
+                                ->numeric()->prefix('SAR')->required()->minValue(0)->default(0),
+                            Forms\Components\TextInput::make('late_fee_repayment_10d')
+                                ->label('Repayment — 10+ days late (SAR)')
+                                ->numeric()->prefix('SAR')->required()->minValue(0)->default(0),
+                            Forms\Components\TextInput::make('late_fee_repayment_20d')
+                                ->label('Repayment — 20+ days late (SAR)')
+                                ->numeric()->prefix('SAR')->required()->minValue(0)->default(0),
+                            Forms\Components\TextInput::make('late_fee_repayment_30d')
+                                ->label('Repayment — 30+ days late (SAR)')
+                                ->numeric()->prefix('SAR')->required()->minValue(0)->default(0),
+                        ])->columns(3),
                 ])
                 ->action(function (array $data): void {
                     Setting::set('contribution.cycle_start_day', max(1, min(28, (int) $data['cycle_start_day'])));
+                    Setting::set('delinquency.consecutive_miss_threshold', max(1, min(36, (int) $data['delinquency_consecutive'])));
+                    Setting::set('delinquency.total_miss_threshold', max(1, min(240, (int) $data['delinquency_total'])));
+                    Setting::set('delinquency.total_miss_lookback_months', max(1, min(240, (int) $data['delinquency_lookback_months'])));
+                    Setting::set('late_fee.contribution_day_1', max(0, (float) $data['late_fee_contribution_1d']));
+                    Setting::set('late_fee.contribution_day_10', max(0, (float) $data['late_fee_contribution_10d']));
+                    Setting::set('late_fee.contribution_day_20', max(0, (float) $data['late_fee_contribution_20d']));
+                    Setting::set('late_fee.contribution_day_30', max(0, (float) $data['late_fee_contribution_30d']));
+                    Setting::set('late_fee.repayment_day_1', max(0, (float) $data['late_fee_repayment_1d']));
+                    Setting::set('late_fee.repayment_day_10', max(0, (float) $data['late_fee_repayment_10d']));
+                    Setting::set('late_fee.repayment_day_20', max(0, (float) $data['late_fee_repayment_20d']));
+                    Setting::set('late_fee.repayment_day_30', max(0, (float) $data['late_fee_repayment_30d']));
 
                     Notification::make()
                         ->title('Cycle settings saved')
@@ -189,6 +274,8 @@ class SystemSettingsPage extends Page
                 ->visible(fn(): bool => $this->activeTab === 'public-membership')
                 ->fillForm([
                     'max_pending_public' => Setting::maxPublicApplications(),
+                    'membership_application_fee' => Setting::membershipApplicationFee(),
+                    'membership_application_fee_bank_instructions' => Setting::membershipApplicationFeeBankInstructions(),
                 ])
                 ->schema([
                     Section::make('Application capacity')
@@ -202,9 +289,30 @@ class SystemSettingsPage extends Page
                                 ->default(0)
                                 ->helperText('Counts all application rows. Use 0 for no limit.'),
                         ]),
+                    Section::make('Membership application fee')
+                        ->description(
+                            'When the fee is greater than zero, /apply adds a payment step: applicants transfer to your bank and submit a reference. ' .
+                            'On successful submission, the fee is credited to the master cash account only (not the master fund). Reconcile with your bank to avoid double-counting if you also import the same deposit.'
+                        )
+                        ->schema([
+                            Forms\Components\TextInput::make('membership_application_fee')
+                                ->label('Fee (SAR)')
+                                ->numeric()
+                                ->minValue(0)
+                                ->required()
+                                ->default(0)
+                                ->helperText('Use 0 to hide the fee step and require no payment.'),
+                            Forms\Components\Textarea::make('membership_application_fee_bank_instructions')
+                                ->label('Bank transfer instructions')
+                                ->rows(6)
+                                ->columnSpanFull()
+                                ->helperText('Shown on the application form (plain text; line breaks preserved). Include IBAN, account name, and bank name.'),
+                        ]),
                 ])
                 ->action(function (array $data): void {
                     Setting::set('membership.max_pending_public', max(0, (int) $data['max_pending_public']));
+                    Setting::set('membership.application_fee_amount', max(0, (float) $data['membership_application_fee']));
+                    Setting::set('membership.application_fee_bank_instructions', (string) ($data['membership_application_fee_bank_instructions'] ?? ''));
 
                     Notification::make()
                         ->title('Public membership settings saved')

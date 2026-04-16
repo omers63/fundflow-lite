@@ -3,6 +3,8 @@
 namespace App\Filament\Member\Widgets;
 
 use App\Models\Loan;
+use App\Services\LoanEarlySettlementService;
+use Filament\Notifications\Notification;
 use Filament\Widgets\Widget;
 use Illuminate\Support\Collection;
 
@@ -33,11 +35,13 @@ class LoanRepaymentProgressWidget extends Widget
             return collect();
         }
 
+        $earlySvc = app(LoanEarlySettlementService::class);
+
         return Loan::where('member_id', $member->id)
             ->where('status', 'active')
             ->with(['loanTier', 'installments'])
             ->get()
-            ->map(function (Loan $loan) use ($member) {
+            ->map(function (Loan $loan) use ($member, $earlySvc) {
                 $totalInstallments = $loan->installments_count;
                 $paidInstallments = $loan->installments()->where('status', 'paid')->count();
                 $paidPercent = $totalInstallments > 0
@@ -61,6 +65,10 @@ class LoanRepaymentProgressWidget extends Widget
                     ->orderBy('due_date')
                     ->first();
 
+                $remainingSettlementCash = $earlySvc->requiredCash($loan);
+                $canEarlySettleCash = $earlySvc->hasSufficientCash($loan);
+                $cashBalance = (float) ($member->cashAccount()?->balance ?? 0);
+
                 return [
                     'loan' => $loan,
                     'paid_installments' => $paidInstallments,
@@ -75,8 +83,51 @@ class LoanRepaymentProgressWidget extends Widget
                     'guarantor_released' => $loan->isGuarantorReleased(),
                     'next_installment' => $nextInstallment,
                     'remaining_amount' => $loan->remaining_amount,
+                    'remaining_settlement_cash' => $remainingSettlementCash,
+                    'can_early_settle_cash' => $canEarlySettleCash,
+                    'cash_balance' => $cashBalance,
                     'is_ready_to_settle' => $loan->isReadyToSettle(),
                 ];
             });
+    }
+
+    public function settleEarly(int $loanId): void
+    {
+        $member = auth()->user()?->member;
+        if ($member === null) {
+            Notification::make()->title('Member record not found')->danger()->send();
+
+            return;
+        }
+
+        $loan = Loan::query()
+            ->where('member_id', $member->id)
+            ->whereKey($loanId)
+            ->where('status', 'active')
+            ->first();
+
+        if ($loan === null) {
+            Notification::make()->title('Active loan not found')->danger()->send();
+
+            return;
+        }
+
+        try {
+            app(LoanEarlySettlementService::class)->earlySettle($loan);
+        } catch (\InvalidArgumentException | \RuntimeException $e) {
+            Notification::make()
+                ->title('Could not pay off early')
+                ->body($e->getMessage())
+                ->danger()
+                ->send();
+
+            return;
+        }
+
+        Notification::make()
+            ->title('Loan paid off')
+            ->body('Your loan is closed. You may apply for a new loan when you meet eligibility rules.')
+            ->success()
+            ->send();
     }
 }

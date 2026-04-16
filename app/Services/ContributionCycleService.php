@@ -21,8 +21,10 @@ class ContributionCycleService
     /** How far back (in months) to offer cycles when applying a member contribution. */
     private const CONTRIBUTION_CYCLE_LOOKBACK_MONTHS = 24;
 
-    public function __construct(protected AccountingService $accounting)
-    {
+    public function __construct(
+        protected AccountingService $accounting,
+        protected LateFeeService $lateFees,
+    ) {
     }
 
     // =========================================================================
@@ -207,7 +209,8 @@ class ContributionCycleService
         }
 
         $dependent->unsetRelation('accounts');
-        $needed = (float) $dependent->monthly_contribution_amount;
+        $needed = (float) $dependent->monthly_contribution_amount
+            + $this->lateFeeForContributionPeriod($month, $year);
         $cash = (float) ($dependent->cashAccount()?->balance ?? 0);
 
         return max(0, $needed - $cash);
@@ -330,7 +333,26 @@ class ContributionCycleService
 
     public function hasInsufficientCashForOpenPeriodContribution(Member $member): bool
     {
-        return (float) $member->cash_balance < (float) $member->monthly_contribution_amount;
+        [$m, $y] = $this->currentOpenPeriod();
+        $amount = (float) $member->monthly_contribution_amount;
+        $lateFee = $this->lateFeeForContributionPeriod($m, $y);
+        $required = $amount + $lateFee;
+
+        return (float) $member->cash_balance < $required;
+    }
+
+    /**
+     * Late fee (SAR) for a contribution in the given calendar month, tiered by calendar days after the cycle deadline.
+     *
+     * @param  \Carbon\Carbon|null  $at  Defaults to now (use payment / import timestamp when known).
+     */
+    public function lateFeeForContributionPeriod(int $month, int $year, ?Carbon $at = null): float
+    {
+        $at = $at ?? now();
+        $deadline = $this->deadline($month, $year);
+        $days = $this->lateFees->daysPastDue($deadline, $at);
+
+        return $this->lateFees->contributionLateFeeForDays($days);
     }
 
     /**
@@ -673,12 +695,21 @@ class ContributionCycleService
         $amount = (float) $member->monthly_contribution_amount;
         $balance = (float) $member->cash_balance;
         $label = $this->periodLabel($month, $year);
+        $lateFee = $this->lateFeeForContributionPeriod($month, $year);
+        $totalDebit = $amount + $lateFee;
+
+        $fundLine = 'Master and member fund accounts are each credited SAR ' . number_format($amount, 2) . ' (contribution only).';
+        if ($lateFee > 0.00001) {
+            $fundLine .= ' A late fee of SAR ' . number_format($lateFee, 2)
+                . ' is credited to the master cash account only (not the master fund).';
+        }
 
         return sprintf(
-            'Debits SAR %s from the member cash account (balance: SAR %s) for %s. Fund accounts are credited the same amount.',
-            number_format($amount, 2),
+            'Debits SAR %s from the member cash account (balance: SAR %s) for %s. %s',
+            number_format($totalDebit, 2),
             number_format($balance, 2),
             $label,
+            $fundLine,
         );
     }
 
@@ -717,7 +748,7 @@ class ContributionCycleService
         $member->load(['user', 'accounts']);
         $bucket = [];
 
-        return $this->applyOne($member, $month, $year, null, $bucket);
+        return $this->applyOne($member, $month, $year, $bucket);
     }
 
     // =========================================================================
@@ -778,7 +809,6 @@ class ContributionCycleService
      */
     public function applyContributions(int $month, int $year): array
     {
-        $isLate = $this->isLate($month, $year);
         $results = [
             'applied' => collect(),
             'insufficient' => collect(),
@@ -786,8 +816,8 @@ class ContributionCycleService
         ];
 
         Member::active()->with('user')->each(
-            function (Member $member) use ($month, $year, $isLate, &$results) {
-                $this->applyOne($member, $month, $year, $isLate, $results);
+            function (Member $member) use ($month, $year, &$results) {
+                $this->applyOne($member, $month, $year, $results);
             }
         );
 
@@ -797,12 +827,8 @@ class ContributionCycleService
     /**
      * Apply the contribution for a single member (used by both bulk cycle and manual re-try).
      */
-    public function applyOne(Member $member, int $month, int $year, ?bool $isLate = null, array &$results = []): string
+    public function applyOne(Member $member, int $month, int $year, array &$results = []): string
     {
-        if ($isLate === null) {
-            $isLate = $this->isLate($month, $year);
-        }
-
         // Already contributed this period?
         $existing = Contribution::where('member_id', $member->id)
             ->where('month', $month)
@@ -821,21 +847,25 @@ class ContributionCycleService
         }
 
         $amount = (float) $member->monthly_contribution_amount;
+        $deadline = $this->deadline($month, $year);
+        $days = $this->lateFees->daysPastDue($deadline, now());
+        $lateFee = $this->lateFees->contributionLateFeeForDays($days);
+        $required = $amount + $lateFee;
         $cashAccount = Account::where('type', Account::TYPE_MEMBER_CASH)
             ->where('member_id', $member->id)
             ->first();
 
-        if (!$cashAccount || (float) $cashAccount->balance < $amount) {
+        if (!$cashAccount || (float) $cashAccount->balance < $required) {
             $results['insufficient'][] = [
                 'member' => $member,
                 'balance' => (float) ($cashAccount?->balance ?? 0),
-                'required' => $amount,
+                'required' => $required,
             ];
             return 'insufficient';
         }
 
         try {
-            DB::transaction(function () use ($member, $month, $year, $amount, $isLate) {
+            DB::transaction(function () use ($member, $month, $year, $amount, $lateFee, $days) {
                 // ContributionObserver posts cash debit (cash_account) + fund credits in one flow.
                 $contribution = Contribution::create([
                     'member_id' => $member->id,
@@ -844,7 +874,8 @@ class ContributionCycleService
                     'year' => $year,
                     'paid_at' => now(),
                     'payment_method' => 'cash_account',
-                    'is_late' => $isLate,
+                    'is_late' => $days >= 1,
+                    'late_fee_amount' => $lateFee > 0 ? $lateFee : null,
                 ]);
 
                 // 3. Member late stats: ContributionObserver recomputes from contributions after save.

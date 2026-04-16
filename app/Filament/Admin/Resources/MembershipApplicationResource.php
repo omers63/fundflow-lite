@@ -275,6 +275,21 @@ class MembershipApplicationResource extends Resource
                     })
                     ->badge()
                     ->toggleable(),
+                Tables\Columns\TextColumn::make('membership_fee_amount')
+                    ->label('App fee (SAR)')
+                    ->numeric(decimalPlaces: 2)
+                    ->placeholder('—')
+                    ->toggleable(isToggledHiddenByDefault: true),
+                Tables\Columns\TextColumn::make('membership_fee_transfer_reference')
+                    ->label('Fee transfer ref')
+                    ->limit(24)
+                    ->tooltip(fn($record) => $record->membership_fee_transfer_reference)
+                    ->toggleable(isToggledHiddenByDefault: true),
+                Tables\Columns\TextColumn::make('membership_fee_posted_at')
+                    ->label('Fee posted')
+                    ->dateTime('d M Y H:i')
+                    ->placeholder('—')
+                    ->toggleable(isToggledHiddenByDefault: true),
                 Tables\Columns\TextColumn::make('city')
                     ->sortable(),
                 Tables\Columns\TextColumn::make('status')

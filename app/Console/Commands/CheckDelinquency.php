@@ -8,7 +8,7 @@ use Illuminate\Console\Command;
 class CheckDelinquency extends Command
 {
     protected $signature = 'fund:check-delinquency';
-    protected $description = 'Mark overdue installments and flag delinquent members, then send alerts.';
+    protected $description = 'Mark overdue installments, evaluate contribution/repayment delinquency, suspend or restore members, transfer guarantor liability.';
 
     public function handle(DelinquencyService $service): int
     {
@@ -16,9 +16,10 @@ class CheckDelinquency extends Command
         $overdueUpdated = $service->markOverdueInstallments();
         $this->line("  → {$overdueUpdated} installment(s) marked as overdue.");
 
-        $this->info('Flagging delinquent members...');
-        $flagged = $service->flagDelinquentMembers();
-        $this->line("  → {$flagged} member(s) flagged as delinquent and notified.");
+        $this->info('Evaluating delinquency policy (consecutive + rolling total misses)...');
+        $result = $service->flagDelinquentMembers();
+        $this->line("  → Suspended (policy): {$result['suspended']}");
+        $this->line("  → Restored: {$result['restored']}");
 
         $this->info('Delinquency check complete.');
         return self::SUCCESS;

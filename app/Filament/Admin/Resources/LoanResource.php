@@ -16,13 +16,14 @@ use App\Models\Setting;
 use App\Notifications\LoanApprovedNotification;
 use App\Notifications\LoanCancelledNotification;
 use App\Notifications\LoanDisbursedNotification;
-use App\Notifications\LoanEarlySettledNotification;
 use App\Notifications\LoanPartialDisbursementNotification;
 use App\Notifications\MembershipRejectedNotification;
 use App\Services\AccountingService;
+use App\Services\LoanEarlySettlementService;
 use App\Services\LoanEligibilityService;
 use App\Services\LoanQueueOrderingService;
 use Carbon\Carbon;
+use Closure;
 use Filament\Actions\Action;
 use Filament\Actions\BulkActionGroup;
 use Filament\Actions\DeleteAction;
@@ -161,6 +162,55 @@ class LoanResource extends Resource
                 Forms\Components\TextInput::make('witness2_phone')->label('Witness 2 — Phone')->tel()->maxLength(50),
             ])->columns(2),
         ]);
+    }
+
+    // =========================================================================
+    // Early settlement (table row, view page, installments relation)
+    // =========================================================================
+
+    public static function earlySettleLoanModalDescription(Loan $r): string
+    {
+        $svc = app(LoanEarlySettlementService::class);
+        $r->loadMissing('member');
+        $required = $svc->requiredCash($r);
+        $balance = (float) $r->member->cash_balance;
+        $principal = $r->remaining_amount;
+
+        return 'Principal remaining (installments): SAR ' . number_format($principal, 2)
+            . '. Cash required now (including any late fees): SAR ' . number_format($required, 2)
+            . '. Member cash balance: SAR ' . number_format($balance, 2)
+            . '. All remaining installments will be debited from cash and marked paid.';
+    }
+
+    public static function earlySettleLoanAction(?Closure $afterSuccess = null): Action
+    {
+        return Action::make('early_settle')
+            ->label('Early Settle')
+            ->icon('heroicon-o-check-badge')
+            ->color('info')
+            ->visible(fn(Loan $r) => $r->status === 'active')
+            ->requiresConfirmation()
+            ->modalHeading('Confirm Early Settlement')
+            ->modalDescription(fn(Loan $r) => static::earlySettleLoanModalDescription($r))
+            ->action(function (Loan $record, Component $livewire) use ($afterSuccess) {
+                try {
+                    app(LoanEarlySettlementService::class)->earlySettle($record);
+                } catch (\InvalidArgumentException | \RuntimeException $e) {
+                    Notification::make()
+                        ->title('Early settlement failed')
+                        ->body($e->getMessage())
+                        ->danger()
+                        ->send();
+
+                    return;
+                }
+
+                Notification::make()->title('Loan Early Settled')->success()->send();
+                static::dispatchLoanListHeaderWidgetsRefresh($livewire);
+                if ($afterSuccess) {
+                    $afterSuccess($record, $livewire);
+                }
+            });
     }
 
     // =========================================================================
@@ -776,37 +826,7 @@ class LoanResource extends Resource
                         static::dispatchLoanListHeaderWidgetsRefresh($livewire);
                     }),
 
-                // ── EARLY SETTLE ──
-                Action::make('early_settle')
-                    ->label('Early Settle')
-                    ->icon('heroicon-o-check-badge')
-                    ->color('info')
-                    ->visible(fn(Loan $r) => $r->status === 'active')
-                    ->requiresConfirmation()
-                    ->modalHeading('Confirm Early Settlement')
-                    ->modalDescription(fn(Loan $r) => 'Remaining balance: SAR ' . number_format($r->remaining_amount, 2) . '. All pending installments will be marked paid.')
-                    ->action(function (Loan $record, Component $livewire) {
-                        DB::transaction(function () use ($record) {
-                            $member = $record->member;
-                            $pending = $record->installments()->whereIn('status', ['pending', 'overdue'])->get();
-
-                            foreach ($pending as $inst) {
-                                app(AccountingService::class)->debitCashForRepayment($member, $inst);
-                                $inst->update(['status' => 'paid', 'paid_at' => now()]);
-                            }
-
-                            $record->update(['status' => 'early_settled', 'settled_at' => now()]);
-                        });
-
-                        try {
-                            $record->member->user->notify(new LoanEarlySettledNotification($record));
-                        } catch (\Throwable) {
-                        }
-
-                        LoanQueueOrderingService::resequenceFundTier($record->fund_tier_id);
-                        Notification::make()->title('Loan Early Settled')->success()->send();
-                        static::dispatchLoanListHeaderWidgetsRefresh($livewire);
-                    }),
+                static::earlySettleLoanAction(),
 
                 DeleteAction::make()
                     ->modalDescription(

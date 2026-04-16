@@ -114,6 +114,7 @@ class Contribution extends Model
         'reference_number',
         'notes',
         'is_late',
+        'late_fee_amount',
     ];
 
     protected function casts(): array
@@ -122,6 +123,7 @@ class Contribution extends Model
             'amount' => 'decimal:2',
             'paid_at' => 'datetime',
             'is_late' => 'boolean',
+            'late_fee_amount' => 'decimal:2',
         ];
     }
 

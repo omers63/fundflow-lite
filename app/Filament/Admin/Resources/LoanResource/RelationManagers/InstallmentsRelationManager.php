@@ -2,15 +2,16 @@
 
 namespace App\Filament\Admin\Resources\LoanResource\RelationManagers;
 
+use App\Filament\Admin\Resources\LoanResource;
+use App\Models\Loan;
 use App\Models\LoanInstallment;
-use Filament\Actions\Action;
 use Filament\Forms;
-use Filament\Notifications\Notification;
 use Filament\Resources\RelationManagers\RelationManager;
 use Filament\Schemas\Schema;
 use Filament\Tables;
 use Filament\Tables\Table;
 use Livewire\Attributes\On;
+use Livewire\Component;
 
 class InstallmentsRelationManager extends RelationManager
 {
@@ -59,6 +60,23 @@ class InstallmentsRelationManager extends RelationManager
                     ->label('Paid On')
                     ->dateTime('d M Y H:i')
                     ->placeholder('—'),
+                Tables\Columns\IconColumn::make('is_late')
+                    ->label('Late')
+                    ->boolean()
+                    ->toggleable(isToggledHiddenByDefault: true),
+                Tables\Columns\TextColumn::make('late_fee_amount')
+                    ->label('Late fee')
+                    ->money('SAR')
+                    ->placeholder('—')
+                    ->toggleable(isToggledHiddenByDefault: true),
+            ])
+            ->headerActions([
+                LoanResource::earlySettleLoanAction(function (Loan $loan, Component $livewire) {
+                    $loan->refresh();
+                    $livewire->resetTable();
+                    $livewire->dispatch('fundflow-refresh-loan-installments');
+                })
+                    ->record(fn(): Loan => $this->getOwnerRecord()),
             ])
             ->filters([
                 Tables\Filters\SelectFilter::make('status')

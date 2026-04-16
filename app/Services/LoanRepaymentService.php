@@ -15,8 +15,10 @@ use Illuminate\Support\Facades\DB;
 
 class LoanRepaymentService
 {
-    public function __construct(protected AccountingService $accounting)
-    {
+    public function __construct(
+        protected AccountingService $accounting,
+        protected LateFeeService $lateFees,
+    ) {
     }
 
     // =========================================================================
@@ -91,7 +93,6 @@ class LoanRepaymentService
      */
     public function applyRepayments(int $month, int $year): array
     {
-        $isLate = $this->isLate($month, $year);
         $results = [
             'applied' => collect(),
             'insufficient' => collect(),
@@ -99,8 +100,8 @@ class LoanRepaymentService
         ];
 
         Loan::active()->with(['member.user', 'installments'])->each(
-            function (Loan $loan) use ($month, $year, $isLate, &$results) {
-                $this->applyOne($loan, $month, $year, $isLate, $results);
+            function (Loan $loan) use ($month, $year, &$results) {
+                $this->applyOne($loan, $month, $year, $results);
             }
         );
 
@@ -110,12 +111,8 @@ class LoanRepaymentService
     /**
      * Apply repayment for a single loan / period. Returns 'applied'|'insufficient'|'skipped'.
      */
-    public function applyOne(Loan $loan, int $month, int $year, ?bool $isLate = null, array &$results = []): string
+    public function applyOne(Loan $loan, int $month, int $year, array &$results = []): string
     {
-        if ($isLate === null) {
-            $isLate = $this->isLate($month, $year);
-        }
-
         $installment = $this->installmentForPeriod($loan, $month, $year);
 
         if (!$installment || $installment->isPaid()) {
@@ -126,29 +123,35 @@ class LoanRepaymentService
 
         $member = $loan->member;
         $amount = (float) $installment->amount;
+        $deadline = $this->deadline($month, $year);
+        $days = $this->lateFees->daysPastDue($deadline, now());
+        $lateFee = $this->lateFees->repaymentLateFeeForDays($days);
+        $isLate = $days >= 1;
+        $required = $amount + $lateFee;
         $cashAccount = Account::where('type', Account::TYPE_MEMBER_CASH)
             ->where('member_id', $member->id)
             ->first();
 
-        if (!$cashAccount || (float) $cashAccount->balance < $amount) {
+        if (!$cashAccount || (float) $cashAccount->balance < $required) {
             $results['insufficient'][] = [
                 'loan' => $loan,
                 'balance' => (float) ($cashAccount?->balance ?? 0),
-                'required' => $amount,
+                'required' => $required,
             ];
 
             return 'insufficient';
         }
 
-        DB::transaction(function () use ($loan, $installment, $member, $amount, $isLate) {
-            // 1. Debit member's cash account
-            $this->accounting->debitCashForRepayment($member, $installment);
+        DB::transaction(function () use ($loan, $installment, $member, $isLate, $lateFee) {
+            // 1. Debit member's cash account (installment + late fee when applicable)
+            $this->accounting->debitCashForRepayment($member, $installment, $lateFee);
 
             // 2. Mark installment paid (observer posts to fund accounts + updates repaid_to_master)
             $installment->update([
                 'status' => 'paid',
                 'paid_at' => now(),
                 'is_late' => $isLate,
+                'late_fee_amount' => $lateFee > 0 ? $lateFee : null,
             ]);
 
             // 3. Track late stats
@@ -223,24 +226,40 @@ class LoanRepaymentService
             return true;
         }
 
-        return (float) $member->cash_balance < (float) $installment->amount;
+        $deadline = $this->deadline($month, $year);
+        $days = $this->lateFees->daysPastDue($deadline, now());
+        $lateFee = $this->lateFees->repaymentLateFeeForDays($days);
+        $required = (float) $installment->amount + $lateFee;
+
+        return (float) $member->cash_balance < $required;
     }
 
     public function openPeriodRepaymentModalDescription(Member $member): string
     {
         $loan = Loan::active()->where('member_id', $member->id)->first();
         $amount = 0.0;
+        $lateFee = 0.0;
         if ($loan !== null) {
             [$month, $year] = app(ContributionCycleService::class)->currentOpenPeriod();
             $installment = $this->installmentForPeriod($loan, $month, $year);
             $amount = (float) ($installment?->amount ?? 0);
+            $deadline = $this->deadline($month, $year);
+            $days = $this->lateFees->daysPastDue($deadline, now());
+            $lateFee = $this->lateFees->repaymentLateFeeForDays($days);
         }
 
+        $total = $amount + $lateFee;
+        $extra = $lateFee > 0.00001
+            ? ' Master and member funds are credited the installment principal only; a late fee of SAR '
+                . number_format($lateFee, 2) . ' is credited to master cash only.'
+            : ' Fund postings match the repayment run.';
+
         return sprintf(
-            'Debits SAR %s from the member cash account (balance: SAR %s) for loan repayment in %s. Fund postings match the repayment run.',
-            number_format($amount, 2),
+            'Debits SAR %s from the member cash account (balance: SAR %s) for loan repayment in %s.%s',
+            number_format($total, 2),
             number_format((float) $member->cash_balance, 2),
             app(ContributionCycleService::class)->currentOpenPeriodLabel(),
+            $extra,
         );
     }
 
@@ -262,7 +281,7 @@ class LoanRepaymentService
         [$month, $year] = app(ContributionCycleService::class)->currentOpenPeriod();
         $bucket = [];
 
-        return $this->applyOne($loan, $month, $year, null, $bucket);
+        return $this->applyOne($loan, $month, $year, $bucket);
     }
 
     // =========================================================================

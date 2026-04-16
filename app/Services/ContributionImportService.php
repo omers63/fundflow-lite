@@ -15,7 +15,7 @@ class ContributionImportService
      *
      * One of member_id or member_number is required per row.
      * Required: month, year, amount
-     * Optional: paid_at (defaults to now), reference_number, notes, is_late (0/1 yes/no),
+     * Optional: paid_at (defaults to now), reference_number, notes, is_late (0/1 yes/no), late_fee_amount (SAR),
      * payment_method (empty = admin entry; otherwise a key from Finance contribution sources)
      *
      * @return array{created: int, skipped: int, failed: int, errors: array<int, string>}
@@ -84,16 +84,29 @@ class ContributionImportService
             );
         }
 
+        $paidAt = $this->parsePaidAt($this->cell($row, 'paid_at'));
+
+        $isLate = $this->parseIsLate($this->cell($row, 'is_late'));
+        $lateFeeCell = $this->cell($row, 'late_fee_amount');
+        $lateFeeAmount = null;
+        if ($lateFeeCell !== '') {
+            $lateFeeAmount = $this->parseAmount($lateFeeCell);
+        } elseif ($isLate) {
+            $fee = app(ContributionCycleService::class)->lateFeeForContributionPeriod($month, $year, $paidAt);
+            $lateFeeAmount = $fee > 0 ? $fee : null;
+        }
+
         Contribution::create([
             'member_id' => $member->id,
             'month' => $month,
             'year' => $year,
             'amount' => $amount,
-            'paid_at' => $this->parsePaidAt($this->cell($row, 'paid_at')),
+            'paid_at' => $paidAt,
             'payment_method' => $this->parsePaymentMethod($this->cell($row, 'payment_method')),
             'reference_number' => $this->nullableString($this->cell($row, 'reference_number')),
             'notes' => $this->nullableString($this->cell($row, 'notes')),
-            'is_late' => $this->parseIsLate($this->cell($row, 'is_late')),
+            'is_late' => $isLate,
+            'late_fee_amount' => $lateFeeAmount,
         ]);
     }
 

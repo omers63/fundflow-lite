@@ -37,12 +37,14 @@ class Member extends Model
         'late_repayment_amount',
         'joined_at',
         'status',
+        'delinquency_suspended_at',
     ];
 
     protected function casts(): array
     {
         return [
             'joined_at' => 'date',
+            'delinquency_suspended_at' => 'datetime',
             'monthly_contribution_amount' => 'integer',
             'late_contributions_count' => 'integer',
             'late_contributions_amount' => 'decimal:2',

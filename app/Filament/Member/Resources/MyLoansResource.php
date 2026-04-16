@@ -10,6 +10,7 @@ use App\Models\Member;
 use App\Models\Setting;
 use App\Notifications\LoanCancelledNotification;
 use App\Notifications\LoanSubmittedNotification;
+use App\Services\LoanEarlySettlementService;
 use App\Services\LoanEligibilityService;
 use Filament\Actions\Action;
 use Filament\Forms;
@@ -353,6 +354,56 @@ class MyLoansResource extends Resource
 
             ])
             ->recordActions([
+                Action::make('early_settle')
+                    ->label('Pay off early')
+                    ->icon('heroicon-o-check-badge')
+                    ->color('success')
+                    ->visible(fn(Loan $r) => $r->status === 'active')
+                    ->requiresConfirmation()
+                    ->modalHeading('Pay off your loan early')
+                    ->modalDescription(function (Loan $r) {
+                        $svc = app(LoanEarlySettlementService::class);
+                        $r->loadMissing('member');
+                        $me = Member::where('user_id', auth()->id())->first();
+                        if (!$me || (int) $r->member_id !== (int) $me->id) {
+                            return 'You can only settle your own loan.';
+                        }
+                        $required = $svc->requiredCash($r);
+                        $balance = (float) $me->cash_balance;
+                        $principal = $r->remaining_amount;
+
+                        return 'Installments remaining (principal): SAR ' . number_format($principal, 2)
+                            . '. Total cash required now (including any late fees): SAR ' . number_format($required, 2)
+                            . '. Your cash balance: SAR ' . number_format($balance, 2)
+                            . '. The full amount will be debited from your cash account and this loan will close.';
+                    })
+                    ->action(function (Loan $record) {
+                        $me = Member::where('user_id', auth()->id())->first();
+                        if (!$me || (int) $record->member_id !== (int) $me->id) {
+                            Notification::make()->title('Unauthorized')->body('This loan does not belong to you.')->danger()->send();
+
+                            return;
+                        }
+
+                        try {
+                            app(LoanEarlySettlementService::class)->earlySettle($record);
+                        } catch (\InvalidArgumentException | \RuntimeException $e) {
+                            Notification::make()
+                                ->title('Could not complete early payoff')
+                                ->body($e->getMessage())
+                                ->danger()
+                                ->send();
+
+                            return;
+                        }
+
+                        Notification::make()
+                            ->title('Loan paid off')
+                            ->body('Your loan is closed. You may apply for a new loan when you meet eligibility rules.')
+                            ->success()
+                            ->send();
+                    }),
+
                 Action::make('cancel_loan')
                     ->label('Cancel')
                     ->icon('heroicon-o-x-circle')

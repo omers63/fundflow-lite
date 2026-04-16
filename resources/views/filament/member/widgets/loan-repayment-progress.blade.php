@@ -44,7 +44,7 @@
                 </div>
                 <p class="mt-1 text-sm text-gray-500 dark:text-gray-400">
                     SAR {{ number_format($loan->amount_approved, 2) }} &bull;
-                    SAR {{ number_format($item['remaining_amount'], 2) }} remaining
+                    SAR {{ number_format($item['remaining_amount'], 2) }} principal remaining on schedule
                 </p>
             </div>
             {{-- Circular-style overall progress badge --}}
@@ -140,6 +140,32 @@
                 <strong>{{ $loan->late_repayment_count }}</strong> late repayment{{ $loan->late_repayment_count > 1 ? 's' : '' }}
                 — SAR {{ number_format($loan->late_repayment_amount, 2) }} total
             </p>
+        </div>
+        @endif
+
+        @if(($item['remaining_settlement_cash'] ?? 0) > 0)
+        @php $shortfall = max(0, ($item['remaining_settlement_cash'] ?? 0) - ($item['cash_balance'] ?? 0)); @endphp
+        <div class="mt-4 flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between rounded-xl bg-slate-50 dark:bg-slate-800/60 ring-1 ring-slate-200 dark:ring-slate-600 px-4 py-3">
+            <div class="text-sm text-gray-700 dark:text-gray-300">
+                <span class="font-semibold text-gray-900 dark:text-white">Pay off early:</span>
+                SAR {{ number_format($item['remaining_settlement_cash'], 2) }} total from your cash account
+                (scheduled installments plus late fees if any cycle is past due).
+                Cash balance: SAR {{ number_format($item['cash_balance'] ?? 0, 2) }}.
+                @if(!$item['can_early_settle_cash'] && $shortfall > 0)
+                <span class="block mt-1 text-amber-700 dark:text-amber-300">Add SAR {{ number_format($shortfall, 2) }} to your cash account first (e.g. bank transfer posted to cash).</span>
+                @endif
+            </div>
+            @if($item['can_early_settle_cash'])
+            <button
+                type="button"
+                wire:click="settleEarly({{ $loan->id }})"
+                wire:confirm="Debit your cash account for the full payoff amount and close this loan?"
+                class="inline-flex items-center justify-center gap-2 rounded-lg bg-emerald-600 px-4 py-2 text-sm font-semibold text-white shadow-sm hover:bg-emerald-500 focus:outline-none focus:ring-2 focus:ring-emerald-500 focus:ring-offset-2 dark:focus:ring-offset-gray-900"
+            >
+                <x-heroicon-o-check-badge class="w-4 h-4" />
+                Pay off early
+            </button>
+            @endif
         </div>
         @endif
 

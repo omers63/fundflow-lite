@@ -181,6 +181,60 @@
                     </div>
                 </div>
             </div>
+
+            <div class="rounded-xl bg-amber-50/80 dark:bg-amber-950/20 ring-1 ring-amber-200/80 dark:ring-amber-800/50 p-5">
+                <h3 class="text-sm font-semibold text-gray-950 dark:text-white mb-2">Delinquency policy (automated)</h3>
+                <p class="text-sm text-gray-600 dark:text-gray-400 mb-3">
+                    The scheduled command <code class="text-xs bg-white/60 dark:bg-black/20 px-1 rounded">fund:check-delinquency</code> runs daily.
+                    It evaluates missed contributions (when your cycle rules require them) and unpaid loan installments on active loans.
+                </p>
+                <dl class="grid gap-2 text-sm sm:grid-cols-3">
+                    <div>
+                        <dt class="text-gray-500 dark:text-gray-400">Consecutive threshold</dt>
+                        <dd class="font-semibold text-gray-900 dark:text-white">{{ \App\Models\Setting::delinquencyConsecutiveMissThreshold() }} months</dd>
+                    </div>
+                    <div>
+                        <dt class="text-gray-500 dark:text-gray-400">Total misses (rolling)</dt>
+                        <dd class="font-semibold text-gray-900 dark:text-white">{{ \App\Models\Setting::delinquencyTotalMissThreshold() }} in {{ \App\Models\Setting::delinquencyTotalMissLookbackMonths() }} months</dd>
+                    </div>
+                    <div>
+                        <dt class="text-gray-500 dark:text-gray-400">On breach</dt>
+                        <dd class="text-gray-700 dark:text-gray-300">Member suspended (portal blocked); active loan repayments collected via guarantor when configured.</dd>
+                    </div>
+                </dl>
+            </div>
+
+            <div class="rounded-xl bg-white dark:bg-gray-800 ring-1 ring-gray-200 dark:ring-gray-700 p-5 shadow-sm">
+                <h3 class="text-sm font-semibold text-gray-950 dark:text-white mb-2">Late fees (tiered)</h3>
+                <p class="text-xs text-gray-500 dark:text-gray-400 mb-3">SAR per tier after the cycle due (highest matching non-zero tier applies).</p>
+                <div class="grid gap-4 sm:grid-cols-2 text-sm">
+                    <div>
+                        <p class="font-medium text-gray-700 dark:text-gray-300 mb-2">Contributions</p>
+                        <dl class="space-y-1">
+                            @foreach([1 => '1+ days', 10 => '10+ days', 20 => '20+ days', 30 => '30+ days'] as $d => $label)
+                            <div class="flex justify-between gap-2">
+                                <dt class="text-gray-500 dark:text-gray-400">{{ $label }}</dt>
+                                <dd class="font-medium text-gray-900 dark:text-white">SAR {{ number_format(\App\Models\Setting::lateFeeContributionTier($d), 2) }}</dd>
+                            </div>
+                            @endforeach
+                        </dl>
+                    </div>
+                    <div>
+                        <p class="font-medium text-gray-700 dark:text-gray-300 mb-2">Repayments</p>
+                        <dl class="space-y-1">
+                            @foreach([1 => '1+ days', 10 => '10+ days', 20 => '20+ days', 30 => '30+ days'] as $d => $label)
+                            <div class="flex justify-between gap-2">
+                                <dt class="text-gray-500 dark:text-gray-400">{{ $label }}</dt>
+                                <dd class="font-medium text-gray-900 dark:text-white">SAR {{ number_format(\App\Models\Setting::lateFeeRepaymentTier($d), 2) }}</dd>
+                            </div>
+                            @endforeach
+                        </dl>
+                    </div>
+                </div>
+                <p class="mt-3 text-xs text-gray-500 dark:text-gray-400 leading-relaxed">
+                    Cash-account debits bundle principal and late fee; late fees credit master cash only (not master fund).
+                </p>
+            </div>
         </div>
     @elseif ($activeTab === 'public-membership')
         <x-filament::section
@@ -201,6 +255,16 @@
                             <span class="text-primary-600 dark:text-primary-400">No limit</span>
                         @else
                             {{ number_format(\App\Models\Setting::maxPublicApplications()) }}
+                        @endif
+                    </dd>
+                </div>
+                <div class="rounded-lg border border-gray-200 p-4 dark:border-white/10 sm:col-span-2">
+                    <dt class="text-gray-500 dark:text-gray-400">Membership application fee</dt>
+                    <dd class="mt-1 text-lg font-semibold text-gray-950 dark:text-white">
+                        @if(\App\Models\Setting::membershipApplicationFee() > 0)
+                            SAR {{ number_format(\App\Models\Setting::membershipApplicationFee(), 2) }} (credited to master cash on submit)
+                        @else
+                            <span class="text-gray-500 dark:text-gray-400">Disabled (0 SAR)</span>
                         @endif
                     </dd>
                 </div>

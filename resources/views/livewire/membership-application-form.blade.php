@@ -55,10 +55,9 @@
         {{-- Step Indicator --}}
         <div class="flex items-center justify-between mb-8 relative">
             <div class="absolute top-5 left-0 right-0 h-0.5 bg-slate-200 -z-0"></div>
-            <div class="absolute top-5 left-0 h-0.5 bg-blue-500 -z-0 transition-all duration-500" style="width: {{ (($currentStep - 1) / ($totalSteps - 1)) * 100 }}%"></div>
+            <div class="absolute top-5 left-0 h-0.5 bg-blue-500 -z-0 transition-all duration-500" style="width: {{ $totalSteps > 1 ? (($currentStep - 1) / ($totalSteps - 1)) * 100 : 100 }}%"></div>
 
-            @php $steps = ['Personal Info', 'Identity', 'Employment', 'Document']; @endphp
-            @foreach($steps as $i => $label)
+            @foreach($stepLabels as $i => $label)
             <div class="flex flex-col items-center relative z-10">
                 <div class="w-10 h-10 rounded-full flex items-center justify-center text-sm font-bold transition-all
                     {{ $currentStep > $i + 1 ? 'bg-blue-500 text-white' : ($currentStep === $i + 1 ? 'bg-blue-600 text-white ring-4 ring-blue-100' : 'bg-white border-2 border-slate-300 text-slate-400') }}">
@@ -76,8 +75,17 @@
         {{-- Form Card --}}
         <div class="bg-white rounded-3xl shadow-xl overflow-hidden">
             <div class="bg-gradient-to-r from-blue-600 to-indigo-600 p-6">
-                @php $stepTitles = ['Personal Information', 'Identity & Address', 'Employment & Next of Kin', 'Application Document']; @endphp
-                <h2 class="text-white font-bold text-xl">Step {{ $currentStep }}: {{ $stepTitles[$currentStep - 1] }}</h2>
+                <h2 class="text-white font-bold text-xl">Step {{ $currentStep }}: @php
+                    $kind = $this->stepKindAt($currentStep);
+                    $stepTitle = match ($kind) {
+                        'personal' => 'Personal Information',
+                        'payment' => 'Membership fee',
+                        'identity' => 'Identity & Address',
+                        'employment' => 'Employment & Next of Kin',
+                        'document' => 'Application Document',
+                        default => 'Application',
+                    };
+                @endphp{{ $stepTitle }}</h2>
             </div>
 
             <div class="p-8">
@@ -87,8 +95,8 @@
                     </div>
                 @enderror
 
-                {{-- Step 1: Personal Info --}}
-                @if($currentStep === 1)
+                {{-- Step: Personal Info --}}
+                @if($this->stepKindAt($currentStep) === 'personal')
                 <div class="space-y-5">
                     <div>
                         <label class="block text-sm font-semibold text-slate-700 mb-2">Full Name *</label>
@@ -114,8 +122,33 @@
                 </div>
                 @endif
 
-                {{-- Step 2: Identity & Address --}}
-                @if($currentStep === 2)
+                {{-- Membership fee (bank transfer) --}}
+                @if($this->stepKindAt($currentStep) === 'payment')
+                <div class="space-y-5">
+                    <div class="rounded-2xl border border-slate-200 bg-slate-50 p-5">
+                        <p class="text-sm font-semibold text-slate-800 mb-1">Application fee</p>
+                        <p class="text-2xl font-bold text-blue-700">SAR {{ number_format(\App\Models\Setting::membershipApplicationFee(), 2) }}</p>
+                        <p class="text-xs text-slate-500 mt-2">Transfer this amount before submitting your application. Fees are credited to the fund’s cash account (not the pooled master fund).</p>
+                    </div>
+                    <div class="rounded-2xl border border-slate-200 bg-white p-5 text-sm text-slate-700 whitespace-pre-line leading-relaxed">
+                        {{ \App\Models\Setting::membershipApplicationFeeBankInstructions() }}
+                    </div>
+                    <div>
+                        <label class="block text-sm font-semibold text-slate-700 mb-2">Your transfer reference / note *</label>
+                        <input wire:model="membership_fee_transfer_reference" type="text" placeholder="As shown on your bank receipt" class="w-full px-4 py-3 border border-slate-200 rounded-xl text-sm focus:outline-none focus:ring-2 focus:ring-blue-500 font-mono @error('membership_fee_transfer_reference') border-red-400 @enderror">
+                        @error('membership_fee_transfer_reference')<p class="text-red-500 text-xs mt-1">{{ $message }}</p>@enderror
+                        <p class="text-xs text-slate-500 mt-1">Use the same reference you entered on the bank transfer so we can match your payment.</p>
+                    </div>
+                    <label class="flex items-start gap-3 cursor-pointer">
+                        <input wire:model="membership_fee_acknowledged" type="checkbox" class="mt-1 rounded border-slate-300 text-blue-600 focus:ring-blue-500">
+                        <span class="text-sm text-slate-700">I confirm I have transferred SAR {{ number_format(\App\Models\Setting::membershipApplicationFee(), 2) }} to the fund bank account above.</span>
+                    </label>
+                    @error('membership_fee_acknowledged')<p class="text-red-500 text-xs">{{ $message }}</p>@enderror
+                </div>
+                @endif
+
+                {{-- Step: Identity & Address --}}
+                @if($this->stepKindAt($currentStep) === 'identity')
                 <div class="space-y-5">
                     <div>
                         <label class="block text-sm font-semibold text-slate-700 mb-2">Application type *</label>
@@ -223,8 +256,8 @@
                 </div>
                 @endif
 
-                {{-- Step 3: Employment & Next of Kin --}}
-                @if($currentStep === 3)
+                {{-- Step: Employment & Next of Kin --}}
+                @if($this->stepKindAt($currentStep) === 'employment')
                 <div class="space-y-5">
                     <p class="text-xs text-slate-400 uppercase font-semibold tracking-wide">Employment (Optional)</p>
                     <div class="grid sm:grid-cols-2 gap-5">
@@ -260,8 +293,8 @@
                 </div>
                 @endif
 
-                {{-- Step 4: Document Upload --}}
-                @if($currentStep === 4)
+                {{-- Step: Document Upload --}}
+                @if($this->stepKindAt($currentStep) === 'document')
                 <div class="space-y-6">
                     <div class="bg-slate-50 rounded-2xl p-5 border border-slate-200">
                         <div class="flex items-start gap-3">

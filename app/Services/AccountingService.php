@@ -10,6 +10,7 @@ use App\Models\Loan;
 use App\Models\LoanDisbursement;
 use App\Models\LoanInstallment;
 use App\Models\Member;
+use App\Models\MembershipApplication;
 use App\Models\SmsTransaction;
 use App\Models\User;
 use Carbon\CarbonInterface;
@@ -113,6 +114,44 @@ class AccountingService
             $this->postEntry($masterFund, $amount, 'debit', $description, $member, $member->id);
             $this->postEntry($memberFund, $amount, 'debit', $description, $member, $member->id);
         }
+    }
+
+    // =========================================================================
+    // Membership application fee (master cash only — not master fund)
+    // =========================================================================
+
+    /**
+     * Credit master cash only for a public membership application fee.
+     * Does not touch the master fund account. Idempotent when fee already posted.
+     */
+    public function postMembershipApplicationFeeToMasterCash(MembershipApplication $application): void
+    {
+        if ($application->membership_fee_posted_at !== null) {
+            return;
+        }
+
+        $amount = (float) ($application->membership_fee_amount ?? 0);
+        if ($amount <= 0.00001) {
+            return;
+        }
+
+        DB::transaction(function () use ($application, $amount) {
+            $application->refresh();
+
+            if ($application->membership_fee_posted_at !== null) {
+                return;
+            }
+
+            $application->loadMissing('user');
+            $masterCash = Account::masterCash();
+            $label = $application->user?->name ?? 'Applicant';
+            $ref = $application->membership_fee_transfer_reference ?? '—';
+            $description = "Membership application fee — {$label} — ref {$ref}";
+
+            $this->postEntry($masterCash, $amount, 'credit', $description, $application, null);
+
+            $application->update(['membership_fee_posted_at' => now()]);
+        });
     }
 
     // =========================================================================
@@ -244,8 +283,10 @@ class AccountingService
     public function postContribution(Contribution $contribution): void
     {
         DB::transaction(function () use ($contribution) {
+            $lateFee = (float) ($contribution->late_fee_amount ?? 0);
+
             if ($contribution->payment_method === Contribution::PAYMENT_METHOD_CASH_ACCOUNT) {
-                $this->debitMemberCashForContribution($contribution);
+                $this->debitMemberCashForContribution($contribution, $lateFee);
             }
 
             $member = $contribution->member;
@@ -264,13 +305,23 @@ class AccountingService
 
             $this->postEntry($masterFund, (float) $contribution->amount, 'credit', $description, $contribution, $member->id);
             $this->postEntry($memberFund, (float) $contribution->amount, 'credit', $description, $contribution, $member->id);
+
+            if ($contribution->is_late && $lateFee > 0.00001) {
+                $monthName = $contribution->month
+                    ? date('F', mktime(0, 0, 0, (int) $contribution->month, 1))
+                    : '';
+                $label = $member->user->name ?? 'Member';
+                $lateDesc = "Contribution late fee – {$monthName} {$contribution->year} – {$label}";
+                $this->postLateFeeCreditToMasterCash($lateFee, $lateDesc, $contribution, $member->id);
+            }
         });
     }
 
     /**
      * Debit member cash for a contribution cycle payment (source = the contribution row).
+     * When the contribution is late and carries a late fee, $lateFeeExtra is included in the same debit (bundled transfer).
      */
-    public function debitMemberCashForContribution(Contribution $contribution): void
+    public function debitMemberCashForContribution(Contribution $contribution, float $lateFeeExtra = 0.0): void
     {
         $member = $contribution->member;
         $member->loadMissing('user');
@@ -281,8 +332,12 @@ class AccountingService
 
         $monthName = date('F', mktime(0, 0, 0, (int) $contribution->month, 1));
         $description = "Contribution deduction – {$monthName} {$contribution->year}";
+        if ($lateFeeExtra > 0.00001) {
+            $description .= ' (incl. late fee SAR ' . number_format($lateFeeExtra, 2) . ')';
+        }
 
-        $this->postEntry($cashAccount, (float) $contribution->amount, 'debit', $description, $contribution, $member->id);
+        $total = (float) $contribution->amount + $lateFeeExtra;
+        $this->postEntry($cashAccount, $total, 'debit', $description, $contribution, $member->id);
     }
 
     /**
@@ -506,8 +561,9 @@ class AccountingService
 
         $description = "Loan #{$loan->id} repayment (installment #{$installment->installment_number}) – {$member->user->name}";
         $amount = (float) $installment->amount;
+        $lateFee = (float) ($installment->late_fee_amount ?? 0);
 
-        DB::transaction(function () use ($installment, $loan, $member, $masterFund, $memberFund, $loanAccount, $description, $amount) {
+        DB::transaction(function () use ($installment, $loan, $member, $masterFund, $memberFund, $loanAccount, $description, $amount, $lateFee) {
             // Fund and member fund both increase on every repayment
             $this->postEntry($masterFund, $amount, 'credit', $description, $installment, $member->id);
             $this->postEntry($memberFund, $amount, 'credit', $description, $installment, $member->id);
@@ -518,6 +574,11 @@ class AccountingService
             $loan->increment('repaid_to_master', $amount);
             $loan->refresh();
             $loan->releaseGuarantorIfDue();
+
+            if ($installment->is_late && $lateFee > 0.00001) {
+                $lateDesc = "Loan repayment late fee – #{$loan->id} inst. {$installment->installment_number} – {$member->user->name}";
+                $this->postLateFeeCreditToMasterCash($lateFee, $lateDesc, $installment, $member->id);
+            }
         });
     }
 
@@ -526,11 +587,12 @@ class AccountingService
     // =========================================================================
 
     /**
-     * Debit a member's Cash Account for a loan repayment installment.
+     * Debit a member's Cash Account for a loan repayment installment (principal) plus optional late fee.
      * Called by LoanRepaymentService before marking the installment as paid.
      */
-    public function debitCashForRepayment(Member $member, LoanInstallment $installment): void
+    public function debitCashForRepayment(Member $member, LoanInstallment $installment, float $lateFee = 0.0): void
     {
+        $installment->loadMissing('loan');
         $cashAccount = Account::where('type', Account::TYPE_MEMBER_CASH)
             ->where('member_id', $member->id)
             ->firstOrFail();
@@ -541,8 +603,12 @@ class AccountingService
             $installment->installment_number,
             $installment->loan->installments_count
         );
+        if ($lateFee > 0.00001) {
+            $description .= ' (incl. late fee SAR ' . number_format($lateFee, 2) . ')';
+        }
 
-        $this->postEntry($cashAccount, (float) $installment->amount, 'debit', $description, $installment, $member->id);
+        $total = (float) $installment->amount + $lateFee;
+        $this->postEntry($cashAccount, $total, 'debit', $description, $installment, $member->id);
     }
 
     // =========================================================================
@@ -941,6 +1007,23 @@ class AccountingService
 
             return $this->postEntry($account, $amount, $entryType, $trimmed, $source, $memberId, $transactedAt);
         });
+    }
+
+    /**
+     * Late fees increase master cash only (not master fund), same idea as membership application fees.
+     */
+    private function postLateFeeCreditToMasterCash(
+        float $amount,
+        string $description,
+        Model $source,
+        ?int $memberId,
+    ): void {
+        if ($amount <= 0.00001) {
+            return;
+        }
+
+        $masterCash = Account::masterCash();
+        $this->postEntry($masterCash, $amount, 'credit', $description, $source, $memberId);
     }
 
     // =========================================================================

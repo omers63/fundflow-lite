@@ -6,6 +6,8 @@ use App\Filament\Admin\Resources\ContributionResource\Pages;
 use App\Filament\Admin\Widgets\ContributionStatsWidget;
 use App\Models\Contribution;
 use App\Models\Member;
+use App\Services\ContributionCycleService;
+use Carbon\Carbon;
 use App\Services\ContributionImportService;
 use Filament\Actions\Action;
 use Filament\Actions\BulkActionGroup;
@@ -115,6 +117,13 @@ class ContributionResource extends Resource
                 ->label('Late payment')
                 ->helperText('Override whether this contribution counts as late for compliance. The automatic flag from contribution runs can be corrected here.')
                 ->default(false),
+            Forms\Components\TextInput::make('late_fee_amount')
+                ->label('Late fee (SAR)')
+                ->numeric()
+                ->prefix('SAR')
+                ->nullable()
+                ->visible(fn(Get $get): bool => (bool) $get('is_late'))
+                ->helperText('Credited to master cash only (not master fund). Leave empty to use the configured default when saving.'),
             Forms\Components\TextInput::make('reference_number')
                 ->label('Reference #')
                 ->nullable(),
@@ -138,7 +147,7 @@ class ContributionResource extends Resource
                     ->modalDescription(
                         'First row must be headers. One of member_id or member_number is required per row. ' .
                         'Required: month, year, amount. Month may be 1–12 or a name (e.g. January). ' .
-                        'Optional: paid_at (defaults to now), reference_number, notes, is_late (0/1 or yes/no), ' .
+                        'Optional: paid_at (defaults to now), reference_number, notes, is_late (0/1 or yes/no), late_fee_amount (SAR; if omitted and is_late, uses system default), ' .
                         'payment_method (leave empty for admin entry: ' . implode(', ', array_keys(Contribution::paymentMethodOptions())) . ').'
                     )
                     ->modalWidth('2xl')
@@ -186,6 +195,20 @@ class ContributionResource extends Resource
                     ->createAnother(false)
                     ->mutateDataUsing(function (array $data): array {
                         $data['payment_method'] = Contribution::PAYMENT_METHOD_ADMIN;
+                        if (!empty($data['is_late'])) {
+                            $raw = $data['late_fee_amount'] ?? null;
+                            if ($raw === null || $raw === '') {
+                                $at = !empty($data['paid_at']) ? Carbon::parse($data['paid_at']) : now();
+                                $fee = app(ContributionCycleService::class)->lateFeeForContributionPeriod(
+                                    (int) $data['month'],
+                                    (int) $data['year'],
+                                    $at,
+                                );
+                                $data['late_fee_amount'] = $fee > 0 ? $fee : null;
+                            }
+                        } else {
+                            $data['late_fee_amount'] = null;
+                        }
 
                         return $data;
                     })
@@ -231,6 +254,11 @@ class ContributionResource extends Resource
                     ->trueColor('warning')
                     ->falseColor('success')
                     ->toggleable(),
+                Tables\Columns\TextColumn::make('late_fee_amount')
+                    ->label('Late fee')
+                    ->money('SAR')
+                    ->placeholder('—')
+                    ->toggleable(isToggledHiddenByDefault: true),
             ])
             ->defaultSort('paid_at', 'desc')
             ->filters([

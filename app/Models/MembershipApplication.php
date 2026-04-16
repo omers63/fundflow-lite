@@ -33,6 +33,9 @@ class MembershipApplication extends Model
         'next_of_kin_name',
         'next_of_kin_phone',
         'application_form_path',
+        'membership_fee_amount',
+        'membership_fee_transfer_reference',
+        'membership_fee_posted_at',
         'status',
         'reviewed_by',
         'reviewed_at',
@@ -44,6 +47,8 @@ class MembershipApplication extends Model
         return [
             'date_of_birth' => 'date',
             'reviewed_at' => 'datetime',
+            'membership_fee_amount' => 'decimal:2',
+            'membership_fee_posted_at' => 'datetime',
             'monthly_income' => 'decimal:2',
             'membership_date' => 'date',
         ];

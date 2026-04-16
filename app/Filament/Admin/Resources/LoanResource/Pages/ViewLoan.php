@@ -19,6 +19,7 @@ class ViewLoan extends ViewRecord
             LoanResource::approveLoanAction(),
             LoanResource::disburseLoanAction(),
             LoanResource::rejectLoanAction(),
+            LoanResource::earlySettleLoanAction(),
             EditAction::make(),
             DeleteAction::make()
                 ->modalDescription(

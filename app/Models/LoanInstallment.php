@@ -18,6 +18,7 @@ class LoanInstallment extends Model
         'paid_at',
         'status',
         'is_late',
+        'late_fee_amount',
         'paid_by_guarantor',
     ];
 
@@ -28,6 +29,7 @@ class LoanInstallment extends Model
             'due_date' => 'date',
             'paid_at' => 'datetime',
             'is_late' => 'boolean',
+            'late_fee_amount' => 'decimal:2',
             'paid_by_guarantor' => 'boolean',
         ];
     }

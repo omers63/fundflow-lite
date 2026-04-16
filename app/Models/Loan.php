@@ -2,6 +2,7 @@
 
 namespace App\Models;
 
+use App\Services\LoanEarlySettlementService;
 use Carbon\Carbon;
 use Illuminate\Database\Eloquent\Model;
 use Illuminate\Database\Eloquent\Relations\BelongsTo;
@@ -34,6 +35,7 @@ class Loan extends Model
         'due_date',
         'guarantor_member_id',
         'guarantor_released_at',
+        'guarantor_liability_transferred_at',
         'witness1_name',
         'witness1_phone',
         'witness2_name',
@@ -67,6 +69,7 @@ class Loan extends Model
             'disbursed_at' => 'datetime',
             'settled_at' => 'datetime',
             'guarantor_released_at' => 'datetime',
+            'guarantor_liability_transferred_at' => 'datetime',
             'due_date' => 'date',
         ];
     }
@@ -223,6 +226,14 @@ class Loan extends Model
     public function getRemainingAmountAttribute(): float
     {
         return (float) $this->installments()->whereIn('status', ['pending', 'overdue'])->sum('amount');
+    }
+
+    /**
+     * Cash required to pay off all remaining installments now (principal + late fees per cycle rules).
+     */
+    public function remainingSettlementCashRequired(): float
+    {
+        return app(LoanEarlySettlementService::class)->requiredCash($this);
     }
 
     public function hasOverdueInstallments(): bool

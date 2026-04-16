@@ -3517,3 +3517,247 @@ This applies on View loan and Edit loan (both register relation managers). On th
 If anything still looks stale in your environment, say which page you use (view vs edit) and we can add a targeted fallback (e.g. refresh-page on the resource page only).
 
 ------------------------------
+Here’s what was implemented and how it behaves.
+
+Design (decisions baked in)
+What counts as a “miss” (per closed cycle month)
+After the cycle deadline for month M has passed:
+
+Contribution: required if the member is not contribution‑exempt that month (no approved/active loan with approved_at on/before month end), monthly_contribution_amount > 0, and there is no contribution row for (month, year).
+Repayment: any active loan has an installment with due_date in that month that is still pending or overdue.
+A month counts as one miss if either applies (not double‑counted).
+Consecutive threshold
+Trailing consecutive closed months with a miss, counting backward from the latest closed period (not “max streak ever”).
+
+Total threshold
+Number of miss‑months in a rolling lookback (default 60 months), not lifetime—so totals can improve as old months drop out of the window.
+
+On breach
+
+members.status → suspended, delinquency_suspended_at set (member portal already blocks suspended; same as your “suspended” requirement).
+For active loans with a guarantor: guarantor_liability_transferred_at set.
+loans:check-defaults / LoanDefaultService: when that flag is set, overdue installments are collected from the guarantor immediately (grace path skipped). If there is no guarantor, borrower warnings still run under the normal grace rules.
+Recovery
+When both trailing consecutive and rolling total are below thresholds, delinquency‑suspended members are set back to active, delinquency_suspended_at cleared, and guarantor liability flags cleared.
+Manually suspended members (suspended + delinquency_suspended_at null) are not touched by this job.
+
+Legacy delinquent status
+Migration moves existing delinquent rows to suspended with delinquency_suspended_at = now so portal rules stay consistent.
+
+What changed in code
+Area	Change
+Migration
+members.delinquency_suspended_at, loans.guarantor_liability_transferred_at, default settings, legacy delinquent → suspended
+MemberDelinquencyEvaluator
+Computes trailing + rolling miss counts
+DelinquencyService
+Replaces old “3 overdue installments” rule; chunked processing
+LoanDefaultService
+Guarantor‑first path when liability is transferred
+Setting
+delinquencyConsecutiveMissThreshold(), delinquencyTotalMissThreshold(), delinquencyTotalMissLookbackMonths()
+System settings
+Contribution cycles tab: Save cycle settings now includes Delinquency policy fields
+Notifications
+MemberDelinquencySuspensionNotification, MemberDelinquencyRestoredNotification
+Configurable defaults
+Consecutive: 3
+Total (rolling): 15 in 60 months (lookback also configurable)
+Clarifications you may still want
+Rolling vs lifetime: Totals use a rolling window so old misses eventually fall off. If you want a lifetime count of 15 instead, that can be switched.
+“Consecutive”: Implemented as trailing streak; if you want “any streak of 3 in history,” say so and we can adjust.
+Backfill: Members with no historical contribution rows may look like many consecutive misses until data is backfilled or thresholds are raised temporarily.
+Files to review: app/Services/MemberDelinquencyEvaluator.php, app/Services/DelinquencyService.php, app/Services/LoanDefaultService.php, migration 2026_04_16_120000_add_delinquency_columns_and_settings.php, app/Filament/Admin/Pages/SystemSettingsPage.php, resources/views/filament/admin/pages/system-settings.blade.php.
+
+Note: A dev run of fund:check-delinquency may suspend members if your SQLite data has long gaps without contributions; tune thresholds or backfill contributions before relying on it in production.
+
+-------------------------------------------
+From the project root (/var/www/fundflow), run:
+
+php artisan fund:check-delinquency
+That command:
+
+Marks pending installments whose due_date is in the past as overdue
+Runs the delinquency policy (consecutive + rolling misses), may suspend/restore members, and updates guarantor liability flags
+It’s also scheduled daily at 08:00 (see routes/console.php). To run it on a schedule in production you need a cron entry that runs Laravel’s scheduler, e.g.:
+
+* * * * * cd /var/www/fundflow && php artisan schedule:run >> /dev/null 2>&1
+
+---------------------------------------------
+Here’s what “backfill” means here and how to do it safely.
+
+What you’re backfilling
+The delinquency job treats a miss as: for a closed month, a contribution was required but there is no contributions row for that (member_id, month, year) (and/or loan installments are still unpaid).
+
+Backfill = put the historical contribution history into the app so those months are not counted as empty.
+
+How to backfill contributions
+1. CSV import (bulk)
+Admin: Finance → Contributions (or your Contributions resource), use Import contributions and upload a CSV.
+
+Columns: member_id or member_number, plus month, year, amount.
+Optional: paid_at, reference_number, notes, is_late, payment_method.
+Format matches ContributionImportService (see docs/thinking.txt around the Contribution import section, or samples/contributions-import-sample.csv if present).
+2. One row per member per month
+You cannot have two active rows for the same member + month + year; duplicates are rejected.
+
+3. After data is in
+Run:
+
+php artisan fund:check-delinquency
+so suspension/restore lines up with the updated history.
+
+Accounting warning (important)
+Saving a contribution runs ContributionObserver → AccountingService::postContribution() — it posts to the ledger, not only a label. So:
+
+Treat backfill as real financial history, or
+Coordinate with whoever maintains the books so totals stay correct, or
+If you only need to avoid false delinquency without moving money again, you may need a separate business process (e.g. journal-only adjustments, or temporarily higher delinquency thresholds in System settings → Contribution cycles → Delinquency policy) until history is complete.
+Loan repayments
+“Misses” on loan installments are not fixed by contribution CSV. Those need the installment paid (normal repayment run, admin posting, or whatever your app uses for repayments). Once installments are paid, those months stop counting as repayment misses.
+
+If people were suspended too aggressively
+After backfilling and re-running fund:check-delinquency, members who are now under the thresholds should be auto-restored if they were suspended only for delinquency (delinquency_suspended_at set). If something is still wrong, manually set status in Members as your policy allows.
+
+Summary: Backfill = import or create historical contributions (one per member per month that should count as paid), understand that creates ledger postings, then run php artisan fund:check-delinquency. For loans, clear installments through repayment flows, not the contribution importer.
+
+----------------------------------------
+Here’s what was done.
+
+1. New command: fund:backfill-contribution-gaps
+It walks each non-terminated member from join month through the last closed cycle month and, for every month where a contribution was expected (same rules as delinquency: not loan-exempt, positive monthly amount, no row yet), inserts a row.
+
+Default: --execute inserts rows without ContributionObserver → no ledger postings (so you don’t double-count fund credits if balances already reflect reality).
+--with-ledger: creates rows with the observer → posts to master/member fund (only if those credits are not already on the books).
+Other options:
+
+--member=ID — one member only
+--from=2024-01 — don’t consider months before that Y-m
+2. Run on your project
+Dry run: 552 rows would be created.
+Executed: php artisan fund:backfill-contribution-gaps --execute → 552 contribution rows created (records only, no ledger).
+Then fund:check-delinquency → 0 new suspensions, 4 members restored (they were only suspended because of missing contribution rows).
+3. Code change
+MemberDelinquencyEvaluator: hasContributionGap(), clearCaches().
+Important: If those 552 months were never meant to be “paid” in the ledger, or you need different amounts/dates, you should fix or delete the wrong rows in admin and adjust balances. If you later decide that every backfilled row should also hit the ledger, you’d need a separate reconciliation (or re-import with --with-ledger only on a clean DB where that’s true).
+
+Repeat later:
+
+php artisan fund:backfill-contribution-gaps              # dry run
+php artisan fund:backfill-contribution-gaps --execute    # same as we ran
+------------------------------------------------
+Here’s what was implemented.
+
+Behaviour
+Settings (System settings → Public membership → Save)
+
+Fee (SAR) — 0 = no fee step and no ledger posting.
+Bank transfer instructions — free text shown on /apply (line breaks kept).
+Public apply (/apply)
+If fee > 0:
+
+Extra step “Membership fee” after personal info (wizard is 5 steps).
+Shows amount, instructions, transfer reference (required), and confirmation that they transferred the fee.
+On submit, the application stores:
+membership_fee_amount (snapshot),
+membership_fee_transfer_reference,
+membership_fee_posted_at when the ledger line is posted.
+Accounting
+AccountingService::postMembershipApplicationFeeToMasterCash():
+
+Credits only master_cash (master fund is unchanged).
+Source = MembershipApplication for audit trail.
+Idempotent if membership_fee_posted_at is already set.
+Admin
+Applications table: optional columns App fee, Fee transfer ref, Fee posted.
+
+System settings UI
+Public membership tab shows a short summary of the configured fee.
+
+Files touched
+Migration: membership_fee_amount, membership_fee_transfer_reference, membership_fee_posted_at + default settings.
+Setting::membershipApplicationFee(), membershipApplicationFeeBankInstructions().
+MembershipApplication fillable/casts.
+AccountingService — new method above.
+MembershipApplicationForm + blade — dynamic steps + payment step.
+SystemSettingsPage — public membership form extended.
+MembershipApplicationResource — table columns.
+system-settings.blade.php — fee summary.
+Operations notes
+Bank reconciliation: If the same wire is later posted via bank import, you could double-count master cash. Match on reference or exclude that import; the save helper text mentions this.
+Default fee in DB is 0 until you set it in System settings.
+Default bank text is a placeholder — replace with your real IBAN/accounts.
+To set a fee, open System settings → Public membership → Save public membership settings, set Fee (SAR) and Bank transfer instructions, then save.
+
+---------------------------------------------------
+Here’s what was implemented for contribution and repayment late fees.
+
+Data & settings
+Migration 2026_04_16_160000_add_late_fee_columns_and_settings.php: nullable late_fee_amount on contributions and loan_installments; settings late_fee.contribution_amount and late_fee.repayment_amount (default 0).
+Setting::lateFeeContributionAmount() / Setting::lateFeeRepaymentAmount().
+Accounting (AccountingService)
+postContribution: cash_account debits contribution + late fee in one member-cash debit; master fund + member fund still only get the contribution principal; if is_late and late_fee_amount > 0, credit master cash for the late fee (same idea as membership application fees).
+postLoanRepayment: after the usual fund/loan credits for the installment amount, if is_late and late_fee_amount > 0, credit master cash for the late fee.
+debitCashForRepayment($member, $installment, $lateFee = 0) and debitMemberCashForContribution($contribution, $lateFeeExtra = 0) extended for bundled debits.
+Flows
+ContributionCycleService::applyOne: sets late_fee_amount when the period is late and the setting > 0; balance checks use monthly amount + late fee; dependent allocation shortfall includes late fee when the cycle is late.
+LoanRepaymentService::applyOne: same pattern for repayments; insufficient cash and modal copy updated.
+LoanDefaultService: guarantor-paid installments set is_late / late_fee_amount from the due date’s cycle; master cash still gets the late fee via postLoanRepayment (no extra borrower cash debit for that portion).
+QuickPostWorkflowService: contribution + installment settlement include late fees; removed the duplicate postLoanRepayment after installment->update (observer already posts).
+LoanResource early settle: explicit is_late = false, late_fee_amount = null, debitCashForRepayment(..., 0).
+UI (no new markdown docs)
+System settings → Contribution cycles: late fee amounts + save; system-settings blade shows current values.
+Contributions: optional late_fee_amount when “Late payment” is checked; table column (hidden by default); CSV import supports late_fee_amount or defaults from settings when is_late.
+Migration has been run successfully. Failing tests in the repo are environment / pre-existing (e.g. in-memory SQLite without migrations, LoanComputationTest expectation), not introduced by these edits.
+
+If you want a follow-up, the next tightening step is admin “Mark paid” on installments (it still bypasses cash debits while posting funds); that path is unchanged and remains a separate product decision.
+
+----------------------------------------------------
+Here’s what was implemented.
+
+LoanEarlySettlementService
+requiredCash(Loan) – Sum of each unpaid installment’s principal + late fee (same rules as normal repayments: cycle deadline + Setting::lateFeeRepaymentAmount()).
+hasSufficientCash(Loan) – Compares member cash to that total (not fund balance).
+earlySettle(Loan) – For active loans only:
+Fails with a clear error if cash is insufficient or there are no unpaid installments.
+In due-date order: debitCashForRepayment (with late fee), mark installment paid (observer runs postLoanRepayment), update late stats when applicable.
+Sets loan to early_settled + settled_at, runs LoanQueueOrderingService::resequenceFundTier, sends LoanEarlySettledNotification.
+Loan model
+remainingSettlementCashRequired() – Delegates to the service (for UI / reporting).
+Admin (LoanResource)
+Early Settle now uses the service only (no manual debit loop).
+Confirmation text shows principal remaining, cash required (with late fees), and current cash balance.
+Errors surface as Filament notifications; success path unchanged except notification is sent from the service.
+Member portal
+MyLoansResource: row action Pay off early on active loans (with ownership check), same cash rules and confirmation copy.
+LoanRepaymentProgressWidget: shows payoff cash total, shortfall if cash is low, and a Pay off early button when cash is enough (settleEarly Livewire action + wire:confirm).
+Eligibility
+LoanEligibilityService already blocks only pending and active loans. After early settlement the loan is early_settled, so the member can apply again when they meet fund balance, tenure, etc.
+
+If you want the same action on Loan → Installments relation manager or on the loan view page, that can be added in a small follow-up.
+
+-------------------------------
+Here’s what was implemented.
+
+Tier rules
+Due = end of the contribution/repayment cycle for that month (ContributionCycleService::deadline()).
+Days late = whole calendar days after that due instant (LateFeeService::daysPastDue()).
+Tiers: 1+, 10+, 20+, 30+ days. The first tier from the top (30 → 20 → 10 → 1) with a non-zero SAR amount wins. If that tier is 0, the code falls through to the next lower tier (so you can leave 30d at 0 and still charge 20d for 35 days late).
+New LateFeeService
+daysPastDue(Carbon $dueEnd, Carbon $at)
+contributionLateFeeForDays(int $daysPast) / repaymentLateFeeForDays(int $daysPast) (tier selection + fallback)
+Settings (migration 2026_04_16_180000_late_fee_day_tiers.php)
+late_fee.contribution_day_{1,10,20,30} and late_fee.repayment_day_{1,10,20,30}
+Existing flat late_fee.contribution_amount / late_fee.repayment_amount are copied into all four tiers (same behaviour as before), then removed.
+Setting model
+Replaced flat helpers with lateFeeContributionTier($d) / lateFeeRepaymentTier($d) for $d ∈ {1,10,20,30}.
+Wired everywhere fees are computed
+ContributionCycleService (lateFeeForContributionPeriod now takes optional $at for imports/admin paid_at)
+LoanRepaymentService, LoanEarlySettlementService, QuickPostWorkflowService, LoanDefaultService
+ContributionImportService (uses paid_at for tiering), ContributionResource create default (uses paid_at)
+System settings UI: eight numeric fields + Contribution cycles summary blade updated
+Other
+ContributionCycleService::applyOne signature simplified (removed unused $isLate argument); call sites updated (ContributionCyclePage, etc.).
+ContributionCyclePage “Apply Now” disabled state now includes the tiered late fee for that period.
+Run php artisan migrate if you haven’t yet; cache may still hold old setting:* keys until TTL or php artisan cache:clear after deploy.
+

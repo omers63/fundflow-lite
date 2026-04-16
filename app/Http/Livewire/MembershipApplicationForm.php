@@ -5,8 +5,10 @@ namespace App\Http\Livewire;
 use App\Models\MembershipApplication;
 use App\Models\Setting;
 use App\Models\User;
+use App\Services\AccountingService;
 use Illuminate\Contracts\Cache\LockTimeoutException;
 use Illuminate\Support\Facades\Cache;
+use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Hash;
 use Illuminate\Validation\ValidationException;
 use Livewire\Component;
@@ -20,6 +22,12 @@ class MembershipApplicationForm extends Component
 
     public int $totalSteps = 4;
 
+    /** When true, step 2 is payment (inserted before identity). */
+    public bool $hasApplicationFee = false;
+
+    /** @var array<int, string> */
+    public array $stepLabels = [];
+
     // Step 1: Personal Information
     public string $name = '';
 
@@ -29,7 +37,12 @@ class MembershipApplicationForm extends Component
 
     public string $password_confirmation = '';
 
-    // Step 2: Identity & Address
+    // Payment (when fee > 0)
+    public string $membership_fee_transfer_reference = '';
+
+    public bool $membership_fee_acknowledged = false;
+
+    // Identity & Address
     public string $application_type = 'new';
 
     public string $gender = '';
@@ -60,7 +73,7 @@ class MembershipApplicationForm extends Component
 
     public string $membership_date = '';
 
-    // Step 3: Employment & Next of Kin
+    // Employment & Next of Kin
     public string $occupation = '';
 
     public string $employer = '';
@@ -71,7 +84,7 @@ class MembershipApplicationForm extends Component
 
     public string $next_of_kin_phone = '';
 
-    // Step 4: Document Upload
+    // Document Upload
     public $application_form = null;
 
     public bool $submitted = false;
@@ -82,20 +95,35 @@ class MembershipApplicationForm extends Component
     public function mount(): void
     {
         $this->applicationCapReached = $this->checkApplicationCapReached();
+        $this->hasApplicationFee = Setting::membershipApplicationFee() > 0;
+        $this->totalSteps = $this->hasApplicationFee ? 5 : 4;
+        $this->stepLabels = $this->hasApplicationFee
+            ? ['Personal Info', 'Membership fee', 'Identity', 'Employment', 'Document']
+            : ['Personal Info', 'Identity', 'Employment', 'Document'];
     }
 
     protected function checkApplicationCapReached(): bool
     {
-        if (! Setting::publicApplicationCapEnabled()) {
+        if (!Setting::publicApplicationCapEnabled()) {
             return false;
         }
 
         return MembershipApplication::query()->count() >= Setting::maxPublicApplications();
     }
 
+    /** Step index 1-based → logical step name. */
+    public function stepKindAt(int $step): string
+    {
+        $sequence = $this->hasApplicationFee
+            ? ['personal', 'payment', 'identity', 'employment', 'document']
+            : ['personal', 'identity', 'employment', 'document'];
+
+        return $sequence[$step - 1] ?? 'personal';
+    }
+
     protected function rules(): array
     {
-        return [
+        $rules = [
             'name' => 'required|string|max:150',
             'email' => 'required|email|unique:users,email',
             'password' => 'required|min:8|confirmed',
@@ -121,17 +149,33 @@ class MembershipApplicationForm extends Component
             'next_of_kin_phone' => 'required|string|max:30',
             'application_form' => 'nullable|file|mimes:pdf,jpg,jpeg,png|max:5120',
         ];
+
+        if ($this->hasApplicationFee) {
+            $rules['membership_fee_transfer_reference'] = 'required|string|min:3|max:120';
+            $rules['membership_fee_acknowledged'] = 'accepted';
+        }
+
+        return $rules;
     }
 
-    protected function stepRules(): array
+    /**
+     * @return array<string, mixed>
+     */
+    protected function rulesForStep(int $step): array
     {
-        return [
-            1 => [
+        $kind = $this->stepKindAt($step);
+
+        return match ($kind) {
+            'personal' => [
                 'name' => 'required|string|max:150',
                 'email' => 'required|email|unique:users,email',
                 'password' => 'required|min:8|confirmed',
             ],
-            2 => [
+            'payment' => [
+                'membership_fee_transfer_reference' => 'required|string|min:3|max:120',
+                'membership_fee_acknowledged' => 'accepted',
+            ],
+            'identity' => [
                 'application_type' => 'required|in:new,resume,renew',
                 'gender' => 'nullable|in:male,female,other',
                 'marital_status' => 'nullable|in:single,married,divorced,widowed,other',
@@ -148,14 +192,15 @@ class MembershipApplicationForm extends Component
                 'iban' => 'nullable|string|max:34',
                 'membership_date' => 'nullable|date',
             ],
-            3 => [
+            'employment' => [
                 'next_of_kin_name' => 'required|string|max:150',
                 'next_of_kin_phone' => 'required|string|max:30',
             ],
-            4 => [
+            'document' => [
                 'application_form' => 'nullable|file|mimes:pdf,jpg,jpeg,png|max:5120',
             ],
-        ];
+            default => [],
+        };
     }
 
     public function nextStep(): void
@@ -164,7 +209,7 @@ class MembershipApplicationForm extends Component
             return;
         }
 
-        $this->validate($this->stepRules()[$this->currentStep]);
+        $this->validate($this->rulesForStep($this->currentStep));
         $this->currentStep++;
     }
 
@@ -183,8 +228,10 @@ class MembershipApplicationForm extends Component
 
         $this->validate();
 
+        $feeAmount = $this->hasApplicationFee ? Setting::membershipApplicationFee() : 0.0;
+
         try {
-            Cache::lock('membership_public_apply_submit', 15)->block(8, function (): void {
+            Cache::lock('membership_public_apply_submit', 15)->block(8, function () use ($feeAmount): void {
                 if (Setting::publicApplicationCapEnabled()) {
                     $applicationCount = MembershipApplication::query()->count();
                     if ($applicationCount >= Setting::maxPublicApplications()) {
@@ -194,45 +241,53 @@ class MembershipApplicationForm extends Component
                     }
                 }
 
-                $filePath = null;
-                if ($this->application_form) {
-                    $filePath = $this->application_form->store('applications', 'public');
-                }
+                DB::transaction(function () use ($feeAmount) {
+                    $filePath = null;
+                    if ($this->application_form) {
+                        $filePath = $this->application_form->store('applications', 'public');
+                    }
 
-                $user = User::create([
-                    'name' => $this->name,
-                    'email' => $this->email,
-                    'phone' => $this->mobile_phone,
-                    'role' => 'member',
-                    'status' => 'pending',
-                    'password' => Hash::make($this->password),
-                ]);
+                    $user = User::create([
+                        'name' => $this->name,
+                        'email' => $this->email,
+                        'phone' => $this->mobile_phone,
+                        'role' => 'member',
+                        'status' => 'pending',
+                        'password' => Hash::make($this->password),
+                    ]);
 
-                MembershipApplication::create([
-                    'user_id' => $user->id,
-                    'application_type' => $this->application_type,
-                    'gender' => filled($this->gender) ? $this->gender : null,
-                    'marital_status' => filled($this->marital_status) ? $this->marital_status : null,
-                    'national_id' => $this->national_id,
-                    'date_of_birth' => $this->date_of_birth,
-                    'address' => $this->address,
-                    'city' => $this->city,
-                    'home_phone' => filled($this->home_phone) ? $this->home_phone : null,
-                    'work_phone' => filled($this->work_phone) ? $this->work_phone : null,
-                    'mobile_phone' => $this->mobile_phone,
-                    'occupation' => $this->occupation ?: null,
-                    'employer' => $this->employer ?: null,
-                    'work_place' => filled($this->work_place) ? $this->work_place : null,
-                    'residency_place' => filled($this->residency_place) ? $this->residency_place : null,
-                    'monthly_income' => filled($this->monthly_income) ? $this->monthly_income : null,
-                    'bank_account_number' => filled($this->bank_account_number) ? $this->bank_account_number : null,
-                    'iban' => filled($this->iban) ? strtoupper($this->iban) : null,
-                    'membership_date' => filled($this->membership_date) ? $this->membership_date : null,
-                    'next_of_kin_name' => $this->next_of_kin_name,
-                    'next_of_kin_phone' => $this->next_of_kin_phone,
-                    'application_form_path' => $filePath,
-                    'status' => 'pending',
-                ]);
+                    $application = MembershipApplication::create([
+                        'user_id' => $user->id,
+                        'application_type' => $this->application_type,
+                        'gender' => filled($this->gender) ? $this->gender : null,
+                        'marital_status' => filled($this->marital_status) ? $this->marital_status : null,
+                        'national_id' => $this->national_id,
+                        'date_of_birth' => $this->date_of_birth,
+                        'address' => $this->address,
+                        'city' => $this->city,
+                        'home_phone' => filled($this->home_phone) ? $this->home_phone : null,
+                        'work_phone' => filled($this->work_phone) ? $this->work_phone : null,
+                        'mobile_phone' => $this->mobile_phone,
+                        'occupation' => $this->occupation ?: null,
+                        'employer' => $this->employer ?: null,
+                        'work_place' => filled($this->work_place) ? $this->work_place : null,
+                        'residency_place' => filled($this->residency_place) ? $this->residency_place : null,
+                        'monthly_income' => filled($this->monthly_income) ? $this->monthly_income : null,
+                        'bank_account_number' => filled($this->bank_account_number) ? $this->bank_account_number : null,
+                        'iban' => filled($this->iban) ? strtoupper($this->iban) : null,
+                        'membership_date' => filled($this->membership_date) ? $this->membership_date : null,
+                        'next_of_kin_name' => $this->next_of_kin_name,
+                        'next_of_kin_phone' => $this->next_of_kin_phone,
+                        'application_form_path' => $filePath,
+                        'membership_fee_amount' => $feeAmount > 0 ? $feeAmount : null,
+                        'membership_fee_transfer_reference' => $feeAmount > 0 ? $this->membership_fee_transfer_reference : null,
+                        'status' => 'pending',
+                    ]);
+
+                    if ($feeAmount > 0) {
+                        app(AccountingService::class)->postMembershipApplicationFeeToMasterCash($application);
+                    }
+                });
             });
         } catch (LockTimeoutException) {
             throw ValidationException::withMessages([

@@ -90,6 +90,18 @@ class Setting extends Model
         return static::maxPublicApplications() > 0;
     }
 
+    /** SAR; 0 means no fee on public apply. */
+    public static function membershipApplicationFee(): float
+    {
+        return max(0.0, (float) static::get('membership.application_fee_amount', 0));
+    }
+
+    /** Shown on /apply when fee &gt; 0 (plain text, line breaks preserved). */
+    public static function membershipApplicationFeeBankInstructions(): string
+    {
+        return (string) static::get('membership.application_fee_bank_instructions', '');
+    }
+
     /**
      * Day of month when each contribution/repayment cycle starts (1–28).
      * The cycle for calendar month M runs from this day in M until the day before the same numbered day in M+1
@@ -100,5 +112,35 @@ class Setting extends Model
         $d = (int) static::get('contribution.cycle_start_day', 6);
 
         return max(1, min(28, $d));
+    }
+
+    /** Trailing consecutive closed-cycle misses required to trigger delinquency (with total rule). */
+    public static function delinquencyConsecutiveMissThreshold(): int
+    {
+        return max(1, (int) static::get('delinquency.consecutive_miss_threshold', 3));
+    }
+
+    /** Rolling-window total misses (see {@see delinquencyTotalMissLookbackMonths()}) to trigger delinquency. */
+    public static function delinquencyTotalMissThreshold(): int
+    {
+        return max(1, (int) static::get('delinquency.total_miss_threshold', 15));
+    }
+
+    /** Months included in the rolling total-miss count (spread-out misses). */
+    public static function delinquencyTotalMissLookbackMonths(): int
+    {
+        return max(1, min(240, (int) static::get('delinquency.total_miss_lookback_months', 60)));
+    }
+
+    /** @param  int  $minDays  One of 1, 10, 20, 30 */
+    public static function lateFeeContributionTier(int $minDays): float
+    {
+        return max(0.0, (float) static::get("late_fee.contribution_day_{$minDays}", 0));
+    }
+
+    /** @param  int  $minDays  One of 1, 10, 20, 30 */
+    public static function lateFeeRepaymentTier(int $minDays): float
+    {
+        return max(0.0, (float) static::get("late_fee.repayment_day_{$minDays}", 0));
     }
 }

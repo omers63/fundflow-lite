@@ -313,7 +313,15 @@ class QuickPostWorkflowService
             ->where('member_id', $member->id)
             ->first();
 
-        if (!$cash || (float) $cash->balance < $amount) {
+        $cycle = app(ContributionCycleService::class);
+        $lateFees = app(LateFeeService::class);
+        $deadline = $cycle->deadline((int) $now->month, (int) $now->year);
+        $days = $lateFees->daysPastDue($deadline, $now);
+        $lateFee = $lateFees->contributionLateFeeForDays($days);
+        $isLate = $days >= 1;
+        $required = $amount + $lateFee;
+
+        if (!$cash || (float) $cash->balance < $required) {
             return 0;
         }
 
@@ -325,6 +333,8 @@ class QuickPostWorkflowService
             'paid_at' => $now,
             'payment_method' => Contribution::PAYMENT_METHOD_CASH_ACCOUNT,
             'reference_number' => 'QP-' . now()->format('YmdHis'),
+            'is_late' => $isLate,
+            'late_fee_amount' => $lateFee > 0 ? $lateFee : null,
         ]);
 
         return 1;
@@ -350,21 +360,32 @@ class QuickPostWorkflowService
             ->orderBy('due_date')
             ->get();
 
+        $cycleSvc = app(ContributionCycleService::class);
+        $lateFees = app(LateFeeService::class);
         $settled = 0;
         foreach ($pending as $installment) {
-            if ((float) $cash->fresh()->balance < (float) $installment->amount) {
+            $due = $installment->due_date;
+            $m = (int) $due->month;
+            $y = (int) $due->year;
+            $deadline = $cycleSvc->deadline($m, $y);
+            $days = $lateFees->daysPastDue($deadline, now());
+            $lateFee = $lateFees->repaymentLateFeeForDays($days);
+            $isLate = $days >= 1;
+            $need = (float) $installment->amount + $lateFee;
+
+            if ((float) $cash->fresh()->balance < $need) {
                 break;
             }
 
-            $this->accounting->debitCashForRepayment($member, $installment);
+            $this->accounting->debitCashForRepayment($member, $installment, $lateFee);
 
             $installment->update([
                 'status' => 'paid',
                 'paid_at' => now(),
-                'is_late' => $installment->due_date->lt(now()->startOfMonth()),
+                'is_late' => $isLate,
+                'late_fee_amount' => $lateFee > 0 ? $lateFee : null,
             ]);
 
-            $this->accounting->postLoanRepayment($installment);
             $settled++;
         }
 
