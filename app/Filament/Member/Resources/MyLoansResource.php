@@ -13,6 +13,7 @@ use App\Notifications\LoanSubmittedNotification;
 use App\Services\LoanEarlySettlementService;
 use App\Services\LoanEligibilityService;
 use Filament\Actions\Action;
+use Filament\Actions\ViewAction;
 use Filament\Forms;
 use Filament\Notifications\Notification;
 use Filament\Resources\Resource;
@@ -354,6 +355,8 @@ class MyLoansResource extends Resource
 
             ])
             ->recordActions([
+                ViewAction::make()->label('View Details'),
+
                 Action::make('early_settle')
                     ->label('Pay off early')
                     ->icon('heroicon-o-check-badge')
@@ -427,6 +430,7 @@ class MyLoansResource extends Resource
     {
         return [
             'index' => Pages\ListMyLoans::route('/'),
+            'view'  => Pages\ViewMyLoan::route('/{record}'),
         ];
     }
 

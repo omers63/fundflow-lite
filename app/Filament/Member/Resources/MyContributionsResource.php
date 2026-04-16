@@ -4,6 +4,7 @@ namespace App\Filament\Member\Resources;
 
 use App\Filament\Member\Resources\MyContributionsResource\Pages;
 use App\Models\Contribution;
+use Filament\Actions\Action;
 use Filament\Forms;
 use Filament\Resources\Resource;
 use Filament\Tables;
@@ -53,6 +54,14 @@ class MyContributionsResource extends Resource
                     ->falseColor('success'),
             ])
             ->defaultSort('paid_at', 'desc')
+            ->recordActions([
+                Action::make('download_receipt')
+                    ->label('Receipt')
+                    ->icon('heroicon-o-arrow-down-tray')
+                    ->color('gray')
+                    ->url(fn(Contribution $record): string => route('member.contribution.receipt', $record))
+                    ->openUrlInNewTab(),
+            ])
             ->filters([
                 Tables\Filters\SelectFilter::make('month')
                     ->options(array_combine(range(1, 12), array_map(fn($m) => date('F', mktime(0, 0, 0, $m, 1)), range(1, 12)))),

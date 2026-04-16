@@ -9,6 +9,7 @@ use App\Filament\Admin\Widgets\FundHealthWidget;
 use App\Filament\Admin\Widgets\LoanPortfolioWidget;
 use App\Filament\Admin\Widgets\LoanRepaymentTrendWidget;
 use App\Filament\Admin\Widgets\MemberPipelineWidget;
+use App\Filament\Admin\Widgets\OverdueInstallmentsWidget;
 use App\Filament\Admin\Widgets\QuickPostWidget;
 use Filament\Pages\Dashboard as BaseDashboard;
 use Filament\Schemas\Components\Grid;
@@ -38,6 +39,7 @@ class Dashboard extends BaseDashboard
         return [
             AdminStatsOverview::class,
             FundHealthWidget::class,
+            OverdueInstallmentsWidget::class,
             MemberPipelineWidget::class,
             LoanPortfolioWidget::class,
             ContributionTrendWidget::class,

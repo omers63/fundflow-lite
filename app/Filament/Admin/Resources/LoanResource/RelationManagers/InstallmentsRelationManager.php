@@ -137,6 +137,48 @@ class InstallmentsRelationManager extends RelationManager
                             ->success()
                             ->send();
                     }),
+
+                Action::make('waive_late_fee')
+                    ->label('Waive Late Fee')
+                    ->icon('heroicon-o-x-circle')
+                    ->color('warning')
+                    ->visible(fn(LoanInstallment $record) => $record->is_late
+                        && (float) $record->late_fee_amount > 0
+                        && $record->status !== 'paid')
+                    ->requiresConfirmation()
+                    ->modalHeading('Waive Late Fee')
+                    ->modalDescription(fn(LoanInstallment $record) => 'This will waive the SAR '
+                        . number_format((float) $record->late_fee_amount, 2)
+                        . ' late fee on installment #' . $record->installment_number
+                        . '. The base amount is still owed. This cannot be undone.')
+                    ->action(function (LoanInstallment $record) {
+                        $record->update([
+                            'late_fee_amount' => 0,
+                            'is_late' => false,
+                        ]);
+
+                        // Refresh the member's aggregate late repayment stats
+                        $loan = $record->loan()->with('member')->first();
+                        if ($loan && $loan->member) {
+                            $member = $loan->member;
+                            $totalLate = $member->loans()
+                                ->whereIn('status', ['active', 'completed', 'early_settled'])
+                                ->sum('late_repayment_count');
+                            $totalAmount = $member->loans()
+                                ->whereIn('status', ['active', 'completed', 'early_settled'])
+                                ->sum('late_repayment_amount');
+                            $member->update([
+                                'late_repayment_count'  => max(0, (int) $totalLate),
+                                'late_repayment_amount' => max(0.0, (float) $totalAmount),
+                            ]);
+                        }
+
+                        Notification::make()
+                            ->title('Late fee waived')
+                            ->body('The late fee for installment #' . $record->installment_number . ' has been removed.')
+                            ->success()
+                            ->send();
+                    }),
             ]);
     }
 }

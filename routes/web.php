@@ -2,6 +2,7 @@
 
 use App\Http\Controllers\Admin\DatabaseBackupDownloadController;
 use App\Http\Controllers\Admin\StoredDatabaseBackupDownloadController;
+use App\Http\Controllers\ContributionReceiptController;
 use App\Http\Controllers\MembershipApplicationFormTemplateController;
 use App\Http\Controllers\StatementPdfController;
 use App\Http\Livewire\ApplicationStatusPage;
@@ -21,6 +22,9 @@ Route::get('/downloads/membership-application-form-template', MembershipApplicat
 Route::middleware(['auth'])->group(function () {
     Route::get('/member/statements/{statement}/pdf', [StatementPdfController::class, 'download'])
         ->name('member.statement.pdf');
+
+    Route::get('/member/contributions/{contribution}/receipt', [ContributionReceiptController::class, 'download'])
+        ->name('member.contribution.receipt');
 
     Route::get('/admin/system/backup-download', DatabaseBackupDownloadController::class)
         ->name('admin.system.backup-download');

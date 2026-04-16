@@ -3,6 +3,8 @@
 namespace App\Filament\Admin\Resources\MemberResource\Pages;
 
 use App\Filament\Admin\Resources\MemberResource;
+use App\Models\Account;
+use App\Models\Member;
 use App\Services\MemberImportService;
 use App\Filament\Admin\Widgets\MemberStatsWidget;
 use Filament\Actions\Action;
@@ -20,6 +22,46 @@ class ListMembers extends ListRecords
     protected function getHeaderActions(): array
     {
         return [
+            Action::make('export_csv')
+                ->label('Export CSV')
+                ->icon('heroicon-o-arrow-down-tray')
+                ->color('gray')
+                ->action(function () {
+                    $filename = 'members-' . now()->format('Y-m-d') . '.csv';
+
+                    return response()->streamDownload(function () {
+                        $handle = fopen('php://output', 'w');
+                        fputcsv($handle, [
+                            'member_number', 'name', 'email', 'phone', 'status',
+                            'joined_at', 'monthly_contribution_amount',
+                            'cash_balance', 'fund_balance',
+                            'late_contributions_count', 'late_repayment_count',
+                        ]);
+
+                        Member::with('user')
+                            ->withSum(['accounts as cash_balance' => fn($q) => $q->where('type', Account::TYPE_MEMBER_CASH)], 'balance')
+                            ->withSum(['accounts as fund_balance' => fn($q) => $q->where('type', Account::TYPE_MEMBER_FUND)], 'balance')
+                            ->orderBy('member_number')
+                            ->each(function (Member $m) use ($handle) {
+                                fputcsv($handle, [
+                                    $m->member_number,
+                                    $m->user?->name,
+                                    $m->user?->email,
+                                    $m->user?->phone,
+                                    $m->status,
+                                    $m->joined_at?->toDateString(),
+                                    $m->monthly_contribution_amount,
+                                    number_format((float) $m->cash_balance, 2, '.', ''),
+                                    number_format((float) $m->fund_balance, 2, '.', ''),
+                                    $m->late_contributions_count,
+                                    $m->late_repayment_count,
+                                ]);
+                            });
+
+                        fclose($handle);
+                    }, $filename, ['Content-Type' => 'text/csv']);
+                }),
+
             Action::make('importMembers')
                 ->label('Import Members')
                 ->icon('heroicon-o-arrow-up-tray')

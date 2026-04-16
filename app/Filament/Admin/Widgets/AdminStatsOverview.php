@@ -36,6 +36,7 @@ class AdminStatsOverview extends Widget
         $overdueCount = LoanInstallment::where('status', 'overdue')->count();
         $overdueAmount = (float) LoanInstallment::where('status', 'overdue')->sum('amount');
         $delinquent = Member::delinquent()->count();
+        $suspended = Member::whereNotNull('delinquency_suspended_at')->count();
 
         $newThisMonth = Member::whereMonth('joined_at', $now->month)
             ->whereYear('joined_at', $now->year)->count();
@@ -56,6 +57,7 @@ class AdminStatsOverview extends Widget
             'overdue_count' => $overdueCount,
             'overdue_amount' => $overdueAmount,
             'delinquent' => $delinquent,
+            'suspended' => $suspended,
             'contrib_this_month' => $contribThisMonth,
             'members_url' => MemberResource::getUrl('index'),
             'applications_url' => MembershipApplicationResource::getUrl('index'),

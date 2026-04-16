@@ -1,0 +1,135 @@
+<x-filament-panels::page>
+@php
+    $user   = auth()->user();
+    $member = $user?->member;
+@endphp
+
+<div class="space-y-6">
+
+    {{-- ── Identity card ───────────────────────────────────────────────────── --}}
+    <div class="rounded-2xl bg-gradient-to-br from-sky-600 to-sky-700 dark:from-sky-700 dark:to-sky-900 p-6 text-white shadow-lg">
+        <div class="flex flex-col sm:flex-row sm:items-center gap-5">
+            {{-- Avatar initials --}}
+            <div class="flex-shrink-0 h-20 w-20 rounded-full bg-white/20 ring-2 ring-white/30 flex items-center justify-center text-3xl font-bold select-none">
+                {{ strtoupper(mb_substr($user?->name ?? '?', 0, 1)) }}
+            </div>
+            <div class="flex-1 min-w-0">
+                <p class="text-2xl font-bold leading-tight">{{ $user?->name }}</p>
+                @if($member)
+                <p class="mt-1 text-sky-200 text-sm font-mono">{{ $member->member_number }}</p>
+                @endif
+                <div class="mt-2 flex flex-wrap gap-3 text-sm">
+                    <span class="flex items-center gap-1 text-sky-100">
+                        <x-heroicon-o-envelope class="w-4 h-4" /> {{ $user?->email }}
+                    </span>
+                    @if($user?->phone)
+                    <span class="flex items-center gap-1 text-sky-100">
+                        <x-heroicon-o-phone class="w-4 h-4" /> {{ $user?->phone }}
+                    </span>
+                    @endif
+                </div>
+            </div>
+            @if($member)
+            <div class="flex-shrink-0">
+                <span class="inline-flex items-center rounded-full px-3 py-1 text-xs font-semibold ring-1
+                    {{ $member->status === 'active' ? 'bg-emerald-500/20 text-emerald-100 ring-emerald-300/40'
+                        : 'bg-orange-500/20 text-orange-100 ring-orange-300/40' }}">
+                    {{ ucfirst($member->status) }}
+                </span>
+            </div>
+            @endif
+        </div>
+    </div>
+
+    {{-- ── Membership details ───────────────────────────────────────────────── --}}
+    @if($member)
+    <div class="grid grid-cols-1 gap-4 sm:grid-cols-2 lg:grid-cols-3">
+
+        <div class="rounded-xl bg-white dark:bg-gray-800 ring-1 ring-gray-200 dark:ring-gray-700 p-5 shadow-sm">
+            <p class="text-xs font-semibold uppercase tracking-wide text-gray-500 dark:text-gray-400 mb-1">Member Number</p>
+            <p class="text-xl font-bold text-gray-900 dark:text-white font-mono">{{ $member->member_number }}</p>
+        </div>
+
+        <div class="rounded-xl bg-white dark:bg-gray-800 ring-1 ring-gray-200 dark:ring-gray-700 p-5 shadow-sm">
+            <p class="text-xs font-semibold uppercase tracking-wide text-gray-500 dark:text-gray-400 mb-1">Member Since</p>
+            <p class="text-xl font-bold text-gray-900 dark:text-white">
+                {{ $member->joined_at ? $member->joined_at->format('d M Y') : '—' }}
+            </p>
+            @if($member->joined_at)
+            <p class="text-xs text-gray-400 mt-0.5">{{ $member->joined_at->diffForHumans() }}</p>
+            @endif
+        </div>
+
+        <div class="rounded-xl bg-white dark:bg-gray-800 ring-1 ring-gray-200 dark:ring-gray-700 p-5 shadow-sm">
+            <p class="text-xs font-semibold uppercase tracking-wide text-gray-500 dark:text-gray-400 mb-1">Monthly Contribution</p>
+            <p class="text-xl font-bold text-primary-600 dark:text-primary-400">SAR {{ number_format($member->monthly_contribution_amount) }}</p>
+            <p class="text-xs text-gray-400 mt-0.5">per cycle</p>
+        </div>
+
+        @php
+            $cashBalance = (float) ($member->cashAccount()?->balance ?? 0);
+            $fundBalance = (float) ($member->fundAccount()?->balance ?? 0);
+        @endphp
+        <div class="rounded-xl bg-white dark:bg-gray-800 ring-1 ring-gray-200 dark:ring-gray-700 p-5 shadow-sm">
+            <p class="text-xs font-semibold uppercase tracking-wide text-gray-500 dark:text-gray-400 mb-1">Cash Balance</p>
+            <p class="text-xl font-bold {{ $cashBalance >= 0 ? 'text-emerald-600 dark:text-emerald-400' : 'text-red-600 dark:text-red-400' }}">
+                SAR {{ number_format($cashBalance, 2) }}
+            </p>
+        </div>
+
+        <div class="rounded-xl bg-white dark:bg-gray-800 ring-1 ring-gray-200 dark:ring-gray-700 p-5 shadow-sm">
+            <p class="text-xs font-semibold uppercase tracking-wide text-gray-500 dark:text-gray-400 mb-1">Fund Balance</p>
+            <p class="text-xl font-bold text-indigo-600 dark:text-indigo-400">SAR {{ number_format($fundBalance, 2) }}</p>
+        </div>
+
+        <div class="rounded-xl bg-white dark:bg-gray-800 ring-1 ring-gray-200 dark:ring-gray-700 p-5 shadow-sm">
+            <p class="text-xs font-semibold uppercase tracking-wide text-gray-500 dark:text-gray-400 mb-1">Compliance</p>
+            @php
+                $lateCount = $member->late_contributions_count ?? 0;
+            @endphp
+            @if($lateCount === 0)
+            <p class="text-xl font-bold text-emerald-600 dark:text-emerald-400">Good standing</p>
+            <p class="text-xs text-gray-400 mt-0.5">No late contributions</p>
+            @else
+            <p class="text-xl font-bold text-amber-600 dark:text-amber-400">{{ $lateCount }} late</p>
+            <p class="text-xs text-gray-400 mt-0.5">contributions marked late</p>
+            @endif
+        </div>
+    </div>
+
+    {{-- ── Suspension notice ────────────────────────────────────────────────── --}}
+    @if($member->delinquency_suspended_at)
+    <div class="rounded-xl bg-orange-50 dark:bg-orange-900/20 ring-1 ring-orange-200 dark:ring-orange-800 p-5 flex gap-3">
+        <x-heroicon-o-exclamation-triangle class="w-5 h-5 text-orange-500 flex-shrink-0 mt-0.5" />
+        <div>
+            <p class="text-sm font-semibold text-orange-800 dark:text-orange-200">Account suspended due to delinquency</p>
+            <p class="text-xs text-orange-700 dark:text-orange-300 mt-0.5">
+                Suspended on {{ $member->delinquency_suspended_at->format('d M Y') }}.
+                Contact your fund administrator to restore access.
+            </p>
+        </div>
+    </div>
+    @endif
+    @endif
+
+    {{-- ── Account security ────────────────────────────────────────────────── --}}
+    <div class="rounded-xl bg-white dark:bg-gray-800 ring-1 ring-gray-200 dark:ring-gray-700 p-5 shadow-sm">
+        <h3 class="text-sm font-semibold text-gray-900 dark:text-white mb-3">Account Security</h3>
+        <dl class="grid gap-3 text-sm sm:grid-cols-2">
+            <div>
+                <dt class="text-gray-500 dark:text-gray-400">Email address</dt>
+                <dd class="font-medium text-gray-900 dark:text-white">{{ $user?->email }}</dd>
+            </div>
+            <div>
+                <dt class="text-gray-500 dark:text-gray-400">Phone number</dt>
+                <dd class="font-medium text-gray-900 dark:text-white">{{ $user?->phone ?? '— not set' }}</dd>
+            </div>
+            <div>
+                <dt class="text-gray-500 dark:text-gray-400">Password</dt>
+                <dd class="font-medium text-gray-500">●●●●●●●● <span class="text-xs">(use "Change Password" above to update)</span></dd>
+            </div>
+        </dl>
+    </div>
+
+</div>
+</x-filament-panels::page>

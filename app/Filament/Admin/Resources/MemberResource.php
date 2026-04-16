@@ -14,6 +14,8 @@ use App\Models\Account;
 use App\Models\Contribution;
 use App\Models\Member;
 use App\Models\MembershipApplication;
+use App\Notifications\AdminBroadcastNotification;
+use App\Services\AccountingService;
 use App\Services\ContributionCycleService;
 use App\Services\LoanEligibilityService;
 use App\Services\LoanRepaymentService;
@@ -618,6 +620,74 @@ class MemberResource extends Resource
 
                             static::dispatchMemberListHeaderWidgetsRefresh($livewire);
                         }),
+                    Action::make('adjust_cash')
+                        ->label('Adjust Cash')
+                        ->icon('heroicon-o-adjustments-horizontal')
+                        ->color('info')
+                        ->visible(fn(Member $record): bool => !$record->trashed())
+                        ->authorize(fn(Member $record): bool => auth()->user()?->can('update', $record) ?? false)
+                        ->modalHeading(fn(Member $record): string => "Manual Cash Adjustment — {$record->user->name}")
+                        ->modalDescription('Credits or debits the member\'s cash account and posts a matching entry to the master cash account. This creates an auditable ledger entry.')
+                        ->modalWidth('md')
+                        ->schema([
+                            Forms\Components\Select::make('entry_type')
+                                ->label('Type')
+                                ->options(['credit' => 'Credit (deposit / add funds)', 'debit' => 'Debit (withdraw / remove funds)'])
+                                ->required()
+                                ->native(false),
+                            Forms\Components\TextInput::make('amount')
+                                ->label('Amount (SAR)')
+                                ->numeric()
+                                ->minValue(0.01)
+                                ->required(),
+                            Forms\Components\Textarea::make('description')
+                                ->label('Reason / Description')
+                                ->required()
+                                ->rows(2)
+                                ->maxLength(255),
+                        ])
+                        ->action(function (array $data, Member $record, Component $livewire): void {
+                            $cashAccount = $record->accounts()
+                                ->where('type', Account::TYPE_MEMBER_CASH)
+                                ->first();
+
+                            if (!$cashAccount) {
+                                Notification::make()
+                                    ->title('Cash account not found')
+                                    ->body('This member does not have a cash account yet.')
+                                    ->danger()
+                                    ->send();
+                                return;
+                            }
+
+                            try {
+                                app(AccountingService::class)->postManualLedgerEntry(
+                                    $cashAccount,
+                                    $data['entry_type'],
+                                    (float) $data['amount'],
+                                    $data['description'],
+                                    $record->id,
+                                );
+                            } catch (\InvalidArgumentException | \RuntimeException $e) {
+                                Notification::make()
+                                    ->title('Adjustment failed')
+                                    ->body($e->getMessage())
+                                    ->danger()
+                                    ->send();
+                                return;
+                            }
+
+                            $typeLabel = $data['entry_type'] === 'credit' ? 'Credit' : 'Debit';
+                            Notification::make()
+                                ->title("Cash {$typeLabel} Applied")
+                                ->body('SAR ' . number_format((float) $data['amount'], 2) . ' ' . strtolower($typeLabel) . 'ed on ' . $record->user->name . '\'s cash account.')
+                                ->success()
+                                ->send();
+
+                            static::dispatchMemberListHeaderWidgetsRefresh($livewire);
+                            static::dispatchMemberRecordHeaderWidgetsRefresh($livewire);
+                        }),
+
                     Action::make('suspend')
                         ->label('Suspend')
                         ->icon('heroicon-o-pause-circle')
@@ -841,6 +911,47 @@ class MemberResource extends Resource
                             }
                         })
                         ->after(fn(Component $livewire) => static::dispatchMemberListHeaderWidgetsRefresh($livewire)),
+                    BulkAction::make('broadcast_notification')
+                        ->label('Send Notification')
+                        ->icon('heroicon-o-megaphone')
+                        ->color('info')
+                        ->modalHeading('Send Custom Notification')
+                        ->modalDescription('Sends an email and in-app notification to each selected member. Use this for announcements, reminders, or alerts.')
+                        ->modalWidth('lg')
+                        ->schema([
+                            Forms\Components\TextInput::make('subject')
+                                ->label('Subject / Title')
+                                ->required()
+                                ->maxLength(150),
+                            Forms\Components\Textarea::make('body')
+                                ->label('Message Body')
+                                ->required()
+                                ->rows(4)
+                                ->maxLength(1000),
+                        ])
+                        ->action(function (array $data, EloquentCollection $records): void {
+                            $sent = 0;
+                            $skipped = 0;
+
+                            foreach ($records as $member) {
+                                if (!$member instanceof Member || !$member->user) {
+                                    $skipped++;
+                                    continue;
+                                }
+                                $member->user->notify(new AdminBroadcastNotification(
+                                    $data['subject'],
+                                    $data['body'],
+                                ));
+                                $sent++;
+                            }
+
+                            Notification::make()
+                                ->title('Notifications Sent')
+                                ->body("Sent to {$sent} member(s). Skipped: {$skipped}.")
+                                ->success()
+                                ->send();
+                        })
+                        ->deselectRecordsAfterCompletion(),
                     RestoreBulkAction::make()
                         ->after(fn(Component $livewire) => static::dispatchMemberListHeaderWidgetsRefresh($livewire)),
                     ForceDeleteBulkAction::make()

@@ -24,6 +24,14 @@ class ContributionCyclePage extends Page implements HasTable
 
     protected static bool $shouldRegisterNavigation = false;
 
+    public string $contributionPeriodTab = 'pending';
+
+    public function setContributionTab(string $tab): void
+    {
+        $this->contributionPeriodTab = $tab;
+        $this->resetTable();
+    }
+
     protected static ?string $navigationLabel = 'Contribution Cycles';
 
     protected static string|\BackedEnum|null $navigationIcon = 'heroicon-o-arrow-path-rounded-square';
@@ -104,6 +112,15 @@ class ContributionCyclePage extends Page implements HasTable
     {
         [$month, $year] = $this->currentOpenPeriod();
 
+        if ($this->contributionPeriodTab === 'paid') {
+            return $this->paidTable($table, $month, $year);
+        }
+
+        return $this->pendingTable($table, $month, $year);
+    }
+
+    private function pendingTable(Table $table, int $month, int $year): Table
+    {
         $applied = Contribution::where('month', $month)->where('year', $year)->pluck('member_id');
 
         return $table
@@ -186,6 +203,43 @@ class ContributionCyclePage extends Page implements HasTable
                                 ->send();
                         }
                     }),
+            ]);
+    }
+
+    private function paidTable(Table $table, int $month, int $year): Table
+    {
+        return $table
+            ->query(
+                fn(): Builder => Member::query()
+                    ->join('contributions', function ($join) use ($month, $year) {
+                        $join->on('contributions.member_id', '=', 'members.id')
+                            ->where('contributions.month', $month)
+                            ->where('contributions.year', $year)
+                            ->whereNull('contributions.deleted_at');
+                    })
+                    ->select('members.*', 'contributions.amount as contribution_amount', 'contributions.is_late as contribution_is_late', 'contributions.created_at as contribution_date')
+                    ->with('user')
+            )
+            ->heading('Paid Members – ' . $this->periodLbl($month, $year))
+            ->description('Members who have already contributed for this period.')
+            ->emptyStateHeading('No contributions recorded')
+            ->emptyStateDescription('No members have contributed for ' . $this->periodLbl($month, $year) . ' yet.')
+            ->emptyStateIcon('heroicon-o-banknotes')
+            ->columns([
+                TextColumn::make('member_number')->label('Member #')->sortable(),
+                TextColumn::make('user.name')->label('Name')->searchable(),
+                TextColumn::make('contribution_amount')
+                    ->label('Amount (SAR)')
+                    ->money('SAR'),
+                TextColumn::make('contribution_is_late')
+                    ->label('On Time?')
+                    ->badge()
+                    ->getStateUsing(fn(Member $r) => $r->contribution_is_late ? 'Late' : 'On Time')
+                    ->color(fn(string $state) => $state === 'Late' ? 'warning' : 'success'),
+                TextColumn::make('contribution_date')
+                    ->label('Recorded At')
+                    ->dateTime('d M Y, H:i')
+                    ->sortable(),
             ]);
     }
 

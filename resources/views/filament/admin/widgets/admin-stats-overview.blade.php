@@ -11,14 +11,14 @@
         <span class="text-xs text-gray-400 dark:text-gray-500">{{ now()->format('F Y') }}</span>
     </div>
 
-    {{-- 6 KPI cards: 2 rows × 3 cols --}}
-    <div class="grid grid-cols-2 sm:grid-cols-3 divide-y divide-gray-100 dark:divide-gray-700">
+    {{-- KPI cards: 2 rows × 4 cols --}}
+    <div class="grid grid-cols-2 sm:grid-cols-4 divide-y divide-gray-100 dark:divide-gray-700">
 
         {{-- Row 1: Members / Apps / Fund --}}
 
         {{-- Active Members --}}
         <a href="{{ $d['members_url'] }}"
-           class="group flex flex-col gap-3 p-5 hover:bg-emerald-50/60 dark:hover:bg-emerald-900/10 transition-colors sm:border-r border-gray-100 dark:border-gray-700">
+           class="group flex flex-col gap-3 p-5 hover:bg-emerald-50/60 dark:hover:bg-emerald-900/10 transition-colors border-r border-gray-100 dark:border-gray-700">
             <div class="flex items-center justify-between">
                 <div class="flex h-10 w-10 items-center justify-center rounded-xl bg-emerald-100 dark:bg-emerald-900/40 ring-1 ring-emerald-200 dark:ring-emerald-800">
                     <x-heroicon-o-users class="w-5 h-5 text-emerald-600 dark:text-emerald-400" />
@@ -40,7 +40,7 @@
 
         {{-- Pending Applications --}}
         <a href="{{ $d['applications_url'] }}"
-           class="group flex flex-col gap-3 p-5 hover:bg-amber-50/60 dark:hover:bg-amber-900/10 transition-colors sm:border-r border-gray-100 dark:border-gray-700">
+           class="group flex flex-col gap-3 p-5 hover:bg-amber-50/60 dark:hover:bg-amber-900/10 transition-colors border-r border-gray-100 dark:border-gray-700">
             <div class="flex items-center justify-between">
                 <div class="flex h-10 w-10 items-center justify-center rounded-xl bg-amber-100 dark:bg-amber-900/40 ring-1 ring-amber-200 dark:ring-amber-800">
                     <x-heroicon-o-clipboard-document-list class="w-5 h-5 text-amber-600 dark:text-amber-400" />
@@ -63,14 +63,12 @@
         </a>
 
         {{-- Total Fund --}}
-        <div class="col-span-2 sm:col-span-1 flex flex-col gap-3 p-5">
+        <div class="flex flex-col gap-3 p-5 border-r border-gray-100 dark:border-gray-700">
             <div class="flex items-center justify-between">
                 <div class="flex h-10 w-10 items-center justify-center rounded-xl bg-indigo-100 dark:bg-indigo-900/40 ring-1 ring-indigo-200 dark:ring-indigo-800">
                     <x-heroicon-o-banknotes class="w-5 h-5 text-indigo-600 dark:text-indigo-400" />
                 </div>
-                @if($d['contrib_this_month'] > 0)
-                <span class="text-xs font-medium text-indigo-600 dark:text-indigo-400">+﷼ {{ number_format($d['contrib_this_month'], 0) }} this month</span>
-                @endif
+                <span class="text-xs font-medium text-indigo-500 dark:text-indigo-400">cumulative</span>
             </div>
             <div>
                 <p class="text-2xl font-bold text-gray-900 dark:text-white">﷼ {{ number_format($d['total_fund'], 0) }}</p>
@@ -81,11 +79,28 @@
             </div>
         </div>
 
-        {{-- Row 2: Loans / Overdue / Delinquent --}}
+        {{-- Contribution This Month (row 1, 4th col) --}}
+        <div class="flex flex-col gap-3 p-5">
+            <div class="flex items-center justify-between">
+                <div class="flex h-10 w-10 items-center justify-center rounded-xl bg-violet-100 dark:bg-violet-900/40 ring-1 ring-violet-200 dark:ring-violet-800">
+                    <x-heroicon-o-arrow-trending-up class="w-5 h-5 text-violet-600 dark:text-violet-400" />
+                </div>
+                <span class="text-xs font-medium text-violet-600 dark:text-violet-400">this month</span>
+            </div>
+            <div>
+                <p class="text-2xl font-bold text-gray-900 dark:text-white">﷼ {{ number_format($d['contrib_this_month'], 0) }}</p>
+                <p class="mt-0.5 text-xs font-medium text-gray-500 dark:text-gray-400">Contributions (Month)</p>
+            </div>
+            <div class="h-1 rounded-full bg-gray-100 dark:bg-gray-700">
+                <div class="h-1 rounded-full bg-violet-500" style="width: 100%"></div>
+            </div>
+        </div>
+
+        {{-- Row 2: Loans / Overdue / Delinquent / Suspended --}}
 
         {{-- Active Loans --}}
         <a href="{{ $d['loans_url'] }}"
-           class="group flex flex-col gap-3 p-5 hover:bg-sky-50/60 dark:hover:bg-sky-900/10 transition-colors sm:border-r border-gray-100 dark:border-gray-700">
+           class="group flex flex-col gap-3 p-5 hover:bg-sky-50/60 dark:hover:bg-sky-900/10 transition-colors border-r border-gray-100 dark:border-gray-700">
             <div class="flex items-center justify-between">
                 <div class="flex h-10 w-10 items-center justify-center rounded-xl bg-sky-100 dark:bg-sky-900/40 ring-1 ring-sky-200 dark:ring-sky-800">
                     <x-heroicon-o-credit-card class="w-5 h-5 text-sky-600 dark:text-sky-400" />
@@ -106,7 +121,7 @@
         </a>
 
         {{-- Overdue Installments --}}
-        <div class="flex flex-col gap-3 p-5 {{ $d['overdue_count'] > 0 ? 'bg-red-50/40 dark:bg-red-900/5' : '' }} sm:border-r border-gray-100 dark:border-gray-700">
+        <div class="flex flex-col gap-3 p-5 {{ $d['overdue_count'] > 0 ? 'bg-red-50/40 dark:bg-red-900/5' : '' }} border-r border-gray-100 dark:border-gray-700">
             <div class="flex items-center justify-between">
                 <div class="flex h-10 w-10 items-center justify-center rounded-xl {{ $d['overdue_count'] > 0 ? 'bg-red-100 dark:bg-red-900/40 ring-1 ring-red-200 dark:ring-red-800' : 'bg-gray-100 dark:bg-gray-700 ring-1 ring-gray-200 dark:ring-gray-600' }}">
                     <x-heroicon-o-exclamation-circle class="w-5 h-5 {{ $d['overdue_count'] > 0 ? 'text-red-600 dark:text-red-400' : 'text-gray-400' }}" />
@@ -127,7 +142,7 @@
         </div>
 
         {{-- Delinquent Members --}}
-        <div class="col-span-2 sm:col-span-1 flex flex-col gap-3 p-5 {{ $d['delinquent'] > 0 ? 'bg-rose-50/40 dark:bg-rose-900/5' : '' }}">
+        <div class="flex flex-col gap-3 p-5 {{ $d['delinquent'] > 0 ? 'bg-rose-50/40 dark:bg-rose-900/5' : '' }} border-r border-gray-100 dark:border-gray-700">
             <div class="flex items-center justify-between">
                 <div class="flex h-10 w-10 items-center justify-center rounded-xl {{ $d['delinquent'] > 0 ? 'bg-rose-100 dark:bg-rose-900/40 ring-1 ring-rose-200 dark:ring-rose-800' : 'bg-gray-100 dark:bg-gray-700 ring-1 ring-gray-200 dark:ring-gray-600' }}">
                     <x-heroicon-o-user-minus class="w-5 h-5 {{ $d['delinquent'] > 0 ? 'text-rose-600 dark:text-rose-400' : 'text-gray-400' }}" />
@@ -144,6 +159,27 @@
             </div>
             <div class="h-1 rounded-full bg-gray-100 dark:bg-gray-700">
                 <div class="h-1 rounded-full {{ $d['delinquent'] > 0 ? 'bg-rose-500' : 'bg-emerald-500' }}" style="width: 100%"></div>
+            </div>
+        </div>
+
+        {{-- Suspended Members --}}
+        <div class="flex flex-col gap-3 p-5 {{ $d['suspended'] > 0 ? 'bg-orange-50/40 dark:bg-orange-900/5' : '' }}">
+            <div class="flex items-center justify-between">
+                <div class="flex h-10 w-10 items-center justify-center rounded-xl {{ $d['suspended'] > 0 ? 'bg-orange-100 dark:bg-orange-900/40 ring-1 ring-orange-200 dark:ring-orange-800' : 'bg-gray-100 dark:bg-gray-700 ring-1 ring-gray-200 dark:ring-gray-600' }}">
+                    <x-heroicon-o-no-symbol class="w-5 h-5 {{ $d['suspended'] > 0 ? 'text-orange-600 dark:text-orange-400' : 'text-gray-400' }}" />
+                </div>
+                @if($d['suspended'] > 0)
+                <span class="text-xs font-medium text-orange-600 dark:text-orange-400">portal blocked</span>
+                @endif
+            </div>
+            <div>
+                <p class="text-2xl font-bold {{ $d['suspended'] > 0 ? 'text-orange-600 dark:text-orange-400' : 'text-gray-900 dark:text-white' }}">
+                    {{ number_format($d['suspended']) }}
+                </p>
+                <p class="mt-0.5 text-xs font-medium text-gray-500 dark:text-gray-400">Suspended Members</p>
+            </div>
+            <div class="h-1 rounded-full bg-gray-100 dark:bg-gray-700">
+                <div class="h-1 rounded-full {{ $d['suspended'] > 0 ? 'bg-orange-500' : 'bg-emerald-500' }}" style="width: 100%"></div>
             </div>
         </div>
     </div>

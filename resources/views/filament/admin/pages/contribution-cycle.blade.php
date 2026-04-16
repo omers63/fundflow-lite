@@ -121,12 +121,79 @@
 </div>
 @endif
 
-{{-- ── Pending members table ─────────────────────────────────────────────── --}}
+{{-- ── Period summary for paid tab ────────────────────────────────────────── --}}
+@php
+    [$currentMonth, $currentYear] = app(\App\Services\ContributionCycleService::class)->currentOpenPeriod();
+    $paidContributions = \App\Models\Contribution::where('month', $currentMonth)
+        ->where('year', $currentYear)
+        ->get();
+    $paidCount = $paidContributions->count();
+    $paidTotal = $paidContributions->sum('amount');
+    $lateCount = $paidContributions->where('is_late', true)->count();
+    $pendingCount = \App\Models\Member::where('status', 'active')->count() - $paidCount;
+@endphp
+
+{{-- ── Tab switcher ────────────────────────────────────────────────────────── --}}
+<div class="flex items-center gap-1 mb-4 bg-gray-100 dark:bg-gray-800 rounded-xl p-1 w-fit">
+    <button
+        wire:click="setContributionTab('pending')"
+        class="flex items-center gap-2 px-4 py-2 rounded-lg text-sm font-medium transition-all
+            {{ $this->contributionPeriodTab === 'pending'
+                ? 'bg-white dark:bg-gray-700 text-gray-900 dark:text-white shadow-sm'
+                : 'text-gray-500 dark:text-gray-400 hover:text-gray-700 dark:hover:text-gray-200' }}"
+    >
+        <x-heroicon-o-clock class="w-4 h-4" />
+        Pending
+        @if($pendingCount > 0)
+            <span class="inline-flex items-center justify-center w-5 h-5 rounded-full bg-amber-100 dark:bg-amber-900 text-amber-700 dark:text-amber-300 text-xs font-bold">
+                {{ $pendingCount }}
+            </span>
+        @endif
+    </button>
+    <button
+        wire:click="setContributionTab('paid')"
+        class="flex items-center gap-2 px-4 py-2 rounded-lg text-sm font-medium transition-all
+            {{ $this->contributionPeriodTab === 'paid'
+                ? 'bg-white dark:bg-gray-700 text-gray-900 dark:text-white shadow-sm'
+                : 'text-gray-500 dark:text-gray-400 hover:text-gray-700 dark:hover:text-gray-200' }}"
+    >
+        <x-heroicon-o-check-circle class="w-4 h-4" />
+        Paid
+        @if($paidCount > 0)
+            <span class="inline-flex items-center justify-center w-5 h-5 rounded-full bg-emerald-100 dark:bg-emerald-900 text-emerald-700 dark:text-emerald-300 text-xs font-bold">
+                {{ $paidCount }}
+            </span>
+        @endif
+    </button>
+</div>
+
+{{-- ── Paid tab summary strip ──────────────────────────────────────────────── --}}
+@if($this->contributionPeriodTab === 'paid' && $paidCount > 0)
+<div class="grid grid-cols-3 gap-3 mb-4">
+    <div class="rounded-xl bg-white dark:bg-gray-800 ring-1 ring-gray-200 dark:ring-gray-700 p-4 shadow-sm">
+        <p class="text-xs font-semibold uppercase tracking-wide text-gray-500 dark:text-gray-400">Total Collected</p>
+        <p class="mt-1 text-xl font-bold text-emerald-600 dark:text-emerald-400">SAR {{ number_format($paidTotal) }}</p>
+        <p class="text-xs text-gray-400 mt-0.5">{{ $paidCount }} payment(s)</p>
+    </div>
+    <div class="rounded-xl bg-white dark:bg-gray-800 ring-1 ring-gray-200 dark:ring-gray-700 p-4 shadow-sm">
+        <p class="text-xs font-semibold uppercase tracking-wide text-gray-500 dark:text-gray-400">On Time</p>
+        <p class="mt-1 text-xl font-bold text-gray-900 dark:text-white">{{ $paidCount - $lateCount }}</p>
+        <p class="text-xs text-gray-400 mt-0.5">of {{ $paidCount }} paid</p>
+    </div>
+    <div class="rounded-xl bg-white dark:bg-gray-800 ring-1 ring-gray-200 dark:ring-gray-700 p-4 shadow-sm">
+        <p class="text-xs font-semibold uppercase tracking-wide text-gray-500 dark:text-gray-400">Late Payments</p>
+        <p class="mt-1 text-xl font-bold {{ $lateCount > 0 ? 'text-amber-600 dark:text-amber-400' : 'text-gray-400' }}">{{ $lateCount }}</p>
+        <p class="text-xs text-gray-400 mt-0.5">flagged as late</p>
+    </div>
+</div>
+@endif
+
+{{-- ── Members table (pending / paid) ──────────────────────────────────────── --}}
 <x-filament::section>
     <x-slot name="heading">
         <div class="flex items-center gap-2">
             <x-heroicon-o-users class="w-5 h-5 text-gray-400" />
-            <span>Pending Members</span>
+            <span>{{ $this->contributionPeriodTab === 'paid' ? 'Paid Members' : 'Pending Members' }}</span>
         </div>
     </x-slot>
     {{ $this->table }}
