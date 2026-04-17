@@ -84,7 +84,7 @@
         {{-- Form Card --}}
         <div class="bg-white rounded-3xl shadow-xl overflow-hidden">
             <div class="bg-gradient-to-r from-blue-600 to-indigo-600 p-6">
-                <h2 class="text-white font-bold text-xl">Step {{ $currentStep }}: @php
+                @php
                     $kind = $this->stepKindAt($currentStep);
                     $stepTitle = match ($kind) {
                         'personal' => 'Personal Information',
@@ -94,7 +94,8 @@
                         'document' => 'Application Document',
                         default => 'Application',
                     };
-                @endphp{{ $stepTitle }}</h2>
+                @endphp
+                <h2 class="text-white font-bold text-xl">Step {{ $currentStep }}: {{ $stepTitle }}</h2>
             </div>
 
             <div class="p-8">

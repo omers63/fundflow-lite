@@ -56,11 +56,15 @@ class MyStatementsResource extends Resource
                     ->query(fn($query, $data) => ($data['period'] ?? null) ? $query->where('period', $data['period']) : $query),
                 Tables\Filters\SelectFilter::make('period_year')
                     ->label('Year')
-                    ->options(array_combine(
-                        range((int) now()->year, (int) now()->year - 15),
-                        range((int) now()->year, (int) now()->year - 15)
-                    ))
-                    ->query(fn($query, $state) => $state ? $query->where('period', 'like', $state . '-%') : $query),
+                    ->options(
+                        collect(range((int) now()->year, (int) now()->year - 15))
+                            ->mapWithKeys(fn($y) => [(string) $y => (string) $y])
+                            ->all()
+                    )
+                    ->query(fn($query, array $data) => filled($data['value'] ?? null)
+                        ? $query->where('period', 'like', $data['value'] . '-%')
+                        : $query
+                    ),
                 Tables\Filters\Filter::make('closing_balance')
                     ->schema([
                         Forms\Components\TextInput::make('min')->label('Min closing (SAR)')->numeric(),
