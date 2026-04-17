@@ -93,4 +93,40 @@ class AdminInboxPage extends Page
 
         Notification::make()->title('Reply sent')->success()->send();
     }
+
+    /**
+     * Soft-delete the full thread (root + replies) for this admin inbox.
+     */
+    public function deleteThread(int $threadId): void
+    {
+        $userId = auth()->id();
+
+        $root = DirectMessage::root()
+            ->where('id', $threadId)
+            ->where(function ($q) use ($userId) {
+                $q->where('from_user_id', $userId)
+                    ->orWhere('to_user_id', $userId);
+            })
+            ->first();
+
+        if (!$root) {
+            Notification::make()
+                ->title('Thread not found')
+                ->danger()
+                ->send();
+
+            return;
+        }
+
+        DirectMessage::thread($root->id)->delete();
+
+        if ($this->openThreadId === $root->id) {
+            $this->openThreadId = null;
+        }
+
+        Notification::make()
+            ->title('Thread deleted')
+            ->success()
+            ->send();
+    }
 }

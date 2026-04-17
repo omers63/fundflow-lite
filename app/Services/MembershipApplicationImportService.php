@@ -16,9 +16,9 @@ class MembershipApplicationImportService
     /**
      * Import pending membership applications from a UTF-8 CSV file with a header row.
      *
-     * Required: name, email, national_id, date_of_birth, city, address, mobile_phone, next_of_kin_name, next_of_kin_phone
+     * Required: name, email, national_id, date_of_birth, city, address, mobile_phone, bank_account_number, iban, next_of_kin_name, next_of_kin_phone
      * Optional: password (≥8 chars overrides default), application_type, gender, marital_status, membership_date,
-     * home_phone, work_phone, work_place, residency_place, occupation, employer, monthly_income, bank_account_number, iban
+     * home_phone, work_phone, work_place, residency_place, occupation, employer, monthly_income
      *
      * Existing email with a membership application: skipped. Existing member (user has member record): error row.
      *
@@ -128,6 +128,16 @@ class MembershipApplicationImportService
             throw new \InvalidArgumentException('mobile_phone is required.');
         }
 
+        $bankAccountNumber = $this->cell($row, 'bank_account_number');
+        if ($bankAccountNumber === '') {
+            throw new \InvalidArgumentException('bank_account_number is required.');
+        }
+
+        $iban = $this->cell($row, 'iban');
+        if ($iban === '') {
+            throw new \InvalidArgumentException('iban is required.');
+        }
+
         $nokName = $this->cell($row, 'next_of_kin_name');
         if ($nokName === '') {
             throw new \InvalidArgumentException('next_of_kin_name is required.');
@@ -168,7 +178,7 @@ class MembershipApplicationImportService
         $occupation = $optionalString($this->cell($row, 'occupation'));
         $employer = $optionalString($this->cell($row, 'employer'));
 
-        DB::transaction(function () use ($name, $email, $mobile, $plain, $applicationType, $gender, $maritalStatus, $nationalId, $dateOfBirth, $address, $city, $optionalString, $row, $membershipDate, $nokName, $nokPhone, $monthlyIncome, $occupation, $employer) {
+        DB::transaction(function () use ($name, $email, $mobile, $plain, $applicationType, $gender, $maritalStatus, $nationalId, $dateOfBirth, $address, $city, $optionalString, $row, $membershipDate, $nokName, $nokPhone, $monthlyIncome, $occupation, $employer, $bankAccountNumber, $iban) {
             $user = User::create([
                 'name' => $name,
                 'email' => $email,
@@ -195,8 +205,8 @@ class MembershipApplicationImportService
                 'work_place' => $optionalString($this->nullableCell($row, 'work_place')),
                 'residency_place' => $optionalString($this->nullableCell($row, 'residency_place')),
                 'monthly_income' => $monthlyIncome,
-                'bank_account_number' => $optionalString($this->nullableCell($row, 'bank_account_number')),
-                'iban' => $this->normalizeIban($this->nullableCell($row, 'iban')),
+                'bank_account_number' => $bankAccountNumber,
+                'iban' => $this->normalizeIban($iban),
                 'membership_date' => $membershipDate,
                 'next_of_kin_name' => $nokName,
                 'next_of_kin_phone' => $nokPhone,

@@ -15,27 +15,43 @@
 
     <div class="rounded-xl ring-1 {{ $myUnread > 0 ? 'ring-primary-300 dark:ring-primary-700 bg-primary-50 dark:bg-primary-900/20' : 'ring-gray-200 dark:ring-gray-700 bg-white dark:bg-gray-800' }} shadow-sm overflow-hidden">
 
-        <button wire:click="openThread({{ $thread->id }})" type="button"
-                class="w-full text-left px-5 py-4 flex items-center justify-between gap-4 hover:bg-gray-50/50 dark:hover:bg-gray-700/30 transition-colors">
-            <div class="flex items-center gap-3 min-w-0">
-                <div class="flex-shrink-0 h-9 w-9 rounded-full bg-primary-100 dark:bg-primary-800 flex items-center justify-center text-sm font-bold text-primary-700 dark:text-primary-300">
-                    {{ strtoupper(mb_substr($other?->name ?? '?', 0, 1)) }}
-                </div>
-                <div class="min-w-0">
-                    <div class="flex items-center gap-2 flex-wrap">
-                        <span class="font-semibold text-sm text-gray-900 dark:text-white">{{ $thread->subject ?? '(No subject)' }}</span>
-                        @if($myUnread > 0)
-                        <span class="inline-flex items-center rounded-full bg-primary-600 px-2 py-0.5 text-xs font-bold text-white">{{ $myUnread }} new</span>
-                        @endif
+        <div class="px-5 py-4 flex items-center justify-between gap-4 hover:bg-gray-50/50 dark:hover:bg-gray-700/30 transition-colors">
+            <button wire:click="openThread({{ $thread->id }})" type="button" class="min-w-0 flex-1 text-left">
+                <div class="flex items-center gap-3 min-w-0">
+                    <div class="flex-shrink-0 h-9 w-9 rounded-full bg-primary-100 dark:bg-primary-800 flex items-center justify-center text-sm font-bold text-primary-700 dark:text-primary-300">
+                        {{ strtoupper(mb_substr($other?->name ?? '?', 0, 1)) }}
                     </div>
-                    <p class="text-xs text-gray-500 dark:text-gray-400 mt-0.5">
-                        {{ $other?->name }} &middot; {{ $thread->created_at->diffForHumans() }}
-                        @if($allMessages->count() > 1) &middot; {{ $allMessages->count() }} messages @endif
-                    </p>
+                    <div class="min-w-0">
+                        <div class="flex items-center gap-2 flex-wrap">
+                            <span class="font-semibold text-sm text-gray-900 dark:text-white">{{ $thread->subject ?? '(No subject)' }}</span>
+                            @if($myUnread > 0)
+                            <span class="inline-flex items-center rounded-full bg-primary-600 px-2 py-0.5 text-xs font-bold text-white">{{ $myUnread }} new</span>
+                            @endif
+                        </div>
+                        <p class="text-xs text-gray-500 dark:text-gray-400 mt-0.5">
+                            {{ $other?->name }} &middot; {{ $thread->created_at->diffForHumans() }}
+                            @if($allMessages->count() > 1) &middot; {{ $allMessages->count() }} messages @endif
+                        </p>
+                    </div>
                 </div>
+            </button>
+
+            <div class="flex items-center gap-2 flex-shrink-0">
+                <button
+                    type="button"
+                    wire:click="deleteThread({{ $thread->id }})"
+                    wire:confirm="Delete this conversation? This will remove the whole thread from the inbox."
+                    class="inline-flex items-center gap-1 rounded-md border border-red-200 dark:border-red-800/40 bg-red-50 dark:bg-red-900/20 px-2.5 py-1.5 text-xs font-semibold text-red-700 dark:text-red-300 hover:bg-red-100 dark:hover:bg-red-900/30 transition-colors"
+                    title="Delete thread"
+                >
+                    <x-heroicon-o-trash class="w-3.5 h-3.5" />
+                    Delete
+                </button>
+                <button wire:click="openThread({{ $thread->id }})" type="button" class="inline-flex items-center justify-center rounded-md p-1.5 text-gray-400 hover:bg-gray-100 dark:hover:bg-gray-700/50">
+                    <x-dynamic-component :component="$isOpen ? 'heroicon-o-chevron-up' : 'heroicon-o-chevron-down'" class="w-4 h-4" />
+                </button>
             </div>
-            <x-dynamic-component :component="$isOpen ? 'heroicon-o-chevron-up' : 'heroicon-o-chevron-down'" class="w-4 h-4 text-gray-400 flex-shrink-0" />
-        </button>
+        </div>
 
         @if($isOpen)
         <div class="border-t border-gray-100 dark:border-gray-700 px-5 py-4 space-y-4">
