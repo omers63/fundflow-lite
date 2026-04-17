@@ -51,13 +51,13 @@
             <h1 class="text-3xl font-bold text-slate-800 mb-2">Apply for Membership</h1>
             <p class="text-slate-500">Complete the form below to join the FundFlow family fund.</p>
             <a
-                href="{{ route('downloads.terms-and-conditions') }}"
+                href="{{ route('downloads.membership-application-form-template') }}"
                 class="inline-flex mt-4 items-center gap-2 rounded-xl border border-blue-200 bg-blue-50 px-4 py-2 text-sm font-semibold text-blue-700 hover:bg-blue-100 transition-colors"
             >
                 <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24" aria-hidden="true">
                     <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 16v-8m0 8l-3-3m3 3l3-3M4 16.5A2.5 2.5 0 006.5 19h11a2.5 2.5 0 002.5-2.5"/>
                 </svg>
-                Download Fund Terms &amp; Conditions (PDF)
+                Download Membership Application Form (PDF)
             </a>
         </div>
 

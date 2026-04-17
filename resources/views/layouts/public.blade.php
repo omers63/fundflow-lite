@@ -79,6 +79,7 @@
                         <li><a href="{{ route('apply') }}" class="hover:text-sky-400 transition-colors">Apply for Membership</a></li>
                         <li><a href="{{ route('application.status') }}" class="hover:text-sky-400 transition-colors">Check Application Status</a></li>
                         <li><a href="{{ route('login') }}" class="hover:text-sky-400 transition-colors">Member Login</a></li>
+                        <li><a href="{{ route('downloads.terms-and-conditions') }}" class="hover:text-sky-400 transition-colors">Terms &amp; Conditions (PDF)</a></li>
                     </ul>
                 </div>
                 <div>
