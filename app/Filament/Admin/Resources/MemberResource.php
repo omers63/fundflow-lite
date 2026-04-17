@@ -10,6 +10,7 @@ use App\Filament\Admin\Resources\MemberResource\RelationManagers\AccountsRelatio
 use App\Filament\Admin\Resources\MemberResource\RelationManagers\ContributionsRelationManager;
 use App\Filament\Admin\Resources\MemberResource\RelationManagers\DependentsRelationManager;
 use App\Filament\Admin\Resources\MemberResource\RelationManagers\LoansRelationManager;
+use App\Filament\Admin\Resources\MemberResource\RelationManagers\MessagesRelationManager;
 use App\Models\Account;
 use App\Models\Contribution;
 use App\Models\DirectMessage;
@@ -721,7 +722,7 @@ class MemberResource extends Resource
                                 ->icon('heroicon-o-chat-bubble-left-right')
                                 ->iconColor('info')
                                 ->actions([
-                                    \Filament\Notifications\Actions\Action::make('view')
+                                    \Filament\Actions\Action::make('view')
                                         ->label('View Inbox')
                                         ->url(route('filament.member.pages.my-inbox-page')),
                                 ])
@@ -1012,6 +1013,7 @@ class MemberResource extends Resource
             LoansRelationManager::class,
             AccountsRelationManager::class,
             DependentsRelationManager::class,
+            MessagesRelationManager::class,
         ];
     }
 
@@ -1107,4 +1109,5 @@ class MemberResource extends Resource
 
         $livewire->js('setTimeout(() => { ' . implode(' ', $parts) . ' }, 0)');
     }
+
 }

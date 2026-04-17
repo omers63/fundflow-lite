@@ -123,7 +123,9 @@ class MonthlyStatementResource extends Resource
                         range((int) now()->year, (int) now()->year - 15),
                         range((int) now()->year, (int) now()->year - 15)
                     ))
-                    ->query(fn($query, $state) => $state ? $query->where('period', 'like', $state . '-%') : $query),
+                    ->query(fn($query, array $data) => filled($data['value'] ?? null)
+                        ? $query->where('period', 'like', $data['value'] . '-%')
+                        : $query),
                 Tables\Filters\Filter::make('not_notified')
                     ->label('Not yet notified')
                     ->query(fn($q) => $q->whereNull('notified_at')),

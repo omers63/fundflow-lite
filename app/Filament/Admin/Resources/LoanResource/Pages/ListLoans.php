@@ -35,62 +35,16 @@ class ListLoans extends ListRecords
     protected function getHeaderActions(): array
     {
         return [
-            Actions\Action::make('export_csv')
-                ->label('Export CSV')
-                ->icon('heroicon-o-arrow-down-tray')
-                ->color('gray')
-                ->action(function () {
-                    $filename = 'loans-' . now()->format('Y-m-d') . '.csv';
-
-                    return response()->streamDownload(function () {
-                        $handle = fopen('php://output', 'w');
-                        fputcsv($handle, [
-                            'loan_number', 'member_number', 'member_name',
-                            'tier', 'amount_requested', 'amount_approved',
-                            'member_portion', 'master_portion',
-                            'status', 'applied_at', 'approved_at', 'disbursed_at',
-                            'installments_total', 'installments_paid',
-                            'min_monthly_installment',
-                            'guarantor_member_number', 'guarantor_name',
-                        ]);
-
-                        Loan::with(['member.user', 'loanTier', 'guarantor.user'])
-                            ->withCount(['installments as installments_total'])
-                            ->withCount(['installments as installments_paid' => fn($q) => $q->where('status', 'paid')])
-                            ->orderByDesc('id')
-                            ->each(function (Loan $l) use ($handle) {
-                                fputcsv($handle, [
-                                    $l->loan_number,
-                                    $l->member?->member_number,
-                                    $l->member?->user?->name,
-                                    $l->loanTier?->label,
-                                    $l->amount_requested,
-                                    $l->amount_approved,
-                                    $l->member_portion,
-                                    $l->master_portion,
-                                    $l->status,
-                                    $l->applied_at?->toDateString(),
-                                    $l->approved_at?->toDateString(),
-                                    $l->disbursed_at?->toDateString(),
-                                    $l->installments_total,
-                                    $l->installments_paid,
-                                    $l->min_monthly_installment,
-                                    $l->guarantor?->member_number,
-                                    $l->guarantor?->user?->name,
-                                ]);
-                            });
-
-                        fclose($handle);
-                    }, $filename, ['Content-Type' => 'text/csv']);
-                }),
-
             Actions\Action::make('loanQueue')
-                ->label('Loan queue')
+                ->label('Loan Queue')
                 ->icon('heroicon-o-queue-list')
                 ->url(LoanQueuePage::getUrl())
                 ->color('primary'),
+            Actions\CreateAction::make()
+                ->label('New Loan')
+                ->icon('heroicon-o-plus-circle'),
             Actions\Action::make('importLoans')
-                ->label('Import CSV')
+                ->label('Import Loans')
                 ->icon('heroicon-o-arrow-up-tray')
                 ->color('success')
                 ->visible(fn (): bool => LoanResource::canCreate())
@@ -138,8 +92,54 @@ class ListLoans extends ListRecords
                         ->persistent()
                         ->send();
                 }),
-            Actions\CreateAction::make()
-                ->icon('heroicon-o-plus-circle'),
+            Actions\Action::make('export_csv')
+                ->label('Export Loans')
+                ->icon('heroicon-o-arrow-down-tray')
+                ->color('warning')
+                ->action(function () {
+                    $filename = 'loans-' . now()->format('Y-m-d') . '.csv';
+
+                    return response()->streamDownload(function () {
+                        $handle = fopen('php://output', 'w');
+                        fputcsv($handle, [
+                            'loan_number', 'member_number', 'member_name',
+                            'tier', 'amount_requested', 'amount_approved',
+                            'member_portion', 'master_portion',
+                            'status', 'applied_at', 'approved_at', 'disbursed_at',
+                            'installments_total', 'installments_paid',
+                            'min_monthly_installment',
+                            'guarantor_member_number', 'guarantor_name',
+                        ]);
+
+                        Loan::with(['member.user', 'loanTier', 'guarantor.user'])
+                            ->withCount(['installments as installments_total'])
+                            ->withCount(['installments as installments_paid' => fn($q) => $q->where('status', 'paid')])
+                            ->orderByDesc('id')
+                            ->each(function (Loan $l) use ($handle) {
+                                fputcsv($handle, [
+                                    $l->loan_number,
+                                    $l->member?->member_number,
+                                    $l->member?->user?->name,
+                                    $l->loanTier?->label,
+                                    $l->amount_requested,
+                                    $l->amount_approved,
+                                    $l->member_portion,
+                                    $l->master_portion,
+                                    $l->status,
+                                    $l->applied_at?->toDateString(),
+                                    $l->approved_at?->toDateString(),
+                                    $l->disbursed_at?->toDateString(),
+                                    $l->installments_total,
+                                    $l->installments_paid,
+                                    $l->min_monthly_installment,
+                                    $l->guarantor?->member_number,
+                                    $l->guarantor?->user?->name,
+                                ]);
+                            });
+
+                        fclose($handle);
+                    }, $filename, ['Content-Type' => 'text/csv']);
+                }),
         ];
     }
 }

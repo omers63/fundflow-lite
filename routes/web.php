@@ -8,6 +8,7 @@ use App\Http\Controllers\LoanSchedulePdfController;
 use App\Http\Controllers\MembershipCertificateController;
 use App\Http\Controllers\MembershipApplicationFormTemplateController;
 use App\Http\Controllers\StatementPdfController;
+use App\Http\Controllers\TermsConditionsDownloadController;
 use App\Http\Livewire\ApplicationStatusPage;
 use App\Http\Livewire\LoginPage;
 use App\Http\Livewire\MembershipApplicationForm;
@@ -21,6 +22,8 @@ Route::get('/application-status', ApplicationStatusPage::class)->name('applicati
 
 Route::get('/downloads/membership-application-form-template', MembershipApplicationFormTemplateController::class)
     ->name('downloads.membership-application-form-template');
+Route::get('/downloads/terms-and-conditions', TermsConditionsDownloadController::class)
+    ->name('downloads.terms-and-conditions');
 
 Route::middleware(['auth'])->group(function () {
     Route::get('/member/statements/{statement}/pdf', [StatementPdfController::class, 'download'])

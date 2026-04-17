@@ -79,6 +79,15 @@ class Member extends Model
         return $this->hasMany(Contribution::class);
     }
 
+    /**
+     * Admin/member direct messages associated with this member's login user.
+     */
+    public function directMessages(): HasMany
+    {
+        return $this->hasMany(DirectMessage::class, 'from_user_id', 'user_id')
+            ->orWhere('to_user_id', $this->user_id);
+    }
+
     /** Parent→dependent cash allocations received by this member (tagged by contribution cycle). */
     public function dependentCashAllocationsReceived(): HasMany
     {

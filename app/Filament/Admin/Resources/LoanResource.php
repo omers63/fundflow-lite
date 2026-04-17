@@ -25,6 +25,7 @@ use App\Services\LoanQueueOrderingService;
 use Carbon\Carbon;
 use Closure;
 use Filament\Actions\Action;
+use Filament\Actions\ActionGroup;
 use Filament\Actions\BulkActionGroup;
 use Filament\Actions\DeleteAction;
 use Filament\Actions\DeleteBulkAction;
@@ -708,24 +709,26 @@ class LoanResource extends Resource
     {
         return $table
             ->columns([
-                Tables\Columns\TextColumn::make('queue_position')->label('Q#')->sortable()->placeholder('—'),
+                Tables\Columns\TextColumn::make('queue_position')->label('Q#')->sortable()->placeholder('—')->toggleable(),
                 Tables\Columns\IconColumn::make('is_emergency')
                     ->label('Emg.')
                     ->boolean()
                     ->trueIcon('heroicon-o-bolt')
                     ->falseIcon(null)
                     ->trueColor('danger')
-                    ->tooltip(fn(Loan $r) => $r->is_emergency ? 'Emergency Loan' : null),
-                Tables\Columns\TextColumn::make('loanTier.label')->label('Tier')->placeholder('—'),
-                Tables\Columns\TextColumn::make('member.member_number')->label('Member #')->searchable()->sortable(),
-                Tables\Columns\TextColumn::make('member.user.name')->label('Member')->searchable(),
-                Tables\Columns\TextColumn::make('amount_requested')->label('Requested')->money('SAR'),
-                Tables\Columns\TextColumn::make('amount_approved')->label('Approved')->money('SAR')->placeholder('—'),
+                    ->tooltip(fn(Loan $r) => $r->is_emergency ? 'Emergency Loan' : null)
+                    ->toggleable(),
+                Tables\Columns\TextColumn::make('loanTier.label')->label('Tier')->placeholder('—')->toggleable(),
+                Tables\Columns\TextColumn::make('member.member_number')->label('Member #')->searchable()->sortable()->toggleable(),
+                Tables\Columns\TextColumn::make('member.user.name')->label('Member')->searchable()->toggleable(),
+                Tables\Columns\TextColumn::make('amount_requested')->label('Requested')->money('SAR')->toggleable(),
+                Tables\Columns\TextColumn::make('amount_approved')->label('Approved')->money('SAR')->placeholder('—')->toggleable(),
                 Tables\Columns\TextColumn::make('installments_count')
                     ->label('Months')
                     ->description(fn(Loan $r) => $r->loanTier
                         ? 'SAR ' . number_format($r->loanTier->min_monthly_installment) . '/mo'
-                        : null),
+                        : null)
+                    ->toggleable(),
                 Tables\Columns\TextColumn::make('status')->badge()
                     ->color(fn(string $state) => match ($state) {
                         'pending' => 'warning',
@@ -736,11 +739,14 @@ class LoanResource extends Resource
                         'rejected' => 'danger',
                         'cancelled' => 'gray',
                         default => 'gray',
-                    }),
+                    })
+                    ->toggleable(),
                 Tables\Columns\TextColumn::make('late_repayment_count')->label('Late #')
-                    ->badge()->color(fn($state) => $state > 0 ? 'warning' : 'success'),
-                Tables\Columns\TextColumn::make('applied_at')->dateTime('d M Y')->sortable(),
+                    ->badge()->color(fn($state) => $state > 0 ? 'warning' : 'success')
+                    ->toggleable(),
+                Tables\Columns\TextColumn::make('applied_at')->dateTime('d M Y')->sortable()->toggleable(),
             ])
+            ->columnManager()
             ->defaultSort('applied_at', 'desc')
             ->filters([
                 Tables\Filters\SelectFilter::make('status')->options([
@@ -796,56 +802,57 @@ class LoanResource extends Resource
                 TrashedFilter::make(),
             ])
             ->recordActions([
-                ViewAction::make(),
+                ActionGroup::make([
+                    ViewAction::make(),
 
-                static::approveLoanAction(),
-                static::disburseLoanAction(),
+                    static::approveLoanAction(),
+                    static::disburseLoanAction(),
+                    static::rejectLoanAction(),
 
-                static::rejectLoanAction(),
+                    // ── CANCEL ──
+                    Action::make('cancel')
+                        ->label('Cancel')
+                        ->icon('heroicon-o-trash')
+                        ->color('gray')
+                        ->visible(fn(Loan $r) => in_array($r->status, ['pending', 'approved']))
+                        ->schema([
+                            Forms\Components\Textarea::make('cancellation_reason')->label('Cancellation Reason')->nullable(),
+                        ])
+                        ->action(function (Loan $record, array $data, Component $livewire) {
+                            $fundTierId = $record->fund_tier_id;
+                            $record->update(['status' => 'cancelled', 'cancellation_reason' => $data['cancellation_reason'] ?? null]);
+                            try {
+                                $record->member->user->notify(new LoanCancelledNotification($record, $data['cancellation_reason'] ?? ''));
+                            } catch (\Throwable) {
+                            }
+                            if ($fundTierId !== null) {
+                                LoanQueueOrderingService::resequenceFundTier((int) $fundTierId);
+                            }
+                            Notification::make()->title('Loan Cancelled')->send();
+                            static::dispatchLoanListHeaderWidgetsRefresh($livewire);
+                        }),
 
-                // ── CANCEL ──
-                Action::make('cancel')
-                    ->label('Cancel')
-                    ->icon('heroicon-o-trash')
-                    ->color('gray')
-                    ->visible(fn(Loan $r) => in_array($r->status, ['pending', 'approved']))
-                    ->schema([
-                        Forms\Components\Textarea::make('cancellation_reason')->label('Cancellation Reason')->nullable(),
-                    ])
-                    ->action(function (Loan $record, array $data, Component $livewire) {
-                        $fundTierId = $record->fund_tier_id;
-                        $record->update(['status' => 'cancelled', 'cancellation_reason' => $data['cancellation_reason'] ?? null]);
-                        try {
-                            $record->member->user->notify(new LoanCancelledNotification($record, $data['cancellation_reason'] ?? ''));
-                        } catch (\Throwable) {
-                        }
-                        if ($fundTierId !== null) {
-                            LoanQueueOrderingService::resequenceFundTier((int) $fundTierId);
-                        }
-                        Notification::make()->title('Loan Cancelled')->send();
-                        static::dispatchLoanListHeaderWidgetsRefresh($livewire);
-                    }),
+                    static::earlySettleLoanAction(),
 
-                static::earlySettleLoanAction(),
+                    DeleteAction::make()
+                        ->modalDescription(
+                            'Reverses all ledger postings for this loan (disbursement, repayments, and any cash or guarantor lines tied to its installments), then soft-deletes installments, the loan account, and the loan. Restoring a loan from the trash does not rebuild ledger postings — use only when you understand the impact.'
+                        )
+                        ->using(function (Loan $record) {
+                            $fundTierId = $record->fund_tier_id;
+                            app(AccountingService::class)->safeDeleteLoan($record);
+                            if ($fundTierId !== null) {
+                                LoanQueueOrderingService::resequenceFundTier((int) $fundTierId);
+                            }
 
-                DeleteAction::make()
-                    ->modalDescription(
-                        'Reverses all ledger postings for this loan (disbursement, repayments, and any cash or guarantor lines tied to its installments), then soft-deletes installments, the loan account, and the loan. Restoring a loan from the trash does not rebuild ledger postings — use only when you understand the impact.'
-                    )
-                    ->using(function (Loan $record) {
-                        $fundTierId = $record->fund_tier_id;
-                        app(AccountingService::class)->safeDeleteLoan($record);
-                        if ($fundTierId !== null) {
-                            LoanQueueOrderingService::resequenceFundTier((int) $fundTierId);
-                        }
-
-                        return true;
-                    })
-                    ->after(fn(Component $livewire) => static::dispatchLoanListHeaderWidgetsRefresh($livewire)),
-                RestoreAction::make()
-                    ->after(fn(Component $livewire) => static::dispatchLoanListHeaderWidgetsRefresh($livewire)),
-                ForceDeleteAction::make()
-                    ->after(fn(Component $livewire) => static::dispatchLoanListHeaderWidgetsRefresh($livewire)),
+                            return true;
+                        })
+                        ->after(fn(Component $livewire) => static::dispatchLoanListHeaderWidgetsRefresh($livewire)),
+                    RestoreAction::make()
+                        ->after(fn(Component $livewire) => static::dispatchLoanListHeaderWidgetsRefresh($livewire)),
+                    ForceDeleteAction::make()
+                        ->after(fn(Component $livewire) => static::dispatchLoanListHeaderWidgetsRefresh($livewire)),
+                ]),
             ])
             ->toolbarActions([
                 BulkActionGroup::make([

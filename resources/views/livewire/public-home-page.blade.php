@@ -26,6 +26,9 @@
                 <a href="{{ route('login') }}" class="bg-white/10 hover:bg-white/20 border border-white/20 text-white font-semibold px-8 py-4 rounded-2xl transition-all text-lg">
                     Member Login
                 </a>
+                <a href="{{ route('downloads.terms-and-conditions') }}" class="bg-white/10 hover:bg-white/20 border border-white/20 text-white font-semibold px-8 py-4 rounded-2xl transition-all text-lg">
+                    Download Terms &amp; Conditions
+                </a>
             </div>
         </div>
     </section>
