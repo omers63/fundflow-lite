@@ -5,9 +5,8 @@ namespace App\Filament\Member\Resources;
 use App\Filament\Member\Resources\MyDependentsResource\Pages;
 use App\Models\DependentAllocationChange;
 use App\Models\Member;
-use App\Models\MemberRequest;
 use App\Services\AccountingService;
-use App\Services\MemberRequestService;
+use App\Services\AllocationService;
 use Filament\Actions\Action;
 use Filament\Forms;
 use Filament\Notifications\Notification;
@@ -17,7 +16,6 @@ use Filament\Tables;
 use Filament\Tables\Table;
 use Illuminate\Database\Eloquent\Relations\Relation;
 use Illuminate\Support\HtmlString;
-use Illuminate\Validation\ValidationException;
 
 class MyDependentsResource extends Resource
 {
@@ -50,7 +48,7 @@ class MyDependentsResource extends Resource
 
         return $table
             ->heading('Your dependents')
-            ->description('Members sponsored under your account. Review allocations and balances, request allocation changes, fund dependent cash, and open history per dependent.')
+            ->description('Members sponsored under your account. Review allocations and balances, update allocation amounts instantly, fund dependent cash, and open history per dependent.')
             ->query(function () use ($parentMember) {
                 $member = $parentMember();
 
@@ -116,13 +114,12 @@ class MyDependentsResource extends Resource
             ->headerActions([
                 // ── Bulk update all dependents at once ───────────────────────
                 Action::make('bulk_update_allocations')
-                    ->label('Request allocation changes (all)')
+                    ->label('Update allocations (all)')
                     ->icon('heroicon-o-adjustments-horizontal')
                     ->color('primary')
-                    ->modalHeading('Request dependent allocation changes')
+                    ->modalHeading('Update dependent allocations')
                     ->modalDescription(new HtmlString(
-                        '<p class="text-sm text-gray-600 dark:text-gray-400">For each dependent whose amount you change, a separate request is sent to administration. '.
-                        'Nothing changes until a request is approved.</p>'
+                        '<p class="text-sm text-gray-600 dark:text-gray-400">Changed amounts are applied immediately and administrators are notified automatically.</p>'
                     ))
                     ->modalWidth('xl')
                     ->schema(function () use ($parentMember): array {
@@ -173,58 +170,27 @@ class MyDependentsResource extends Resource
                             return;
                         }
 
-                        $service = app(MemberRequestService::class);
-                        $submitted = 0;
-                        $skipped = 0;
-                        $firstError = null;
+                        $results = app(AllocationService::class)->changeMultiple(
+                            parent: $parent,
+                            updates: $amounts,
+                            note: is_string($note) ? $note : null,
+                            changedBy: auth()->user(),
+                        );
 
-                        foreach ($parent->dependents()->orderBy('member_number')->get() as $dep) {
-                            if (! isset($amounts[$dep->id])) {
-                                continue;
-                            }
-                            $new = (int) $amounts[$dep->id];
-                            if ($new === (int) $dep->monthly_contribution_amount) {
-                                $skipped++;
-
-                                continue;
-                            }
-                            try {
-                                $service->submit($parent, MemberRequest::TYPE_DEPENDENT_ALLOCATION, [
-                                    'dependent_member_id' => $dep->id,
-                                    'requested_amount' => $new,
-                                    'note' => $note,
-                                ]);
-                                $submitted++;
-                            } catch (ValidationException $e) {
-                                $firstError = collect($e->errors())->flatten()->first() ?? $e->getMessage();
-                            }
-                        }
-
-                        if ($firstError !== null && $submitted === 0) {
-                            Notification::make()->title('Could not submit')->body($firstError)->danger()->send();
-
-                            return;
-                        }
-
-                        $body = "Submitted {$submitted} request(s)";
-                        if ($skipped > 0) {
-                            $body .= " · Unchanged rows skipped: {$skipped}";
-                        }
-                        if ($firstError !== null) {
-                            $body .= ' · Some rows failed: '.$firstError;
-                        }
+                        $body = app(AllocationService::class)->buildSummary($results);
+                        $updated = collect($results)->filter(fn (array $row): bool => $row['change'] !== null)->count();
 
                         Notification::make()
-                            ->title($submitted > 0 ? 'Requests submitted' : 'No new requests')
+                            ->title($updated > 0 ? 'Allocations updated' : 'No changes applied')
                             ->body($body)
-                            ->color($submitted > 0 ? 'success' : 'info')
+                            ->color($updated > 0 ? 'success' : 'info')
                             ->send();
                     }),
             ])
             ->recordActions([
                 // ── Set single allocation ─────────────────────────────────────
                 Action::make('set_allocation')
-                    ->label('Request allocation change')
+                    ->label('Update allocation')
                     ->icon('heroicon-o-adjustments-horizontal')
                     ->color('warning')
                     ->fillForm(fn (Member $record) => [
@@ -252,22 +218,33 @@ class MyDependentsResource extends Resource
                             return;
                         }
 
-                        try {
-                            app(MemberRequestService::class)->submit($parent, MemberRequest::TYPE_DEPENDENT_ALLOCATION, [
-                                'dependent_member_id' => $record->id,
-                                'requested_amount' => (int) $data['monthly_contribution_amount'],
-                                'note' => $data['note'] ?? null,
-                            ]);
-                        } catch (ValidationException $e) {
-                            $msg = collect($e->errors())->flatten()->first() ?? $e->getMessage();
-                            Notification::make()->title('Could not submit request')->body($msg)->danger()->send();
+                        $newAmount = (int) $data['monthly_contribution_amount'];
+                        if (! Member::isValidContributionAmount($newAmount)) {
+                            Notification::make()->title('Invalid amount selected.')->danger()->send();
+                            return;
+                        }
 
+                        try {
+                            $change = app(AllocationService::class)->changeAllocation(
+                                parent: $parent,
+                                dependent: $record,
+                                newAmount: $newAmount,
+                                note: is_string($data['note'] ?? null) ? $data['note'] : null,
+                                changedBy: auth()->user(),
+                            );
+                        } catch (\Throwable $e) {
+                            Notification::make()->title('Could not update allocation')->body($e->getMessage())->danger()->send();
+                            return;
+                        }
+
+                        if ($change === null) {
+                            Notification::make()->title('No changes detected.')->info()->send();
                             return;
                         }
 
                         Notification::make()
-                            ->title('Request submitted')
-                            ->body('Administration will review the allocation change for '.$record->user?->name.'.')
+                            ->title('Allocation updated')
+                            ->body($record->user?->name.' allocation was updated successfully.')
                             ->success()
                             ->send();
                     }),

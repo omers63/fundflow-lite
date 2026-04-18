@@ -29,7 +29,7 @@
     <x-filament::section class="mb-6" icon="heroicon-o-information-circle" icon-color="warning">
         <x-slot name="heading">Sponsored member</x-slot>
         <x-slot name="description">
-            Your contribution allocation is managed under your parent sponsor. Use <strong>My Dependents</strong> to ask for independence; after approval you can request your own allocation changes here.
+            You are currently sponsored by a parent member. You can still update your own contribution allocation here. If you need to add/remove dependents or request independence, use <strong>My Dependents</strong> requests.
         </x-slot>
     </x-filament::section>
 @endif
@@ -93,11 +93,7 @@
     <x-slot name="heading">Available Amounts</x-slot>
     <x-slot name="description">
         Multiples of SAR 500, from SAR {{ number_format($minOpt) }} to SAR {{ number_format($maxOpt) }}.
-        @if($isDependent)
-            Allocation changes are requested from <strong>My Dependents</strong> after you become independent.
-        @else
-            Use <strong>Request allocation change</strong> above to submit a request; it applies after administration approval.
-        @endif
+        Use <strong>Save allocation</strong> above to apply your new amount immediately; administrators are notified automatically.
     </x-slot>
 
     <div class="grid grid-cols-3 gap-3 sm:grid-cols-6">

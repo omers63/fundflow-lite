@@ -690,6 +690,75 @@ class MemberResource extends Resource
                             static::dispatchMemberListHeaderWidgetsRefresh($livewire);
                             static::dispatchMemberRecordHeaderWidgetsRefresh($livewire);
                         }),
+                    Action::make('adjust_fund')
+                        ->label('Adjust Fund')
+                        ->icon('heroicon-o-scale')
+                        ->color('info')
+                        ->visible(fn (Member $record): bool => ! $record->trashed())
+                        ->authorize(fn (Member $record): bool => auth()->user()?->can('update', $record) ?? false)
+                        ->modalHeading(fn (Member $record): string => "Manual Fund Adjustment — {$record->user->name}")
+                        ->modalDescription('Credits or debits the member\'s fund account and writes an auditable ledger entry.')
+                        ->modalWidth('md')
+                        ->schema([
+                            Forms\Components\Select::make('entry_type')
+                                ->label('Type')
+                                ->options(['credit' => 'Credit (increase fund balance)', 'debit' => 'Debit (decrease fund balance)'])
+                                ->required()
+                                ->native(false),
+                            Forms\Components\TextInput::make('amount')
+                                ->label('Amount (SAR)')
+                                ->numeric()
+                                ->minValue(0.01)
+                                ->required(),
+                            Forms\Components\Textarea::make('description')
+                                ->label('Reason / Description')
+                                ->required()
+                                ->rows(2)
+                                ->maxLength(255),
+                        ])
+                        ->action(function (array $data, Member $record, Component $livewire): void {
+                            $fundAccount = $record->accounts()
+                                ->where('type', Account::TYPE_MEMBER_FUND)
+                                ->first();
+
+                            if (! $fundAccount) {
+                                Notification::make()
+                                    ->title('Fund account not found')
+                                    ->body('This member does not have a fund account yet.')
+                                    ->danger()
+                                    ->send();
+
+                                return;
+                            }
+
+                            try {
+                                app(AccountingService::class)->postManualLedgerEntry(
+                                    $fundAccount,
+                                    $data['entry_type'],
+                                    (float) $data['amount'],
+                                    $data['description'],
+                                    $record->id,
+                                );
+                            } catch (\InvalidArgumentException|\RuntimeException $e) {
+                                Notification::make()
+                                    ->title('Adjustment failed')
+                                    ->body($e->getMessage())
+                                    ->danger()
+                                    ->send();
+
+                                return;
+                            }
+
+                            $typeLabel = $data['entry_type'] === 'credit' ? 'Credit' : 'Debit';
+                            Notification::make()
+                                ->title("Fund {$typeLabel} Applied")
+                                ->body('SAR '.number_format((float) $data['amount'], 2).' '.strtolower($typeLabel).'ed on '.$record->user->name.'\'s fund account.')
+                                ->success()
+                                ->send();
+
+                            static::dispatchMemberListHeaderWidgetsRefresh($livewire);
+                            static::dispatchMemberRecordHeaderWidgetsRefresh($livewire);
+                        }),
 
                     Action::make('send_message')
                         ->label('Send Message')

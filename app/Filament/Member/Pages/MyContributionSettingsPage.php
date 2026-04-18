@@ -4,13 +4,11 @@ namespace App\Filament\Member\Pages;
 
 use App\Filament\Member\Resources\MyDependentsResource;
 use App\Models\Member;
-use App\Models\MemberRequest;
-use App\Services\MemberRequestService;
+use App\Models\User;
 use Filament\Actions\Action;
 use Filament\Forms;
 use Filament\Notifications\Notification;
 use Filament\Pages\Page;
-use Illuminate\Validation\ValidationException;
 
 class MyContributionSettingsPage extends Page
 {
@@ -43,29 +41,18 @@ class MyContributionSettingsPage extends Page
     public function getHeaderActions(): array
     {
         $member = $this->currentMember();
-
-        if ($member?->parent_id !== null) {
-            return [
-                Action::make('family_requests')
-                    ->label('My Dependents')
-                    ->icon('heroicon-o-users')
-                    ->url(MyDependentsResource::getUrl())
-                    ->color('primary'),
-            ];
-        }
-
-        return [
+        $actions = [
             Action::make('save_allocation')
-                ->label('Request allocation change')
-                ->icon('heroicon-o-paper-airplane')
+                ->label('Save allocation')
+                ->icon('heroicon-o-check-circle')
                 ->color('primary')
                 ->fillForm(['monthly_contribution_amount' => $this->monthly_contribution_amount])
                 ->schema([
                     Forms\Components\Select::make('monthly_contribution_amount')
-                        ->label('Requested monthly contribution amount')
+                        ->label('Monthly contribution amount')
                         ->options(Member::contributionAmountOptions())
                         ->required()
-                        ->helperText('Multiples of SAR 500, from SAR 500 to SAR 3,000. Submits a request for administration approval.'),
+                        ->helperText('Multiples of SAR 500, from SAR 500 to SAR 3,000. Applies immediately and notifies administration.'),
                 ])
                 ->action(function (array $data): void {
                     $member = $this->currentMember();
@@ -76,26 +63,53 @@ class MyContributionSettingsPage extends Page
                         return;
                     }
 
-                    try {
-                        app(MemberRequestService::class)->submit($member, MemberRequest::TYPE_OWN_ALLOCATION, [
-                            'requested_amount' => (int) $data['monthly_contribution_amount'],
-                        ]);
-                    } catch (ValidationException $e) {
-                        $msg = collect($e->errors())->flatten()->first() ?? $e->getMessage();
-                        Notification::make()->title('Could not submit request')->body($msg)->danger()->send();
+                    $newAmount = (int) $data['monthly_contribution_amount'];
+                    $oldAmount = (int) $member->monthly_contribution_amount;
 
+                    if (! Member::isValidContributionAmount($newAmount)) {
+                        Notification::make()->title('Invalid amount selected.')->danger()->send();
                         return;
                     }
 
+                    if ($newAmount === $oldAmount) {
+                        Notification::make()->title('No changes detected.')->info()->send();
+                        return;
+                    }
+
+                    $member->update(['monthly_contribution_amount' => $newAmount]);
+
+                    User::where('role', 'admin')->each(function (User $admin) use ($member, $oldAmount, $newAmount): void {
+                        Notification::make()
+                            ->title('Member allocation updated')
+                            ->body(
+                                ($member->user?->name ?? 'Member')
+                                .' changed own allocation from SAR '.number_format($oldAmount)
+                                .' to SAR '.number_format($newAmount).'.'
+                            )
+                            ->icon('heroicon-o-adjustments-horizontal')
+                            ->iconColor('info')
+                            ->sendToDatabase($admin);
+                    });
+
                     Notification::make()
-                        ->title('Request submitted')
-                        ->body('You will be notified when administration reviews your allocation change.')
+                        ->title('Allocation updated')
+                        ->body('Your monthly contribution amount was updated successfully.')
                         ->success()
                         ->send();
 
                     $this->mount();
                 }),
         ];
+
+        if ($member && $member->dependents()->exists()) {
+            $actions[] = Action::make('family_requests')
+                ->label('My Dependents')
+                ->icon('heroicon-o-users')
+                ->url(MyDependentsResource::getUrl())
+                ->color('gray');
+        }
+
+        return $actions;
     }
 
     public function getTitle(): string

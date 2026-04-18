@@ -47,7 +47,7 @@ class MyMemberRequestsTableWidget extends TableWidget
                     ->visible(fn (): bool => $this->member()?->parent_id !== null)
                     ->requiresConfirmation()
                     ->modalHeading('Request independence')
-                    ->modalDescription('You will no longer be sponsored under a parent member. After approval, you can submit your own allocation requests.')
+                    ->modalDescription('You will no longer be sponsored under a parent member. Allocation updates are already self-service, while dependent-link changes continue through requests.')
                     ->action(function () use ($service): void {
                         $member = $this->member();
                         if (! $member) {
