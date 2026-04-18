@@ -17,10 +17,12 @@ class DirectMessage extends Model
         'parent_id',
         'subject',
         'body',
+        'attachments',
         'read_at',
     ];
 
     protected $casts = [
+        'attachments' => 'array',
         'read_at' => 'datetime',
     ];
 
@@ -51,7 +53,7 @@ class DirectMessage extends Model
 
     public function markRead(): void
     {
-        if (!$this->read_at) {
+        if (! $this->read_at) {
             $this->update(['read_at' => now()]);
         }
     }

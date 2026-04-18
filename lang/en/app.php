@@ -9,8 +9,8 @@ return [
     'nav.group.settings' => 'Settings',
     'nav.group.system' => 'System',
     'nav.group.my_finance' => 'My Finance',
-    'nav.group.loans' => 'Loans',
-    'nav.group.account' => 'Account',
+    'nav.group.loans' => 'My Loans',
+    'nav.group.account' => 'My Account',
 
     // Resources
     'resource.member' => 'Member',

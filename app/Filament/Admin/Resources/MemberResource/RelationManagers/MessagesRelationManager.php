@@ -46,10 +46,10 @@ class MessagesRelationManager extends RelationManager
                     ->where(function (Builder $q) use ($memberUserId): void {
                         $q->where(function (Builder $q2) use ($memberUserId): void {
                             $q2->where('from_user_id', $memberUserId)
-                                ->whereHas('recipient', fn(Builder $r) => $r->where('role', 'admin'));
+                                ->whereHas('recipient', fn (Builder $r) => $r->where('role', 'admin'));
                         })->orWhere(function (Builder $q2) use ($memberUserId): void {
                             $q2->where('to_user_id', $memberUserId)
-                                ->whereHas('sender', fn(Builder $s) => $s->where('role', 'admin'));
+                                ->whereHas('sender', fn (Builder $s) => $s->where('role', 'admin'));
                         });
                     })
                     ->with(['sender', 'recipient']);
@@ -60,8 +60,8 @@ class MessagesRelationManager extends RelationManager
                     ->label('Send Message')
                     ->icon('heroicon-o-chat-bubble-left-right')
                     ->color('info')
-                    ->visible(fn(): bool => $this->getOwnerRecord()->user !== null)
-                    ->modalHeading(fn(): string => 'Send Message to ' . ($this->getOwnerRecord()->user->name ?? 'Member'))
+                    ->visible(fn (): bool => $this->getOwnerRecord()->user !== null)
+                    ->modalHeading(fn (): string => 'Send Message to '.($this->getOwnerRecord()->user->name ?? 'Member'))
                     ->modalWidth('lg')
                     ->schema([
                         Forms\Components\TextInput::make('subject')
@@ -73,32 +73,67 @@ class MessagesRelationManager extends RelationManager
                             ->required()
                             ->rows(5)
                             ->maxLength(3000),
+                        Forms\Components\FileUpload::make('attachments')
+                            ->label('Attachments')
+                            ->multiple()
+                            ->disk('public')
+                            ->directory('direct-messages')
+                            ->openable()
+                            ->downloadable()
+                            ->maxFiles(5),
                     ])
                     ->action(function (array $data): void {
                         /** @var Member $member */
                         $member = $this->getOwnerRecord();
+                        $attachments = is_array($data['attachments'] ?? null)
+                            ? array_values(array_filter($data['attachments'], fn ($file): bool => filled($file)))
+                            : [];
+                        $root = DirectMessage::root()
+                            ->where(function (Builder $q) use ($member): void {
+                                $q->where(function (Builder $sq) use ($member): void {
+                                    $sq->where('from_user_id', $member->user_id)
+                                        ->whereHas('recipient', fn (Builder $admin): Builder => $admin->where('role', 'admin'));
+                                })->orWhere(function (Builder $sq) use ($member): void {
+                                    $sq->where('to_user_id', $member->user_id)
+                                        ->whereHas('sender', fn (Builder $admin): Builder => $admin->where('role', 'admin'));
+                                });
+                            })
+                            ->orderBy('created_at')
+                            ->first();
 
-                        DirectMessage::create([
-                            'from_user_id' => auth()->id(),
-                            'to_user_id' => $member->user_id,
-                            'subject' => $data['subject'],
-                            'body' => $data['body'],
-                        ]);
+                        if ($root === null) {
+                            DirectMessage::create([
+                                'from_user_id' => auth()->id(),
+                                'to_user_id' => $member->user_id,
+                                'subject' => $data['subject'],
+                                'body' => $data['body'],
+                                'attachments' => $attachments,
+                            ]);
+                        } else {
+                            DirectMessage::create([
+                                'from_user_id' => auth()->id(),
+                                'to_user_id' => $member->user_id,
+                                'parent_id' => $root->id,
+                                'subject' => $root->subject ?: $data['subject'],
+                                'body' => $data['body'],
+                                'attachments' => $attachments,
+                            ]);
+                        }
 
                         Notification::make()
                             ->title('New Message from Administration')
-                            ->body($data['subject'] . ': ' . mb_strimwidth($data['body'], 0, 100, '...'))
+                            ->body($data['subject'].': '.mb_strimwidth($data['body'], 0, 100, '...'))
                             ->icon('heroicon-o-chat-bubble-left-right')
                             ->iconColor('info')
                             ->actions([
-                                \Filament\Actions\Action::make('view')
+                                Action::make('view')
                                     ->label('View Inbox')
                                     ->url(route('filament.member.pages.my-inbox-page')),
                             ])
                             ->sendToDatabase($member->user);
 
                         Notification::make()
-                            ->title('Message sent to ' . ($member->user->name ?? 'member'))
+                            ->title('Message sent to '.($member->user->name ?? 'member'))
                             ->success()
                             ->send();
                     }),
@@ -118,10 +153,10 @@ class MessagesRelationManager extends RelationManager
                             ? 'Member -> Admin'
                             : 'Admin -> Member';
                     })
-                    ->color(fn(string $state): string => $state === 'Member -> Admin' ? 'info' : 'success'),
+                    ->color(fn (string $state): string => $state === 'Member -> Admin' ? 'info' : 'success'),
                 Tables\Columns\TextColumn::make('subject')
                     ->label('Subject')
-                    ->formatStateUsing(fn(?string $state): string => filled($state) ? $state : 'No subject')
+                    ->formatStateUsing(fn (?string $state): string => filled($state) ? $state : 'No subject')
                     ->searchable(),
                 Tables\Columns\TextColumn::make('body')
                     ->label('Message')
@@ -138,8 +173,8 @@ class MessagesRelationManager extends RelationManager
                 Tables\Columns\TextColumn::make('read_at')
                     ->label('Read')
                     ->badge()
-                    ->formatStateUsing(fn($state): string => $state ? 'Read' : 'Unread')
-                    ->color(fn($state): string => $state ? 'success' : 'warning'),
+                    ->formatStateUsing(fn ($state): string => $state ? 'Read' : 'Unread')
+                    ->color(fn ($state): string => $state ? 'success' : 'warning'),
             ])
             ->filters([
                 Tables\Filters\SelectFilter::make('direction')
@@ -172,10 +207,21 @@ class MessagesRelationManager extends RelationManager
                             ->required()
                             ->rows(4)
                             ->maxLength(3000),
+                        Forms\Components\FileUpload::make('attachments')
+                            ->label('Attachments')
+                            ->multiple()
+                            ->disk('public')
+                            ->directory('direct-messages')
+                            ->openable()
+                            ->downloadable()
+                            ->maxFiles(5),
                     ])
                     ->action(function (DirectMessage $record, array $data): void {
                         $member = $this->getOwnerRecord();
                         $toUserId = (int) $member->user_id;
+                        $attachments = is_array($data['attachments'] ?? null)
+                            ? array_values(array_filter($data['attachments'], fn ($file): bool => filled($file)))
+                            : [];
 
                         DirectMessage::create([
                             'from_user_id' => auth()->id(),
@@ -183,17 +229,18 @@ class MessagesRelationManager extends RelationManager
                             'parent_id' => $record->parent_id ?: $record->id,
                             'subject' => $record->subject,
                             'body' => $data['body'],
+                            'attachments' => $attachments,
                         ]);
 
                         $recipient = User::find($toUserId);
                         if ($recipient) {
                             Notification::make()
-                                ->title('Reply: ' . ($record->subject ?: 'Message'))
-                                ->body(auth()->user()->name . ': ' . mb_strimwidth($data['body'], 0, 100, '...'))
+                                ->title('Reply: '.($record->subject ?: 'Message'))
+                                ->body(auth()->user()->name.': '.mb_strimwidth($data['body'], 0, 100, '...'))
                                 ->icon('heroicon-o-chat-bubble-left-right')
                                 ->iconColor('info')
                                 ->actions([
-                                    \Filament\Actions\Action::make('view')
+                                    Action::make('view')
                                         ->label('View Inbox')
                                         ->url(route('filament.member.pages.my-inbox-page')),
                                 ])
@@ -210,4 +257,3 @@ class MessagesRelationManager extends RelationManager
             ->emptyStateDescription('No messages have been exchanged with this member yet.');
     }
 }
-

@@ -1,6 +1,7 @@
 <x-filament-panels::page>
 @php
     $member  = auth()->user()?->member;
+    $isDependent = $member && $member->parent_id !== null;
     $current = $this->monthly_contribution_amount;
     $options = \App\Models\Member::contributionAmountOptions();
     $minOpt  = array_key_first($options);
@@ -23,6 +24,15 @@
         ? \App\Models\Contribution::where('member_id', $member->id)->sum('amount')
         : 0;
 @endphp
+
+@if($isDependent)
+    <x-filament::section class="mb-6" icon="heroicon-o-information-circle" icon-color="warning">
+        <x-slot name="heading">Sponsored member</x-slot>
+        <x-slot name="description">
+            Your contribution allocation is managed under your parent sponsor. Use <strong>My Dependents</strong> to ask for independence; after approval you can request your own allocation changes here.
+        </x-slot>
+    </x-filament::section>
+@endif
 
 {{-- ── Hero allocation card ─────────────────────────────────────────────── --}}
 <div class="rounded-2xl bg-gradient-to-br from-primary-600 to-primary-700 dark:from-primary-700 dark:to-primary-900 p-6 text-white shadow-lg mb-6">
@@ -83,7 +93,11 @@
     <x-slot name="heading">Available Amounts</x-slot>
     <x-slot name="description">
         Multiples of SAR 500, from SAR {{ number_format($minOpt) }} to SAR {{ number_format($maxOpt) }}.
-        Use the <strong>Update My Allocation</strong> button above to change your amount.
+        @if($isDependent)
+            Allocation changes are requested from <strong>My Dependents</strong> after you become independent.
+        @else
+            Use <strong>Request allocation change</strong> above to submit a request; it applies after administration approval.
+        @endif
     </x-slot>
 
     <div class="grid grid-cols-3 gap-3 sm:grid-cols-6">

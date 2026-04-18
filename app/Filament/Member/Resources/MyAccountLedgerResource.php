@@ -17,7 +17,7 @@ class MyAccountLedgerResource extends Resource
 
     protected static string|\BackedEnum|null $navigationIcon = 'heroicon-o-clipboard-document-list';
 
-    protected static ?string $navigationLabel = 'My Account Ledger';
+    protected static ?string $navigationLabel = 'My Ledger';
 
     protected static ?int $navigationSort = 3;
 
@@ -34,7 +34,7 @@ class MyAccountLedgerResource extends Resource
 
                 return AccountTransaction::whereHas(
                     'account',
-                    fn($q) => $q->where('member_id', $member?->id ?? 0)
+                    fn ($q) => $q->where('member_id', $member?->id ?? 0)
                 )->with('account');
             })
             ->columns([
@@ -45,13 +45,13 @@ class MyAccountLedgerResource extends Resource
                 Tables\Columns\TextColumn::make('account.type')
                     ->label('Account')
                     ->badge()
-                    ->formatStateUsing(fn(string $state) => match ($state) {
+                    ->formatStateUsing(fn (string $state) => match ($state) {
                         Account::TYPE_MEMBER_CASH => 'Cash',
                         Account::TYPE_MEMBER_FUND => 'Fund',
                         Account::TYPE_LOAN => 'Loan',
                         default => ucfirst($state),
                     })
-                    ->color(fn(string $state) => match ($state) {
+                    ->color(fn (string $state) => match ($state) {
                         Account::TYPE_MEMBER_CASH => 'info',
                         Account::TYPE_MEMBER_FUND => 'success',
                         Account::TYPE_LOAN => 'warning',
@@ -60,8 +60,8 @@ class MyAccountLedgerResource extends Resource
                 Tables\Columns\TextColumn::make('entry_type')
                     ->label('Type')
                     ->badge()
-                    ->formatStateUsing(fn(string $state) => ucfirst($state))
-                    ->color(fn(string $state) => $state === 'credit' ? 'success' : 'danger'),
+                    ->formatStateUsing(fn (string $state) => ucfirst($state))
+                    ->color(fn (string $state) => $state === 'credit' ? 'success' : 'danger'),
                 Tables\Columns\TextColumn::make('amount')
                     ->label('Amount (SAR)')
                     ->money('SAR')
@@ -80,8 +80,11 @@ class MyAccountLedgerResource extends Resource
                         Account::TYPE_MEMBER_FUND => 'Fund',
                     ])
                     ->query(function ($query, array $data) {
-                        if (!$data['value']) return $query;
-                        return $query->whereHas('account', fn($q) => $q->where('type', $data['value']));
+                        if (! $data['value']) {
+                            return $query;
+                        }
+
+                        return $query->whereHas('account', fn ($q) => $q->where('type', $data['value']));
                     }),
                 Tables\Filters\SelectFilter::make('entry_type')
                     ->label('Type')
@@ -94,8 +97,8 @@ class MyAccountLedgerResource extends Resource
                     ->columns(2)
                     ->query(function ($query, array $data) {
                         return $query
-                            ->when($data['from'] ?? null, fn($q) => $q->whereDate('transacted_at', '>=', $data['from']))
-                            ->when($data['until'] ?? null, fn($q) => $q->whereDate('transacted_at', '<=', $data['until']));
+                            ->when($data['from'] ?? null, fn ($q) => $q->whereDate('transacted_at', '>=', $data['from']))
+                            ->when($data['until'] ?? null, fn ($q) => $q->whereDate('transacted_at', '<=', $data['until']));
                     }),
                 Tables\Filters\Filter::make('amount')
                     ->schema([
@@ -105,8 +108,8 @@ class MyAccountLedgerResource extends Resource
                     ->columns(2)
                     ->query(function ($query, array $data) {
                         return $query
-                            ->when(filled($data['amount_min'] ?? null), fn($q) => $q->where('amount', '>=', $data['amount_min']))
-                            ->when(filled($data['amount_max'] ?? null), fn($q) => $q->where('amount', '<=', $data['amount_max']));
+                            ->when(filled($data['amount_min'] ?? null), fn ($q) => $q->where('amount', '>=', $data['amount_min']))
+                            ->when(filled($data['amount_max'] ?? null), fn ($q) => $q->where('amount', '<=', $data['amount_max']));
                     }),
             ]);
     }
