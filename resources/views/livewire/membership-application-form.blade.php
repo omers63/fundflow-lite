@@ -248,12 +248,12 @@
                     </div>
                     <div class="grid sm:grid-cols-2 gap-5">
                         <div>
-                            <label class="block text-sm font-semibold text-slate-700 mb-2">Bank account number</label>
+                            <label class="block text-sm font-semibold text-slate-700 mb-2">Bank account number *</label>
                             <input wire:model="bank_account_number" type="text" class="w-full px-4 py-3 border border-slate-200 rounded-xl text-sm focus:outline-none focus:ring-2 focus:ring-blue-500 font-mono @error('bank_account_number') border-red-400 @enderror">
                             @error('bank_account_number')<p class="text-red-500 text-xs mt-1">{{ $message }}</p>@enderror
                         </div>
                         <div>
-                            <label class="block text-sm font-semibold text-slate-700 mb-2">IBAN</label>
+                            <label class="block text-sm font-semibold text-slate-700 mb-2">IBAN *</label>
                             <input wire:model="iban" type="text" dir="ltr" class="w-full px-4 py-3 border border-slate-200 rounded-xl text-sm focus:outline-none focus:ring-2 focus:ring-blue-500 font-mono @error('iban') border-red-400 @enderror">
                             @error('iban')<p class="text-red-500 text-xs mt-1">{{ $message }}</p>@enderror
                         </div>

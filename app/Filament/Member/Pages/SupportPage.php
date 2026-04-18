@@ -3,6 +3,7 @@
 namespace App\Filament\Member\Pages;
 
 use App\Models\Member;
+use App\Models\SupportRequest;
 use App\Models\User;
 use Filament\Actions\Action;
 use Filament\Forms;
@@ -17,11 +18,11 @@ class SupportPage extends Page
 
     protected static string|\BackedEnum|null $navigationIcon = 'heroicon-o-chat-bubble-left-right';
 
-    protected static ?int $navigationSort = 4;
+    protected static ?int $navigationSort = 3;
 
     public static function getNavigationGroup(): ?string
     {
-        return __('app.nav.group.account');
+        return __('app.nav.group.settings');
     }
 
     public function getTitle(): string
@@ -42,15 +43,7 @@ class SupportPage extends Page
                 ->schema([
                     Forms\Components\Select::make('category')
                         ->label('Category')
-                        ->options([
-                            'general_inquiry'    => 'General Inquiry',
-                            'cash_deposit'       => 'Cash Deposit Request',
-                            'loan_inquiry'       => 'Loan Inquiry',
-                            'contribution_query' => 'Contribution Query',
-                            'balance_query'      => 'Balance / Account Query',
-                            'complaint'          => 'Complaint',
-                            'other'              => 'Other',
-                        ])
+                        ->options(SupportRequest::CATEGORY_LABELS)
                         ->required()
                         ->native(false),
                     Forms\Components\TextInput::make('subject')
@@ -64,30 +57,28 @@ class SupportPage extends Page
                         ->maxLength(2000),
                 ])
                 ->action(function (array $data): void {
-                    $user   = auth()->user();
+                    $user = auth()->user();
                     $member = Member::where('user_id', $user->id)->first();
 
-                    $categoryLabels = [
-                        'general_inquiry'    => 'General Inquiry',
-                        'cash_deposit'       => 'Cash Deposit Request',
-                        'loan_inquiry'       => 'Loan Inquiry',
-                        'contribution_query' => 'Contribution Query',
-                        'balance_query'      => 'Balance / Account Query',
-                        'complaint'          => 'Complaint',
-                        'other'              => 'Other',
-                    ];
+                    $supportRequest = SupportRequest::query()->create([
+                        'user_id' => $user->id,
+                        'member_id' => $member?->id,
+                        'category' => $data['category'],
+                        'subject' => $data['subject'],
+                        'message' => $data['message'],
+                    ]);
 
-                    $categoryLabel = $categoryLabels[$data['category']] ?? $data['category'];
-                    $memberInfo    = $member
+                    $categoryLabel = SupportRequest::categoryLabel($data['category']);
+                    $memberInfo = $member
                         ? "{$user->name} (#{$member->member_number})"
                         : $user->name;
 
-                    $body = "From: {$memberInfo}\nCategory: {$categoryLabel}\n\n{$data['message']}";
+                    $body = "Request #{$supportRequest->id}\nFrom: {$memberInfo}\nCategory: {$categoryLabel}\n\n{$data['message']}";
 
-                    // Notify all admin users
-                    User::where('role', 'admin')->each(function (User $admin) use ($data, $body, $memberInfo) {
+                    // Notify all admin users (in addition to permanent storage above).
+                    User::where('role', 'admin')->each(function (User $admin) use ($data, $body, $supportRequest) {
                         Notification::make()
-                            ->title("Support Request: {$data['subject']}")
+                            ->title("Support Request #{$supportRequest->id}: {$data['subject']}")
                             ->body($body)
                             ->icon('heroicon-o-chat-bubble-left-right')
                             ->iconColor('warning')

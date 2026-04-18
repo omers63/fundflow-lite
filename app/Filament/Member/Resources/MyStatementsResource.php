@@ -9,6 +9,7 @@ use Filament\Forms;
 use Filament\Resources\Resource;
 use Filament\Tables;
 use Filament\Tables\Table;
+use Illuminate\Database\Eloquent\Builder;
 
 class MyStatementsResource extends Resource
 {
@@ -28,7 +29,7 @@ class MyStatementsResource extends Resource
     public static function table(Table $table): Table
     {
         return $table
-            ->query(fn() => MonthlyStatement::whereHas('member', fn($q) => $q->where('user_id', auth()->id())))
+            ->query(fn () => MonthlyStatement::whereHas('member', fn ($q) => $q->where('user_id', auth()->id())))
             ->columns([
                 Tables\Columns\TextColumn::make('period')
                     ->sortable(),
@@ -53,7 +54,7 @@ class MyStatementsResource extends Resource
             ->filters([
                 Tables\Filters\Filter::make('period')
                     ->schema([Forms\Components\TextInput::make('period')->placeholder('YYYY-MM')])
-                    ->query(fn($query, $data) => ($data['period'] ?? null) ? $query->where('period', $data['period']) : $query),
+                    ->query(fn ($query, $data) => ($data['period'] ?? null) ? $query->where('period', $data['period']) : $query),
                 Tables\Filters\SelectFilter::make('period_year')
                     ->label('Year')
                     ->options(
@@ -73,8 +74,8 @@ class MyStatementsResource extends Resource
                     ->columns(2)
                     ->query(function ($query, array $data) {
                         return $query
-                            ->when(filled($data['min'] ?? null), fn($q) => $q->where('closing_balance', '>=', $data['min']))
-                            ->when(filled($data['max'] ?? null), fn($q) => $q->where('closing_balance', '<=', $data['max']));
+                            ->when(filled($data['min'] ?? null), fn ($q) => $q->where('closing_balance', '>=', $data['min']))
+                            ->when(filled($data['max'] ?? null), fn ($q) => $q->where('closing_balance', '<=', $data['max']));
                     }),
             ])
             ->recordActions([
@@ -82,7 +83,7 @@ class MyStatementsResource extends Resource
                     ->label('Download PDF')
                     ->icon('heroicon-o-arrow-down-tray')
                     ->color('gray')
-                    ->url(fn(MonthlyStatement $record) => route('member.statement.pdf', $record))
+                    ->url(fn (MonthlyStatement $record) => route('member.statement.pdf', $record))
                     ->openUrlInNewTab(),
             ]);
     }

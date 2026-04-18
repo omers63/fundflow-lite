@@ -71,6 +71,13 @@ class ListMembers extends ListRecords
                 ->modalHeading('Import members from CSV')
                 ->modalDescription(new HtmlString(
                     '<div class="space-y-3 text-sm">' .
+                        '<div class="rounded-lg border border-blue-200 bg-blue-50/80 p-3 text-xs dark:border-blue-500/30 dark:bg-blue-500/10">' .
+                            '<p class="font-semibold text-blue-900 dark:text-blue-200 mb-1">Need a starter file?</p>' .
+                            '<p class="text-blue-900/90 dark:text-blue-100/90">' .
+                                'Download a ready sample with 20 varied rows (including optional fields): ' .
+                                '<a href="' . route('downloads.member-import-sample') . '" class="font-semibold text-blue-700 underline hover:text-blue-600 dark:text-blue-300 dark:hover:text-blue-200">members-import-sample-20.csv</a>' .
+                            '</p>' .
+                        '</div>' .
                         '<div class="rounded-lg border border-gray-200 dark:border-gray-700 overflow-hidden">' .
                             '<table class="w-full text-xs">' .
                                 '<tbody class="divide-y divide-gray-100 dark:divide-gray-800">' .

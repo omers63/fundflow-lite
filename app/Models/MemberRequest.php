@@ -1,0 +1,150 @@
+<?php
+
+namespace App\Models;
+
+use Illuminate\Database\Eloquent\Model;
+use Illuminate\Database\Eloquent\Relations\BelongsTo;
+use Illuminate\Support\Str;
+
+class MemberRequest extends Model
+{
+    public const STATUS_PENDING = 'pending';
+
+    public const STATUS_APPROVED = 'approved';
+
+    public const STATUS_REJECTED = 'rejected';
+
+    public const STATUS_CANCELLED = 'cancelled';
+
+    public const TYPE_ADD_DEPENDENT = 'add_dependent';
+
+    public const TYPE_REMOVE_DEPENDENT = 'remove_dependent';
+
+    public const TYPE_OWN_ALLOCATION = 'own_allocation';
+
+    public const TYPE_DEPENDENT_ALLOCATION = 'dependent_allocation';
+
+    public const TYPE_REQUEST_INDEPENDENCE = 'request_independence';
+
+    protected $fillable = [
+        'requester_member_id',
+        'type',
+        'status',
+        'payload',
+        'admin_note',
+        'reviewed_by_user_id',
+        'reviewed_at',
+    ];
+
+    protected function casts(): array
+    {
+        return [
+            'payload' => 'array',
+            'reviewed_at' => 'datetime',
+        ];
+    }
+
+    public function requester(): BelongsTo
+    {
+        return $this->belongsTo(Member::class, 'requester_member_id');
+    }
+
+    public function reviewedBy(): BelongsTo
+    {
+        return $this->belongsTo(User::class, 'reviewed_by_user_id');
+    }
+
+    public function isPending(): bool
+    {
+        return $this->status === self::STATUS_PENDING;
+    }
+
+    public static function typeLabel(string $type): string
+    {
+        return match ($type) {
+            self::TYPE_ADD_DEPENDENT => 'Add dependent',
+            self::TYPE_REMOVE_DEPENDENT => 'Remove dependent',
+            self::TYPE_OWN_ALLOCATION => 'My contribution allocation',
+            self::TYPE_DEPENDENT_ALLOCATION => 'Dependent allocation',
+            self::TYPE_REQUEST_INDEPENDENCE => 'Become independent',
+            default => $type,
+        };
+    }
+
+    /**
+     * Plain-text lines (key: value), not JSON — for admin display.
+     *
+     * @return list<string>
+     */
+    protected function flattenPayloadLines(array $data, string $prefix = ''): array
+    {
+        $lines = [];
+        foreach ($data as $key => $value) {
+            $path = $prefix === '' ? (string) $key : $prefix.'.'.$key;
+            if (is_array($value)) {
+                if ($value === []) {
+                    $lines[] = $path.': (empty)';
+
+                    continue;
+                }
+                $lines = array_merge($lines, $this->flattenPayloadLines($value, $path));
+            } else {
+                $lines[] = $path.': '.$this->formatPayloadScalar($value);
+            }
+        }
+
+        return $lines;
+    }
+
+    protected function formatPayloadScalar(mixed $value): string
+    {
+        if ($value === null) {
+            return '';
+        }
+        if (is_bool($value)) {
+            return $value ? 'yes' : 'no';
+        }
+
+        return trim((string) $value);
+    }
+
+    public function payloadAsPlainText(): string
+    {
+        $payload = $this->payload ?? [];
+        if ($payload === []) {
+            return '—';
+        }
+
+        return implode("\n", $this->flattenPayloadLines($payload));
+    }
+
+    public function describePayload(): string
+    {
+        $p = $this->payload ?? [];
+
+        return match ($this->type) {
+            self::TYPE_ADD_DEPENDENT => Str::limit(trim((string) ($p['details'] ?? '')), 120) ?: '—',
+            self::TYPE_REMOVE_DEPENDENT => $this->formatDependentLabel($p['dependent_member_id'] ?? null),
+            self::TYPE_OWN_ALLOCATION => isset($p['requested_amount'])
+                ? 'SAR '.number_format((int) $p['requested_amount'])
+                : '—',
+            self::TYPE_DEPENDENT_ALLOCATION => $this->formatDependentLabel($p['dependent_member_id'] ?? null)
+                .(isset($p['requested_amount']) ? ' → SAR '.number_format((int) $p['requested_amount']) : ''),
+            self::TYPE_REQUEST_INDEPENDENCE => 'Unlink from parent sponsor',
+            default => '—',
+        };
+    }
+
+    protected function formatDependentLabel(mixed $memberId): string
+    {
+        $id = (int) $memberId;
+        if ($id <= 0) {
+            return '—';
+        }
+        $m = Member::query()->with('user')->find($id);
+
+        return $m
+            ? ($m->user?->name ?? 'Member').' (#'.($m->member_number ?? $id).')'
+            : 'Member #'.$id;
+    }
+}

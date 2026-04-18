@@ -36,7 +36,9 @@ class ListMembershipApplications extends ListRecords
                         ->label('CSV file')
                         ->disk('local')
                         ->directory('membership-application-imports')
-                        ->acceptedFileTypes(['text/csv', 'text/plain', 'application/csv', 'application/vnd.ms-excel'])
+                        ->maxFiles(1)
+                        // Avoid acceptedFileTypes / extension / MIME rules: Livewire temp names and odd client extensions break them; the importer validates CSV content.
+                        ->helperText('Upload comma-separated data (typical .csv). If parsing fails, the importer will show detailed row errors.')
                         ->required(),
                     Forms\Components\TextInput::make('default_password')
                         ->label('Default password')
@@ -47,11 +49,57 @@ class ListMembershipApplications extends ListRecords
                         ->helperText('Used when the password column is empty or shorter than 8 characters. Applicants should change it after first login.'),
                 ])
                 ->action(function (array $data, Component $livewire): void {
-                    $relative = $data['csv_file'];
+                    // With stored files (default), Filament returns a path relative to the local disk — same as member CSV import.
+                    $relative = $data['csv_file'] ?? null;
+                    if (is_array($relative)) {
+                        $relative = $relative[0] ?? null;
+                    }
+
+                    if (!is_string($relative) || trim($relative) === '') {
+                        logger()->warning('Applications import: missing or invalid csv_file path', [
+                            'payload_type' => gettype($data['csv_file'] ?? null),
+                            'payload_keys' => is_array($data) ? array_keys($data) : [],
+                        ]);
+
+                        Notification::make()
+                            ->title('Import failed')
+                            ->body('No uploaded CSV file was received. Please re-select the file and try again.')
+                            ->danger()
+                            ->send();
+
+                        return;
+                    }
+
                     $fullPath = Storage::disk('local')->path($relative);
+
+                    if (!is_file($fullPath)) {
+                        logger()->warning('Applications import: stored file path does not exist', [
+                            'relative' => $relative,
+                            'full_path' => $fullPath,
+                        ]);
+
+                        Notification::make()
+                            ->title('Import failed')
+                            ->body('Uploaded file could not be found on server. Please upload again and try again.')
+                            ->danger()
+                            ->send();
+
+                        return;
+                    }
 
                     try {
                         $result = app(MembershipApplicationImportService::class)->import($fullPath, $data['default_password']);
+                    } catch (\Throwable $e) {
+                        report($e);
+
+                        Notification::make()
+                            ->title('Import failed')
+                            ->body($e->getMessage())
+                            ->danger()
+                            ->persistent()
+                            ->send();
+
+                        return;
                     } finally {
                         Storage::disk('local')->delete($relative);
                     }

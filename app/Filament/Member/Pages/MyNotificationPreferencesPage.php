@@ -17,11 +17,11 @@ class MyNotificationPreferencesPage extends Page
 
     protected static string|\BackedEnum|null $navigationIcon = 'heroicon-o-bell-alert';
 
-    protected static ?int $navigationSort = 3;
+    protected static ?int $navigationSort = 2;
 
     public static function getNavigationGroup(): ?string
     {
-        return __('app.nav.group.account');
+        return __('app.nav.group.settings');
     }
 
     public function getTitle(): string
@@ -68,12 +68,12 @@ class MyNotificationPreferencesPage extends Page
         $categories = NotificationPreferenceService::CATEGORIES;
 
         foreach ($this->prefs as $type => $channels) {
-            if (!isset($categories[$type])) {
+            if (! isset($categories[$type])) {
                 continue;
             }
 
-            $meta    = $categories[$type];
-            $forced  = $meta['forced'];
+            $meta = $categories[$type];
+            $forced = $meta['forced'];
             $allowed = $meta['supported'];
 
             // Sanitize: only keep supported channels + merge forced
@@ -102,12 +102,12 @@ class MyNotificationPreferencesPage extends Page
     {
         $categories = NotificationPreferenceService::CATEGORIES;
 
-        if (!isset($categories[$type])) {
+        if (! isset($categories[$type])) {
             return;
         }
 
-        $meta    = $categories[$type];
-        $forced  = $meta['forced'];
+        $meta = $categories[$type];
+        $forced = $meta['forced'];
         $current = $this->prefs[$type] ?? $meta['defaults'];
 
         // Can't toggle forced channels
@@ -116,12 +116,12 @@ class MyNotificationPreferencesPage extends Page
         }
 
         // Can't toggle unsupported channels
-        if (!in_array($channel, $meta['supported'], true)) {
+        if (! in_array($channel, $meta['supported'], true)) {
             return;
         }
 
         if (in_array($channel, $current, true)) {
-            $current = array_values(array_filter($current, fn($c) => $c !== $channel));
+            $current = array_values(array_filter($current, fn ($c) => $c !== $channel));
         } else {
             $current[] = $channel;
             $current = array_values(array_unique($current));
@@ -146,12 +146,14 @@ class MyNotificationPreferencesPage extends Page
     public function isForced(string $type, string $channel): bool
     {
         $meta = NotificationPreferenceService::CATEGORIES[$type] ?? [];
+
         return in_array($channel, $meta['forced'] ?? [], true);
     }
 
     public function isSupported(string $type, string $channel): bool
     {
         $meta = NotificationPreferenceService::CATEGORIES[$type] ?? [];
+
         return in_array($channel, $meta['supported'] ?? [], true);
     }
 

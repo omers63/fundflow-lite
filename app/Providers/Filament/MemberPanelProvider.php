@@ -40,7 +40,9 @@ class MemberPanelProvider extends PanelProvider
             ])
             ->navigationGroups([
                 NavigationGroup::make(__('app.nav.group.my_finance')),
+                NavigationGroup::make(__('app.nav.group.loans')),
                 NavigationGroup::make(__('app.nav.group.account')),
+                NavigationGroup::make(__('app.nav.group.settings')),
             ])
             ->viteTheme('resources/css/filament/member/theme.css')
             ->discoverResources(in: app_path('Filament/Member/Resources'), for: 'App\Filament\Member\Resources')

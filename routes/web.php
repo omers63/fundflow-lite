@@ -4,9 +4,12 @@ use App\Http\Controllers\Admin\AdminStatementPdfController;
 use App\Http\Controllers\Admin\DatabaseBackupDownloadController;
 use App\Http\Controllers\Admin\StoredDatabaseBackupDownloadController;
 use App\Http\Controllers\ContributionReceiptController;
+use App\Http\Controllers\DirectMessageAttachmentController;
 use App\Http\Controllers\LoanSchedulePdfController;
-use App\Http\Controllers\MembershipCertificateController;
+use App\Http\Controllers\MemberImportSampleController;
 use App\Http\Controllers\MembershipApplicationFormTemplateController;
+use App\Http\Controllers\MembershipApplicationImportSampleController;
+use App\Http\Controllers\MembershipCertificateController;
 use App\Http\Controllers\StatementPdfController;
 use App\Http\Controllers\TermsConditionsDownloadController;
 use App\Http\Livewire\ApplicationStatusPage;
@@ -22,10 +25,18 @@ Route::get('/application-status', ApplicationStatusPage::class)->name('applicati
 
 Route::get('/downloads/membership-application-form-template', MembershipApplicationFormTemplateController::class)
     ->name('downloads.membership-application-form-template');
+Route::get('/downloads/membership-application-import-sample', MembershipApplicationImportSampleController::class)
+    ->name('downloads.membership-application-import-sample');
+Route::get('/downloads/member-import-sample', MemberImportSampleController::class)
+    ->name('downloads.member-import-sample');
 Route::get('/downloads/terms-and-conditions', TermsConditionsDownloadController::class)
     ->name('downloads.terms-and-conditions');
 
 Route::middleware(['auth'])->group(function () {
+    Route::get('/direct-messages/{message}/attachment/{index}', [DirectMessageAttachmentController::class, 'show'])
+        ->whereNumber('index')
+        ->name('direct-messages.attachment');
+
     Route::get('/member/statements/{statement}/pdf', [StatementPdfController::class, 'download'])
         ->name('member.statement.pdf');
 

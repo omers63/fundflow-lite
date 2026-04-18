@@ -15,6 +15,7 @@ return [
     'nav.group.settings' => 'الإعدادات',
     'nav.group.system' => 'النظام والصيانة',
     'nav.group.my_finance' => 'ماليتي',
+    'nav.group.loans' => 'قروضي',
     'nav.group.account' => 'حسابي',
 
     // الموارد (أسماء الجداول/القوائم)
