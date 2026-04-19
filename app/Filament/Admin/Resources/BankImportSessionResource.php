@@ -52,18 +52,20 @@ class BankImportSessionResource extends Resource
     public static function form(Schema $schema): Schema
     {
         return $schema->schema([
-            Section::make()->schema([
-                Forms\Components\Select::make('bank_id')->label('Bank')
-                    ->options(Bank::active()->pluck('name', 'id'))
-                    ->disabled()->dehydrated(false),
-                Forms\Components\TextInput::make('filename')->disabled(),
-                Forms\Components\TextInput::make('status')->disabled(),
-                Forms\Components\TextInput::make('total_rows')->disabled(),
-                Forms\Components\TextInput::make('imported_count')->disabled(),
-                Forms\Components\TextInput::make('duplicate_count')->disabled(),
-                Forms\Components\TextInput::make('error_count')->disabled(),
-                Forms\Components\Textarea::make('notes')->disabled()->columnSpanFull(),
-            ])->columns(2),
+            Section::make()
+                ->columnSpanFull()
+                ->schema([
+                    Forms\Components\Select::make('bank_id')->label('Bank')
+                        ->options(Bank::active()->pluck('name', 'id'))
+                        ->disabled()->dehydrated(false),
+                    Forms\Components\TextInput::make('filename')->disabled(),
+                    Forms\Components\TextInput::make('status')->disabled(),
+                    Forms\Components\TextInput::make('total_rows')->disabled(),
+                    Forms\Components\TextInput::make('imported_count')->disabled(),
+                    Forms\Components\TextInput::make('duplicate_count')->disabled(),
+                    Forms\Components\TextInput::make('error_count')->disabled(),
+                    Forms\Components\Textarea::make('notes')->disabled()->columnSpanFull(),
+                ])->columns(2),
         ]);
     }
 

@@ -108,27 +108,35 @@ class BankTransactionResource extends Resource
         return $table
             ->striped()
             ->columns([
-                Tables\Columns\TextColumn::make('bank.name')->label('Bank')->searchable()->sortable(),
+                Tables\Columns\TextColumn::make('bank.name')->label('Bank')->searchable()->sortable()
+                    ->toggleable(),
                 Tables\Columns\TextColumn::make('transaction_date')
-                    ->label('Date')->date('d M Y')->sortable(),
+                    ->label('Date')->date('d M Y')->sortable()
+                    ->toggleable(),
                 Tables\Columns\TextColumn::make('amount')
                     ->money('SAR')
                     ->sortable()
-                    ->color(fn (BankTransaction $record) => $record->transaction_type === 'credit' ? 'success' : 'danger'),
+                    ->color(fn (BankTransaction $record) => $record->transaction_type === 'credit' ? 'success' : 'danger')
+                    ->toggleable(),
                 Tables\Columns\BadgeColumn::make('transaction_type')
                     ->label('Type')
-                    ->colors(['success' => 'credit', 'danger' => 'debit']),
-                Tables\Columns\TextColumn::make('reference')->placeholder('—')->searchable(),
-                Tables\Columns\TextColumn::make('description')->limit(40)->placeholder('—')->searchable(),
+                    ->colors(['success' => 'credit', 'danger' => 'debit'])
+                    ->toggleable(),
+                Tables\Columns\TextColumn::make('reference')->placeholder('—')->searchable()
+                    ->toggleable(),
+                Tables\Columns\TextColumn::make('description')->limit(40)->placeholder('—')->searchable()
+                    ->toggleable(),
                 Tables\Columns\TextColumn::make('member.user.name')
                     ->label('Member')
                     ->placeholder('—')
-                    ->searchable(),
+                    ->searchable()
+                    ->toggleable(),
                 Tables\Columns\TextColumn::make('loan_id')
                     ->label('Loan')
                     ->formatStateUsing(fn ($state) => $state ? "#{$state}" : '—')
                     ->sortable()
-                    ->searchable(),
+                    ->searchable()
+                    ->toggleable(),
                 Tables\Columns\TextColumn::make('loan_disbursement_id')
                     ->label('Disb.')
                     ->formatStateUsing(fn ($state) => $state ? "#{$state}" : '—')
@@ -141,15 +149,19 @@ class BankTransactionResource extends Resource
                     ->trueIcon('heroicon-o-check-badge')
                     ->falseIcon('heroicon-o-clock')
                     ->trueColor('success')
-                    ->falseColor('gray'),
+                    ->falseColor('gray')
+                    ->toggleable(),
                 Tables\Columns\IconColumn::make('is_duplicate')
                     ->label('Dup.')
                     ->boolean()
                     ->trueColor('warning')
                     ->falseColor('success')
                     ->trueIcon('heroicon-o-exclamation-triangle')
-                    ->falseIcon('heroicon-o-check-circle'),
+                    ->falseIcon('heroicon-o-check-circle')
+                    ->toggleable(),
             ])
+            ->columnManager()
+            ->deferColumnManager(false)
             ->defaultSort('transaction_date', 'desc')
             ->filters([
                 Tables\Filters\SelectFilter::make('bank_id')
@@ -329,33 +341,63 @@ class BankTransactionResource extends Resource
                         ->color('primary')
                         ->schema([
                             Forms\Components\Select::make('member_id')
-                                ->label('Post all selected for Member')
+                                ->label('Member (optional)')
                                 ->options($memberOptions)
                                 ->searchable()
-                                ->required()
-                                ->helperText('All selected transactions will be posted to this member\'s Cash Account.'),
+                                ->helperText('Optional: mirror to a member’s Cash Account. Leave empty to post credits to the master Cash Account only. Debits are skipped when no member is selected (use the row Post to Cash action for debits).'),
                         ])
                         ->action(function (Collection $records, array $data) {
-                            $member = Member::findOrFail($data['member_id']);
+                            $member = filled($data['member_id'] ?? null)
+                                ? Member::findOrFail($data['member_id'])
+                                : null;
                             $service = app(AccountingService::class);
                             $posted = 0;
-                            $skipped = 0;
+                            $skippedPosted = 0;
+                            $skippedDebitNoMember = 0;
+                            $failed = 0;
 
                             foreach ($records as $tx) {
                                 if ($tx->isPosted()) {
-                                    $skipped++;
+                                    $skippedPosted++;
 
                                     continue;
                                 }
-                                $service->postBankTransactionToCash($tx, $member);
-                                $posted++;
+                                try {
+                                    if ($member !== null) {
+                                        $service->postBankTransactionToCash($tx, $member);
+                                    } elseif ($tx->transaction_type === 'debit') {
+                                        $skippedDebitNoMember++;
+
+                                        continue;
+                                    } else {
+                                        $service->postBankTransactionToCashWithOptionalMember($tx, null);
+                                    }
+                                    $posted++;
+                                } catch (\Throwable $e) {
+                                    $failed++;
+                                    report($e);
+                                }
                             }
 
-                            Notification::make()
+                            $body = "Posted: {$posted} | Already posted (skipped): {$skippedPosted}";
+                            if ($skippedDebitNoMember > 0) {
+                                $body .= " | Debits skipped (choose a member): {$skippedDebitNoMember}";
+                            }
+                            if ($failed > 0) {
+                                $body .= " | Failed: {$failed} (see logs)";
+                            }
+
+                            $notification = Notification::make()
                                 ->title('Bulk Post Complete')
-                                ->body("Posted: {$posted} | Already posted (skipped): {$skipped}")
-                                ->success()
-                                ->send();
+                                ->body($body);
+
+                            if ($failed > 0) {
+                                $notification->warning();
+                            } else {
+                                $notification->success();
+                            }
+
+                            $notification->send();
                         })
                         ->deselectRecordsAfterCompletion(),
                 ]),
