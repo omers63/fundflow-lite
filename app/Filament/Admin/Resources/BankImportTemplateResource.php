@@ -20,6 +20,7 @@ use Filament\Tables;
 use Filament\Tables\Filters\TrashedFilter;
 use Filament\Tables\Table;
 use Illuminate\Database\Eloquent\Builder;
+use Illuminate\Support\HtmlString;
 
 class BankImportTemplateResource extends Resource
 {
@@ -53,171 +54,195 @@ class BankImportTemplateResource extends Resource
                         ->required()
                         ->searchable(),
                     Forms\Components\TextInput::make('name')
+                        ->label('Template name')
                         ->required()
                         ->maxLength(100)
-                        ->placeholder('e.g. Al-Rajhi Statement CSV v1'),
+                        ->placeholder('e.g. Al-Rajhi statement — current account'),
                     Forms\Components\Toggle::make('is_default')
-                        ->label('Set as default template for this bank')
-                        ->helperText('Only one template per bank can be the default.'),
+                        ->label('Default for this bank')
+                        ->helperText('When members import CSV for this bank, this template is selected first. Only one default per bank.'),
                 ])->columns(2),
 
-                Tab::make('CSV Format')->schema([
-                    Forms\Components\Select::make('delimiter')
-                        ->options([
-                            ',' => 'Comma  ( , )',
-                            ';' => 'Semicolon  ( ; )',
-                            "\t" => 'Tab',
-                            '|' => 'Pipe  ( | )',
-                        ])
-                        ->required()
-                        ->default(','),
-                    Forms\Components\Select::make('encoding')
-                        ->options([
-                            'UTF-8' => 'UTF-8',
-                            'ISO-8859-1' => 'ISO-8859-1 (Latin-1)',
-                            'Windows-1256' => 'Windows-1256 (Arabic)',
-                            'Windows-1252' => 'Windows-1252 (Western)',
-                        ])
-                        ->required()
-                        ->default('UTF-8'),
-                    Forms\Components\Toggle::make('has_header')
-                        ->label('File has a header row')
-                        ->default(true)
-                        ->live()
-                        ->helperText('When enabled, use the exact column header name in the mappings below. When disabled, use the 0-based column index (0, 1, 2...).'),
-                    Forms\Components\TextInput::make('skip_rows')
-                        ->label('Skip rows at start')
-                        ->numeric()
-                        ->default(0)
-                        ->minValue(0)
-                        ->helperText('Number of rows to skip before the header or data (e.g. bank logo / report title rows).'),
-                ])->columns(2),
-
-                Tab::make('Column Mapping')->schema([
-                    Section::make('Date')->schema([
-                        Forms\Components\TextInput::make('date_column')
-                            ->label('Date column')
-                            ->required()
-                            ->helperText('Header name or column index'),
-                        Forms\Components\TextInput::make('date_format')
-                            ->label('Date format (PHP)')
-                            ->required()
-                            ->default('Y-m-d')
-                            ->helperText('e.g. d/m/Y · m/d/Y · Y-m-d · d-M-Y'),
-                    ])->columns(2),
-
-                    Section::make('Amount')->schema([
-                        Forms\Components\Radio::make('amount_type')
-                            ->label('Amount column structure')
-                            ->options([
-                                'single' => 'Single column (positive = credit, negative = debit)',
-                                'split' => 'Separate credit and debit columns',
-                            ])
-                            ->default('single')
-                            ->live(),
-                        Forms\Components\TextInput::make('amount_column')
-                            ->label('Amount column')
-                            ->visible(fn ($get) => $get('amount_type') === 'single')
-                            ->required(fn ($get) => $get('amount_type') === 'single')
-                            ->helperText('Header name or column index'),
-                        Forms\Components\TextInput::make('credit_column')
-                            ->label('Credit column')
-                            ->visible(fn ($get) => $get('amount_type') === 'split')
-                            ->required(fn ($get) => $get('amount_type') === 'split')
-                            ->helperText('Header name or column index'),
-                        Forms\Components\TextInput::make('debit_column')
-                            ->label('Debit column')
-                            ->visible(fn ($get) => $get('amount_type') === 'split')
-                            ->required(fn ($get) => $get('amount_type') === 'split')
-                            ->helperText('Header name or column index'),
-                    ]),
-
-                    Section::make('Transaction Type Indicator (optional)')->schema([
-                        Forms\Components\TextInput::make('type_column')
-                            ->label('Type column')
-                            ->helperText('Leave blank if type is determined by sign of amount or split columns'),
-                        Forms\Components\TextInput::make('credit_indicator')
-                            ->label('Credit indicator value')
-                            ->default('CR')
-                            ->helperText('e.g. CR, C, CREDIT'),
-                        Forms\Components\TextInput::make('debit_indicator')
-                            ->label('Debit indicator value')
-                            ->default('DR')
-                            ->helperText('e.g. DR, D, DEBIT'),
-                    ])->columns(3),
-
-                    Section::make('Other Columns')->schema([
-                        Forms\Components\TextInput::make('description_column')
-                            ->label('Description column')
-                            ->helperText('Header name or column index. Optional.'),
-                        Forms\Components\TextInput::make('reference_column')
-                            ->label('Reference / Transaction ID column')
-                            ->helperText('Header name or column index. Optional but recommended for duplicate detection.'),
-                        Forms\Components\TextInput::make('balance_column')
-                            ->label('Balance column')
-                            ->helperText('Header name or column index. Optional. Useful for duplicate detection when statements include running balance.'),
-                        Forms\Components\Repeater::make('optional_columns')
-                            ->label('Additional optional columns')
-                            ->helperText('Add any extra columns you want to capture from the CSV (header name or index).')
-                            ->live()
-                            ->schema([
-                                Forms\Components\TextInput::make('key')
-                                    ->label('Field key')
-                                    ->required()
-                                    ->maxLength(50)
-                                    ->placeholder('e.g. branch_code')
-                                    ->helperText('Stored key used in imported raw_data._optional'),
-                                Forms\Components\TextInput::make('column')
-                                    ->label('CSV column')
-                                    ->required()
-                                    ->maxLength(100)
-                                    ->placeholder('e.g. Branch Code or 8')
-                                    ->helperText('Header name or 0-based index'),
-                            ])
-                            ->defaultItems(0)
-                            ->columns(2)
-                            ->collapsible()
-                            ->addActionLabel('Add optional column')
-                            ->columnSpanFull(),
-                    ])->columns(2),
+                Tab::make('File & CSV')->schema([
+                    Section::make('Separator & character set')
+                        ->description('Must match how the bank exports the file.')
+                        ->compact()
+                        ->schema([
+                            Forms\Components\Select::make('delimiter')
+                                ->label('Column separator')
+                                ->options([
+                                    ',' => 'Comma (,)',
+                                    ';' => 'Semicolon (;)',
+                                    "\t" => 'Tab',
+                                    '|' => 'Pipe (|)',
+                                ])
+                                ->required()
+                                ->default(','),
+                            Forms\Components\Select::make('encoding')
+                                ->label('File encoding')
+                                ->options([
+                                    'UTF-8' => 'UTF-8',
+                                    'ISO-8859-1' => 'ISO-8859-1 (Latin-1)',
+                                    'Windows-1256' => 'Windows-1256 (Arabic)',
+                                    'Windows-1252' => 'Windows-1252 (Western)',
+                                ])
+                                ->required()
+                                ->default('UTF-8'),
+                        ])->columns(2),
+                    Section::make('Layout')
+                        ->compact()
+                        ->schema([
+                            Forms\Components\Toggle::make('has_header')
+                                ->label('First data row is a header')
+                                ->default(true)
+                                ->live()
+                                ->helperText('On: use exact column header text in mappings. Off: use 0-based column index (0, 1, 2…).'),
+                            Forms\Components\TextInput::make('skip_rows')
+                                ->label('Rows to skip before header/data')
+                                ->numeric()
+                                ->default(0)
+                                ->minValue(0)
+                                ->helperText('Use for title rows, logos, or metadata above the table.'),
+                        ])->columns(2),
                 ]),
 
-                Tab::make('Duplicate Detection')->schema([
-                    Forms\Components\CheckboxList::make('duplicate_match_fields')
-                        ->label('Match duplicates on these fields')
-                        ->options(function (Get $get): array {
-                            $base = [
-                                'date' => 'Transaction Date',
-                                'amount' => 'Amount',
-                                'type' => 'Transaction Type (credit / debit)',
-                                'reference' => 'Reference Number',
-                                'description' => 'Description',
-                                'balance' => 'Balance',
-                            ];
-                            $optional = [];
-                            foreach ($get('optional_columns') ?? [] as $def) {
-                                if (! is_array($def)) {
-                                    continue;
-                                }
-                                $key = trim((string) ($def['key'] ?? ''));
-                                if ($key === '') {
-                                    continue;
-                                }
-                                $optional['optional:'.$key] = 'Optional: '.$key;
-                            }
+                Tab::make('Column mapping')->schema([
+                    Forms\Components\Placeholder::make('column_mapping_intro')
+                        ->label('')
+                        ->content(new HtmlString(
+                            '<p class="text-sm text-gray-600 dark:text-gray-400 leading-relaxed max-w-4xl">'
+                            .'Map each CSV column to a field. Amounts may include a currency code or symbol with spaces (e.g. <code class="text-xs rounded bg-gray-100 px-1 py-0.5 dark:bg-white/10">SAR 1,234.50</code>) — the importer strips that automatically.'
+                            .'</p>'
+                        ))
+                        ->columnSpanFull(),
 
-                            return array_merge($base, $optional);
-                        })
-                        ->default(['date', 'amount', 'reference'])
-                        ->columns(2)
-                        ->helperText('A transaction is a duplicate only when every selected field matches an existing transaction (including optional fields you define under Column Mapping). At least one core field or a defined optional field must be selected.'),
-                    Forms\Components\TextInput::make('duplicate_date_tolerance')
-                        ->label('Date tolerance (days)')
-                        ->numeric()
-                        ->default(0)
-                        ->minValue(0)
-                        ->maxValue(30)
-                        ->helperText('Allow this many days difference when matching by date (0 = exact match).'),
+                    Section::make('Transaction date')
+                        ->description('Which column holds the booking date, and how it is formatted.')
+                        ->compact()
+                        ->schema([
+                            Forms\Components\TextInput::make('date_column')
+                                ->label('CSV column')
+                                ->required()
+                                ->placeholder('Date')
+                                ->helperText('Header name, or column index if the file has no header.'),
+                            Forms\Components\TextInput::make('date_format')
+                                ->label('PHP date format')
+                                ->required()
+                                ->default('Y-m-d')
+                                ->placeholder('d/m/Y')
+                                ->helperText('Examples: d/m/Y, m/d/Y, Y-m-d, d-M-Y'),
+                        ])->columns(2),
+
+                    Section::make('Amount')
+                        ->description('How debit/credit amounts appear in the file.')
+                        ->compact()
+                        ->schema([
+                            Forms\Components\Radio::make('amount_type')
+                                ->label('Structure')
+                                ->options([
+                                    'single' => 'One amount column (negative often means debit)',
+                                    'split' => 'Separate credit and debit columns',
+                                ])
+                                ->default('single')
+                                ->live()
+                                ->columnSpanFull(),
+                            Forms\Components\TextInput::make('amount_column')
+                                ->label('Amount column')
+                                ->visible(fn ($get) => $get('amount_type') === 'single')
+                                ->required(fn ($get) => $get('amount_type') === 'single')
+                                ->placeholder('Amount')
+                                ->helperText('Values may include currency text or spaces before the number.'),
+                            Forms\Components\TextInput::make('credit_column')
+                                ->label('Credit column')
+                                ->visible(fn ($get) => $get('amount_type') === 'split')
+                                ->required(fn ($get) => $get('amount_type') === 'split')
+                                ->helperText('Column for incoming / credit amounts.'),
+                            Forms\Components\TextInput::make('debit_column')
+                                ->label('Debit column')
+                                ->visible(fn ($get) => $get('amount_type') === 'split')
+                                ->required(fn ($get) => $get('amount_type') === 'split')
+                                ->helperText('Column for outgoing / debit amounts. Negative values are treated as debits using the absolute amount.'),
+                        ])->columns(2),
+
+                    Section::make('Optional CSV columns')
+                        ->description('Map extra columns by key. Use keys reference, description, or balance to fill the main transaction fields (same as bank columns). Any other key (e.g. branch_code) is stored only on the import row. Header name or 0-based index.')
+                        ->schema([
+                            Forms\Components\Repeater::make('optional_columns')
+                                ->label('Fields')
+                                ->helperText('Example: key reference → CSV column "Reference No."; key description → "Narration"; key balance → "Balance".')
+                                ->live()
+                                ->schema([
+                                    Forms\Components\TextInput::make('key')
+                                        ->label('Key')
+                                        ->required()
+                                        ->maxLength(50)
+                                        ->placeholder('reference')
+                                        ->helperText('Use reference, description, or balance for standard fields, or any label for extras.'),
+                                    Forms\Components\TextInput::make('column')
+                                        ->label('CSV column')
+                                        ->required()
+                                        ->maxLength(100)
+                                        ->placeholder('Reference or 4')
+                                        ->helperText('Header name or 0-based index.'),
+                                ])
+                                ->defaultItems(0)
+                                ->columns(2)
+                                ->reorderable()
+                                ->addActionLabel('Add field')
+                                ->itemLabel(fn (array $state): ?string => filled($state['key'] ?? null)
+                                    ? (string) $state['key']
+                                    : 'New field')
+                                ->columnSpanFull(),
+                        ]),
+                ]),
+
+                Tab::make('Duplicate detection')->schema([
+                    Section::make('Matching rules')
+                        ->description('A row is treated as a duplicate only if every selected field matches an earlier transaction. Add optional column keys below when you need extra fields in the match.')
+                        ->compact()
+                        ->schema([
+                            Forms\Components\CheckboxList::make('duplicate_match_fields')
+                                ->label('Match on')
+                                ->live()
+                                ->options(function (Get $get): array {
+                                    $options = [
+                                        'date' => 'Date',
+                                        'amount' => 'Amount',
+                                    ];
+                                    foreach ($get('optional_columns') ?? [] as $def) {
+                                        if (! is_array($def)) {
+                                            continue;
+                                        }
+                                        $key = trim((string) ($def['key'] ?? ''));
+                                        if ($key === '') {
+                                            continue;
+                                        }
+                                        if ($key === 'reference') {
+                                            $options['reference'] = 'Reference';
+
+                                            continue;
+                                        }
+                                        if ($key === 'description') {
+                                            $options['description'] = 'Description';
+
+                                            continue;
+                                        }
+                                        $options['optional:'.$key] = 'Custom: '.$key;
+                                    }
+
+                                    return $options;
+                                })
+                                ->default(['date', 'amount'])
+                                ->columns(2)
+                                ->helperText('Reference and Description appear here only when you map those keys under Optional CSV columns. If nothing valid is selected, the system uses date + amount (+ reference when mapped).'),
+                            Forms\Components\TextInput::make('duplicate_date_tolerance')
+                                ->label('Date tolerance (days)')
+                                ->numeric()
+                                ->default(0)
+                                ->minValue(0)
+                                ->maxValue(30)
+                                ->helperText('0 = same calendar day (within the date column’s precision). Higher values allow nearby dates to match.'),
+                        ]),
                 ]),
 
             ])->columnSpanFull(),

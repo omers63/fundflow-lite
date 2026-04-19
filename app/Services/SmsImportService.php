@@ -7,6 +7,7 @@ use App\Models\SmsImportSession;
 use App\Models\SmsImportTemplate;
 use App\Models\SmsTransaction;
 use App\Models\User;
+use App\Support\CsvStringParser;
 use Carbon\Carbon;
 use Illuminate\Support\Facades\Storage;
 use Throwable;
@@ -20,13 +21,13 @@ class SmsImportService
         $template = $session->template;
 
         try {
-            $rows   = $this->parseCsv($session->file_path, $template);
+            $rows = $this->parseCsv($session->file_path, $template);
             $errors = [];
 
-            $totalRows      = count($rows);
-            $importedCount  = 0;
+            $totalRows = count($rows);
+            $importedCount = 0;
             $duplicateCount = 0;
-            $errorCount     = 0;
+            $errorCount = 0;
 
             foreach ($rows as $lineNumber => $row) {
                 try {
@@ -42,17 +43,17 @@ class SmsImportService
                     $matchedMemberId = $this->matchMember($parsed['raw_sms'], $template);
 
                     SmsTransaction::create([
-                        'bank_id'          => $session->bank_id,
-                        'import_session_id'=> $session->id,
-                        'member_id'        => $matchedMemberId,
+                        'bank_id' => $session->bank_id,
+                        'import_session_id' => $session->id,
+                        'member_id' => $matchedMemberId,
                         'transaction_date' => $parsed['date'],
-                        'amount'           => $parsed['amount'],
+                        'amount' => $parsed['amount'],
                         'transaction_type' => $parsed['type'],
-                        'reference'        => $parsed['reference'] ?? null,
-                        'raw_sms'          => $parsed['raw_sms'],
-                        'raw_data'         => $row,
-                        'is_duplicate'     => $duplicate !== null,
-                        'duplicate_of_id'  => $duplicate?->id,
+                        'reference' => $parsed['reference'] ?? null,
+                        'raw_sms' => $parsed['raw_sms'],
+                        'raw_data' => $row,
+                        'is_duplicate' => $duplicate !== null,
+                        'duplicate_of_id' => $duplicate?->id,
                     ]);
 
                     if ($duplicate) {
@@ -62,27 +63,27 @@ class SmsImportService
                     }
                 } catch (Throwable $e) {
                     $errorCount++;
-                    $errors[] = "Row {$lineNumber}: " . $e->getMessage();
+                    $errors[] = "Row {$lineNumber}: ".$e->getMessage();
                 }
             }
 
             $session->update([
-                'status'          => match (true) {
+                'status' => match (true) {
                     $errorCount > 0 && $importedCount === 0 => 'failed',
-                    $errorCount > 0                         => 'partially_completed',
-                    default                                 => 'completed',
+                    $errorCount > 0 => 'partially_completed',
+                    default => 'completed',
                 },
-                'total_rows'      => $totalRows,
-                'imported_count'  => $importedCount,
+                'total_rows' => $totalRows,
+                'imported_count' => $importedCount,
                 'duplicate_count' => $duplicateCount,
-                'error_count'     => $errorCount,
-                'error_log'       => $errors ?: null,
-                'completed_at'    => now(),
+                'error_count' => $errorCount,
+                'error_log' => $errors ?: null,
+                'completed_at' => now(),
             ]);
         } catch (Throwable $e) {
             $session->update([
-                'status'       => 'failed',
-                'error_log'    => [$e->getMessage()],
+                'status' => 'failed',
+                'error_log' => [$e->getMessage()],
                 'completed_at' => now(),
             ]);
         }
@@ -95,22 +96,14 @@ class SmsImportService
     private function parseCsv(string $filePath, SmsImportTemplate $template): array
     {
         $fullPath = Storage::path($filePath);
-        $content  = file_get_contents($fullPath);
+        $content = file_get_contents($fullPath);
 
         if ($template->encoding !== 'UTF-8') {
             $content = mb_convert_encoding($content, 'UTF-8', $template->encoding);
         }
 
         $delimiter = $template->delimiter === '\t' ? "\t" : $template->delimiter;
-        $lines     = str_getcsv($content, "\n");
-        $rows      = [];
-
-        foreach ($lines as $line) {
-            if (trim($line) === '') {
-                continue;
-            }
-            $rows[] = str_getcsv($line, $delimiter);
-        }
+        $rows = CsvStringParser::parseRows($content, $delimiter);
 
         if ($template->skip_rows > 0) {
             $rows = array_slice($rows, $template->skip_rows);
@@ -128,6 +121,7 @@ class SmsImportService
                 foreach ($headers as $i => $header) {
                     $assoc[$header] = $row[$i] ?? null;
                 }
+
                 return $assoc;
             }, $rows);
         }
@@ -178,10 +172,10 @@ class SmsImportService
         $type = $this->detectType($rawSms, $template);
 
         return [
-            'raw_sms'   => $rawSms,
-            'amount'    => $amount,
-            'date'      => $date,
-            'type'      => $type,
+            'raw_sms' => $rawSms,
+            'amount' => $amount,
+            'date' => $date,
+            'type' => $type,
             'reference' => $reference,
         ];
     }
@@ -192,9 +186,10 @@ class SmsImportService
 
     private function getColumn(array $row, string $column, bool $hasHeader): mixed
     {
-        if (is_numeric($column) && !$hasHeader) {
+        if (is_numeric($column) && ! $hasHeader) {
             return $row[(int) $column] ?? null;
         }
+
         return $row[$column] ?? null;
     }
 
@@ -252,7 +247,7 @@ class SmsImportService
             return $pattern;
         }
 
-        return '/' . str_replace('/', '\/', $pattern) . '/ui';
+        return '/'.str_replace('/', '\/', $pattern).'/ui';
     }
 
     private function detectType(string $text, SmsImportTemplate $template): string
@@ -294,11 +289,13 @@ class SmsImportService
 
         if ($field === 'member_number') {
             $member = Member::where('member_number', trim($value))->first();
+
             return $member?->id;
         }
 
         if ($field === 'user_name') {
             $user = User::whereRaw('LOWER(name) = ?', [mb_strtolower(trim($value))])->first();
+
             return $user ? Member::where('user_id', $user->id)->value('id') : null;
         }
 
@@ -311,7 +308,7 @@ class SmsImportService
 
     private function findDuplicate(array $parsed, SmsImportTemplate $template, ?int $bankId): ?SmsTransaction
     {
-        $fields    = $template->duplicate_match_fields ?? ['date', 'amount', 'reference'];
+        $fields = $template->duplicate_match_fields ?? ['date', 'amount', 'reference'];
         $tolerance = $template->duplicate_date_tolerance ?? 0;
 
         $query = SmsTransaction::where('is_duplicate', false);

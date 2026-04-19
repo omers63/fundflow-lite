@@ -5,6 +5,7 @@ namespace App\Services;
 use App\Models\BankImportSession;
 use App\Models\BankImportTemplate;
 use App\Models\BankTransaction;
+use App\Support\CsvStringParser;
 use Carbon\Carbon;
 use Illuminate\Database\Eloquent\Builder;
 use Illuminate\Support\Facades\Storage;
@@ -97,15 +98,7 @@ class BankImportService
 
         $delimiter = $template->delimiter === '\t' ? "\t" : $template->delimiter;
 
-        $lines = str_getcsv($content, "\n");
-        $rows = [];
-
-        foreach ($lines as $line) {
-            if (trim($line) === '') {
-                continue;
-            }
-            $rows[] = str_getcsv($line, $delimiter);
-        }
+        $rows = CsvStringParser::parseRows($content, $delimiter);
 
         // Skip leading rows (e.g. bank report headers before the data)
         if ($template->skip_rows > 0) {
@@ -157,36 +150,65 @@ class BankImportService
             $debit = $this->parseAmount($get($template->debit_column));
 
             if ($credit > 0) {
-                $amount = $credit;
+                $amount = abs($credit);
                 $type = 'credit';
             } else {
-                $amount = $debit;
+                // Debit column may be negative (outflow) or positive; store magnitude only.
+                $amount = abs($debit);
                 $type = 'debit';
             }
         } else {
             $raw = $this->parseAmount($get($template->amount_column));
             $amount = abs($raw);
-            $type = 'credit';
-
-            if ($template->type_column) {
-                $indicator = trim((string) $get($template->type_column));
-                $type = strcasecmp($indicator, $template->debit_indicator ?? 'DR') === 0
-                    ? 'debit'
-                    : 'credit';
-            } elseif ($raw < 0) {
-                $type = 'debit';
-            }
+            $type = $raw < 0 ? 'debit' : 'credit';
         }
+
+        $optional = $this->mapOptionalColumns($row, $template);
+
+        $reference = $this->optionalFieldString($optional, 'reference');
+        $description = $this->optionalFieldString($optional, 'description');
+        $balance = $this->optionalFieldBalance($optional, 'balance');
 
         return [
             'date' => $date,
             'amount' => $amount,
-            'balance' => $template->balance_column ? $this->parseAmount($get($template->balance_column)) : null,
+            'balance' => $balance,
             'type' => $type,
-            'description' => $template->description_column ? trim((string) $get($template->description_column)) : null,
-            'reference' => $template->reference_column ? trim((string) $get($template->reference_column)) : null,
-            'optional' => $this->mapOptionalColumns($row, $template),
+            'description' => $description,
+            'reference' => $reference,
+            'optional' => $optional,
         ];
+    }
+
+    /**
+     * @param  array<string, mixed>  $optional
+     */
+    private function optionalFieldString(array $optional, string $key): ?string
+    {
+        if (! array_key_exists($key, $optional)) {
+            return null;
+        }
+
+        $v = $optional[$key];
+
+        return $v === null || $v === '' ? null : trim((string) $v);
+    }
+
+    /**
+     * @param  array<string, mixed>  $optional
+     */
+    private function optionalFieldBalance(array $optional, string $key): ?float
+    {
+        if (! array_key_exists($key, $optional)) {
+            return null;
+        }
+
+        $v = $optional[$key];
+        if ($v === null || $v === '') {
+            return null;
+        }
+
+        return $this->parseAmount($v);
     }
 
     private function mapOptionalColumns(array $row, BankImportTemplate $template): array
@@ -237,8 +259,29 @@ class BankImportService
             return 0.0;
         }
 
-        // Remove currency symbols, spaces, commas used as thousands separators
-        $clean = preg_replace('/[^\d.\-]/', '', str_replace(',', '', (string) $value));
+        $raw = trim(preg_replace('/\s+/u', ' ', (string) $value));
+        if ($raw === '') {
+            return 0.0;
+        }
+
+        // Non-breaking space and similar
+        $raw = str_replace(["\xc2\xa0", "\xe2\x80\xaf"], ' ', $raw);
+
+        // Strip leading currency words / symbols before the numeric part (e.g. "SAR 1,234.50", "USD  500")
+        $raw = preg_replace('/^[^\d\-−+]+/u', '', $raw);
+        $raw = trim($raw);
+
+        // Spaces inside the number (e.g. "1 234.50")
+        $raw = preg_replace('/\s+/u', '', $raw);
+
+        // Thousands separators
+        $raw = str_replace(',', '', $raw);
+
+        $clean = preg_replace('/[^\d.\-]/', '', $raw);
+
+        if ($clean === '' || $clean === '.' || $clean === '-') {
+            return 0.0;
+        }
 
         return (float) $clean;
     }
@@ -246,10 +289,10 @@ class BankImportService
     private function findDuplicate(array $mapped, BankImportTemplate $template, BankImportSession $session): ?BankTransaction
     {
         $allowedOptionalKeys = $this->optionalColumnKeys($template);
-        $fields = $this->normalizeDuplicateMatchFields($template->duplicate_match_fields);
+        $fields = $this->normalizeDuplicateMatchFields($template->duplicate_match_fields, $template);
 
         if (! $this->duplicateMatchFieldsAreEffective($fields, $allowedOptionalKeys)) {
-            $fields = ['date', 'amount', 'reference'];
+            $fields = $this->defaultDuplicateMatchFieldList($template);
         }
 
         $tolerance = $template->duplicate_date_tolerance ?? 0;
@@ -275,12 +318,6 @@ class BankImportService
                 continue;
             }
 
-            if ($field === 'type') {
-                $query->where('transaction_type', $mapped['type']);
-
-                continue;
-            }
-
             if ($field === 'reference') {
                 $this->applyNullableTextDuplicateMatch($query, 'reference', $mapped['reference'] ?? null);
 
@@ -289,17 +326,6 @@ class BankImportService
 
             if ($field === 'description') {
                 $this->applyNullableTextDuplicateMatch($query, 'description', $mapped['description'] ?? null);
-
-                continue;
-            }
-
-            if ($field === 'balance') {
-                $balance = $mapped['balance'] ?? null;
-                if ($balance === null) {
-                    $query->whereNull('running_balance');
-                } else {
-                    $this->applyMoneyColumnDuplicateMatch($query, 'running_balance', (float) $balance);
-                }
 
                 continue;
             }
@@ -320,13 +346,51 @@ class BankImportService
      * @param  array<int, string>|null  $fields
      * @return list<string>
      */
-    private function normalizeDuplicateMatchFields(?array $fields): array
+    private function normalizeDuplicateMatchFields(?array $fields, BankImportTemplate $template): array
     {
+        $allowedKeys = $this->optionalColumnKeys($template);
+
         if ($fields === null || $fields === []) {
-            return ['date', 'amount', 'reference'];
+            return $this->defaultDuplicateMatchFieldList($template);
         }
 
-        return array_values(array_unique($fields));
+        $fields = array_values(array_unique($fields));
+        $fields = array_values(array_diff($fields, ['type', 'balance']));
+
+        if (! in_array('reference', $allowedKeys, true)) {
+            $fields = array_values(array_diff($fields, ['reference']));
+        }
+        if (! in_array('description', $allowedKeys, true)) {
+            $fields = array_values(array_diff($fields, ['description']));
+        }
+
+        $fields = array_values(array_filter($fields, function (string $f) use ($allowedKeys): bool {
+            if (! str_starts_with($f, 'optional:')) {
+                return true;
+            }
+            $key = substr($f, strlen('optional:'));
+
+            return $key !== '' && in_array($key, $allowedKeys, true);
+        }));
+
+        if ($fields === []) {
+            return $this->defaultDuplicateMatchFieldList($template);
+        }
+
+        return $fields;
+    }
+
+    /**
+     * @return list<string>
+     */
+    private function defaultDuplicateMatchFieldList(BankImportTemplate $template): array
+    {
+        $fields = ['date', 'amount'];
+        if (in_array('reference', $this->optionalColumnKeys($template), true)) {
+            $fields[] = 'reference';
+        }
+
+        return $fields;
     }
 
     /**
@@ -364,13 +428,16 @@ class BankImportService
      */
     private function duplicateMatchFieldsAreEffective(array $fields, array $allowedOptionalKeys): bool
     {
-        $core = ['date', 'amount', 'type', 'reference', 'description', 'balance'];
-
         foreach ($fields as $field) {
-            if (in_array($field, $core, true)) {
+            if ($field === 'date' || $field === 'amount') {
                 return true;
             }
-
+            if ($field === 'reference' && in_array('reference', $allowedOptionalKeys, true)) {
+                return true;
+            }
+            if ($field === 'description' && in_array('description', $allowedOptionalKeys, true)) {
+                return true;
+            }
             if (str_starts_with($field, 'optional:')) {
                 $key = substr($field, strlen('optional:'));
                 if ($key !== '' && in_array($key, $allowedOptionalKeys, true)) {

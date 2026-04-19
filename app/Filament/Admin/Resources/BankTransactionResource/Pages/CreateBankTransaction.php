@@ -24,18 +24,18 @@ class CreateBankTransaction extends CreateRecord
 
     public function form(Schema $schema): Schema
     {
-        $memberOptions = fn() => Member::query()
+        $memberOptions = fn () => Member::query()
             ->with('user')
             ->active()
             ->get()
-            ->mapWithKeys(fn(Member $m) => [$m->id => "{$m->member_number} – {$m->user->name}"]);
+            ->mapWithKeys(fn (Member $m) => [$m->id => "{$m->member_number} – {$m->user->name}"]);
 
-        $loanOptionsForMember = fn(?int $memberId) => Loan::query()
+        $loanOptionsForMember = fn (?int $memberId) => Loan::query()
             ->where('member_id', $memberId)
             ->whereHas('disbursements')
             ->orderByDesc('id')
             ->get()
-            ->mapWithKeys(fn(Loan $loan) => [
+            ->mapWithKeys(fn (Loan $loan) => [
                 $loan->id => sprintf(
                     '#%d — SAR %s approved, SAR %s disbursed, %s',
                     $loan->id,
@@ -89,22 +89,22 @@ class CreateBankTransaction extends CreateRecord
                         ->helperText('Optional. You can link or post to a member later from the transaction view.'),
                     Forms\Components\Select::make('loan_id')
                         ->label('Loan (optional)')
-                        ->options(fn(Get $get) => $loanOptionsForMember($get('member_id')))
+                        ->options(fn (Get $get) => $loanOptionsForMember($get('member_id')))
                         ->searchable()
                         ->preload()
                         ->live()
-                        ->afterStateUpdated(fn($set) => $set('loan_disbursement_id', null))
-                        ->visible(fn(Get $get) => $get('transaction_type') === 'debit')
+                        ->afterStateUpdated(fn ($set) => $set('loan_disbursement_id', null))
+                        ->visible(fn (Get $get) => $get('transaction_type') === 'debit')
                         ->placeholder('—')
                         ->helperText('Optional. Member loan summary. Requires at least one disbursement on file.'),
                     Forms\Components\Select::make('loan_disbursement_id')
                         ->label('Loan disbursement payout (optional)')
-                        ->options(fn(Get $get) => LoanDisbursement::query()
+                        ->options(fn (Get $get) => LoanDisbursement::query()
                             ->where('loan_id', $get('loan_id'))
                             ->orderByDesc('disbursed_at')
                             ->orderByDesc('id')
                             ->get()
-                            ->mapWithKeys(fn(LoanDisbursement $d) => [
+                            ->mapWithKeys(fn (LoanDisbursement $d) => [
                                 $d->id => sprintf(
                                     'SAR %s on %s — disbursement #%d',
                                     number_format((float) $d->amount, 2),
@@ -114,7 +114,7 @@ class CreateBankTransaction extends CreateRecord
                             ]))
                         ->searchable()
                         ->preload()
-                        ->visible(fn(Get $get) => $get('transaction_type') === 'debit' && filled($get('loan_id')))
+                        ->visible(fn (Get $get) => $get('transaction_type') === 'debit' && filled($get('loan_id')))
                         ->placeholder('—')
                         ->helperText('Optional. Pick the specific disbursement record when linking a debit.'),
                 ])->columns(2)->columnSpanFull(),
@@ -142,11 +142,10 @@ class CreateBankTransaction extends CreateRecord
                 'amount_column' => 'amount',
                 'credit_column' => null,
                 'debit_column' => null,
-                'type_column' => 'transaction_type',
-                'credit_indicator' => 'credit',
-                'debit_indicator' => 'debit',
-                'description_column' => 'description',
-                'reference_column' => 'reference',
+                'optional_columns' => [
+                    ['key' => 'reference', 'column' => 'reference'],
+                    ['key' => 'description', 'column' => 'description'],
+                ],
                 'duplicate_match_fields' => ['date', 'amount', 'reference'],
                 'duplicate_date_tolerance' => 0,
             ]);
@@ -186,15 +185,15 @@ class CreateBankTransaction extends CreateRecord
 
         $hasLoanColumn = SchemaFacade::hasColumn('bank_transactions', 'loan_id');
         $hasDisbursementColumn = SchemaFacade::hasColumn('bank_transactions', 'loan_disbursement_id');
-        if (!$hasLoanColumn) {
+        if (! $hasLoanColumn) {
             unset($data['loan_id']);
         }
-        if (!$hasDisbursementColumn) {
+        if (! $hasDisbursementColumn) {
             unset($data['loan_disbursement_id']);
         }
 
-        $linkLoan = ($data['transaction_type'] ?? null) === 'debit' && !empty($data['loan_id']);
-        $linkDisbursement = ($data['transaction_type'] ?? null) === 'debit' && !empty($data['loan_disbursement_id']);
+        $linkLoan = ($data['transaction_type'] ?? null) === 'debit' && ! empty($data['loan_id']);
+        $linkDisbursement = ($data['transaction_type'] ?? null) === 'debit' && ! empty($data['loan_disbursement_id']);
         if ($linkLoan xor $linkDisbursement) {
             throw ValidationException::withMessages([
                 'loan_id' => 'When linking a debit to a disbursement, select both the loan and the disbursement record.',
@@ -202,7 +201,7 @@ class CreateBankTransaction extends CreateRecord
         }
 
         if ($linkLoan && $linkDisbursement) {
-            if (!$hasLoanColumn || !$hasDisbursementColumn) {
+            if (! $hasLoanColumn || ! $hasDisbursementColumn) {
                 throw ValidationException::withMessages([
                     'loan_id' => 'Database is missing loan link columns. Run migrations, then retry.',
                 ]);
@@ -213,7 +212,7 @@ class CreateBankTransaction extends CreateRecord
                 ]);
             }
             $disbursement = LoanDisbursement::query()->find($data['loan_disbursement_id']);
-            if (!$disbursement || (int) $disbursement->loan_id !== (int) $data['loan_id']) {
+            if (! $disbursement || (int) $disbursement->loan_id !== (int) $data['loan_id']) {
                 throw ValidationException::withMessages([
                     'loan_disbursement_id' => 'Selected disbursement must belong to the selected loan.',
                 ]);
@@ -224,7 +223,7 @@ class CreateBankTransaction extends CreateRecord
                 ->whereHas('disbursements')
                 ->first();
 
-            if (!$loan) {
+            if (! $loan) {
                 throw ValidationException::withMessages([
                     'loan_id' => 'Selected loan must belong to the selected member and must have disbursement records.',
                 ]);
