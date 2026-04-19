@@ -11,6 +11,7 @@ use App\Models\SmsTransaction;
 use App\Models\User;
 use App\Services\SmsImportService;
 use Filament\Actions\Action;
+use Filament\Actions\ActionGroup;
 use Filament\Actions\ViewAction;
 use Filament\Forms;
 use Filament\Notifications\Notification;
@@ -67,7 +68,7 @@ class SmsImportSessionResource extends Resource
                 Tables\Columns\TextColumn::make('template.name')->label('Template')->limit(30),
                 Tables\Columns\TextColumn::make('status')
                     ->badge()
-                    ->color(fn(string $state) => match ($state) {
+                    ->color(fn (string $state) => match ($state) {
                         'completed' => 'success',
                         'processing' => 'warning',
                         'partially_completed' => 'warning',
@@ -92,17 +93,17 @@ class SmsImportSessionResource extends Resource
                 Tables\Filters\SelectFilter::make('template_id')
                     ->label('Template')
                     ->searchable()
-                    ->options(fn() => SmsImportTemplate::query()
+                    ->options(fn () => SmsImportTemplate::query()
                         ->with('bank')
                         ->orderBy('name')
                         ->get()
-                        ->mapWithKeys(fn(SmsImportTemplate $t) => [
-                            $t->id => ($t->bank?->name ?? 'Any bank') . ' — ' . $t->name,
+                        ->mapWithKeys(fn (SmsImportTemplate $t) => [
+                            $t->id => ($t->bank?->name ?? 'Any bank').' — '.$t->name,
                         ])),
                 Tables\Filters\SelectFilter::make('imported_by')
                     ->label('Imported by')
                     ->searchable()
-                    ->options(fn() => User::query()->orderBy('name')->pluck('name', 'id')),
+                    ->options(fn () => User::query()->orderBy('name')->pluck('name', 'id')),
                 Tables\Filters\SelectFilter::make('status')
                     ->options([
                         'pending' => 'Pending',
@@ -118,8 +119,8 @@ class SmsImportSessionResource extends Resource
                     ])
                     ->query(function ($query, array $data) {
                         return $query
-                            ->when($data['from'] ?? null, fn($q) => $q->whereDate('created_at', '>=', $data['from']))
-                            ->when($data['until'] ?? null, fn($q) => $q->whereDate('created_at', '<=', $data['until']));
+                            ->when($data['from'] ?? null, fn ($q) => $q->whereDate('created_at', '>=', $data['from']))
+                            ->when($data['until'] ?? null, fn ($q) => $q->whereDate('created_at', '<=', $data['until']));
                     }),
                 TrashedFilter::make(),
             ])
@@ -134,12 +135,12 @@ class SmsImportSessionResource extends Resource
                             ->options(Bank::active()->pluck('name', 'id'))
                             ->nullable()
                             ->live()
-                            ->afterStateUpdated(fn($set) => $set('template_id', null)),
+                            ->afterStateUpdated(fn ($set) => $set('template_id', null)),
                         Forms\Components\Select::make('template_id')
                             ->label('SMS Template')
-                            ->options(fn($get) => SmsImportTemplate::when(
+                            ->options(fn ($get) => SmsImportTemplate::when(
                                 $get('bank_id'),
-                                fn($q, $id) => $q->where('bank_id', $id)
+                                fn ($q, $id) => $q->where('bank_id', $id)
                             )->pluck('name', 'id'))
                             ->required()
                             ->live()
@@ -172,10 +173,10 @@ class SmsImportSessionResource extends Resource
                         $session->refresh();
 
                         Notification::make()
-                            ->title('SMS Import ' . ucfirst(str_replace('_', ' ', $session->status)))
+                            ->title('SMS Import '.ucfirst(str_replace('_', ' ', $session->status)))
                             ->body(
-                                "Imported: {$session->imported_count} | " .
-                                "Duplicates: {$session->duplicate_count} | " .
+                                "Imported: {$session->imported_count} | ".
+                                "Duplicates: {$session->duplicate_count} | ".
                                 "Errors: {$session->error_count}"
                             )
                             ->color($session->status === 'completed' ? 'success' : 'warning')
@@ -183,40 +184,42 @@ class SmsImportSessionResource extends Resource
                     }),
             ])
             ->recordActions([
-                ViewAction::make(),
-                Action::make('view_transactions')
-                    ->label('Transactions')
-                    ->icon('heroicon-o-table-cells')
-                    ->url(fn(SmsImportSession $record) => SmsTransactionResource::getUrl('index', [
-                        'tableFilters[import_session_id][value]' => $record->id,
-                    ])),
-                Action::make('retry')
-                    ->label('Re-import')
-                    ->icon('heroicon-o-arrow-path')
-                    ->color('warning')
-                    ->visible(fn(SmsImportSession $record) => in_array($record->status, ['failed', 'partially_completed']))
-                    ->requiresConfirmation()
-                    ->action(function (SmsImportSession $record) {
-                        SmsTransaction::query()
-                            ->where('import_session_id', $record->id)
-                            ->forceDelete();
-                        $record->update([
-                            'status' => 'pending',
-                            'imported_count' => 0,
-                            'duplicate_count' => 0,
-                            'error_count' => 0,
-                            'error_log' => null,
-                        ]);
+                ActionGroup::make([
+                    ViewAction::make(),
+                    Action::make('view_transactions')
+                        ->label('Transactions')
+                        ->icon('heroicon-o-table-cells')
+                        ->url(fn (SmsImportSession $record) => SmsTransactionResource::getUrl('index', [
+                            'tableFilters[import_session_id][value]' => $record->id,
+                        ])),
+                    Action::make('retry')
+                        ->label('Re-import')
+                        ->icon('heroicon-o-arrow-path')
+                        ->color('warning')
+                        ->visible(fn (SmsImportSession $record) => in_array($record->status, ['failed', 'partially_completed']))
+                        ->requiresConfirmation()
+                        ->action(function (SmsImportSession $record) {
+                            SmsTransaction::query()
+                                ->where('import_session_id', $record->id)
+                                ->forceDelete();
+                            $record->update([
+                                'status' => 'pending',
+                                'imported_count' => 0,
+                                'duplicate_count' => 0,
+                                'error_count' => 0,
+                                'error_log' => null,
+                            ]);
 
-                        app(SmsImportService::class)->import($record);
-                        $record->refresh();
+                            app(SmsImportService::class)->import($record);
+                            $record->refresh();
 
-                        Notification::make()
-                            ->title('Re-import ' . ucfirst(str_replace('_', ' ', $record->status)))
-                            ->body("Imported: {$record->imported_count} | Duplicates: {$record->duplicate_count}")
-                            ->success()
-                            ->send();
-                    }),
+                            Notification::make()
+                                ->title('Re-import '.ucfirst(str_replace('_', ' ', $record->status)))
+                                ->body("Imported: {$record->imported_count} | Duplicates: {$record->duplicate_count}")
+                                ->success()
+                                ->send();
+                        }),
+                ]),
             ]);
     }
 

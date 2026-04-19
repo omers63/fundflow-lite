@@ -2,10 +2,14 @@
 
 namespace App\Filament\Admin\Resources\AccountResource\RelationManagers;
 
+use App\Models\Account;
 use App\Models\AccountTransaction;
+use App\Models\BankTransaction;
 use App\Models\Member;
 use App\Services\AccountingService;
 use Filament\Actions\Action;
+use Filament\Actions\ActionGroup;
+use Filament\Actions\BulkAction;
 use Filament\Actions\BulkActionGroup;
 use Filament\Actions\DeleteAction;
 use Filament\Actions\DeleteBulkAction;
@@ -19,6 +23,7 @@ use Filament\Schemas\Schema;
 use Filament\Support\Exceptions\Halt;
 use Filament\Tables;
 use Filament\Tables\Table;
+use Illuminate\Database\Eloquent\Collection;
 use Illuminate\Database\Eloquent\Model;
 
 class TransactionsRelationManager extends RelationManager
@@ -63,11 +68,11 @@ class TransactionsRelationManager extends RelationManager
             Forms\Components\Select::make('member_id')
                 ->label('Member tag')
                 ->helperText('For master accounts only — ties this line to a member in filters and reports.')
-                ->options(fn() => Member::query()->with('user')->orderBy('member_number')->get()
-                    ->mapWithKeys(fn(Member $m) => [$m->id => "{$m->member_number} – {$m->user->name}"]))
+                ->options(fn () => Member::query()->with('user')->orderBy('member_number')->get()
+                    ->mapWithKeys(fn (Member $m) => [$m->id => "{$m->member_number} – {$m->user->name}"]))
                 ->searchable()
                 ->placeholder('—')
-                ->visible(fn() => $account->member_id === null),
+                ->visible(fn () => $account->member_id === null),
         ]);
     }
 
@@ -85,9 +90,9 @@ class TransactionsRelationManager extends RelationManager
                     ->modalHeading('Post credit entry')
                     ->modalDescription('Adds a credit to this account only. If you need matching master and member lines, post each account separately or use the standard finance workflows.')
                     ->modalSubmitActionLabel('Post credit')
-                    ->authorize(fn() => auth()->user()?->can('update', $this->getOwnerRecord()) ?? false)
+                    ->authorize(fn () => auth()->user()?->can('update', $this->getOwnerRecord()) ?? false)
                     ->schema($this->manualLedgerEntryFormSchema())
-                    ->action(fn(array $data) => $this->postManualLedgerLineFromAction($data, 'credit')),
+                    ->action(fn (array $data) => $this->postManualLedgerLineFromAction($data, 'credit')),
                 Action::make('createLedgerDebit')
                     ->label('Debit')
                     ->icon('heroicon-o-arrow-trending-down')
@@ -95,9 +100,9 @@ class TransactionsRelationManager extends RelationManager
                     ->modalHeading('Post debit entry')
                     ->modalDescription('Adds a debit to this account only. If you need matching master and member lines, post each account separately or use the standard finance workflows.')
                     ->modalSubmitActionLabel('Post debit')
-                    ->authorize(fn() => auth()->user()?->can('update', $this->getOwnerRecord()) ?? false)
+                    ->authorize(fn () => auth()->user()?->can('update', $this->getOwnerRecord()) ?? false)
                     ->schema($this->manualLedgerEntryFormSchema())
-                    ->action(fn(array $data) => $this->postManualLedgerLineFromAction($data, 'debit')),
+                    ->action(fn (array $data) => $this->postManualLedgerLineFromAction($data, 'debit')),
             ])
             ->columns([
                 Tables\Columns\TextColumn::make('transacted_at')
@@ -112,7 +117,7 @@ class TransactionsRelationManager extends RelationManager
                 Tables\Columns\TextColumn::make('amount')
                     ->money('SAR')
                     ->sortable()
-                    ->color(fn(AccountTransaction $r) => $r->entry_type === 'credit' ? 'success' : 'danger')
+                    ->color(fn (AccountTransaction $r) => $r->entry_type === 'credit' ? 'success' : 'danger')
                     ->toggleable(),
                 Tables\Columns\TextColumn::make('description')
                     ->limit(60)
@@ -125,7 +130,7 @@ class TransactionsRelationManager extends RelationManager
                     ->toggleable(),
                 Tables\Columns\TextColumn::make('source_type')
                     ->label('Source')
-                    ->formatStateUsing(fn($state) => $state ? class_basename($state) : '—')
+                    ->formatStateUsing(fn ($state) => $state ? class_basename($state) : '—')
                     ->toggleable(),
                 Tables\Columns\TextColumn::make('postedBy.name')
                     ->label('Posted By')
@@ -136,8 +141,8 @@ class TransactionsRelationManager extends RelationManager
                 Tables\Filters\SelectFilter::make('member_id')
                     ->label('Member')
                     ->searchable()
-                    ->options(fn() => Member::with('user')->orderBy('member_number')->get()
-                        ->mapWithKeys(fn(Member $m) => [$m->id => "{$m->member_number} – {$m->user->name}"])),
+                    ->options(fn () => Member::with('user')->orderBy('member_number')->get()
+                        ->mapWithKeys(fn (Member $m) => [$m->id => "{$m->member_number} – {$m->user->name}"])),
                 Tables\Filters\SelectFilter::make('entry_type')
                     ->label('Type')
                     ->options(['credit' => 'Credit', 'debit' => 'Debit']),
@@ -149,8 +154,8 @@ class TransactionsRelationManager extends RelationManager
                     ->columns(2)
                     ->query(function ($query, array $data) {
                         return $query
-                            ->when($data['from'] ?? null, fn($q) => $q->where('transacted_at', '>=', $data['from']))
-                            ->when($data['until'] ?? null, fn($q) => $q->where('transacted_at', '<=', $data['until']));
+                            ->when($data['from'] ?? null, fn ($q) => $q->where('transacted_at', '>=', $data['from']))
+                            ->when($data['until'] ?? null, fn ($q) => $q->where('transacted_at', '<=', $data['until']));
                     }),
                 Tables\Filters\SelectFilter::make('source_type')
                     ->label('Source type')
@@ -171,56 +176,176 @@ class TransactionsRelationManager extends RelationManager
                     ->columns(2)
                     ->query(function ($query, array $data) {
                         return $query
-                            ->when(filled($data['amount_min'] ?? null), fn($q) => $q->where('amount', '>=', $data['amount_min']))
-                            ->when(filled($data['amount_max'] ?? null), fn($q) => $q->where('amount', '<=', $data['amount_max']));
+                            ->when(filled($data['amount_min'] ?? null), fn ($q) => $q->where('amount', '>=', $data['amount_min']))
+                            ->when(filled($data['amount_max'] ?? null), fn ($q) => $q->where('amount', '<=', $data['amount_max']));
                     }),
                 Tables\Filters\TrashedFilter::make(),
             ])
             ->recordActions([
-                EditAction::make()
-                    ->modalWidth('2xl')
-                    ->modalDescription(
-                        'Changes to amount or type adjust this account’s running balance. ' .
-                        'The linked source record is not changed here — use the relevant finance workflow if that must stay aligned.'
-                    )
-                    ->authorize(fn(): bool => auth()->user()?->can('update', $this->getOwnerRecord()) ?? false)
-                    ->using(function (array $data, Model $record): void {
-                        if (!$record instanceof AccountTransaction) {
-                            return;
-                        }
+                ActionGroup::make([
+                    Action::make('post_to_member')
+                        ->label('Post to Member')
+                        ->icon('heroicon-o-user-plus')
+                        ->color('primary')
+                        ->modalHeading('Post credit to member Cash Account')
+                        ->modalDescription(
+                            'Creates the matching ledger line on the selected member’s Cash Account and links this bank import row. Only credits posted to master cash without a member can use this.'
+                        )
+                        ->modalSubmitActionLabel('Post to member')
+                        ->visible(fn (AccountTransaction $record): bool => $this->ledgerEntryCanPostToMember($record))
+                        ->authorize(fn (): bool => auth()->user()?->can('update', $this->getOwnerRecord()) ?? false)
+                        ->schema([
+                            Forms\Components\Select::make('member_id')
+                                ->label('Member')
+                                ->options(fn () => Member::query()->with('user')->orderBy('member_number')->get()
+                                    ->mapWithKeys(fn (Member $m) => [$m->id => "{$m->member_number} – {$m->user->name}"]))
+                                ->searchable()
+                                ->required(),
+                        ])
+                        ->action(function (AccountTransaction $record, array $data): void {
+                            $record->loadMissing('source');
+                            $source = $record->source;
+                            if (! $source instanceof BankTransaction) {
+                                return;
+                            }
 
-                        try {
-                            app(AccountingService::class)->updateLedgerEntry($record, $data);
-                        } catch (\Throwable $e) {
-                            report($e);
+                            try {
+                                app(AccountingService::class)->mirrorBankCreditToMemberCash(
+                                    $source,
+                                    Member::findOrFail($data['member_id']),
+                                    $record,
+                                );
+                            } catch (\Throwable $e) {
+                                report($e);
+                                Notification::make()
+                                    ->title('Could not post to member')
+                                    ->body($e->getMessage())
+                                    ->danger()
+                                    ->send();
+
+                                throw new Halt;
+                            }
+
                             Notification::make()
-                                ->title('Could not save ledger entry')
-                                ->body($e->getMessage())
-                                ->danger()
+                                ->title('Posted to member Cash Account')
+                                ->success()
                                 ->send();
 
-                            throw new Halt;
-                        }
-                    })
-                    ->after(fn() => $this->dispatchAccountWidgetsRefresh()),
-                DeleteAction::make()
-                    ->authorize(fn() => auth()->user()?->can('update', $this->getOwnerRecord()) ?? false)
-                    ->modalDescription('Reverses this line on the account balance and removes the row. If this was one leg of a paired posting, delete or adjust the other leg separately if needed.')
-                    ->using(function (AccountTransaction $record) {
-                        app(AccountingService::class)->safeDeleteAccountTransaction($record);
+                            $this->resetTable();
+                            $this->dispatchAccountWidgetsRefresh();
+                        }),
+                    EditAction::make()
+                        ->modalWidth('2xl')
+                        ->modalDescription(
+                            'Changes to amount or type adjust this account’s running balance. '.
+                            'The linked source record is not changed here — use the relevant finance workflow if that must stay aligned.'
+                        )
+                        ->authorize(fn (): bool => auth()->user()?->can('update', $this->getOwnerRecord()) ?? false)
+                        ->using(function (array $data, Model $record): void {
+                            if (! $record instanceof AccountTransaction) {
+                                return;
+                            }
 
-                        return true;
-                    })
-                    ->after(fn() => $this->dispatchAccountWidgetsRefresh()),
-                ForceDeleteAction::make()
-                    ->authorize(fn() => auth()->user()?->can('update', $this->getOwnerRecord()) ?? false)
-                    ->modalDescription('Permanently removes this ledger row from the database. Only use after a normal delete (balance already reversed).')
-                    ->after(fn() => $this->dispatchAccountWidgetsRefresh()),
+                            try {
+                                app(AccountingService::class)->updateLedgerEntry($record, $data);
+                            } catch (\Throwable $e) {
+                                report($e);
+                                Notification::make()
+                                    ->title('Could not save ledger entry')
+                                    ->body($e->getMessage())
+                                    ->danger()
+                                    ->send();
+
+                                throw new Halt;
+                            }
+                        })
+                        ->after(fn () => $this->dispatchAccountWidgetsRefresh()),
+                    DeleteAction::make()
+                        ->authorize(fn () => auth()->user()?->can('update', $this->getOwnerRecord()) ?? false)
+                        ->modalDescription('Reverses this line on the account balance and removes the row. If this was one leg of a paired posting, delete or adjust the other leg separately if needed.')
+                        ->using(function (AccountTransaction $record) {
+                            app(AccountingService::class)->safeDeleteAccountTransaction($record);
+
+                            return true;
+                        })
+                        ->after(fn () => $this->dispatchAccountWidgetsRefresh()),
+                    ForceDeleteAction::make()
+                        ->authorize(fn () => auth()->user()?->can('update', $this->getOwnerRecord()) ?? false)
+                        ->modalDescription('Permanently removes this ledger row from the database. Only use after a normal delete (balance already reversed).')
+                        ->after(fn () => $this->dispatchAccountWidgetsRefresh()),
+                ]),
             ])
             ->toolbarActions([
                 BulkActionGroup::make([
+                    BulkAction::make('bulk_post_to_member')
+                        ->label('Post to Member')
+                        ->icon('heroicon-o-user-plus')
+                        ->color('primary')
+                        ->modalHeading('Post selected credits to one member')
+                        ->modalDescription(
+                            'Each selected row must be a master-cash ledger line for a bank credit not yet mirrored to a member. Other rows are skipped.'
+                        )
+                        ->modalSubmitActionLabel('Post to member')
+                        ->visible(fn (): bool => $this->getOwnerRecord()->type === Account::TYPE_MASTER_CASH)
+                        ->authorize(fn (): bool => auth()->user()?->can('update', $this->getOwnerRecord()) ?? false)
+                        ->schema([
+                            Forms\Components\Select::make('member_id')
+                                ->label('Member')
+                                ->options(fn () => Member::query()->with('user')->orderBy('member_number')->get()
+                                    ->mapWithKeys(fn (Member $m) => [$m->id => "{$m->member_number} – {$m->user->name}"]))
+                                ->searchable()
+                                ->required(),
+                        ])
+                        ->action(function (Collection $records, array $data): void {
+                            $member = Member::findOrFail($data['member_id']);
+                            $accounting = app(AccountingService::class);
+                            $posted = 0;
+                            $skipped = 0;
+                            $failed = 0;
+
+                            foreach ($records as $record) {
+                                if (! $record instanceof AccountTransaction) {
+                                    continue;
+                                }
+                                $record->loadMissing('source');
+                                $source = $record->source;
+                                if (! $source instanceof BankTransaction || ! $accounting->canMirrorBankCreditToMemberCash($source)) {
+                                    $skipped++;
+
+                                    continue;
+                                }
+                                try {
+                                    $accounting->mirrorBankCreditToMemberCash($source, $member, $record);
+                                    $posted++;
+                                } catch (\Throwable $e) {
+                                    $failed++;
+                                    report($e);
+                                }
+                            }
+
+                            $body = "Posted: {$posted} | Skipped: {$skipped}";
+                            if ($failed > 0) {
+                                $body .= " | Failed: {$failed} (see logs)";
+                            }
+
+                            $notification = Notification::make()
+                                ->title('Post to member complete')
+                                ->body($body);
+
+                            if ($failed > 0) {
+                                $notification->warning();
+                            } else {
+                                $notification->success();
+                            }
+
+                            $notification->send();
+
+                            $this->resetTable();
+                            $this->dispatchAccountWidgetsRefresh();
+                        })
+                        ->deselectRecordsAfterCompletion(),
                     DeleteBulkAction::make()
-                        ->authorize(fn() => auth()->user()?->can('update', $this->getOwnerRecord()) ?? false)
+                        ->authorize(fn () => auth()->user()?->can('update', $this->getOwnerRecord()) ?? false)
                         ->modalDescription('Reverses each selected line on its account balance, then deletes it.')
                         ->using(function (DeleteBulkAction $action, $records) {
                             $accounting = app(AccountingService::class);
@@ -233,10 +358,10 @@ class TransactionsRelationManager extends RelationManager
                                 }
                             }
                         })
-                        ->after(fn() => $this->dispatchAccountWidgetsRefresh()),
+                        ->after(fn () => $this->dispatchAccountWidgetsRefresh()),
                     ForceDeleteBulkAction::make()
-                        ->authorize(fn() => auth()->user()?->can('update', $this->getOwnerRecord()) ?? false)
-                        ->after(fn() => $this->dispatchAccountWidgetsRefresh()),
+                        ->authorize(fn () => auth()->user()?->can('update', $this->getOwnerRecord()) ?? false)
+                        ->after(fn () => $this->dispatchAccountWidgetsRefresh()),
                 ]),
             ])
             ->paginated([25, 50, 100]);
@@ -266,11 +391,11 @@ class TransactionsRelationManager extends RelationManager
             Forms\Components\Select::make('member_id')
                 ->label('Member tag')
                 ->helperText('Optional for master accounts — used when filtering ledger lines by member. Member-owned accounts use their member automatically.')
-                ->options(fn() => Member::query()->with('user')->orderBy('member_number')->get()
-                    ->mapWithKeys(fn(Member $m) => [$m->id => "{$m->member_number} – {$m->user->name}"]))
+                ->options(fn () => Member::query()->with('user')->orderBy('member_number')->get()
+                    ->mapWithKeys(fn (Member $m) => [$m->id => "{$m->member_number} – {$m->user->name}"]))
                 ->searchable()
                 ->placeholder('—')
-                ->visible(fn() => $account->member_id === null),
+                ->visible(fn () => $account->member_id === null),
         ];
     }
 
@@ -303,7 +428,7 @@ class TransactionsRelationManager extends RelationManager
         }
 
         Notification::make()
-            ->title(ucfirst($entryType) . ' posted')
+            ->title(ucfirst($entryType).' posted')
             ->success()
             ->send();
 
@@ -316,5 +441,18 @@ class TransactionsRelationManager extends RelationManager
             'refresh-account-widgets',
             accountId: (int) $this->getOwnerRecord()->getKey(),
         );
+    }
+
+    protected function ledgerEntryCanPostToMember(AccountTransaction $record): bool
+    {
+        if ($this->getOwnerRecord()->type !== Account::TYPE_MASTER_CASH) {
+            return false;
+        }
+
+        $record->loadMissing('source');
+        $source = $record->source;
+
+        return $source instanceof BankTransaction
+            && app(AccountingService::class)->canMirrorBankCreditToMemberCash($source);
     }
 }

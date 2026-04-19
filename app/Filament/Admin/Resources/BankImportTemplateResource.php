@@ -5,6 +5,7 @@ namespace App\Filament\Admin\Resources;
 use App\Filament\Admin\Resources\BankImportTemplateResource\Pages;
 use App\Models\Bank;
 use App\Models\BankImportTemplate;
+use Filament\Actions\ActionGroup;
 use Filament\Actions\DeleteAction;
 use Filament\Actions\EditAction;
 use Filament\Actions\ForceDeleteAction;
@@ -281,12 +282,14 @@ class BankImportTemplateResource extends Resource
                 TrashedFilter::make(),
             ])
             ->recordActions([
-                EditAction::make()
-                    ->modal(false)
-                    ->url(fn (BankImportTemplate $record): string => static::getUrl('edit', ['record' => $record])),
-                DeleteAction::make(),
-                RestoreAction::make(),
-                ForceDeleteAction::make(),
+                ActionGroup::make([
+                    EditAction::make()
+                        ->modal(false)
+                        ->url(fn (BankImportTemplate $record): string => static::getUrl('edit', ['record' => $record])),
+                    DeleteAction::make(),
+                    RestoreAction::make(),
+                    ForceDeleteAction::make(),
+                ]),
             ]);
     }
 

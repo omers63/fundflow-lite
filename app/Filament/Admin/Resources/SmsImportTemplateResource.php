@@ -5,6 +5,7 @@ namespace App\Filament\Admin\Resources;
 use App\Filament\Admin\Resources\SmsImportTemplateResource\Pages;
 use App\Models\Bank;
 use App\Models\SmsImportTemplate;
+use Filament\Actions\ActionGroup;
 use Filament\Actions\DeleteAction;
 use Filament\Actions\EditAction;
 use Filament\Actions\ForceDeleteAction;
@@ -227,7 +228,7 @@ class SmsImportTemplateResource extends Resource
                 Tables\Columns\TextColumn::make('name')->searchable(),
                 Tables\Columns\IconColumn::make('is_default')->label('Default')->boolean(),
                 Tables\Columns\TextColumn::make('delimiter')
-                    ->formatStateUsing(fn($state) => match ($state) {
+                    ->formatStateUsing(fn ($state) => match ($state) {
                         ',' => 'Comma',
                         ';' => 'Semicolon',
                         "\t" => 'Tab',
@@ -238,7 +239,7 @@ class SmsImportTemplateResource extends Resource
                 Tables\Columns\TextColumn::make('sms_column')->label('SMS Col.'),
                 Tables\Columns\TextColumn::make('duplicate_match_fields')
                     ->label('Dup. Fields')
-                    ->formatStateUsing(fn($state) => is_array($state) ? implode(', ', $state) : $state),
+                    ->formatStateUsing(fn ($state) => is_array($state) ? implode(', ', $state) : $state),
             ])
             ->defaultSort('name')
             ->filters([
@@ -252,10 +253,12 @@ class SmsImportTemplateResource extends Resource
                 TrashedFilter::make(),
             ])
             ->recordActions([
-                EditAction::make(),
-                DeleteAction::make(),
-                RestoreAction::make(),
-                ForceDeleteAction::make(),
+                ActionGroup::make([
+                    EditAction::make(),
+                    DeleteAction::make(),
+                    RestoreAction::make(),
+                    ForceDeleteAction::make(),
+                ]),
             ]);
     }
 

@@ -12,6 +12,7 @@ use App\Models\User;
 use App\Services\AccountingService;
 use App\Services\BankImportService;
 use Filament\Actions\Action;
+use Filament\Actions\ActionGroup;
 use Filament\Actions\BulkActionGroup;
 use Filament\Actions\DeleteAction;
 use Filament\Actions\DeleteBulkAction;
@@ -209,50 +210,52 @@ class BankImportSessionResource extends Resource
                     }),
             ])
             ->recordActions([
-                ViewAction::make(),
-                DeleteAction::make()
-                    ->label('Delete')
-                    ->modalHeading('Delete import history')
-                    ->modalDescription('Removes this import run and deletes every transaction from it. Posted rows are reversed in the ledger first, then soft-deleted.')
-                    ->using(function (BankImportSession $record) {
-                        static::deleteSessionAndTransactions($record);
+                ActionGroup::make([
+                    ViewAction::make(),
+                    DeleteAction::make()
+                        ->label('Delete')
+                        ->modalHeading('Delete import history')
+                        ->modalDescription('Removes this import run and deletes every transaction from it. Posted rows are reversed in the ledger first, then soft-deleted.')
+                        ->using(function (BankImportSession $record) {
+                            static::deleteSessionAndTransactions($record);
 
-                        return true;
-                    }),
-                Action::make('view_transactions')
-                    ->label('Transactions')
-                    ->icon('heroicon-o-table-cells')
-                    ->url(fn (BankImportSession $record) => BankTransactionResource::getUrl('index', [
-                        'tableFilters[import_session_id][value]' => $record->id,
-                    ])),
-                Action::make('retry')
-                    ->label('Re-import')
-                    ->icon('heroicon-o-arrow-path')
-                    ->color('warning')
-                    ->visible(fn (BankImportSession $record) => in_array($record->status, ['failed', 'partially_completed']))
-                    ->requiresConfirmation()
-                    ->action(function (BankImportSession $record) {
-                        BankTransaction::query()
-                            ->where('import_session_id', $record->id)
-                            ->forceDelete();
-                        $record->update([
-                            'status' => 'pending',
-                            'imported_count' => 0,
-                            'duplicate_count' => 0,
-                            'error_count' => 0,
-                            'error_log' => null,
-                        ]);
+                            return true;
+                        }),
+                    Action::make('view_transactions')
+                        ->label('Transactions')
+                        ->icon('heroicon-o-table-cells')
+                        ->url(fn (BankImportSession $record) => BankTransactionResource::getUrl('index', [
+                            'tableFilters[import_session_id][value]' => $record->id,
+                        ])),
+                    Action::make('retry')
+                        ->label('Re-import')
+                        ->icon('heroicon-o-arrow-path')
+                        ->color('warning')
+                        ->visible(fn (BankImportSession $record) => in_array($record->status, ['failed', 'partially_completed']))
+                        ->requiresConfirmation()
+                        ->action(function (BankImportSession $record) {
+                            BankTransaction::query()
+                                ->where('import_session_id', $record->id)
+                                ->forceDelete();
+                            $record->update([
+                                'status' => 'pending',
+                                'imported_count' => 0,
+                                'duplicate_count' => 0,
+                                'error_count' => 0,
+                                'error_log' => null,
+                            ]);
 
-                        app(BankImportService::class)->import($record);
+                            app(BankImportService::class)->import($record);
 
-                        $record->refresh();
+                            $record->refresh();
 
-                        Notification::make()
-                            ->title('Re-import '.ucfirst($record->status))
-                            ->body("Imported: {$record->imported_count} | Duplicates: {$record->duplicate_count}")
-                            ->success()
-                            ->send();
-                    }),
+                            Notification::make()
+                                ->title('Re-import '.ucfirst($record->status))
+                                ->body("Imported: {$record->imported_count} | Duplicates: {$record->duplicate_count}")
+                                ->success()
+                                ->send();
+                        }),
+                ]),
             ])
             ->toolbarActions([
                 BulkActionGroup::make([

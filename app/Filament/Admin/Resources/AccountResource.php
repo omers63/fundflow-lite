@@ -6,6 +6,7 @@ use App\Filament\Admin\Resources\AccountResource\Pages;
 use App\Filament\Admin\Resources\AccountResource\RelationManagers\TransactionsRelationManager;
 use App\Models\Account;
 use App\Models\Member;
+use Filament\Actions\ActionGroup;
 use Filament\Actions\ViewAction;
 use Filament\Forms;
 use Filament\Resources\Resource;
@@ -47,8 +48,8 @@ class AccountResource extends Resource
                     ->toggleable(),
                 Tables\Columns\BadgeColumn::make('type')
                     ->label('Account Type')
-                    ->formatStateUsing(fn(Account $r) => $r->type_label)
-                    ->color(fn(Account $r) => $r->type_color)
+                    ->formatStateUsing(fn (Account $r) => $r->type_label)
+                    ->color(fn (Account $r) => $r->type_color)
                     ->toggleable(),
                 Tables\Columns\TextColumn::make('member.user.name')
                     ->label('Member')
@@ -68,7 +69,7 @@ class AccountResource extends Resource
                     ->label('Balance (SAR)')
                     ->money('SAR')
                     ->sortable()
-                    ->color(fn(Account $r) => (float) $r->balance >= 0 ? 'success' : 'danger')
+                    ->color(fn (Account $r) => (float) $r->balance >= 0 ? 'success' : 'danger')
                     ->weight(FontWeight::Bold)
                     ->toggleable(),
                 Tables\Columns\IconColumn::make('is_active')
@@ -82,7 +83,7 @@ class AccountResource extends Resource
                 Tables\Grouping\Group::make('type')
                     ->label('Account Type')
                     ->titlePrefixedWithLabel(false)
-                    ->getTitleFromRecordUsing(fn(Account $r) => $r->type_label),
+                    ->getTitleFromRecordUsing(fn (Account $r) => $r->type_label),
             ])
             ->filters([
                 Tables\Filters\SelectFilter::make('type')
@@ -96,8 +97,8 @@ class AccountResource extends Resource
                 Tables\Filters\SelectFilter::make('member_id')
                     ->label('Member')
                     ->searchable()
-                    ->options(fn() => Member::query()->with('user')->orderBy('member_number')->get()
-                        ->mapWithKeys(fn(Member $m) => [$m->id => "{$m->member_number} – {$m->user->name}"])),
+                    ->options(fn () => Member::query()->with('user')->orderBy('member_number')->get()
+                        ->mapWithKeys(fn (Member $m) => [$m->id => "{$m->member_number} – {$m->user->name}"])),
                 Tables\Filters\TernaryFilter::make('is_active')
                     ->label('Active')
                     ->trueLabel('Active only')
@@ -110,20 +111,22 @@ class AccountResource extends Resource
                     ->columns(2)
                     ->query(function ($query, array $data) {
                         return $query
-                            ->when(filled($data['balance_min'] ?? null), fn($q) => $q->where('balance', '>=', $data['balance_min']))
-                            ->when(filled($data['balance_max'] ?? null), fn($q) => $q->where('balance', '<=', $data['balance_max']));
+                            ->when(filled($data['balance_min'] ?? null), fn ($q) => $q->where('balance', '>=', $data['balance_min']))
+                            ->when(filled($data['balance_max'] ?? null), fn ($q) => $q->where('balance', '<=', $data['balance_max']));
                     }),
                 Tables\Filters\Filter::make('loan_id')
                     ->schema([
                         Forms\Components\TextInput::make('loan_id')->label('Loan #')->numeric(),
                     ])
-                    ->query(fn($query, array $data) => filled($data['loan_id'] ?? null)
+                    ->query(fn ($query, array $data) => filled($data['loan_id'] ?? null)
                         ? $query->where('loan_id', $data['loan_id'])
                         : $query),
                 TrashedFilter::make(),
             ])
             ->recordActions([
-                ViewAction::make()->label('Ledger'),
+                ActionGroup::make([
+                    ViewAction::make()->label('Ledger'),
+                ]),
             ]);
     }
 

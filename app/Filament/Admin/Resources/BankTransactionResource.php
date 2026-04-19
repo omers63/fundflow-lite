@@ -11,6 +11,7 @@ use App\Models\LoanDisbursement;
 use App\Models\Member;
 use App\Services\AccountingService;
 use Filament\Actions\Action;
+use Filament\Actions\ActionGroup;
 use Filament\Actions\BulkAction;
 use Filament\Actions\BulkActionGroup;
 use Filament\Actions\DeleteAction;
@@ -226,97 +227,99 @@ class BankTransactionResource extends Resource
                 TrashedFilter::make(),
             ])
             ->recordActions([
-                ViewAction::make(),
-                Action::make('post_to_cash')
-                    ->label('Post to Cash')
-                    ->icon('heroicon-o-arrow-right-circle')
-                    ->color('primary')
-                    ->visible(fn (BankTransaction $r) => ! $r->isPosted())
-                    ->schema(fn (BankTransaction $record) => [
-                        Forms\Components\Select::make('member_id')
-                            ->label($record->transaction_type === 'debit' ? 'Member' : 'Member (optional)')
-                            ->options($memberOptions)
-                            ->searchable()
-                            ->required($record->transaction_type === 'debit')
-                            ->live()
-                            ->afterStateUpdated(function ($set) {
-                                $set('loan_id', null);
-                                $set('loan_disbursement_id', null);
-                            })
-                            ->helperText($record->transaction_type === 'debit'
-                                ? 'Required for debit reconciliation.'
-                                : 'Optional. Leave empty to post only to master cash account.'),
-                        Forms\Components\Select::make('loan_id')
-                            ->label('Loan')
-                            ->options(fn (Get $get) => Loan::query()
-                                ->where('member_id', $get('member_id'))
-                                ->whereHas('disbursements')
-                                ->orderByDesc('id')
-                                ->get()
-                                ->mapWithKeys(fn (Loan $loan) => [
-                                    $loan->id => sprintf(
-                                        '#%d — SAR %s approved, SAR %s disbursed, %s',
-                                        $loan->id,
-                                        number_format((float) $loan->amount_approved, 2),
-                                        number_format((float) $loan->amount_disbursed, 2),
-                                        $loan->status
-                                    ),
-                                ]))
-                            ->searchable()
-                            ->preload()
-                            ->live()
-                            ->afterStateUpdated(fn ($set) => $set('loan_disbursement_id', null))
-                            ->visible($record->transaction_type === 'debit')
-                            ->required($record->transaction_type === 'debit')
-                            ->helperText('Member loan summary. Choose the loan this bank debit reconciles to.'),
-                        Forms\Components\Select::make('loan_disbursement_id')
-                            ->label('Loan disbursement payout')
-                            ->options(fn (Get $get) => LoanDisbursement::query()
-                                ->where('loan_id', $get('loan_id'))
-                                ->orderByDesc('disbursed_at')
-                                ->orderByDesc('id')
-                                ->get()
-                                ->mapWithKeys(fn (LoanDisbursement $d) => [
-                                    $d->id => sprintf(
-                                        'SAR %s on %s — disbursement #%d',
-                                        number_format((float) $d->amount, 2),
-                                        $d->disbursed_at?->format('d M Y') ?? '?',
-                                        $d->id
-                                    ),
-                                ]))
-                            ->searchable()
-                            ->preload()
-                            ->visible($record->transaction_type === 'debit')
-                            ->required($record->transaction_type === 'debit')
-                            ->helperText('The specific partial or full disbursement record this transaction matches.'),
-                    ])
-                    ->action(function (BankTransaction $record, array $data) {
-                        $member = ! empty($data['member_id']) ? Member::findOrFail($data['member_id']) : null;
-                        $disbursement = ! empty($data['loan_disbursement_id'])
-                            ? LoanDisbursement::query()->findOrFail($data['loan_disbursement_id'])
-                            : null;
-                        if ($disbursement && ! empty($data['loan_id']) && (int) $disbursement->loan_id !== (int) $data['loan_id']) {
-                            throw new \InvalidArgumentException('Selected disbursement does not belong to the selected loan.');
-                        }
-                        app(AccountingService::class)->postBankTransactionToCashWithOptionalMember($record, $member, $disbursement);
+                ActionGroup::make([
+                    ViewAction::make(),
+                    Action::make('post_to_cash')
+                        ->label('Post to Cash')
+                        ->icon('heroicon-o-arrow-right-circle')
+                        ->color('primary')
+                        ->visible(fn (BankTransaction $r) => ! $r->isPosted())
+                        ->schema(fn (BankTransaction $record) => [
+                            Forms\Components\Select::make('member_id')
+                                ->label($record->transaction_type === 'debit' ? 'Member' : 'Member (optional)')
+                                ->options($memberOptions)
+                                ->searchable()
+                                ->required($record->transaction_type === 'debit')
+                                ->live()
+                                ->afterStateUpdated(function ($set) {
+                                    $set('loan_id', null);
+                                    $set('loan_disbursement_id', null);
+                                })
+                                ->helperText($record->transaction_type === 'debit'
+                                    ? 'Required for debit reconciliation.'
+                                    : 'Optional. Leave empty to post only to master cash account.'),
+                            Forms\Components\Select::make('loan_id')
+                                ->label('Loan')
+                                ->options(fn (Get $get) => Loan::query()
+                                    ->where('member_id', $get('member_id'))
+                                    ->whereHas('disbursements')
+                                    ->orderByDesc('id')
+                                    ->get()
+                                    ->mapWithKeys(fn (Loan $loan) => [
+                                        $loan->id => sprintf(
+                                            '#%d — SAR %s approved, SAR %s disbursed, %s',
+                                            $loan->id,
+                                            number_format((float) $loan->amount_approved, 2),
+                                            number_format((float) $loan->amount_disbursed, 2),
+                                            $loan->status
+                                        ),
+                                    ]))
+                                ->searchable()
+                                ->preload()
+                                ->live()
+                                ->afterStateUpdated(fn ($set) => $set('loan_disbursement_id', null))
+                                ->visible($record->transaction_type === 'debit')
+                                ->required($record->transaction_type === 'debit')
+                                ->helperText('Member loan summary. Choose the loan this bank debit reconciles to.'),
+                            Forms\Components\Select::make('loan_disbursement_id')
+                                ->label('Loan disbursement payout')
+                                ->options(fn (Get $get) => LoanDisbursement::query()
+                                    ->where('loan_id', $get('loan_id'))
+                                    ->orderByDesc('disbursed_at')
+                                    ->orderByDesc('id')
+                                    ->get()
+                                    ->mapWithKeys(fn (LoanDisbursement $d) => [
+                                        $d->id => sprintf(
+                                            'SAR %s on %s — disbursement #%d',
+                                            number_format((float) $d->amount, 2),
+                                            $d->disbursed_at?->format('d M Y') ?? '?',
+                                            $d->id
+                                        ),
+                                    ]))
+                                ->searchable()
+                                ->preload()
+                                ->visible($record->transaction_type === 'debit')
+                                ->required($record->transaction_type === 'debit')
+                                ->helperText('The specific partial or full disbursement record this transaction matches.'),
+                        ])
+                        ->action(function (BankTransaction $record, array $data) {
+                            $member = ! empty($data['member_id']) ? Member::findOrFail($data['member_id']) : null;
+                            $disbursement = ! empty($data['loan_disbursement_id'])
+                                ? LoanDisbursement::query()->findOrFail($data['loan_disbursement_id'])
+                                : null;
+                            if ($disbursement && ! empty($data['loan_id']) && (int) $disbursement->loan_id !== (int) $data['loan_id']) {
+                                throw new \InvalidArgumentException('Selected disbursement does not belong to the selected loan.');
+                            }
+                            app(AccountingService::class)->postBankTransactionToCashWithOptionalMember($record, $member, $disbursement);
 
-                        Notification::make()
-                            ->title('Posted to Cash Account')
-                            ->body($member
-                                ? "Transaction posted for {$member->user->name}."
-                                : 'Transaction posted to master cash account.')
-                            ->success()
-                            ->send();
-                    }),
-                DeleteAction::make()
-                    ->modalDescription('Soft-deletes this import row. If it was posted to cash, the matching master and member cash ledger lines are reversed first.')
-                    ->using(function (BankTransaction $record) {
-                        app(AccountingService::class)->safeDeleteBankTransaction($record);
+                            Notification::make()
+                                ->title('Posted to Cash Account')
+                                ->body($member
+                                    ? "Transaction posted for {$member->user->name}."
+                                    : 'Transaction posted to master cash account.')
+                                ->success()
+                                ->send();
+                        }),
+                    DeleteAction::make()
+                        ->modalDescription('Soft-deletes this import row. If it was posted to cash, the matching master and member cash ledger lines are reversed first.')
+                        ->using(function (BankTransaction $record) {
+                            app(AccountingService::class)->safeDeleteBankTransaction($record);
 
-                        return true;
-                    }),
-                RestoreAction::make(),
-                ForceDeleteAction::make(),
+                            return true;
+                        }),
+                    RestoreAction::make(),
+                    ForceDeleteAction::make(),
+                ]),
             ])
             ->toolbarActions([
                 BulkActionGroup::make([
