@@ -14,6 +14,7 @@ use Filament\Resources\Resource;
 use Filament\Schemas\Components\Section;
 use Filament\Schemas\Components\Tabs;
 use Filament\Schemas\Components\Tabs\Tab;
+use Filament\Schemas\Components\Utilities\Get;
 use Filament\Schemas\Schema;
 use Filament\Tables;
 use Filament\Tables\Filters\TrashedFilter;
@@ -116,18 +117,18 @@ class BankImportTemplateResource extends Resource
                             ->live(),
                         Forms\Components\TextInput::make('amount_column')
                             ->label('Amount column')
-                            ->visible(fn($get) => $get('amount_type') === 'single')
-                            ->required(fn($get) => $get('amount_type') === 'single')
+                            ->visible(fn ($get) => $get('amount_type') === 'single')
+                            ->required(fn ($get) => $get('amount_type') === 'single')
                             ->helperText('Header name or column index'),
                         Forms\Components\TextInput::make('credit_column')
                             ->label('Credit column')
-                            ->visible(fn($get) => $get('amount_type') === 'split')
-                            ->required(fn($get) => $get('amount_type') === 'split')
+                            ->visible(fn ($get) => $get('amount_type') === 'split')
+                            ->required(fn ($get) => $get('amount_type') === 'split')
                             ->helperText('Header name or column index'),
                         Forms\Components\TextInput::make('debit_column')
                             ->label('Debit column')
-                            ->visible(fn($get) => $get('amount_type') === 'split')
-                            ->required(fn($get) => $get('amount_type') === 'split')
+                            ->visible(fn ($get) => $get('amount_type') === 'split')
+                            ->required(fn ($get) => $get('amount_type') === 'split')
                             ->helperText('Header name or column index'),
                     ]),
 
@@ -152,22 +153,64 @@ class BankImportTemplateResource extends Resource
                         Forms\Components\TextInput::make('reference_column')
                             ->label('Reference / Transaction ID column')
                             ->helperText('Header name or column index. Optional but recommended for duplicate detection.'),
+                        Forms\Components\TextInput::make('balance_column')
+                            ->label('Balance column')
+                            ->helperText('Header name or column index. Optional. Useful for duplicate detection when statements include running balance.'),
+                        Forms\Components\Repeater::make('optional_columns')
+                            ->label('Additional optional columns')
+                            ->helperText('Add any extra columns you want to capture from the CSV (header name or index).')
+                            ->live()
+                            ->schema([
+                                Forms\Components\TextInput::make('key')
+                                    ->label('Field key')
+                                    ->required()
+                                    ->maxLength(50)
+                                    ->placeholder('e.g. branch_code')
+                                    ->helperText('Stored key used in imported raw_data._optional'),
+                                Forms\Components\TextInput::make('column')
+                                    ->label('CSV column')
+                                    ->required()
+                                    ->maxLength(100)
+                                    ->placeholder('e.g. Branch Code or 8')
+                                    ->helperText('Header name or 0-based index'),
+                            ])
+                            ->defaultItems(0)
+                            ->columns(2)
+                            ->collapsible()
+                            ->addActionLabel('Add optional column')
+                            ->columnSpanFull(),
                     ])->columns(2),
                 ]),
 
                 Tab::make('Duplicate Detection')->schema([
                     Forms\Components\CheckboxList::make('duplicate_match_fields')
                         ->label('Match duplicates on these fields')
-                        ->options([
-                            'date' => 'Transaction Date',
-                            'amount' => 'Amount',
-                            'type' => 'Transaction Type (credit / debit)',
-                            'reference' => 'Reference Number',
-                            'description' => 'Description',
-                        ])
+                        ->options(function (Get $get): array {
+                            $base = [
+                                'date' => 'Transaction Date',
+                                'amount' => 'Amount',
+                                'type' => 'Transaction Type (credit / debit)',
+                                'reference' => 'Reference Number',
+                                'description' => 'Description',
+                                'balance' => 'Balance',
+                            ];
+                            $optional = [];
+                            foreach ($get('optional_columns') ?? [] as $def) {
+                                if (! is_array($def)) {
+                                    continue;
+                                }
+                                $key = trim((string) ($def['key'] ?? ''));
+                                if ($key === '') {
+                                    continue;
+                                }
+                                $optional['optional:'.$key] = 'Optional: '.$key;
+                            }
+
+                            return array_merge($base, $optional);
+                        })
                         ->default(['date', 'amount', 'reference'])
                         ->columns(2)
-                        ->helperText('A transaction will be flagged as a duplicate only if all selected fields match an existing transaction.'),
+                        ->helperText('A transaction is a duplicate only when every selected field matches an existing transaction (including optional fields you define under Column Mapping). At least one core field or a defined optional field must be selected.'),
                     Forms\Components\TextInput::make('duplicate_date_tolerance')
                         ->label('Date tolerance (days)')
                         ->numeric()
@@ -189,7 +232,7 @@ class BankImportTemplateResource extends Resource
                 Tables\Columns\TextColumn::make('name')->searchable(),
                 Tables\Columns\IconColumn::make('is_default')->label('Default')->boolean(),
                 Tables\Columns\TextColumn::make('delimiter')
-                    ->formatStateUsing(fn($state) => match ($state) {
+                    ->formatStateUsing(fn ($state) => match ($state) {
                         ',' => 'Comma',
                         ';' => 'Semicolon',
                         "\t" => 'Tab',
@@ -198,10 +241,10 @@ class BankImportTemplateResource extends Resource
                     }),
                 Tables\Columns\IconColumn::make('has_header')->label('Has Header')->boolean(),
                 Tables\Columns\TextColumn::make('amount_type')->badge()
-                    ->color(fn($state) => $state === 'split' ? 'info' : 'gray'),
+                    ->color(fn ($state) => $state === 'split' ? 'info' : 'gray'),
                 Tables\Columns\TextColumn::make('duplicate_match_fields')
                     ->label('Dup. Fields')
-                    ->formatStateUsing(fn($state) => is_array($state) ? implode(', ', $state) : $state),
+                    ->formatStateUsing(fn ($state) => is_array($state) ? implode(', ', $state) : $state),
             ])
             ->defaultSort('bank_id')
             ->filters([
@@ -213,7 +256,9 @@ class BankImportTemplateResource extends Resource
                 TrashedFilter::make(),
             ])
             ->recordActions([
-                EditAction::make(),
+                EditAction::make()
+                    ->modal(false)
+                    ->url(fn (BankImportTemplate $record): string => static::getUrl('edit', ['record' => $record])),
                 DeleteAction::make(),
                 RestoreAction::make(),
                 ForceDeleteAction::make(),

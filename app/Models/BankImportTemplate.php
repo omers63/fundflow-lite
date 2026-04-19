@@ -30,6 +30,8 @@ class BankImportTemplate extends Model
         'debit_indicator',
         'description_column',
         'reference_column',
+        'balance_column',
+        'optional_columns',
         'duplicate_match_fields',
         'duplicate_date_tolerance',
     ];
@@ -38,6 +40,7 @@ class BankImportTemplate extends Model
         'is_default' => 'boolean',
         'has_header' => 'boolean',
         'skip_rows' => 'integer',
+        'optional_columns' => 'array',
         'duplicate_match_fields' => 'array',
         'duplicate_date_tolerance' => 'integer',
     ];

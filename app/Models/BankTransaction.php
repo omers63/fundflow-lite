@@ -18,6 +18,7 @@ class BankTransaction extends Model
         'loan_disbursement_id',
         'transaction_date',
         'amount',
+        'running_balance',
         'transaction_type',
         'description',
         'reference',
@@ -31,6 +32,7 @@ class BankTransaction extends Model
     protected $casts = [
         'transaction_date' => 'date',
         'amount' => 'decimal:2',
+        'running_balance' => 'decimal:2',
         'is_duplicate' => 'boolean',
         'raw_data' => 'array',
         'posted_at' => 'datetime',

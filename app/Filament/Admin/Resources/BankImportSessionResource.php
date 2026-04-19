@@ -9,8 +9,12 @@ use App\Models\BankImportSession;
 use App\Models\BankImportTemplate;
 use App\Models\BankTransaction;
 use App\Models\User;
+use App\Services\AccountingService;
 use App\Services\BankImportService;
 use Filament\Actions\Action;
+use Filament\Actions\BulkActionGroup;
+use Filament\Actions\DeleteAction;
+use Filament\Actions\DeleteBulkAction;
 use Filament\Actions\ViewAction;
 use Filament\Forms;
 use Filament\Notifications\Notification;
@@ -21,6 +25,9 @@ use Filament\Tables;
 use Filament\Tables\Filters\TrashedFilter;
 use Filament\Tables\Table;
 use Illuminate\Database\Eloquent\Builder;
+use Illuminate\Support\Facades\DB;
+use Illuminate\Support\Facades\Storage;
+use Illuminate\Support\HtmlString;
 
 class BankImportSessionResource extends Resource
 {
@@ -63,13 +70,14 @@ class BankImportSessionResource extends Resource
     public static function table(Table $table): Table
     {
         return $table
+            ->selectable()
             ->columns([
                 Tables\Columns\TextColumn::make('bank.name')->label('Bank')->searchable()->sortable(),
                 Tables\Columns\TextColumn::make('filename')->searchable()->limit(40),
                 Tables\Columns\TextColumn::make('template.name')->label('Template')->limit(30),
                 Tables\Columns\TextColumn::make('status')
                     ->badge()
-                    ->color(fn(string $state) => match ($state) {
+                    ->color(fn (string $state) => match ($state) {
                         'completed' => 'success',
                         'processing' => 'warning',
                         'partially_completed' => 'warning',
@@ -94,17 +102,17 @@ class BankImportSessionResource extends Resource
                 Tables\Filters\SelectFilter::make('template_id')
                     ->label('Template')
                     ->searchable()
-                    ->options(fn() => BankImportTemplate::query()
+                    ->options(fn () => BankImportTemplate::query()
                         ->with('bank')
                         ->orderBy('name')
                         ->get()
-                        ->mapWithKeys(fn(BankImportTemplate $t) => [
-                            $t->id => ($t->bank?->name ?? '—') . ' — ' . $t->name,
+                        ->mapWithKeys(fn (BankImportTemplate $t) => [
+                            $t->id => ($t->bank?->name ?? '—').' — '.$t->name,
                         ])),
                 Tables\Filters\SelectFilter::make('imported_by')
                     ->label('Imported by')
                     ->searchable()
-                    ->options(fn() => User::query()->orderBy('name')->pluck('name', 'id')),
+                    ->options(fn () => User::query()->orderBy('name')->pluck('name', 'id')),
                 Tables\Filters\SelectFilter::make('status')
                     ->options([
                         'pending' => 'Pending',
@@ -120,26 +128,32 @@ class BankImportSessionResource extends Resource
                     ])
                     ->query(function ($query, array $data) {
                         return $query
-                            ->when($data['from'] ?? null, fn($q) => $q->whereDate('created_at', '>=', $data['from']))
-                            ->when($data['until'] ?? null, fn($q) => $q->whereDate('created_at', '<=', $data['until']));
+                            ->when($data['from'] ?? null, fn ($q) => $q->whereDate('created_at', '>=', $data['from']))
+                            ->when($data['until'] ?? null, fn ($q) => $q->whereDate('created_at', '<=', $data['until']));
                     }),
                 TrashedFilter::make(),
             ])
             ->headerActions([
                 Action::make('new_import')
-                    ->label('Import CSV')
+                    ->label('Import Bank Transactions')
                     ->icon('heroicon-o-arrow-up-tray')
                     ->color('primary')
                     ->schema([
+                        Forms\Components\Placeholder::make('sample_file')
+                            ->label('Sample file')
+                            ->content(new HtmlString(
+                                '<a href="'.route('downloads.bank-import-sample').'" target="_blank" class="text-primary-600 underline">Download sample bank import CSV</a>'
+                            ))
+                            ->columnSpanFull(),
                         Forms\Components\Select::make('bank_id')
                             ->label('Bank')
                             ->options(Bank::active()->pluck('name', 'id'))
                             ->required()
                             ->live()
-                            ->afterStateUpdated(fn($set) => $set('template_id', null)),
+                            ->afterStateUpdated(fn ($set) => $set('template_id', null)),
                         Forms\Components\Select::make('template_id')
                             ->label('Import Template')
-                            ->options(fn($get) => BankImportTemplate::where('bank_id', $get('bank_id'))
+                            ->options(fn ($get) => BankImportTemplate::where('bank_id', $get('bank_id'))
                                 ->pluck('name', 'id'))
                             ->required()
                             ->live()
@@ -155,6 +169,16 @@ class BankImportSessionResource extends Resource
                             ->rows(2),
                     ])
                     ->action(function (array $data) {
+                        if (! Storage::disk('local')->exists((string) $data['csv_file'])) {
+                            Notification::make()
+                                ->title('Import file not found')
+                                ->body('The uploaded CSV file could not be found in local storage. Please upload the file again.')
+                                ->danger()
+                                ->send();
+
+                            return;
+                        }
+
                         $template = BankImportTemplate::findOrFail($data['template_id']);
 
                         $session = BankImportSession::create([
@@ -172,10 +196,10 @@ class BankImportSessionResource extends Resource
                         $session->refresh();
 
                         Notification::make()
-                            ->title('Import ' . ucfirst($session->status))
+                            ->title('Import '.ucfirst($session->status))
                             ->body(
-                                "Imported: {$session->imported_count} | " .
-                                "Duplicates: {$session->duplicate_count} | " .
+                                "Imported: {$session->imported_count} | ".
+                                "Duplicates: {$session->duplicate_count} | ".
                                 "Errors: {$session->error_count}"
                             )
                             ->color($session->status === 'completed' ? 'success' : 'warning')
@@ -184,17 +208,26 @@ class BankImportSessionResource extends Resource
             ])
             ->recordActions([
                 ViewAction::make(),
+                DeleteAction::make()
+                    ->label('Delete')
+                    ->modalHeading('Delete import history')
+                    ->modalDescription('Removes this import run and deletes every transaction from it. Posted rows are reversed in the ledger first, then soft-deleted.')
+                    ->using(function (BankImportSession $record) {
+                        static::deleteSessionAndTransactions($record);
+
+                        return true;
+                    }),
                 Action::make('view_transactions')
                     ->label('Transactions')
                     ->icon('heroicon-o-table-cells')
-                    ->url(fn(BankImportSession $record) => BankTransactionResource::getUrl('index', [
+                    ->url(fn (BankImportSession $record) => BankTransactionResource::getUrl('index', [
                         'tableFilters[import_session_id][value]' => $record->id,
                     ])),
                 Action::make('retry')
                     ->label('Re-import')
                     ->icon('heroicon-o-arrow-path')
                     ->color('warning')
-                    ->visible(fn(BankImportSession $record) => in_array($record->status, ['failed', 'partially_completed']))
+                    ->visible(fn (BankImportSession $record) => in_array($record->status, ['failed', 'partially_completed']))
                     ->requiresConfirmation()
                     ->action(function (BankImportSession $record) {
                         BankTransaction::query()
@@ -213,12 +246,41 @@ class BankImportSessionResource extends Resource
                         $record->refresh();
 
                         Notification::make()
-                            ->title('Re-import ' . ucfirst($record->status))
+                            ->title('Re-import '.ucfirst($record->status))
                             ->body("Imported: {$record->imported_count} | Duplicates: {$record->duplicate_count}")
                             ->success()
                             ->send();
                     }),
+            ])
+            ->toolbarActions([
+                BulkActionGroup::make([
+                    DeleteBulkAction::make()
+                        ->label('Delete selected')
+                        ->modalHeading('Delete import history')
+                        ->modalDescription('Removes the selected import runs and deletes all transactions from each. Posted rows are reversed in the ledger first, then soft-deleted.')
+                        ->using(function (DeleteBulkAction $action, $records) {
+                            foreach ($records as $record) {
+                                try {
+                                    static::deleteSessionAndTransactions($record);
+                                } catch (\Throwable $e) {
+                                    $action->reportBulkProcessingFailure(message: $e->getMessage());
+                                    report($e);
+                                }
+                            }
+                        }),
+                ]),
             ]);
+    }
+
+    public static function deleteSessionAndTransactions(BankImportSession $record): void
+    {
+        DB::transaction(function () use ($record) {
+            $accounting = app(AccountingService::class);
+            foreach ($record->transactions()->orderBy('id')->cursor() as $tx) {
+                $accounting->safeDeleteBankTransaction($tx);
+            }
+            $record->delete();
+        });
     }
 
     public static function getRelations(): array
