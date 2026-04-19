@@ -202,7 +202,7 @@ class MyDependentsResource extends Resource
                             ->label('Monthly Contribution Amount')
                             ->options(Member::contributionAmountOptions())
                             ->required()
-                            ->helperText(fn (Forms\Get $get, ?Member $record) => $record
+                            ->helperText(fn (?Member $record) => $record
                                 ? 'Current: SAR '.number_format($record->monthly_contribution_amount).' · Cash balance: SAR '.number_format($record->cash_balance, 2)
                                 : ''),
                         Forms\Components\TextInput::make('note')
