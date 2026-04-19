@@ -72,12 +72,12 @@ class SystemSettingsPage extends Page
         }
 
         $allowedTop = ['loans', 'contribution-cycles', 'public-membership', 'statements', 'communication', 'roles'];
-        if (!in_array($this->activeTab, $allowedTop, true)) {
+        if (! in_array($this->activeTab, $allowedTop, true)) {
             $this->activeTab = 'loans';
         }
 
         $allowedLoanSub = ['loan-rules', 'loan-tiers', 'fund-tiers'];
-        if (!in_array($this->loanSubTab, $allowedLoanSub, true)) {
+        if (! in_array($this->loanSubTab, $allowedLoanSub, true)) {
             $this->loanSubTab = 'loan-rules';
         }
 
@@ -110,7 +110,7 @@ class SystemSettingsPage extends Page
                 ->label('Save loan settings')
                 ->icon('heroicon-o-check')
                 ->color('primary')
-                ->visible(fn(): bool => $this->activeTab === 'loans' && $this->loanSubTab === 'loan-rules')
+                ->visible(fn (): bool => $this->activeTab === 'loans' && $this->loanSubTab === 'loan-rules')
                 ->fillForm([
                     'settlement_threshold_pct' => Setting::loanSettlementThreshold() * 100,
                     'min_fund_balance' => Setting::loanMinFundBalance(),
@@ -154,7 +154,7 @@ class SystemSettingsPage extends Page
                 ->label('Save cycle settings')
                 ->icon('heroicon-o-check')
                 ->color('primary')
-                ->visible(fn(): bool => $this->activeTab === 'contribution-cycles')
+                ->visible(fn (): bool => $this->activeTab === 'contribution-cycles')
                 ->fillForm([
                     'cycle_start_day' => Setting::contributionCycleStartDay(),
                     'delinquency_consecutive' => Setting::delinquencyConsecutiveMissThreshold(),
@@ -186,7 +186,7 @@ class SystemSettingsPage extends Page
                         ]),
                     Section::make('Delinquency policy')
                         ->description(
-                            'Daily job `fund:check-delinquency` evaluates missed monthly contributions (when due) and unpaid loan installments for active loans. ' .
+                            'Daily job `fund:check-delinquency` evaluates missed monthly contributions (when due) and unpaid loan installments for active loans. '.
                             'Breaching either threshold suspends the member (member portal blocked) and shifts active loan repayment collection to the guarantor until restored.'
                         )
                         ->schema([
@@ -217,8 +217,8 @@ class SystemSettingsPage extends Page
                         ])->columns(3),
                     Section::make('Late fees (tiered by days after due)')
                         ->description(
-                            'Due is the end of the contribution/repayment cycle for that month. Calendar days after that are counted; ' .
-                            'the highest tier reached (30+ ≥ 20+ ≥ 10+ ≥ 1+) with a non-zero SAR amount applies — if a tier is 0, the next lower tier is used. ' .
+                            'Due is the end of the contribution/repayment cycle for that month. Calendar days after that are counted; '.
+                            'the highest tier reached (30+ ≥ 20+ ≥ 10+ ≥ 1+) with a non-zero SAR amount applies — if a tier is 0, the next lower tier is used. '.
                             'Cash-account debits bundle principal and late fee; late fees credit master cash only (not master fund).'
                         )
                         ->schema([
@@ -271,17 +271,17 @@ class SystemSettingsPage extends Page
                 ->label('Save statement settings')
                 ->icon('heroicon-o-check')
                 ->color('primary')
-                ->visible(fn(): bool => $this->activeTab === 'statements')
-                ->fillForm(fn() => [
-                    'brand_name'          => Setting::statementBrandName(),
-                    'tagline'             => Setting::statementTagline(),
-                    'accent_color'        => Setting::statementAccentColor(),
-                    'footer_disclaimer'   => Setting::statementFooterDisclaimer(),
-                    'signature_line'      => Setting::statementSignatureLine(),
-                    'auto_email'          => Setting::statementAutoEmail(),
-                    'include_transactions'=> Setting::statementIncludeTransactions(),
-                    'include_loan_section'=> Setting::statementIncludeLoanSection(),
-                    'include_compliance'  => Setting::statementIncludeCompliance(),
+                ->visible(fn (): bool => $this->activeTab === 'statements')
+                ->fillForm(fn () => [
+                    'brand_name' => Setting::statementBrandName(),
+                    'tagline' => Setting::statementTagline(),
+                    'accent_color' => Setting::statementAccentColor(),
+                    'footer_disclaimer' => Setting::statementFooterDisclaimer(),
+                    'signature_line' => Setting::statementSignatureLine(),
+                    'auto_email' => Setting::statementAutoEmail(),
+                    'include_transactions' => Setting::statementIncludeTransactions(),
+                    'include_loan_section' => Setting::statementIncludeLoanSection(),
+                    'include_compliance' => Setting::statementIncludeCompliance(),
                 ])
                 ->schema([
                     Section::make('Branding')
@@ -333,19 +333,19 @@ class SystemSettingsPage extends Page
                         ])->columns(2),
                 ])
                 ->action(function (array $data): void {
-                    Setting::set('statement.brand_name',          trim($data['brand_name']));
-                    Setting::set('statement.tagline',             trim($data['tagline'] ?? ''));
+                    Setting::set('statement.brand_name', trim($data['brand_name']));
+                    Setting::set('statement.tagline', trim($data['tagline'] ?? ''));
                     // Validate hex before storing
                     $color = trim($data['accent_color']);
                     if (preg_match('/^#[0-9a-fA-F]{6}$/', $color)) {
                         Setting::set('statement.accent_color', $color);
                     }
-                    Setting::set('statement.footer_disclaimer',   trim($data['footer_disclaimer'] ?? ''));
-                    Setting::set('statement.signature_line',      trim($data['signature_line'] ?? ''));
-                    Setting::set('statement.auto_email',          $data['auto_email'] ? '1' : '0');
+                    Setting::set('statement.footer_disclaimer', trim($data['footer_disclaimer'] ?? ''));
+                    Setting::set('statement.signature_line', trim($data['signature_line'] ?? ''));
+                    Setting::set('statement.auto_email', $data['auto_email'] ? '1' : '0');
                     Setting::set('statement.include_transactions', $data['include_transactions'] ? '1' : '0');
                     Setting::set('statement.include_loan_section', $data['include_loan_section'] ? '1' : '0');
-                    Setting::set('statement.include_compliance',  $data['include_compliance'] ? '1' : '0');
+                    Setting::set('statement.include_compliance', $data['include_compliance'] ? '1' : '0');
 
                     Notification::make()
                         ->title('Statement settings saved')
@@ -357,10 +357,12 @@ class SystemSettingsPage extends Page
                 ->label('Save public membership settings')
                 ->icon('heroicon-o-check')
                 ->color('primary')
-                ->visible(fn(): bool => $this->activeTab === 'public-membership')
+                ->visible(fn (): bool => $this->activeTab === 'public-membership')
                 ->fillForm([
                     'max_pending_public' => Setting::maxPublicApplications(),
-                    'membership_application_fee' => Setting::membershipApplicationFee(),
+                    'membership_application_fee_new' => Setting::membershipApplicationFeeForType('new'),
+                    'membership_application_fee_resume' => Setting::membershipApplicationFeeForType('resume'),
+                    'membership_application_fee_renew' => Setting::membershipApplicationFeeForType('renew'),
                     'membership_application_fee_bank_instructions' => Setting::membershipApplicationFeeBankInstructions(),
                 ])
                 ->schema([
@@ -375,30 +377,49 @@ class SystemSettingsPage extends Page
                                 ->default(0)
                                 ->helperText('Counts all application rows. Use 0 for no limit.'),
                         ]),
-                    Section::make('Membership application fee')
+                    Section::make('Membership application fees')
                         ->description(
-                            'When the fee is greater than zero, /apply adds a payment step: applicants transfer to your bank and submit a reference. ' .
-                            'On successful submission, the fee is credited to the master cash account only (not the master fund). Reconcile with your bank to avoid double-counting if you also import the same deposit.'
+                            'Set a separate fee for each application type. When at least one fee is greater than zero, /apply adds a final payment step (after identity, employment, and document upload): applicants transfer to your bank and submit a reference for the fee that matches their chosen type, then submit the application. '.
+                            'On successful submission, that amount is credited to the master cash account only (not the master fund). Reconcile with your bank to avoid double-counting if you also import the same deposit.'
                         )
                         ->schema([
-                            Forms\Components\TextInput::make('membership_application_fee')
-                                ->label('Fee (SAR)')
+                            Forms\Components\TextInput::make('membership_application_fee_new')
+                                ->label('New membership (SAR)')
                                 ->numeric()
                                 ->minValue(0)
                                 ->required()
-                                ->default(0)
-                                ->helperText('Use 0 to hide the fee step and require no payment.'),
+                                ->default(0),
+                            Forms\Components\TextInput::make('membership_application_fee_resume')
+                                ->label('Resume membership (SAR)')
+                                ->numeric()
+                                ->minValue(0)
+                                ->required()
+                                ->default(0),
+                            Forms\Components\TextInput::make('membership_application_fee_renew')
+                                ->label('Renew membership (SAR)')
+                                ->numeric()
+                                ->minValue(0)
+                                ->required()
+                                ->default(0),
                             Forms\Components\Textarea::make('membership_application_fee_bank_instructions')
                                 ->label('Bank transfer instructions')
                                 ->rows(6)
                                 ->columnSpanFull()
                                 ->helperText('Shown on the application form (plain text; line breaks preserved). Include IBAN, account name, and bank name.'),
-                        ]),
+                        ])
+                        ->columns(3),
                 ])
                 ->action(function (array $data): void {
+                    $feeNew = max(0, (float) ($data['membership_application_fee_new'] ?? 0));
+                    $feeResume = max(0, (float) ($data['membership_application_fee_resume'] ?? 0));
+                    $feeRenew = max(0, (float) ($data['membership_application_fee_renew'] ?? 0));
+
                     Setting::set('membership.max_pending_public', max(0, (int) $data['max_pending_public']));
-                    Setting::set('membership.application_fee_amount', max(0, (float) $data['membership_application_fee']));
+                    Setting::set('membership.application_fee_new', $feeNew);
+                    Setting::set('membership.application_fee_resume', $feeResume);
+                    Setting::set('membership.application_fee_renew', $feeRenew);
                     Setting::set('membership.application_fee_bank_instructions', (string) ($data['membership_application_fee_bank_instructions'] ?? ''));
+                    Setting::set('membership.application_fee_amount', max($feeNew, $feeResume, $feeRenew));
 
                     Notification::make()
                         ->title('Public membership settings saved')
@@ -410,18 +431,18 @@ class SystemSettingsPage extends Page
                 ->label('Save communication settings')
                 ->icon('heroicon-o-check')
                 ->color('primary')
-                ->visible(fn(): bool => $this->activeTab === 'communication')
-                ->fillForm(fn() => [
-                    'channel_in_app'   => Setting::commChannelEnabled('in_app'),
-                    'channel_email'    => Setting::commChannelEnabled('email'),
-                    'channel_sms'      => Setting::commChannelEnabled('sms'),
+                ->visible(fn (): bool => $this->activeTab === 'communication')
+                ->fillForm(fn () => [
+                    'channel_in_app' => Setting::commChannelEnabled('in_app'),
+                    'channel_email' => Setting::commChannelEnabled('email'),
+                    'channel_sms' => Setting::commChannelEnabled('sms'),
                     'channel_whatsapp' => Setting::commChannelEnabled('whatsapp'),
                 ])
                 ->schema([
                     Section::make('Communication Channels')
                         ->description(
-                            'Enable or disable each outbound communication channel system-wide. ' .
-                            'When a channel is disabled, no notifications of any type will be sent through it, ' .
+                            'Enable or disable each outbound communication channel system-wide. '.
+                            'When a channel is disabled, no notifications of any type will be sent through it, '.
                             'regardless of individual member preferences.'
                         )
                         ->schema([
@@ -449,9 +470,9 @@ class SystemSettingsPage extends Page
                         ->columns(2),
                 ])
                 ->action(function (array $data): void {
-                    Setting::setCommChannel('in_app',   (bool) $data['channel_in_app']);
-                    Setting::setCommChannel('email',    (bool) $data['channel_email']);
-                    Setting::setCommChannel('sms',      (bool) $data['channel_sms']);
+                    Setting::setCommChannel('in_app', (bool) $data['channel_in_app']);
+                    Setting::setCommChannel('email', (bool) $data['channel_email']);
+                    Setting::setCommChannel('sms', (bool) $data['channel_sms']);
                     Setting::setCommChannel('whatsapp', (bool) $data['channel_whatsapp']);
 
                     Notification::make()
@@ -474,7 +495,7 @@ class SystemSettingsPage extends Page
         $svc = app(ContributionCycleService::class);
         [$month, $year] = $svc->currentOpenPeriod();
 
-        return $svc->periodLabel($month, $year) . ' — ' . $svc->cycleWindowDescription($month, $year);
+        return $svc->periodLabel($month, $year).' — '.$svc->cycleWindowDescription($month, $year);
     }
 
     public function getTotalApplicationsCount(): int
@@ -484,7 +505,7 @@ class SystemSettingsPage extends Page
 
     public function canViewRolesPage(): bool
     {
-        if (!class_exists(RoleResource::class)) {
+        if (! class_exists(RoleResource::class)) {
             return false;
         }
 
@@ -493,7 +514,7 @@ class SystemSettingsPage extends Page
 
     public function getRolesPageUrl(): ?string
     {
-        if (!$this->canViewRolesPage()) {
+        if (! $this->canViewRolesPage()) {
             return null;
         }
 

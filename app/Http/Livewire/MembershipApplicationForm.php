@@ -22,7 +22,7 @@ class MembershipApplicationForm extends Component
 
     public int $totalSteps = 4;
 
-    /** When true, step 2 is payment (inserted before identity). */
+    /** When true, the membership fee step is shown last (before submit). */
     public bool $hasApplicationFee = false;
 
     /** @var array<int, string> */
@@ -95,16 +95,26 @@ class MembershipApplicationForm extends Component
     public function mount(): void
     {
         $this->applicationCapReached = $this->checkApplicationCapReached();
-        $this->hasApplicationFee = Setting::membershipApplicationFee() > 0;
+        $this->hasApplicationFee = Setting::publicMembershipApplicationFeesEnabled();
         $this->totalSteps = $this->hasApplicationFee ? 5 : 4;
         $this->stepLabels = $this->hasApplicationFee
-            ? ['Personal Info', 'Membership fee', 'Identity', 'Employment', 'Document']
+            ? ['Personal Info', 'Identity', 'Employment', 'Document', 'Membership fee']
             : ['Personal Info', 'Identity', 'Employment', 'Document'];
+    }
+
+    /** Fee (SAR) for the currently selected application type; 0 if fees are disabled or this type is free. */
+    public function currentApplicationFeeAmount(): float
+    {
+        if (! $this->hasApplicationFee) {
+            return 0.0;
+        }
+
+        return Setting::membershipApplicationFeeForType($this->application_type);
     }
 
     protected function checkApplicationCapReached(): bool
     {
-        if (!Setting::publicApplicationCapEnabled()) {
+        if (! Setting::publicApplicationCapEnabled()) {
             return false;
         }
 
@@ -115,7 +125,7 @@ class MembershipApplicationForm extends Component
     public function stepKindAt(int $step): string
     {
         $sequence = $this->hasApplicationFee
-            ? ['personal', 'payment', 'identity', 'employment', 'document']
+            ? ['personal', 'identity', 'employment', 'document', 'payment']
             : ['personal', 'identity', 'employment', 'document'];
 
         return $sequence[$step - 1] ?? 'personal';
@@ -150,7 +160,7 @@ class MembershipApplicationForm extends Component
             'application_form' => 'nullable|file|mimes:pdf,jpg,jpeg,png|max:5120',
         ];
 
-        if ($this->hasApplicationFee) {
+        if ($this->hasApplicationFee && $this->currentApplicationFeeAmount() > 0) {
             $rules['membership_fee_transfer_reference'] = 'required|string|min:3|max:120';
             $rules['membership_fee_acknowledged'] = 'accepted';
         }
@@ -170,13 +180,15 @@ class MembershipApplicationForm extends Component
                 'name' => 'required|string|max:150',
                 'email' => 'required|email|unique:users,email',
                 'password' => 'required|min:8|confirmed',
-            ],
-            'payment' => [
-                'membership_fee_transfer_reference' => 'required|string|min:3|max:120',
-                'membership_fee_acknowledged' => 'accepted',
-            ],
-            'identity' => [
                 'application_type' => 'required|in:new,resume,renew',
+            ],
+            'payment' => $this->hasApplicationFee && $this->currentApplicationFeeAmount() > 0
+                ? [
+                    'membership_fee_transfer_reference' => 'required|string|min:3|max:120',
+                    'membership_fee_acknowledged' => 'accepted',
+                ]
+                : [],
+            'identity' => [
                 'gender' => 'nullable|in:male,female,other',
                 'marital_status' => 'nullable|in:single,married,divorced,widowed,other',
                 'national_id' => 'required|string|max:20',
@@ -228,7 +240,7 @@ class MembershipApplicationForm extends Component
 
         $this->validate();
 
-        $feeAmount = $this->hasApplicationFee ? Setting::membershipApplicationFee() : 0.0;
+        $feeAmount = $this->hasApplicationFee ? $this->currentApplicationFeeAmount() : 0.0;
 
         try {
             Cache::lock('membership_public_apply_submit', 15)->block(8, function () use ($feeAmount): void {

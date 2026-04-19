@@ -277,12 +277,31 @@
                     </dd>
                 </div>
                 <div class="rounded-lg border border-gray-200 p-4 dark:border-white/10 sm:col-span-2">
-                    <dt class="text-gray-500 dark:text-gray-400">Membership application fee</dt>
-                    <dd class="mt-1 text-lg font-semibold text-gray-950 dark:text-white">
-                        @if(\App\Models\Setting::membershipApplicationFee() > 0)
-                            SAR {{ number_format(\App\Models\Setting::membershipApplicationFee(), 2) }} (credited to master cash on submit)
+                    <dt class="text-gray-500 dark:text-gray-400">Membership application fees (by type)</dt>
+                    <dd class="mt-1 space-y-1 text-sm font-medium text-gray-950 dark:text-white">
+                        @php
+                            $types = [
+                                'new' => 'New',
+                                'resume' => 'Resume',
+                                'renew' => 'Renew',
+                            ];
+                        @endphp
+                        @foreach($types as $key => $label)
+                            <div class="flex justify-between gap-4 border-b border-gray-100 pb-1 last:border-0 dark:border-white/10">
+                                <span class="text-gray-600 dark:text-gray-400">{{ $label }}</span>
+                                <span>
+                                    @if(\App\Models\Setting::membershipApplicationFeeForType($key) > 0)
+                                        SAR {{ number_format(\App\Models\Setting::membershipApplicationFeeForType($key), 2) }}
+                                    @else
+                                        <span class="text-gray-500 dark:text-gray-400">No fee</span>
+                                    @endif
+                                </span>
+                            </div>
+                        @endforeach
+                        @if(\App\Models\Setting::membershipApplicationFee() <= 0)
+                            <p class="pt-1 text-xs font-normal text-gray-500 dark:text-gray-400">Payment step is hidden on /apply when all fees are 0.</p>
                         @else
-                            <span class="text-gray-500 dark:text-gray-400">Disabled (0 SAR)</span>
+                            <p class="pt-1 text-xs font-normal text-gray-500 dark:text-gray-400">Credited to master cash on submit (per selected type).</p>
                         @endif
                     </dd>
                 </div>
@@ -343,11 +362,10 @@
         </div>
     @elseif ($activeTab === 'communication')
         @php
-            use App\Models\Setting;
-            $channels = Setting::COMM_CHANNELS;
+            $channels = \App\Models\Setting::COMM_CHANNELS;
             $enabled  = [];
             foreach ($channels as $key => $_) {
-                $enabled[$key] = Setting::commChannelEnabled($key);
+                $enabled[$key] = \App\Models\Setting::commChannelEnabled($key);
             }
             $channelColors = [
                 'in_app'   => ['on' => 'bg-indigo-500',  'off' => 'bg-gray-300 dark:bg-gray-600',  'badge_on' => 'bg-indigo-100 text-indigo-700 dark:bg-indigo-900/40 dark:text-indigo-300', 'badge_off' => 'bg-red-100 text-red-600 dark:bg-red-900/40 dark:text-red-400'],

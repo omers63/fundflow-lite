@@ -109,6 +109,45 @@
                 @if($this->stepKindAt($currentStep) === 'personal')
                 <div class="space-y-5">
                     <div>
+                        <p class="text-sm font-semibold text-slate-800 mb-3">Application type *</p>
+                        <p class="text-xs text-slate-500 mb-4 leading-relaxed">Choose the option that matches your situation. The application fee (if any) depends on this choice — you will confirm the transfer on the <strong class="font-semibold text-slate-700">last step before you submit</strong>.</p>
+                        <div class="grid sm:grid-cols-3 gap-3">
+                            @foreach([
+                                'new' => ['title' => 'New', 'desc' => 'First-time membership with the fund.', 'icon' => 'M18 9v3m0 0v3m0-3h3m-3 0h-3m-2-5a4 4 0 11-8 0 4 4 0 018 0zM3 20a6 6 0 0112 0v1H3v-1z'],
+                                'resume' => ['title' => 'Resume', 'desc' => 'Returning after a break; reinstatement.', 'icon' => 'M4 4v5h.582m15.356 2A8.001 8.001 0 004.582 9m0 0H9m11 11v-5h-.581m0 0a8.003 8.003 0 01-15.357-2m15.357 2H15'],
+                                'renew' => ['title' => 'Renew', 'desc' => 'Renewing an existing membership period.', 'icon' => 'M8 7V3m8 4V3m-9 8h10M5 21h14a2 2 0 002-2V7a2 2 0 00-2-2H5a2 2 0 00-2 2v12a2 2 0 002 2z'],
+                            ] as $value => $meta)
+                            @php
+                                $fee = \App\Models\Setting::membershipApplicationFeeForType($value);
+                            @endphp
+                            <label class="relative block cursor-pointer">
+                                <input type="radio" wire:model.live="application_type" value="{{ $value }}" class="peer sr-only">
+                                <div class="h-full rounded-2xl border-2 border-slate-200 bg-white p-4 transition-all duration-200
+                                    peer-focus-visible:ring-2 peer-focus-visible:ring-blue-400 peer-focus-visible:ring-offset-2
+                                    peer-checked:border-blue-500 peer-checked:bg-gradient-to-br peer-checked:from-blue-50 peer-checked:to-indigo-50/80 peer-checked:shadow-md peer-checked:shadow-blue-500/10
+                                    peer-checked:[&_.app-type-icon]:bg-blue-600 peer-checked:[&_.app-type-icon]:text-white
+                                    hover:border-slate-300">
+                                    <div class="flex items-start justify-between gap-2 mb-2">
+                                        <span class="app-type-icon inline-flex h-9 w-9 shrink-0 items-center justify-center rounded-xl bg-slate-100 text-slate-600">
+                                            <svg class="h-5 w-5" fill="none" stroke="currentColor" viewBox="0 0 24 24" aria-hidden="true"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="{{ $meta['icon'] }}"/></svg>
+                                        </span>
+                                        <span class="rounded-full px-2 py-0.5 text-[10px] font-bold uppercase tracking-wide {{ $fee > 0 ? 'bg-amber-100 text-amber-800' : 'bg-emerald-100 text-emerald-800' }}">
+                                            @if($fee > 0)
+                                                SAR {{ number_format($fee, 2) }}
+                                            @else
+                                                No fee
+                                            @endif
+                                        </span>
+                                    </div>
+                                    <p class="text-sm font-bold text-slate-900">{{ $meta['title'] }}</p>
+                                    <p class="mt-1 text-xs text-slate-500 leading-snug">{{ $meta['desc'] }}</p>
+                                </div>
+                            </label>
+                            @endforeach
+                        </div>
+                        @error('application_type')<p class="text-red-500 text-xs mt-2">{{ $message }}</p>@enderror
+                    </div>
+                    <div>
                         <label class="block text-sm font-semibold text-slate-700 mb-2">Full Name *</label>
                         <input wire:model="name" type="text" placeholder="Ahmed Al-Saudi" class="w-full px-4 py-3 border border-slate-200 rounded-xl text-sm focus:outline-none focus:ring-2 focus:ring-blue-500 @error('name') border-red-400 @enderror">
                         @error('name')<p class="text-red-500 text-xs mt-1">{{ $message }}</p>@enderror
@@ -132,42 +171,27 @@
                 </div>
                 @endif
 
-                {{-- Membership fee (bank transfer) --}}
-                @if($this->stepKindAt($currentStep) === 'payment')
-                <div class="space-y-5">
-                    <div class="rounded-2xl border border-slate-200 bg-slate-50 p-5">
-                        <p class="text-sm font-semibold text-slate-800 mb-1">Application fee</p>
-                        <p class="text-2xl font-bold text-blue-700">SAR {{ number_format(\App\Models\Setting::membershipApplicationFee(), 2) }}</p>
-                        <p class="text-xs text-slate-500 mt-2">Transfer this amount before submitting your application. Fees are credited to the fund’s cash account (not the pooled master fund).</p>
-                    </div>
-                    <div class="rounded-2xl border border-slate-200 bg-white p-5 text-sm text-slate-700 whitespace-pre-line leading-relaxed">
-                        {{ \App\Models\Setting::membershipApplicationFeeBankInstructions() }}
-                    </div>
-                    <div>
-                        <label class="block text-sm font-semibold text-slate-700 mb-2">Your transfer reference / note *</label>
-                        <input wire:model="membership_fee_transfer_reference" type="text" placeholder="As shown on your bank receipt" class="w-full px-4 py-3 border border-slate-200 rounded-xl text-sm focus:outline-none focus:ring-2 focus:ring-blue-500 font-mono @error('membership_fee_transfer_reference') border-red-400 @enderror">
-                        @error('membership_fee_transfer_reference')<p class="text-red-500 text-xs mt-1">{{ $message }}</p>@enderror
-                        <p class="text-xs text-slate-500 mt-1">Use the same reference you entered on the bank transfer so we can match your payment.</p>
-                    </div>
-                    <label class="flex items-start gap-3 cursor-pointer">
-                        <input wire:model="membership_fee_acknowledged" type="checkbox" class="mt-1 rounded border-slate-300 text-blue-600 focus:ring-blue-500">
-                        <span class="text-sm text-slate-700">I confirm I have transferred SAR {{ number_format(\App\Models\Setting::membershipApplicationFee(), 2) }} to the fund bank account above.</span>
-                    </label>
-                    @error('membership_fee_acknowledged')<p class="text-red-500 text-xs">{{ $message }}</p>@enderror
-                </div>
-                @endif
-
                 {{-- Step: Identity & Address --}}
                 @if($this->stepKindAt($currentStep) === 'identity')
                 <div class="space-y-5">
-                    <div>
-                        <label class="block text-sm font-semibold text-slate-700 mb-2">Application type *</label>
-                        <select wire:model="application_type" class="w-full px-4 py-3 border border-slate-200 rounded-xl text-sm focus:outline-none focus:ring-2 focus:ring-blue-500 @error('application_type') border-red-400 @enderror">
-                            <option value="new">New</option>
-                            <option value="resume">Resume</option>
-                            <option value="renew">Renew</option>
-                        </select>
-                        @error('application_type')<p class="text-red-500 text-xs mt-1">{{ $message }}</p>@enderror
+                    <div class="rounded-xl border border-blue-100 bg-blue-50/60 px-4 py-3 text-sm text-slate-700">
+                        <span class="font-semibold text-blue-900">Application type:</span>
+                        @php
+                            $t = match($application_type) {
+                                'new' => 'New membership',
+                                'resume' => 'Resume membership',
+                                'renew' => 'Renew membership',
+                                default => $application_type,
+                            };
+                        @endphp
+                        {{ $t }}
+                        @if($hasApplicationFee)
+                            @if($this->currentApplicationFeeAmount() > 0)
+                                <span class="text-slate-500"> — application fee SAR {{ number_format($this->currentApplicationFeeAmount(), 2) }} (you will confirm the bank transfer on the last step before submitting).</span>
+                            @else
+                                <span class="text-slate-500"> — no application fee for this type.</span>
+                            @endif
+                        @endif
                     </div>
                     <div class="grid sm:grid-cols-2 gap-5">
                         <div>
@@ -350,6 +374,84 @@
                         </svg>
                         Uploading file...
                     </div>
+                </div>
+                @endif
+
+                {{-- Membership fee (bank transfer) — last step before submit when fees are enabled --}}
+                @if($this->stepKindAt($currentStep) === 'payment')
+                @php
+                    $feeNow = $this->currentApplicationFeeAmount();
+                    $typeLabel = match($application_type) {
+                        'new' => 'New membership',
+                        'resume' => 'Resume membership',
+                        'renew' => 'Renew membership',
+                        default => 'Membership',
+                    };
+                @endphp
+                <div class="space-y-5">
+                    <div class="overflow-hidden rounded-2xl border border-indigo-100 bg-gradient-to-br from-indigo-600 via-blue-600 to-sky-600 p-6 text-white shadow-lg shadow-indigo-500/20">
+                        <div class="flex flex-col gap-4 sm:flex-row sm:items-start sm:justify-between">
+                            <div>
+                                <p class="text-xs font-semibold uppercase tracking-wider text-white/80">Your selection</p>
+                                <p class="mt-1 text-lg font-bold">{{ $typeLabel }}</p>
+                            </div>
+                            @if($feeNow > 0)
+                            <div class="rounded-xl bg-white/15 px-4 py-3 text-right backdrop-blur-sm ring-1 ring-white/20">
+                                <p class="text-xs text-white/80">Amount to transfer</p>
+                                <p class="text-2xl font-bold tabular-nums">SAR {{ number_format($feeNow, 2) }}</p>
+                            </div>
+                            @endif
+                        </div>
+                        @if($feeNow > 0)
+                        <ul class="mt-5 space-y-2 text-sm text-white/95">
+                            <li class="flex gap-2">
+                                <svg class="mt-0.5 h-5 w-5 shrink-0 text-emerald-300" fill="currentColor" viewBox="0 0 20 20"><path fill-rule="evenodd" d="M10 18a8 8 0 100-16 8 8 0 000 16zm3.707-9.293a1 1 0 00-1.414-1.414L9 10.586 7.707 9.293a1 1 0 00-1.414 1.414l2 2a1 1 0 001.414 0l4-4z" clip-rule="evenodd"/></svg>
+                                <span>Transfer <strong class="font-semibold">SAR {{ number_format($feeNow, 2) }}</strong> to the fund bank account using the details below.</span>
+                            </li>
+                            <li class="flex gap-2">
+                                <svg class="mt-0.5 h-5 w-5 shrink-0 text-amber-200" fill="currentColor" viewBox="0 0 20 20"><path fill-rule="evenodd" d="M8.257 3.099c.765-1.36 2.722-1.36 3.486 0l5.58 9.92c.75 1.334-.213 2.98-1.742 2.98H4.42c-1.53 0-2.493-1.646-1.743-2.98l5.58-9.92zM11 13a1 1 0 11-2 0 1 1 0 012 0zm-1-8a1 1 0 00-1 1v3a1 1 0 002 0V6a1 1 0 00-1-1z" clip-rule="evenodd"/></svg>
+                                <span>Your application can be <strong class="font-semibold">approved only after</strong> we can match this payment to your transfer reference.</span>
+                            </li>
+                            <li class="flex gap-2">
+                                <svg class="mt-0.5 h-5 w-5 shrink-0 text-sky-200" fill="currentColor" viewBox="0 0 20 20"><path d="M2.003 5.884L10 9.882l7.997-3.998A2 2 0 0016 4H4a2 2 0 00-1.997 1.884z"/><path d="M18 8.118l-8 4-8-4V14a2 2 0 002 2h12a2 2 0 002-2V8.118z"/></svg>
+                                <span>Fees are recorded against the fund’s <strong class="font-semibold">cash account</strong> (not the pooled master fund).</span>
+                            </li>
+                        </ul>
+                        @else
+                        <p class="mt-4 rounded-xl bg-white/10 px-4 py-3 text-sm text-white/95 ring-1 ring-white/15">
+                            There is <strong class="font-semibold">no application fee</strong> for this membership type. Use <strong class="font-semibold">Submit application</strong> below to finish — no bank transfer is required.
+                        </p>
+                        @endif
+                    </div>
+
+                    @if($feeNow > 0)
+                    <div class="rounded-2xl border border-slate-200 bg-slate-50/80 p-5 shadow-inner">
+                        <div class="mb-3 flex items-center gap-2">
+                            <span class="flex h-8 w-8 items-center justify-center rounded-lg bg-white text-slate-600 shadow-sm ring-1 ring-slate-200">
+                                <svg class="h-4 w-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M3 10h18M7 15h1m4 0h1m-7 4h12a3 3 0 003-3V8a3 3 0 00-3-3H6a3 3 0 00-3 3v8a3 3 0 003 3z"/></svg>
+                            </span>
+                            <div>
+                                <p class="text-sm font-bold text-slate-800">Bank transfer details</p>
+                                <p class="text-xs text-slate-500">Use exactly these details when sending SAR {{ number_format($feeNow, 2) }}</p>
+                            </div>
+                        </div>
+                        <div class="rounded-xl bg-white p-4 text-sm text-slate-700 whitespace-pre-line leading-relaxed ring-1 ring-slate-100">
+                            {{ \App\Models\Setting::membershipApplicationFeeBankInstructions() }}
+                        </div>
+                    </div>
+
+                    <div>
+                        <label class="block text-sm font-semibold text-slate-700 mb-2">Your transfer reference / note *</label>
+                        <input wire:model="membership_fee_transfer_reference" type="text" placeholder="As shown on your bank receipt" class="w-full px-4 py-3 border border-slate-200 rounded-xl text-sm focus:outline-none focus:ring-2 focus:ring-blue-500 font-mono @error('membership_fee_transfer_reference') border-red-400 @enderror">
+                        @error('membership_fee_transfer_reference')<p class="text-red-500 text-xs mt-1">{{ $message }}</p>@enderror
+                        <p class="text-xs text-slate-500 mt-1">Enter the same reference you used on the transfer so we can approve your application once the payment is verified.</p>
+                    </div>
+                    <label class="flex items-start gap-3 cursor-pointer rounded-xl border border-slate-100 bg-slate-50/50 p-4 transition hover:bg-slate-50">
+                        <input wire:model="membership_fee_acknowledged" type="checkbox" class="mt-1 rounded border-slate-300 text-blue-600 focus:ring-blue-500">
+                        <span class="text-sm text-slate-700 leading-relaxed">I confirm that I have transferred <strong class="font-semibold text-slate-900">SAR {{ number_format($feeNow, 2) }}</strong> to the fund bank account above, and I understand that my application will be reviewed after this payment can be matched.</span>
+                    </label>
+                    @error('membership_fee_acknowledged')<p class="text-red-500 text-xs">{{ $message }}</p>@enderror
+                    @endif
                 </div>
                 @endif
 

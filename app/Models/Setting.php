@@ -90,10 +90,44 @@ class Setting extends Model
         return static::maxPublicApplications() > 0;
     }
 
-    /** SAR; 0 means no fee on public apply. */
+    /**
+     * Application fee for the public apply flow, by application type (SAR). 0 means no fee for that type.
+     *
+     * @param  string  $type  One of: new, resume, renew
+     */
+    public static function membershipApplicationFeeForType(string $type): float
+    {
+        $type = match ($type) {
+            'new', 'resume', 'renew' => $type,
+            default => 'new',
+        };
+
+        return max(0.0, (float) static::get("membership.application_fee_{$type}", 0));
+    }
+
+    /** True when at least one application type has a positive fee (payment step is shown on /apply). */
+    public static function publicMembershipApplicationFeesEnabled(): bool
+    {
+        foreach (['new', 'resume', 'renew'] as $t) {
+            if (static::membershipApplicationFeeForType($t) > 0) {
+                return true;
+            }
+        }
+
+        return false;
+    }
+
+    /**
+     * Maximum configured fee across types (useful for admin summaries).
+     * Per-type amounts are stored in {@see membershipApplicationFeeForType()}.
+     */
     public static function membershipApplicationFee(): float
     {
-        return max(0.0, (float) static::get('membership.application_fee_amount', 0));
+        return max(
+            static::membershipApplicationFeeForType('new'),
+            static::membershipApplicationFeeForType('resume'),
+            static::membershipApplicationFeeForType('renew'),
+        );
     }
 
     /** Shown on /apply when fee &gt; 0 (plain text, line breaks preserved). */
@@ -159,6 +193,7 @@ class Setting extends Model
     public static function statementAccentColor(): string
     {
         $color = (string) static::get('statement.accent_color', '#059669');
+
         // Validate hex; fall back to green
         return preg_match('/^#[0-9a-fA-F]{6}$/', $color) ? $color : '#059669';
     }
@@ -200,9 +235,9 @@ class Setting extends Model
      * the settings page and the notification resolver.
      */
     public const COMM_CHANNELS = [
-        'in_app'   => ['label' => 'In-App Inbox',   'icon' => 'heroicon-o-bell',        'desc' => 'Notifications inside the member portal. Disabling this will silence all in-app alerts.'],
-        'email'    => ['label' => 'Email',           'icon' => 'heroicon-o-envelope',    'desc' => 'Delivery via the configured SMTP/mail driver.'],
-        'sms'      => ['label' => 'SMS',             'icon' => 'heroicon-o-device-phone-mobile', 'desc' => 'Text messages via Twilio SMS. Requires Twilio credentials.'],
+        'in_app' => ['label' => 'In-App Inbox',   'icon' => 'heroicon-o-bell',        'desc' => 'Notifications inside the member portal. Disabling this will silence all in-app alerts.'],
+        'email' => ['label' => 'Email',           'icon' => 'heroicon-o-envelope',    'desc' => 'Delivery via the configured SMTP/mail driver.'],
+        'sms' => ['label' => 'SMS',             'icon' => 'heroicon-o-device-phone-mobile', 'desc' => 'Text messages via Twilio SMS. Requires Twilio credentials.'],
         'whatsapp' => ['label' => 'WhatsApp',        'icon' => 'heroicon-o-chat-bubble-left-right', 'desc' => 'WhatsApp messages via Twilio. Requires a verified WhatsApp sender number.'],
     ];
 
@@ -220,7 +255,7 @@ class Setting extends Model
     {
         return array_values(array_filter(
             array_keys(self::COMM_CHANNELS),
-            fn(string $ch) => static::commChannelEnabled($ch),
+            fn (string $ch) => static::commChannelEnabled($ch),
         ));
     }
 
@@ -234,13 +269,13 @@ class Setting extends Model
     public static function statementPdfConfig(): array
     {
         return [
-            'brand'              => static::statementBrandName(),
-            'tagline'            => static::statementTagline(),
-            'accent_color'       => static::statementAccentColor(),
-            'footer_disclaimer'  => static::statementFooterDisclaimer(),
-            'signature_line'     => static::statementSignatureLine(),
-            'include_txns'       => static::statementIncludeTransactions(),
-            'include_loan'       => static::statementIncludeLoanSection(),
+            'brand' => static::statementBrandName(),
+            'tagline' => static::statementTagline(),
+            'accent_color' => static::statementAccentColor(),
+            'footer_disclaimer' => static::statementFooterDisclaimer(),
+            'signature_line' => static::statementSignatureLine(),
+            'include_txns' => static::statementIncludeTransactions(),
+            'include_loan' => static::statementIncludeLoanSection(),
             'include_compliance' => static::statementIncludeCompliance(),
         ];
     }
