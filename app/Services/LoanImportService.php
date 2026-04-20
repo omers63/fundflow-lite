@@ -19,6 +19,8 @@ class LoanImportService
     /**
      * Import loans from a UTF-8 CSV with a header row.
      *
+     * Member lookup: provide one of member_email, member_number, or national_id.
+     *
      * Column loan_status: pending | approved | active (default if omitted) | completed | early_settled
      *
      * Pending: no ledger. amount_requested required (or use amount_approved as the requested amount). fund_tier / queue left empty.
@@ -316,9 +318,10 @@ class LoanImportService
     {
         $email = strtolower($this->cell($row, 'member_email'));
         $number = $this->cell($row, 'member_number');
+        $nationalId = $this->cell($row, 'national_id');
 
-        if ($email === '' && $number === '') {
-            throw new \InvalidArgumentException('Provide member_email or member_number.');
+        if ($email === '' && $number === '' && $nationalId === '') {
+            throw new \InvalidArgumentException('Provide member_email, member_number, or national_id.');
         }
 
         if ($email !== '') {
@@ -330,12 +333,30 @@ class LoanImportService
             return $user->member;
         }
 
-        $member = Member::where('member_number', $number)->first();
-        if ($member === null) {
-            throw new \InvalidArgumentException("No member found for member_number: {$number}");
+        if ($number !== '') {
+            $member = Member::where('member_number', $number)->first();
+            if ($member === null) {
+                throw new \InvalidArgumentException("No member found for member_number: {$number}");
+            }
+
+            return $member;
         }
 
-        return $member;
+        $members = Member::query()
+            ->whereHas('membershipApplications', fn ($q) => $q->where('national_id', $nationalId))
+            ->get();
+
+        if ($members->isEmpty()) {
+            throw new \InvalidArgumentException("No member found for national_id: {$nationalId}");
+        }
+
+        if ($members->count() > 1) {
+            throw new \InvalidArgumentException(
+                "Multiple members found for national_id: {$nationalId}. Use member_number or member_email."
+            );
+        }
+
+        return $members->first();
     }
 
     private function parseLoanStatus(string $value): string

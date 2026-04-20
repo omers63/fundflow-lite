@@ -12,6 +12,7 @@ use Filament\Actions\ActionGroup;
 use Filament\Actions\DeleteAction;
 use Filament\Actions\EditAction;
 use Filament\Actions\ForceDeleteAction;
+use Filament\Actions\CreateAction;
 use Filament\Actions\RestoreAction;
 use Filament\Forms;
 use Filament\Notifications\Notification;
@@ -134,6 +135,9 @@ class MonthlyStatementResource extends Resource
                 TrashedFilter::make(),
             ])
             ->headerActions([
+                CreateAction::make()
+                    ->label('New Statement')
+                    ->icon('heroicon-o-plus-circle'),
                 // ── Generate previous month + send ────────────────────────
                 Action::make('generate_and_send')
                     ->label('Generate + Send')

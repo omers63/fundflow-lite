@@ -55,11 +55,13 @@ class AccountResource extends Resource
                     ->label('Member')
                     ->placeholder('—')
                     ->searchable()
+                    ->sortable()
                     ->toggleable(),
                 Tables\Columns\TextColumn::make('member.member_number')
                     ->label('Member #')
                     ->placeholder('—')
                     ->searchable()
+                    ->sortable()
                     ->toggleable(),
                 Tables\Columns\TextColumn::make('loan_id')
                     ->label('Loan #')
@@ -84,6 +86,12 @@ class AccountResource extends Resource
                     ->label('Account Type')
                     ->titlePrefixedWithLabel(false)
                     ->getTitleFromRecordUsing(fn (Account $r) => $r->type_label),
+                Tables\Grouping\Group::make('member.user.name')
+                    ->label('Member')
+                    ->titlePrefixedWithLabel(false),
+                Tables\Grouping\Group::make('member.member_number')
+                    ->label('Member #')
+                    ->titlePrefixedWithLabel(false),
             ])
             ->filters([
                 Tables\Filters\SelectFilter::make('type')

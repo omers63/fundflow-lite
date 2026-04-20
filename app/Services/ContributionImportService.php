@@ -13,7 +13,7 @@ class ContributionImportService
     /**
      * Import contributions from a UTF-8 CSV file with a header row.
      *
-     * One of member_id or member_number is required per row.
+     * One of member_id, member_number, national_id, or member_name (or name) is required per row.
      * Required: month, year, amount
      * Optional: paid_at (defaults to now), reference_number, notes, is_late (0/1 yes/no), late_fee_amount (SAR),
      * payment_method (empty = admin entry; otherwise a key from Finance contribution sources)
@@ -153,7 +153,50 @@ class ContributionImportService
             return $member;
         }
 
-        throw new \InvalidArgumentException('member_id or member_number is required.');
+        $nationalIdRaw = $this->cell($row, 'national_id');
+        if ($nationalIdRaw !== '') {
+            $members = Member::query()
+                ->whereHas('membershipApplications', fn ($q) => $q->where('national_id', $nationalIdRaw))
+                ->get();
+
+            if ($members->isEmpty()) {
+                throw new \InvalidArgumentException("No member with national_id {$nationalIdRaw}.");
+            }
+
+            if ($members->count() > 1) {
+                throw new \InvalidArgumentException(
+                    "Multiple members match national_id {$nationalIdRaw}. Use member_id or member_number instead."
+                );
+            }
+
+            return $members->first();
+        }
+
+        $nameRaw = $this->cell($row, 'member_name');
+        if ($nameRaw === '') {
+            $nameRaw = $this->cell($row, 'name');
+        }
+
+        if ($nameRaw !== '') {
+            $members = Member::query()
+                ->whereHas('user', fn ($q) => $q->whereRaw('LOWER(name) = ?', [mb_strtolower($nameRaw)]))
+                ->with('user')
+                ->get();
+
+            if ($members->isEmpty()) {
+                throw new \InvalidArgumentException("No member with name {$nameRaw}.");
+            }
+
+            if ($members->count() > 1) {
+                throw new \InvalidArgumentException(
+                    "Multiple members match name {$nameRaw}. Use member_id, member_number, or national_id instead."
+                );
+            }
+
+            return $members->first();
+        }
+
+        throw new \InvalidArgumentException('member_id, member_number, national_id, or member_name is required.');
     }
 
     private function parseMonth(string $value): int

@@ -4,8 +4,10 @@ use App\Http\Controllers\Admin\AdminStatementPdfController;
 use App\Http\Controllers\Admin\DatabaseBackupDownloadController;
 use App\Http\Controllers\Admin\StoredDatabaseBackupDownloadController;
 use App\Http\Controllers\BankImportSampleController;
+use App\Http\Controllers\ContributionImportSampleController;
 use App\Http\Controllers\ContributionReceiptController;
 use App\Http\Controllers\DirectMessageAttachmentController;
+use App\Http\Controllers\LoanImportSampleController;
 use App\Http\Controllers\LoanSchedulePdfController;
 use App\Http\Controllers\MemberImportSampleController;
 use App\Http\Controllers\MembershipApplicationFormTemplateController;
@@ -30,8 +32,12 @@ Route::get('/downloads/membership-application-import-sample', MembershipApplicat
     ->name('downloads.membership-application-import-sample');
 Route::get('/downloads/member-import-sample', MemberImportSampleController::class)
     ->name('downloads.member-import-sample');
+Route::get('/downloads/contribution-import-sample', ContributionImportSampleController::class)
+    ->name('downloads.contribution-import-sample');
 Route::get('/downloads/bank-import-sample', BankImportSampleController::class)
     ->name('downloads.bank-import-sample');
+Route::get('/downloads/loan-import-sample', LoanImportSampleController::class)
+    ->name('downloads.loan-import-sample');
 Route::get('/downloads/terms-and-conditions', TermsConditionsDownloadController::class)
     ->name('downloads.terms-and-conditions');
 

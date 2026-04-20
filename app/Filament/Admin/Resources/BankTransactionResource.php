@@ -8,7 +8,9 @@ use App\Models\BankImportSession;
 use App\Models\BankTransaction;
 use App\Models\Loan;
 use App\Models\LoanDisbursement;
+use App\Models\LoanInstallment;
 use App\Models\Member;
+use App\Models\Setting;
 use App\Services\AccountingService;
 use Filament\Actions\Action;
 use Filament\Actions\ActionGroup;
@@ -310,6 +312,239 @@ class BankTransactionResource extends Resource
                                 ->success()
                                 ->send();
                         }),
+                    Action::make('post_to_member')
+                        ->label('Post To Member')
+                        ->icon('heroicon-o-user-plus')
+                        ->color('success')
+                        ->visible(fn (BankTransaction $r) => blank($r->member_id))
+                        ->schema(fn (BankTransaction $record) => [
+                            Forms\Components\Select::make('member_id')
+                                ->label('Member')
+                                ->options($memberOptions)
+                                ->searchable()
+                                ->required()
+                                ->helperText('If not yet posted, this action posts to cash first, then posts/mirrors to the selected member cash account.'),
+                            Forms\Components\Select::make('loan_id')
+                                ->label('Loan')
+                                ->options(fn (Get $get) => Loan::query()
+                                    ->where('member_id', $get('member_id'))
+                                    ->whereHas('disbursements')
+                                    ->orderByDesc('id')
+                                    ->get()
+                                    ->mapWithKeys(fn (Loan $loan) => [
+                                        $loan->id => sprintf(
+                                            '#%d — SAR %s approved, SAR %s disbursed, %s',
+                                            $loan->id,
+                                            number_format((float) $loan->amount_approved, 2),
+                                            number_format((float) $loan->amount_disbursed, 2),
+                                            $loan->status
+                                        ),
+                                    ]))
+                                ->searchable()
+                                ->preload()
+                                ->live()
+                                ->afterStateUpdated(fn ($set) => $set('loan_disbursement_id', null))
+                                ->visible(fn () => ! $record->isPosted() && $record->transaction_type === 'debit')
+                                ->required(fn () => ! $record->isPosted() && $record->transaction_type === 'debit')
+                                ->helperText('Required only for debit transactions that are not yet posted.'),
+                            Forms\Components\Select::make('loan_disbursement_id')
+                                ->label('Loan disbursement payout')
+                                ->options(fn (Get $get) => LoanDisbursement::query()
+                                    ->where('loan_id', $get('loan_id'))
+                                    ->orderByDesc('disbursed_at')
+                                    ->orderByDesc('id')
+                                    ->get()
+                                    ->mapWithKeys(fn (LoanDisbursement $d) => [
+                                        $d->id => sprintf(
+                                            'SAR %s on %s — disbursement #%d',
+                                            number_format((float) $d->amount, 2),
+                                            $d->disbursed_at?->format('d M Y') ?? '?',
+                                            $d->id
+                                        ),
+                                    ]))
+                                ->searchable()
+                                ->preload()
+                                ->visible(fn () => ! $record->isPosted() && $record->transaction_type === 'debit')
+                                ->required(fn () => ! $record->isPosted() && $record->transaction_type === 'debit')
+                                ->helperText('Required only for debit transactions that are not yet posted.'),
+                        ])
+                        ->action(function (BankTransaction $record, array $data) {
+                            $member = Member::findOrFail($data['member_id']);
+                            $service = app(AccountingService::class);
+
+                            if (! $record->isPosted()) {
+                                $disbursement = null;
+
+                                if ($record->transaction_type === 'debit') {
+                                    if (empty($data['loan_id']) || empty($data['loan_disbursement_id'])) {
+                                        throw new \InvalidArgumentException('Loan and disbursement are required for debit postings.');
+                                    }
+
+                                    $disbursement = LoanDisbursement::query()->findOrFail($data['loan_disbursement_id']);
+                                    if ((int) $disbursement->loan_id !== (int) $data['loan_id']) {
+                                        throw new \InvalidArgumentException('Selected disbursement does not belong to the selected loan.');
+                                    }
+                                }
+
+                                $service->postBankTransactionToCashWithOptionalMember($record, $member, $disbursement);
+
+                                Notification::make()
+                                    ->title('Posted To Member')
+                                    ->body("Transaction posted to cash and assigned to {$member->user->name}.")
+                                    ->success()
+                                    ->send();
+
+                                return;
+                            }
+
+                            if ($record->transaction_type !== 'credit') {
+                                throw new \InvalidArgumentException('Only posted credit transactions can be mirrored to a member.');
+                            }
+
+                            $service->mirrorBankCreditToMemberCash($record, $member);
+
+                            Notification::make()
+                                ->title('Posted to Member')
+                                ->body("Existing cash posting mirrored to {$member->user->name}.")
+                                ->success()
+                                ->send();
+                        }),
+                    Action::make('post_to_loan')
+                        ->label('Post To Loan')
+                        ->icon('heroicon-o-banknotes')
+                        ->color('warning')
+                        ->visible(fn (BankTransaction $r) => $r->transaction_type === 'debit' && blank($r->loan_disbursement_id))
+                        ->schema([
+                            Forms\Components\Select::make('loan_id')
+                                ->label('Loan')
+                                ->options(fn () => Loan::query()
+                                    ->with('member.user')
+                                    ->where('status', 'approved')
+                                    ->whereRaw('COALESCE(amount_disbursed, 0) < COALESCE(amount_approved, 0)')
+                                    ->orderByDesc('id')
+                                    ->get()
+                                    ->mapWithKeys(fn (Loan $loan) => [
+                                        $loan->id => sprintf(
+                                            '#%d — %s (%s) · Remaining SAR %s',
+                                            $loan->id,
+                                            $loan->member?->user?->name ?? 'Member',
+                                            $loan->member?->member_number ?? '—',
+                                            number_format((float) $loan->remainingToDisburse(), 2)
+                                        ),
+                                    ]))
+                                ->searchable()
+                                ->required()
+                                ->helperText('Posts this debit amount as a loan disbursement on the selected approved loan.'),
+                        ])
+                        ->action(function (BankTransaction $record, array $data) {
+                            $loan = Loan::query()
+                                ->with(['member.user', 'member.accounts', 'loanTier'])
+                                ->findOrFail($data['loan_id']);
+
+                            if ($loan->status !== 'approved') {
+                                throw new \InvalidArgumentException('Only approved loans can receive a new disbursement.');
+                            }
+
+                            $amount = (float) $record->amount;
+                            if ($amount <= 0) {
+                                throw new \InvalidArgumentException('Debit amount must be greater than zero.');
+                            }
+
+                            $remaining = (float) $loan->remainingToDisburse();
+                            if ($amount > $remaining + 0.01) {
+                                throw new \InvalidArgumentException(
+                                    'Debit amount exceeds remaining loan disbursement amount (SAR ' . number_format($remaining, 2) . ').'
+                                );
+                            }
+
+                            // Installment count at full disbursement uses fund balance before posting this tranche.
+                            $memberFundBalanceBefore = (float) ($loan->member->fundAccount()?->balance ?? 0);
+
+                            $disbursement = LoanDisbursement::create([
+                                'loan_id' => $loan->id,
+                                'amount' => $amount,
+                                'member_portion' => 0,
+                                'master_portion' => 0,
+                                'disbursed_at' => $record->transaction_date ?? now(),
+                                'disbursed_by_id' => auth()->id(),
+                                'notes' => 'Posted from bank transaction #' . $record->id . ($record->reference ? (' (ref ' . $record->reference . ')') : ''),
+                            ]);
+
+                            try {
+                                app(AccountingService::class)->postPartialLoanDisbursement($loan, $amount, $disbursement);
+                            } catch (\Throwable $e) {
+                                $disbursement->delete();
+                                throw $e;
+                            }
+
+                            $loan->refresh();
+
+                            if ($loan->isFullyDisbursed()) {
+                                $disbursedAt = now();
+                                $minInstall = (float) ($loan->loanTier?->min_monthly_installment ?? 1000);
+                                $threshold = (float) ($loan->settlement_threshold ?: Setting::loanSettlementThreshold());
+                                $count = Loan::computeInstallmentsCount(
+                                    (float) $loan->amount_approved,
+                                    $memberFundBalanceBefore,
+                                    $minInstall,
+                                    $threshold,
+                                );
+
+                                $exemption = Loan::computeExemptionAndFirstRepayment($disbursedAt);
+                                $exemption = Loan::adjustFirstRepaymentIfContributionAlreadyMade($loan->member, $exemption);
+
+                                \Illuminate\Support\Facades\DB::transaction(function () use ($loan, $disbursedAt, $count, $minInstall, $exemption, $memberFundBalanceBefore): void {
+                                    $amountApproved = (float) $loan->amount_approved;
+                                    $memberPortion = min(max(0.0, $memberFundBalanceBefore), $amountApproved);
+                                    $masterPortion = $amountApproved - $memberPortion;
+
+                                    $loan->update([
+                                        'status' => 'active',
+                                        'installments_count' => $count,
+                                        'disbursed_at' => $disbursedAt,
+                                        'due_date' => $disbursedAt->copy()->addMonths($count)->toDateString(),
+                                        'member_portion' => $memberPortion,
+                                        'master_portion' => $masterPortion,
+                                    ] + $exemption);
+
+                                    $startDate = \Carbon\Carbon::create(
+                                        $exemption['first_repayment_year'],
+                                        $exemption['first_repayment_month'],
+                                        5
+                                    );
+
+                                    for ($i = 1; $i <= $count; $i++) {
+                                        LoanInstallment::create([
+                                            'loan_id' => $loan->id,
+                                            'installment_number' => $i,
+                                            'amount' => $minInstall,
+                                            'due_date' => $startDate->copy()->addMonths($i - 1)->toDateString(),
+                                            'status' => 'pending',
+                                        ]);
+                                    }
+                                });
+                            }
+
+                            $record->update([
+                                'member_id' => $loan->member_id,
+                                'loan_id' => $loan->id,
+                                'loan_disbursement_id' => $disbursement->id,
+                                'posted_at' => $record->posted_at ?? now(),
+                                'posted_by' => $record->posted_by ?? auth()->id(),
+                            ]);
+
+                            $loan->refresh();
+
+                            Notification::make()
+                                ->title('Posted To Loan')
+                                ->body(
+                                    'Debit mapped to Loan #' . $loan->id
+                                    . ' as disbursement #' . $disbursement->id
+                                    . '. Remaining to disburse: SAR ' . number_format($loan->remainingToDisburse(), 2) . '.'
+                                )
+                                ->success()
+                                ->send();
+                        }),
                     DeleteAction::make()
                         ->modalDescription('Soft-deletes this import row. If it was posted to cash, the matching master and member cash ledger lines are reversed first.')
                         ->using(function (BankTransaction $record) {
@@ -339,7 +574,7 @@ class BankTransactionResource extends Resource
                     RestoreBulkAction::make(),
                     ForceDeleteBulkAction::make(),
                     BulkAction::make('bulk_post_to_cash')
-                        ->label('Post Selected to Cash Account')
+                        ->label('Post Selected')
                         ->icon('heroicon-o-arrow-right-circle')
                         ->color('primary')
                         ->schema([

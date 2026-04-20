@@ -15,7 +15,7 @@
     <div class="grid grid-cols-2 gap-4 sm:grid-cols-3 xl:grid-cols-5">
 
         {{-- All-time total --}}
-        <div class="relative overflow-hidden rounded-xl bg-white dark:bg-gray-800 p-5 ring-1 ring-gray-200 dark:ring-gray-700 shadow-sm">
+        <div class="relative overflow-hidden rounded-xl border border-gray-200 bg-white p-5 shadow-sm dark:border-gray-700 dark:bg-gray-800">
             <div class="absolute inset-y-0 left-0 w-1 rounded-l-xl bg-primary-500"></div>
             <div class="pl-2">
                 <div class="flex items-center gap-1.5 mb-2">
@@ -28,7 +28,7 @@
         </div>
 
         {{-- This month total --}}
-        <div class="relative overflow-hidden rounded-xl bg-white dark:bg-gray-800 p-5 ring-1 ring-gray-200 dark:ring-gray-700 shadow-sm">
+        <div class="relative overflow-hidden rounded-xl border border-gray-200 bg-white p-5 shadow-sm dark:border-gray-700 dark:bg-gray-800">
             <div class="absolute inset-y-0 left-0 w-1 rounded-l-xl bg-emerald-500"></div>
             <div class="pl-2">
                 <div class="flex items-center gap-1.5 mb-2">
@@ -41,7 +41,7 @@
         </div>
 
         {{-- This month compliance --}}
-        <div class="relative overflow-hidden rounded-xl bg-white dark:bg-gray-800 p-5 ring-1 ring-gray-200 dark:ring-gray-700 shadow-sm">
+        <div class="relative overflow-hidden rounded-xl border border-gray-200 bg-white p-5 shadow-sm dark:border-gray-700 dark:bg-gray-800">
             <div class="absolute inset-y-0 left-0 w-1 rounded-l-xl {{ $compColor($d['compliance_this']) }}"></div>
             <div class="pl-2">
                 <div class="flex items-center gap-1.5 mb-2">
@@ -56,7 +56,7 @@
         </div>
 
         {{-- Last month compliance --}}
-        <div class="relative overflow-hidden rounded-xl bg-white dark:bg-gray-800 p-5 ring-1 ring-gray-200 dark:ring-gray-700 shadow-sm">
+        <div class="relative overflow-hidden rounded-xl border border-gray-200 bg-white p-5 shadow-sm dark:border-gray-700 dark:bg-gray-800">
             <div class="absolute inset-y-0 left-0 w-1 rounded-l-xl {{ $compColor($d['compliance_last']) }}"></div>
             <div class="pl-2">
                 <div class="flex items-center gap-1.5 mb-2">
@@ -69,7 +69,7 @@
         </div>
 
         {{-- Late payments --}}
-        <div class="relative overflow-hidden rounded-xl bg-white dark:bg-gray-800 p-5 ring-1 ring-gray-200 dark:ring-gray-700 shadow-sm">
+        <div class="relative overflow-hidden rounded-xl border border-gray-200 bg-white p-5 shadow-sm dark:border-gray-700 dark:bg-gray-800">
             <div class="absolute inset-y-0 left-0 w-1 rounded-l-xl {{ $d['late_total'] > 0 ? 'bg-amber-400' : 'bg-emerald-500' }}"></div>
             <div class="pl-2">
                 <div class="flex items-center gap-1.5 mb-2">
@@ -84,7 +84,7 @@
     </div>
 
     {{-- ── 6-month trend bars ────────────────────────────────────────────── --}}
-    <div class="rounded-xl bg-white dark:bg-gray-800 ring-1 ring-gray-200 dark:ring-gray-700 shadow-sm overflow-hidden">
+    <div class="rounded-xl border border-gray-200 bg-white shadow-sm overflow-hidden dark:border-gray-700 dark:bg-gray-800">
         <div class="flex items-center gap-2 px-5 py-3 border-b border-gray-100 dark:border-gray-700 bg-gray-50 dark:bg-gray-800/70">
             <x-heroicon-o-arrow-trending-up class="w-4 h-4 text-gray-400" />
             <h4 class="text-xs font-semibold uppercase tracking-wide text-gray-500 dark:text-gray-400">6-Month Contribution Trend</h4>

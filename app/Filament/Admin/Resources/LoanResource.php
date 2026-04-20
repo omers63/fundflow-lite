@@ -19,6 +19,7 @@ use App\Notifications\LoanDisbursedNotification;
 use App\Notifications\LoanPartialDisbursementNotification;
 use App\Notifications\MembershipRejectedNotification;
 use App\Services\AccountingService;
+use App\Services\LoanImportService;
 use App\Services\LoanEarlySettlementService;
 use App\Services\LoanEligibilityService;
 use App\Services\LoanQueueOrderingService;
@@ -27,6 +28,7 @@ use Closure;
 use Filament\Actions\Action;
 use Filament\Actions\ActionGroup;
 use Filament\Actions\BulkActionGroup;
+use Filament\Actions\CreateAction;
 use Filament\Actions\DeleteAction;
 use Filament\Actions\DeleteBulkAction;
 use Filament\Actions\ForceDeleteAction;
@@ -49,6 +51,7 @@ use Filament\Tables\Filters\TrashedFilter;
 use Filament\Tables\Table;
 use Illuminate\Database\Eloquent\Builder;
 use Illuminate\Support\Facades\DB;
+use Illuminate\Support\Facades\Storage;
 use Illuminate\Support\HtmlString;
 use Livewire\Component;
 
@@ -800,6 +803,157 @@ class LoanResource extends Resource
                             ->when(filled($data['max'] ?? null), fn($q) => $q->where('amount_approved', '<=', $data['max']));
                     }),
                 TrashedFilter::make(),
+            ])
+            ->headerActions([
+                CreateAction::make()
+                    ->label('New Loan')
+                    ->icon('heroicon-o-plus-circle'),
+                Action::make('importLoans')
+                    ->label('Import Loans')
+                    ->icon('heroicon-o-arrow-up-tray')
+                    ->color('success')
+                    ->visible(fn (): bool => static::canCreate())
+                    ->modalHeading('Import loans from CSV')
+                    ->modalDescription(new HtmlString(
+                        '<div class="space-y-3 text-sm">' .
+                            '<div class="rounded-lg border border-blue-200 bg-blue-50/80 p-3 text-xs dark:border-blue-500/30 dark:bg-blue-500/10">' .
+                                '<p class="font-semibold text-blue-900 dark:text-blue-200 mb-1">Before you import</p>' .
+                                '<p class="text-blue-900/90 dark:text-blue-100/90 mb-1">' .
+                                    'Need a starter file? Download: ' .
+                                    '<a href="' . route('downloads.loan-import-sample') . '" class="font-semibold text-blue-700 underline hover:text-blue-600 dark:text-blue-300 dark:hover:text-blue-200">loans-import-sample-10.csv</a>' .
+                                '</p>' .
+                                '<p class="text-blue-900/90 dark:text-blue-100/90">' .
+                                    'If opening balances already include these loans, importing posted rows again will double-count ledger entries unless you adjust the file.' .
+                                '</p>' .
+                            '</div>' .
+                            '<div class="overflow-hidden rounded-lg border border-gray-200 dark:border-gray-700">' .
+                                '<table class="w-full text-xs">' .
+                                    '<tbody class="divide-y divide-gray-100 dark:divide-gray-800">' .
+                                        '<tr>' .
+                                            '<td class="w-44 bg-gray-50 px-3 py-2 font-semibold text-gray-700 dark:bg-gray-900/30 dark:text-gray-200">CSV format</td>' .
+                                            '<td class="px-3 py-2 text-gray-600 dark:text-gray-300">First row must be headers.</td>' .
+                                        '</tr>' .
+                                        '<tr>' .
+                                            '<td class="bg-gray-50 px-3 py-2 font-semibold text-gray-700 dark:bg-gray-900/30 dark:text-gray-200">Member columns</td>' .
+                                            '<td class="px-3 py-2 text-gray-600 dark:text-gray-300">Use one identifier: <code>member_number</code>, <code>member_email</code>, or <code>national_id</code>.</td>' .
+                                        '</tr>' .
+                                        '<tr>' .
+                                            '<td class="bg-gray-50 px-3 py-2 font-semibold text-gray-700 dark:bg-gray-900/30 dark:text-gray-200">Status column</td>' .
+                                            '<td class="px-3 py-2 text-gray-600 dark:text-gray-300"><code>loan_status</code>: <code>pending</code>, <code>approved</code>, <code>active</code>, <code>completed</code>, <code>early_settled</code>. Blank defaults to <code>active</code>.</td>' .
+                                        '</tr>' .
+                                        '<tr>' .
+                                            '<td class="bg-gray-50 px-3 py-2 font-semibold text-gray-700 dark:bg-gray-900/30 dark:text-gray-200">Amount columns</td>' .
+                                            '<td class="px-3 py-2 text-gray-600 dark:text-gray-300"><code>amount_requested</code> and <code>amount_approved</code>. Pending needs requested amount (or approved amount as fallback). Approved/Active/Closed require <code>amount_approved</code>.</td>' .
+                                        '</tr>' .
+                                        '<tr>' .
+                                            '<td class="bg-gray-50 px-3 py-2 font-semibold text-gray-700 dark:bg-gray-900/30 dark:text-gray-200">Disbursement columns</td>' .
+                                            '<td class="px-3 py-2 text-gray-600 dark:text-gray-300"><code>member_portion</code> + <code>master_portion</code> must equal <code>amount_approved</code> for disbursed statuses (<code>active</code>, <code>completed</code>, <code>early_settled</code>).</td>' .
+                                        '</tr>' .
+                                        '<tr>' .
+                                            '<td class="bg-gray-50 px-3 py-2 font-semibold text-gray-700 dark:bg-gray-900/30 dark:text-gray-200">Installment columns</td>' .
+                                            '<td class="px-3 py-2 text-gray-600 dark:text-gray-300"><code>installments_count</code>, <code>paid_installments_count</code>, <code>total_amount_repaid</code>. Repaid total uses <code>total_amount_repaid</code> when provided, otherwise <code>paid_installments_count × min_monthly_installment</code>.</td>' .
+                                        '</tr>' .
+                                        '<tr>' .
+                                            '<td class="bg-gray-50 px-3 py-2 font-semibold text-gray-700 dark:bg-gray-900/30 dark:text-gray-200">Tier columns</td>' .
+                                            '<td class="px-3 py-2 text-gray-600 dark:text-gray-300"><code>loan_tier_number</code> and <code>fund_tier_number</code> are optional overrides (must point to active tiers). Otherwise system resolves tiers automatically.</td>' .
+                                        '</tr>' .
+                                        '<tr>' .
+                                            '<td class="bg-gray-50 px-3 py-2 font-semibold text-gray-700 dark:bg-gray-900/30 dark:text-gray-200">Flags and notes</td>' .
+                                            '<td class="px-3 py-2 text-gray-600 dark:text-gray-300"><code>is_emergency</code> (0/1/yes/no), <code>settlement_threshold</code> (0-1), and <code>purpose</code> (optional text).</td>' .
+                                        '</tr>' .
+                                        '<tr>' .
+                                            '<td class="bg-gray-50 px-3 py-2 font-semibold text-gray-700 dark:bg-gray-900/30 dark:text-gray-200">Date columns</td>' .
+                                            '<td class="px-3 py-2 text-gray-600 dark:text-gray-300"><code>applied_at</code>, <code>approved_at</code>, <code>disbursed_at</code>, <code>settled_at</code> (all optional; defaults applied by status).</td>' .
+                                        '</tr>' .
+                                    '</tbody>' .
+                                '</table>' .
+                            '</div>' .
+                        '</div>'
+                    ))
+                    ->modalWidth('2xl')
+                    ->schema([
+                        Forms\Components\FileUpload::make('csv_file')
+                            ->label('CSV file')
+                            ->disk('local')
+                            ->directory('loan-imports')
+                            ->acceptedFileTypes(['text/csv', 'text/plain', 'application/csv', 'application/vnd.ms-excel'])
+                            ->required(),
+                    ])
+                    ->action(function (array $data): void {
+                        $relative = $data['csv_file'];
+                        $fullPath = Storage::disk('local')->path($relative);
+
+                        try {
+                            $result = app(LoanImportService::class)->import($fullPath);
+                        } finally {
+                            Storage::disk('local')->delete($relative);
+                        }
+
+                        $body = "Created: {$result['created']} · Failed: {$result['failed']}";
+
+                        if ($result['errors'] !== []) {
+                            $preview = implode("\n", array_slice($result['errors'], 0, 8));
+                            if (count($result['errors']) > 8) {
+                                $preview .= "\n… and ".(count($result['errors']) - 8).' more';
+                            }
+                            $body .= "\n\n".$preview;
+                        }
+
+                        Notification::make()
+                            ->title('Loan import finished')
+                            ->body($body)
+                            ->color($result['failed'] > 0 || $result['errors'] !== [] ? 'warning' : 'success')
+                            ->persistent()
+                            ->send();
+                    }),
+                Action::make('export_csv')
+                    ->label('Export Loans')
+                    ->icon('heroicon-o-arrow-down-tray')
+                    ->color('warning')
+                    ->action(function () {
+                        $filename = 'loans-' . now()->format('Y-m-d') . '.csv';
+
+                        return response()->streamDownload(function () {
+                            $handle = fopen('php://output', 'w');
+                            fputcsv($handle, [
+                                'loan_number', 'member_number', 'member_name',
+                                'tier', 'amount_requested', 'amount_approved',
+                                'member_portion', 'master_portion',
+                                'status', 'applied_at', 'approved_at', 'disbursed_at',
+                                'installments_total', 'installments_paid',
+                                'min_monthly_installment',
+                                'guarantor_member_number', 'guarantor_name',
+                            ]);
+
+                            Loan::with(['member.user', 'loanTier', 'guarantor.user'])
+                                ->withCount(['installments as installments_total'])
+                                ->withCount(['installments as installments_paid' => fn($q) => $q->where('status', 'paid')])
+                                ->orderByDesc('id')
+                                ->each(function (Loan $l) use ($handle) {
+                                    fputcsv($handle, [
+                                        $l->loan_number,
+                                        $l->member?->member_number,
+                                        $l->member?->user?->name,
+                                        $l->loanTier?->label,
+                                        $l->amount_requested,
+                                        $l->amount_approved,
+                                        $l->member_portion,
+                                        $l->master_portion,
+                                        $l->status,
+                                        $l->applied_at?->toDateString(),
+                                        $l->approved_at?->toDateString(),
+                                        $l->disbursed_at?->toDateString(),
+                                        $l->installments_total,
+                                        $l->installments_paid,
+                                        $l->min_monthly_installment,
+                                        $l->guarantor?->member_number,
+                                        $l->guarantor?->user?->name,
+                                    ]);
+                                });
+
+                            fclose($handle);
+                        }, $filename, ['Content-Type' => 'text/csv']);
+                    }),
             ])
             ->recordActions([
                 ActionGroup::make([

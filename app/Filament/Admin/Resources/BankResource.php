@@ -40,7 +40,9 @@ class BankResource extends Resource
     public static function form(Schema $schema): Schema
     {
         return $schema->schema([
-            Section::make('Bank Details')->schema([
+            Section::make('Bank Details')
+                ->columnSpanFull()
+                ->schema([
                 Forms\Components\TextInput::make('name')
                     ->required()
                     ->maxLength(255),
@@ -74,10 +76,10 @@ class BankResource extends Resource
                 Tables\Columns\TextColumn::make('swift_code')->label('SWIFT')->placeholder('—'),
                 Tables\Columns\TextColumn::make('account_number')->placeholder('—'),
                 Tables\Columns\IconColumn::make('is_active')->label('Active')->boolean(),
-                Tables\Columns\TextColumn::make('importTemplates_count')
+                Tables\Columns\TextColumn::make('import_templates_count')
                     ->label('Templates')
                     ->counts('importTemplates'),
-                Tables\Columns\TextColumn::make('importSessions_count')
+                Tables\Columns\TextColumn::make('import_sessions_count')
                     ->label('Imports')
                     ->counts('importSessions'),
             ])

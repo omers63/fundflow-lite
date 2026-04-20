@@ -34,6 +34,7 @@ use Filament\Tables\Table;
 use Illuminate\Database\Eloquent\Builder;
 use Illuminate\Database\Eloquent\Model;
 use Illuminate\Support\Facades\Storage;
+use Illuminate\Support\HtmlString;
 use Livewire\Component;
 
 class ContributionResource extends Resource
@@ -139,18 +140,93 @@ class ContributionResource extends Resource
         return $table
             ->striped()
             ->headerActions([
+                Action::make('exportCsv')
+                    ->label('Export Contributions')
+                    ->icon('heroicon-o-arrow-down-tray')
+                    ->color('primary')
+                    ->action(function () {
+                        $filename = 'contributions-' . now()->format('Y-m-d') . '.csv';
+
+                        return response()->streamDownload(function () {
+                            $handle = fopen('php://output', 'w');
+                            fputcsv($handle, [
+                                'id', 'member_number', 'member_name',
+                                'month', 'year', 'period',
+                                'amount', 'is_late', 'recorded_at',
+                            ]);
+
+                            Contribution::with('member.user')
+                                ->orderByDesc('year')
+                                ->orderByDesc('month')
+                                ->orderBy('id')
+                                ->each(function (Contribution $c) use ($handle) {
+                                    fputcsv($handle, [
+                                        $c->id,
+                                        $c->member?->member_number,
+                                        $c->member?->user?->name,
+                                        $c->month,
+                                        $c->year,
+                                        date('F', mktime(0, 0, 0, $c->month, 1)) . ' ' . $c->year,
+                                        number_format((float) $c->amount, 2, '.', ''),
+                                        $c->is_late ? 'Yes' : 'No',
+                                        $c->created_at?->toDateTimeString(),
+                                    ]);
+                                });
+
+                            fclose($handle);
+                        }, $filename, ['Content-Type' => 'text/csv']);
+                    }),
                 Action::make('importContributions')
                     ->label('Import Contributions')
                     ->icon('heroicon-o-arrow-up-tray')
                     ->color('success')
                     ->visible(fn (): bool => static::canCreate())
                     ->modalHeading('Import contributions from CSV')
-                    ->modalDescription(
-                        'First row must be headers. One of member_id or member_number is required per row. '.
-                        'Required: month, year, amount. Month may be 1–12 or a name (e.g. January). '.
-                        'Optional: paid_at (defaults to now), reference_number, notes, is_late (0/1 or yes/no), late_fee_amount (SAR; if omitted and is_late, uses system default), '.
-                        'payment_method (leave empty for admin entry: '.implode(', ', array_keys(Contribution::paymentMethodOptions())).').'
-                    )
+                    ->modalDescription(new HtmlString(
+                        '<div class="space-y-3 text-sm">' .
+                            '<div class="rounded-lg border border-blue-200 bg-blue-50/80 p-3 text-xs dark:border-blue-500/30 dark:bg-blue-500/10">' .
+                                '<p class="font-semibold text-blue-900 dark:text-blue-200 mb-1">Need a starter file?</p>' .
+                                '<p class="text-blue-900/90 dark:text-blue-100/90">' .
+                                    'Download a ready sample with common formats (numeric and month-name values): ' .
+                                    '<a href="' . route('downloads.contribution-import-sample') . '" class="font-semibold text-blue-700 underline hover:text-blue-600 dark:text-blue-300 dark:hover:text-blue-200">contributions-import-sample-15.csv</a>' .
+                                '</p>' .
+                            '</div>' .
+                            '<div class="rounded-lg border border-gray-200 dark:border-gray-700 overflow-hidden">' .
+                                '<table class="w-full text-xs">' .
+                                    '<tbody class="divide-y divide-gray-100 dark:divide-gray-800">' .
+                                        '<tr>' .
+                                            '<td class="px-3 py-2 font-semibold text-gray-700 dark:text-gray-200 w-44 bg-gray-50 dark:bg-gray-900/30">CSV format</td>' .
+                                            '<td class="px-3 py-2 text-gray-600 dark:text-gray-300">First row must be headers.</td>' .
+                                        '</tr>' .
+                                        '<tr>' .
+                                            '<td class="px-3 py-2 font-semibold text-gray-700 dark:text-gray-200 bg-gray-50 dark:bg-gray-900/30">Member identifier</td>' .
+                                            '<td class="px-3 py-2 text-gray-600 dark:text-gray-300">Provide one of <code>member_id</code>, <code>member_number</code>, <code>national_id</code>, or <code>member_name</code> (or <code>name</code>) per row. If names are duplicated, use ID/number/national ID instead.</td>' .
+                                        '</tr>' .
+                                        '<tr>' .
+                                            '<td class="px-3 py-2 font-semibold text-gray-700 dark:text-gray-200 bg-gray-50 dark:bg-gray-900/30">Required fields</td>' .
+                                            '<td class="px-3 py-2 text-gray-600 dark:text-gray-300"><code>month</code>, <code>year</code>, <code>amount</code>.</td>' .
+                                        '</tr>' .
+                                        '<tr>' .
+                                            '<td class="px-3 py-2 font-semibold text-gray-700 dark:text-gray-200 bg-gray-50 dark:bg-gray-900/30">Month value</td>' .
+                                            '<td class="px-3 py-2 text-gray-600 dark:text-gray-300">Use <code>1-12</code> or a month name (e.g. <code>January</code>).</td>' .
+                                        '</tr>' .
+                                        '<tr>' .
+                                            '<td class="px-3 py-2 font-semibold text-gray-700 dark:text-gray-200 bg-gray-50 dark:bg-gray-900/30">Optional fields</td>' .
+                                            '<td class="px-3 py-2 text-gray-600 dark:text-gray-300"><code>paid_at</code>, <code>reference_number</code>, <code>notes</code>, <code>is_late</code>, <code>late_fee_amount</code>, <code>payment_method</code>.</td>' .
+                                        '</tr>' .
+                                        '<tr>' .
+                                            '<td class="px-3 py-2 font-semibold text-gray-700 dark:text-gray-200 bg-gray-50 dark:bg-gray-900/30">Late values</td>' .
+                                            '<td class="px-3 py-2 text-gray-600 dark:text-gray-300"><code>is_late</code> accepts <code>0/1</code> or <code>yes/no</code>. If late and fee is blank, system default is applied.</td>' .
+                                        '</tr>' .
+                                        '<tr>' .
+                                            '<td class="px-3 py-2 font-semibold text-gray-700 dark:text-gray-200 bg-gray-50 dark:bg-gray-900/30">Payment method</td>' .
+                                            '<td class="px-3 py-2 text-gray-600 dark:text-gray-300">Allowed: <code>' . e(implode('</code>, <code>', array_keys(Contribution::paymentMethodOptions()))) . '</code>. Leave blank for admin entry.</td>' .
+                                        '</tr>' .
+                                    '</tbody>' .
+                                '</table>' .
+                            '</div>' .
+                        '</div>'
+                    ))
                     ->modalWidth('2xl')
                     ->schema([
                         Forms\Components\FileUpload::make('csv_file')

@@ -16,7 +16,7 @@
 {{-- ── Hero summary bar ──────────────────────────────────────────────────── --}}
 <div class="grid grid-cols-2 gap-4 sm:grid-cols-4 mb-6">
     {{-- Active members --}}
-    <div class="relative overflow-hidden rounded-xl bg-white dark:bg-gray-800 p-5 ring-1 ring-gray-200 dark:ring-gray-700 shadow-sm">
+    <div class="relative overflow-hidden rounded-xl border border-gray-200 bg-white p-5 shadow-sm dark:border-gray-700 dark:bg-gray-800">
         <div class="absolute inset-y-0 left-0 w-1 rounded-l-xl bg-primary-500"></div>
         <p class="text-xs font-semibold uppercase tracking-wide text-gray-500 dark:text-gray-400 pl-2">Active Members</p>
         <p class="mt-1 text-2xl font-bold text-gray-900 dark:text-white pl-2">{{ $activeCount }}</p>
@@ -24,7 +24,7 @@
     </div>
 
     {{-- Latest compliance --}}
-    <div class="relative overflow-hidden rounded-xl bg-white dark:bg-gray-800 p-5 ring-1 ring-gray-200 dark:ring-gray-700 shadow-sm">
+    <div class="relative overflow-hidden rounded-xl border border-gray-200 bg-white p-5 shadow-sm dark:border-gray-700 dark:bg-gray-800">
         <div class="absolute inset-y-0 left-0 w-1 rounded-l-xl {{ $complianceRate >= 90 ? 'bg-emerald-500' : ($complianceRate >= 70 ? 'bg-amber-500' : 'bg-red-500') }}"></div>
         <p class="text-xs font-semibold uppercase tracking-wide text-gray-500 dark:text-gray-400 pl-2">Latest Compliance</p>
         <p class="mt-1 text-2xl font-bold text-gray-900 dark:text-white pl-2">{{ $complianceRate }}%</p>
@@ -34,7 +34,7 @@
     </div>
 
     {{-- Collected (6 months) --}}
-    <div class="relative overflow-hidden rounded-xl bg-white dark:bg-gray-800 p-5 ring-1 ring-gray-200 dark:ring-gray-700 shadow-sm">
+    <div class="relative overflow-hidden rounded-xl border border-gray-200 bg-white p-5 shadow-sm dark:border-gray-700 dark:bg-gray-800">
         <div class="absolute inset-y-0 left-0 w-1 rounded-l-xl bg-teal-500"></div>
         <p class="text-xs font-semibold uppercase tracking-wide text-gray-500 dark:text-gray-400 pl-2">Collected (6 mo.)</p>
         <p class="mt-1 text-2xl font-bold text-gray-900 dark:text-white pl-2">
@@ -44,7 +44,7 @@
     </div>
 
     {{-- Late payments --}}
-    <div class="relative overflow-hidden rounded-xl bg-white dark:bg-gray-800 p-5 ring-1 ring-gray-200 dark:ring-gray-700 shadow-sm">
+    <div class="relative overflow-hidden rounded-xl border border-gray-200 bg-white p-5 shadow-sm dark:border-gray-700 dark:bg-gray-800">
         <div class="absolute inset-y-0 left-0 w-1 rounded-l-xl {{ $totalLate > 0 ? 'bg-amber-500' : 'bg-emerald-500' }}"></div>
         <p class="text-xs font-semibold uppercase tracking-wide text-gray-500 dark:text-gray-400 pl-2">Late Payments</p>
         <p class="mt-1 text-2xl font-bold text-gray-900 dark:text-white pl-2">{{ $totalLate }}</p>
@@ -63,7 +63,7 @@
             $isLatest    = $index === 0;
             $onTime      = $row['total_count'] - $row['late_count'];
         @endphp
-        <div class="rounded-xl bg-white dark:bg-gray-800 ring-1 ring-gray-200 dark:ring-gray-700 shadow-sm overflow-hidden">
+        <div class="overflow-hidden rounded-xl border border-gray-200 bg-white shadow-sm dark:border-gray-700 dark:bg-gray-800">
             {{-- Card header --}}
             <div class="flex items-center justify-between px-4 py-3 border-b border-gray-100 dark:border-gray-700">
                 <div class="flex items-center gap-2">
@@ -170,17 +170,17 @@
 {{-- ── Paid tab summary strip ──────────────────────────────────────────────── --}}
 @if($this->contributionPeriodTab === 'paid' && $paidCount > 0)
 <div class="grid grid-cols-3 gap-3 mb-4">
-    <div class="rounded-xl bg-white dark:bg-gray-800 ring-1 ring-gray-200 dark:ring-gray-700 p-4 shadow-sm">
+    <div class="rounded-xl border border-gray-200 bg-white p-4 shadow-sm dark:border-gray-700 dark:bg-gray-800">
         <p class="text-xs font-semibold uppercase tracking-wide text-gray-500 dark:text-gray-400">Total Collected</p>
         <p class="mt-1 text-xl font-bold text-emerald-600 dark:text-emerald-400">SAR {{ number_format($paidTotal) }}</p>
         <p class="text-xs text-gray-400 mt-0.5">{{ $paidCount }} payment(s)</p>
     </div>
-    <div class="rounded-xl bg-white dark:bg-gray-800 ring-1 ring-gray-200 dark:ring-gray-700 p-4 shadow-sm">
+    <div class="rounded-xl border border-gray-200 bg-white p-4 shadow-sm dark:border-gray-700 dark:bg-gray-800">
         <p class="text-xs font-semibold uppercase tracking-wide text-gray-500 dark:text-gray-400">On Time</p>
         <p class="mt-1 text-xl font-bold text-gray-900 dark:text-white">{{ $paidCount - $lateCount }}</p>
         <p class="text-xs text-gray-400 mt-0.5">of {{ $paidCount }} paid</p>
     </div>
-    <div class="rounded-xl bg-white dark:bg-gray-800 ring-1 ring-gray-200 dark:ring-gray-700 p-4 shadow-sm">
+    <div class="rounded-xl border border-gray-200 bg-white p-4 shadow-sm dark:border-gray-700 dark:bg-gray-800">
         <p class="text-xs font-semibold uppercase tracking-wide text-gray-500 dark:text-gray-400">Late Payments</p>
         <p class="mt-1 text-xl font-bold {{ $lateCount > 0 ? 'text-amber-600 dark:text-amber-400' : 'text-gray-400' }}">{{ $lateCount }}</p>
         <p class="text-xs text-gray-400 mt-0.5">flagged as late</p>

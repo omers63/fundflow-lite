@@ -6,7 +6,7 @@
     <div class="grid grid-cols-2 gap-4 sm:grid-cols-3 xl:grid-cols-6">
 
         {{-- Master Cash --}}
-        <div class="relative overflow-hidden col-span-1 rounded-xl bg-white dark:bg-gray-800 p-5 ring-1 ring-gray-200 dark:ring-gray-700 shadow-sm sm:col-span-1">
+        <div class="relative overflow-hidden col-span-1 rounded-xl border border-gray-200 bg-white p-5 shadow-sm dark:border-gray-700 dark:bg-gray-800 sm:col-span-1">
             <div class="absolute inset-y-0 left-0 w-1 rounded-l-xl bg-sky-500"></div>
             <div class="pl-2">
                 <div class="flex items-center gap-1.5 mb-2">
@@ -27,7 +27,7 @@
         </div>
 
         {{-- Master Fund --}}
-        <div class="relative overflow-hidden col-span-1 rounded-xl bg-white dark:bg-gray-800 p-5 ring-1 ring-gray-200 dark:ring-gray-700 shadow-sm sm:col-span-1">
+        <div class="relative overflow-hidden col-span-1 rounded-xl border border-gray-200 bg-white p-5 shadow-sm dark:border-gray-700 dark:bg-gray-800 sm:col-span-1">
             <div class="absolute inset-y-0 left-0 w-1 rounded-l-xl bg-emerald-500"></div>
             <div class="pl-2">
                 <div class="flex items-center gap-1.5 mb-2">
@@ -48,7 +48,7 @@
         </div>
 
         {{-- Member Cash --}}
-        <div class="relative overflow-hidden col-span-1 rounded-xl bg-white dark:bg-gray-800 p-5 ring-1 ring-gray-200 dark:ring-gray-700 shadow-sm">
+        <div class="relative overflow-hidden col-span-1 rounded-xl border border-gray-200 bg-white p-5 shadow-sm dark:border-gray-700 dark:bg-gray-800">
             <div class="absolute inset-y-0 left-0 w-1 rounded-l-xl bg-primary-500"></div>
             <div class="pl-2">
                 <div class="flex items-center gap-1.5 mb-2">
@@ -69,7 +69,7 @@
         </div>
 
         {{-- Member Fund --}}
-        <div class="relative overflow-hidden col-span-1 rounded-xl bg-white dark:bg-gray-800 p-5 ring-1 ring-gray-200 dark:ring-gray-700 shadow-sm">
+        <div class="relative overflow-hidden col-span-1 rounded-xl border border-gray-200 bg-white p-5 shadow-sm dark:border-gray-700 dark:bg-gray-800">
             <div class="absolute inset-y-0 left-0 w-1 rounded-l-xl bg-teal-500"></div>
             <div class="pl-2">
                 <div class="flex items-center gap-1.5 mb-2">
@@ -90,7 +90,7 @@
         </div>
 
         {{-- Loan Outstanding --}}
-        <div class="relative overflow-hidden col-span-1 rounded-xl bg-white dark:bg-gray-800 p-5 ring-1 ring-gray-200 dark:ring-gray-700 shadow-sm">
+        <div class="relative overflow-hidden col-span-1 rounded-xl border border-gray-200 bg-white p-5 shadow-sm dark:border-gray-700 dark:bg-gray-800">
             <div class="absolute inset-y-0 left-0 w-1 rounded-l-xl bg-amber-500"></div>
             <div class="pl-2">
                 <div class="flex items-center gap-1.5 mb-2">
@@ -126,7 +126,7 @@
                 default          => 'bg-red-500',
             };
         @endphp
-        <div class="relative overflow-hidden col-span-1 rounded-xl bg-white dark:bg-gray-800 p-5 ring-1 ring-gray-200 dark:ring-gray-700 shadow-sm">
+        <div class="relative overflow-hidden col-span-1 rounded-xl border border-gray-200 bg-white p-5 shadow-sm dark:border-gray-700 dark:bg-gray-800">
             <div class="absolute inset-y-0 left-0 w-1 rounded-l-xl {{ $covAccent }}"></div>
             <div class="pl-2">
                 <div class="flex items-center gap-1.5 mb-2">
@@ -146,7 +146,7 @@
     <div class="grid grid-cols-1 gap-4 sm:grid-cols-3">
 
         {{-- 30-day activity card --}}
-        <div class="rounded-xl bg-white dark:bg-gray-800 ring-1 ring-gray-200 dark:ring-gray-700 shadow-sm overflow-hidden">
+        <div class="rounded-xl border border-gray-200 bg-white shadow-sm overflow-hidden dark:border-gray-700 dark:bg-gray-800">
             <div class="flex items-center gap-2 px-5 py-3 border-b border-gray-100 dark:border-gray-700 bg-gray-50 dark:bg-gray-800/70">
                 <x-heroicon-o-arrow-path class="w-4 h-4 text-gray-400" />
                 <h4 class="text-xs font-semibold uppercase tracking-wide text-gray-500 dark:text-gray-400">Transaction Activity — Last 30 Days</h4>
@@ -181,7 +181,7 @@
         </div>
 
         {{-- Balance distribution bars --}}
-        <div class="rounded-xl bg-white dark:bg-gray-800 ring-1 ring-gray-200 dark:ring-gray-700 shadow-sm overflow-hidden">
+        <div class="rounded-xl border border-gray-200 bg-white shadow-sm overflow-hidden dark:border-gray-700 dark:bg-gray-800">
             <div class="flex items-center gap-2 px-5 py-3 border-b border-gray-100 dark:border-gray-700 bg-gray-50 dark:bg-gray-800/70">
                 <x-heroicon-o-chart-pie class="w-4 h-4 text-gray-400" />
                 <h4 class="text-xs font-semibold uppercase tracking-wide text-gray-500 dark:text-gray-400">Balance Distribution</h4>
@@ -213,7 +213,7 @@
         </div>
 
         {{-- Health indicators --}}
-        <div class="rounded-xl bg-white dark:bg-gray-800 ring-1 ring-gray-200 dark:ring-gray-700 shadow-sm overflow-hidden">
+        <div class="rounded-xl border border-gray-200 bg-white shadow-sm overflow-hidden dark:border-gray-700 dark:bg-gray-800">
             <div class="flex items-center gap-2 px-5 py-3 border-b border-gray-100 dark:border-gray-700 bg-gray-50 dark:bg-gray-800/70">
                 <x-heroicon-o-shield-check class="w-4 h-4 text-gray-400" />
                 <h4 class="text-xs font-semibold uppercase tracking-wide text-gray-500 dark:text-gray-400">Fund Health Indicators</h4>
