@@ -21,6 +21,11 @@ class MyAccountLedgerResource extends Resource
 
     protected static ?int $navigationSort = 3;
 
+    public static function getNavigationLabel(): string
+    {
+        return __('My Ledger');
+    }
+
     public static function getNavigationGroup(): ?string
     {
         return __('app.nav.group.my_finance');
@@ -39,17 +44,17 @@ class MyAccountLedgerResource extends Resource
             })
             ->columns([
                 Tables\Columns\TextColumn::make('transacted_at')
-                    ->label('Date')
+                    ->label(__('Date'))
                     ->dateTime('d M Y, H:i')
                     ->sortable(),
                 Tables\Columns\TextColumn::make('account.type')
-                    ->label('Account')
+                    ->label(__('Account'))
                     ->visibleFrom('sm')
                     ->badge()
                     ->formatStateUsing(fn (string $state) => match ($state) {
-                        Account::TYPE_MEMBER_CASH => 'Cash',
-                        Account::TYPE_MEMBER_FUND => 'Fund',
-                        Account::TYPE_LOAN => 'Loan',
+                        Account::TYPE_MEMBER_CASH => __('Cash'),
+                        Account::TYPE_MEMBER_FUND => __('Fund'),
+                        Account::TYPE_LOAN => __('Loan'),
                         default => ucfirst($state),
                     })
                     ->color(fn (string $state) => match ($state) {
@@ -59,16 +64,16 @@ class MyAccountLedgerResource extends Resource
                         default => 'gray',
                     }),
                 Tables\Columns\TextColumn::make('entry_type')
-                    ->label('Type')
+                    ->label(__('Type'))
                     ->badge()
                     ->formatStateUsing(fn (string $state) => ucfirst($state))
                     ->color(fn (string $state) => $state === 'credit' ? 'success' : 'danger'),
                 Tables\Columns\TextColumn::make('amount')
-                    ->label('Amount (SAR)')
+                    ->label(__('Amount (SAR)'))
                     ->money('SAR')
                     ->weight('bold'),
                 Tables\Columns\TextColumn::make('description')
-                    ->label('Description')
+                    ->label(__('Description'))
                     ->visibleFrom('md')
                     ->wrap()
                     ->limit(80),
@@ -76,10 +81,10 @@ class MyAccountLedgerResource extends Resource
             ->defaultSort('transacted_at', 'desc')
             ->filters([
                 Tables\Filters\SelectFilter::make('account_type')
-                    ->label('Account')
+                    ->label(__('Account'))
                     ->options([
-                        Account::TYPE_MEMBER_CASH => 'Cash',
-                        Account::TYPE_MEMBER_FUND => 'Fund',
+                        Account::TYPE_MEMBER_CASH => __('Cash'),
+                        Account::TYPE_MEMBER_FUND => __('Fund'),
                     ])
                     ->query(function ($query, array $data) {
                         if (! $data['value']) {
@@ -89,12 +94,12 @@ class MyAccountLedgerResource extends Resource
                         return $query->whereHas('account', fn ($q) => $q->where('type', $data['value']));
                     }),
                 Tables\Filters\SelectFilter::make('entry_type')
-                    ->label('Type')
-                    ->options(['credit' => 'Credit (In)', 'debit' => 'Debit (Out)']),
+                    ->label(__('Type'))
+                    ->options(['credit' => __('Credit (In)'), 'debit' => __('Debit (Out)')]),
                 Tables\Filters\Filter::make('transacted_at')
                     ->schema([
-                        Forms\Components\DatePicker::make('from')->label('From date'),
-                        Forms\Components\DatePicker::make('until')->label('Until date'),
+                        Forms\Components\DatePicker::make('from')->label(__('From date')),
+                        Forms\Components\DatePicker::make('until')->label(__('Until date')),
                     ])
                     ->columns(2)
                     ->query(function ($query, array $data) {

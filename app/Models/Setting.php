@@ -182,7 +182,13 @@ class Setting extends Model
 
     public static function statementBrandName(): string
     {
-        return (string) static::get('statement.brand_name', 'FundFlow');
+        $brand = (string) static::get('statement.brand_name', 'FundFlow');
+
+        if (app()->getLocale() === 'ar') {
+            return str_replace('FundFlow', 'فندفلو', $brand);
+        }
+
+        return $brand;
     }
 
     public static function statementTagline(): string
@@ -205,7 +211,13 @@ class Setting extends Model
 
     public static function statementSignatureLine(): string
     {
-        return (string) static::get('statement.signature_line', 'FundFlow Administration');
+        $line = (string) static::get('statement.signature_line', 'FundFlow Administration');
+
+        if (app()->getLocale() === 'ar') {
+            return str_replace('FundFlow', 'فندفلو', $line);
+        }
+
+        return $line;
     }
 
     public static function statementAutoEmail(): bool

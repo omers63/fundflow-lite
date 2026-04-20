@@ -53,6 +53,6 @@ class ListMemberRequests extends ListRecords
 
     public function getSubheading(): ?string
     {
-        return 'Review allocation and family changes submitted by members.';
+        return __('Review allocation and family changes submitted by members.');
     }
 }

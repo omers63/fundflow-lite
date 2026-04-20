@@ -36,7 +36,7 @@ class AdminPanelProvider extends PanelProvider
             ->login()
             ->sidebarCollapsibleOnDesktop()
             ->sidebarFullyCollapsibleOnDesktop()
-            ->brandName('FundFlow Admin')
+            ->brandName(__('app.brand.admin'))
             ->databaseNotifications()
             ->databaseNotificationsPolling('30s')
             ->colors([
@@ -46,7 +46,7 @@ class AdminPanelProvider extends PanelProvider
             ->plugins([
                 FilamentShieldPlugin::make()
                     ->navigationGroup(__('app.nav.group.system'))
-                    ->navigationLabel('System Roles')
+                    ->navigationLabel(__('app.nav.system_roles'))
                     ->navigationSort(1)
                     ->gridColumns([
                         'default' => 1,

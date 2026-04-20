@@ -24,7 +24,8 @@
                     </span>
                     @if($user?->phone)
                     <span class="flex items-center gap-1 text-white/90">
-                        <x-heroicon-o-phone class="w-4 h-4" /> {{ $user?->phone }}
+                        <x-heroicon-o-phone class="w-4 h-4" />
+                        <span class="phone-ltr"><span class="phone-digits">{{ $user?->phone }}</span></span>
                     </span>
                     @endif
                 </div>
@@ -62,7 +63,7 @@
 
         <div class="rounded-xl bg-gradient-to-br from-primary-100/90 via-white to-sky-50 dark:from-primary-950/50 dark:via-slate-900 dark:to-sky-950/30 ring-1 ring-primary-200/80 dark:ring-primary-700/40 p-5 shadow-md">
             <p class="text-xs font-semibold uppercase tracking-wide text-slate-600 dark:text-slate-300 mb-1">Monthly Contribution</p>
-            <p class="text-xl font-bold text-primary-700 dark:text-primary-300">SAR {{ number_format($member->monthly_contribution_amount) }}</p>
+            <p class="text-xl font-bold text-primary-700 dark:text-primary-300">{{ __('SAR') }} {{ number_format($member->monthly_contribution_amount) }}</p>
             <p class="text-xs text-slate-500 dark:text-slate-400 mt-0.5">per cycle</p>
         </div>
 
@@ -73,13 +74,13 @@
         <div class="rounded-xl bg-gradient-to-br from-emerald-100/80 via-white to-sky-50 dark:from-emerald-950/40 dark:via-slate-900 dark:to-sky-950/25 ring-1 ring-emerald-200/80 dark:ring-emerald-700/35 p-5 shadow-md">
             <p class="text-xs font-semibold uppercase tracking-wide text-slate-600 dark:text-slate-300 mb-1">Cash Balance</p>
             <p class="text-xl font-bold {{ $cashBalance >= 0 ? 'text-emerald-600 dark:text-emerald-400' : 'text-red-600 dark:text-red-400' }}">
-                SAR {{ number_format($cashBalance, 2) }}
+                {{ __('SAR') }} {{ number_format($cashBalance, 2) }}
             </p>
         </div>
 
         <div class="rounded-xl bg-gradient-to-br from-indigo-100/80 via-white to-violet-50 dark:from-indigo-950/45 dark:via-slate-900 dark:to-violet-950/25 ring-1 ring-indigo-200/80 dark:ring-indigo-600/40 p-5 shadow-md">
             <p class="text-xs font-semibold uppercase tracking-wide text-slate-600 dark:text-slate-300 mb-1">Fund Balance</p>
-            <p class="text-xl font-bold text-indigo-700 dark:text-indigo-300">SAR {{ number_format($fundBalance, 2) }}</p>
+            <p class="text-xl font-bold text-indigo-700 dark:text-indigo-300">{{ __('SAR') }} {{ number_format($fundBalance, 2) }}</p>
         </div>
 
         <div class="rounded-xl bg-gradient-to-br from-amber-100/70 via-white to-slate-50 dark:from-amber-950/35 dark:via-slate-900 dark:to-slate-950/40 ring-1 ring-amber-200/70 dark:ring-amber-700/30 p-5 shadow-md">
@@ -143,7 +144,7 @@
                         <td class="py-3 font-semibold {{ $lateContrib > 0 ? 'text-amber-600 dark:text-amber-400' : 'text-emerald-600 dark:text-emerald-400' }}">
                             {{ $lateContrib }}
                             @if($lateContrib > 0)
-                                <span class="text-xs text-gray-500 ml-1">(SAR {{ number_format((float)$member->late_contributions_amount, 2) }} in fees)</span>
+                                <span class="text-xs text-gray-500 ml-1">({{ __('SAR') }} {{ number_format((float)$member->late_contributions_amount, 2) }} in fees)</span>
                             @endif
                         </td>
                     </tr>
@@ -152,7 +153,7 @@
                         <td class="py-3 font-semibold {{ $lateRepay > 0 ? 'text-red-600 dark:text-red-400' : 'text-emerald-600 dark:text-emerald-400' }}">
                             {{ $lateRepay }}
                             @if($lateRepay > 0)
-                                <span class="text-xs text-gray-500 ml-1">(SAR {{ number_format((float)$member->late_repayment_amount, 2) }} in fees)</span>
+                                <span class="text-xs text-gray-500 ml-1">({{ __('SAR') }} {{ number_format((float)$member->late_repayment_amount, 2) }} in fees)</span>
                             @endif
                         </td>
                     </tr>
@@ -198,7 +199,13 @@
             </div>
             <div>
                 <dt class="text-gray-500 dark:text-gray-400">Phone number</dt>
-                <dd class="font-medium text-gray-900 dark:text-white">{{ $user?->phone ?? '— not set' }}</dd>
+                <dd class="font-medium text-gray-900 dark:text-white">
+                    @if($user?->phone)
+                        <span class="phone-ltr"><span class="phone-digits">{{ $user->phone }}</span></span>
+                    @else
+                        — not set
+                    @endif
+                </dd>
             </div>
             <div>
                 <dt class="text-gray-500 dark:text-gray-400">Password</dt>

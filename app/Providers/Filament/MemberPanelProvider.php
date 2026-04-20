@@ -31,7 +31,7 @@ class MemberPanelProvider extends PanelProvider
             ->login()
             ->sidebarCollapsibleOnDesktop()
             ->sidebarFullyCollapsibleOnDesktop()
-            ->brandName('FundFlow Member')
+            ->brandName(__('app.brand.member'))
             ->databaseNotifications()
             ->databaseNotificationsPolling('30s')
             ->colors([

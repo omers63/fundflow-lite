@@ -29,6 +29,11 @@ class ReconciliationPage extends Page
 
     protected static ?int $navigationSort = 99;
 
+    public static function getNavigationLabel(): string
+    {
+        return __('Reconciliation');
+    }
+
     /** @var 'overview'|'snapshots'|'methodology' */
     #[Url]
     public string $sideTab = 'overview';
@@ -53,12 +58,12 @@ class ReconciliationPage extends Page
 
     public function getTitle(): string
     {
-        return 'Financial reconciliation';
+        return __('Financial reconciliation');
     }
 
     public function getSubheading(): ?string
     {
-        return 'Ledger integrity, bank vs book (optional), contributions, loans, pipeline — snapshots, JSON, and PDF.';
+        return __('Ledger integrity, bank vs book (optional), contributions, loans, pipeline — snapshots, JSON, and PDF.');
     }
 
     public function mount(): void
@@ -82,48 +87,48 @@ class ReconciliationPage extends Page
 
         $bankSchema = [
             TextInput::make('declared_bank_balance')
-                ->label('Statement / bank closing balance (SAR)')
+                ->label(__('Statement / bank closing balance (SAR)'))
                 ->numeric()
                 ->nullable()
-                ->helperText('Optional. Compared to master cash book balance for this run.'),
+                ->helperText(__('Optional. Compared to master cash book balance for this run.')),
             DatePicker::make('declared_bank_date')
-                ->label('Statement as-of date')
+                ->label(__('Statement as-of date'))
                 ->native(false)
                 ->nullable(),
             Toggle::make('bank_mismatch_treat_as_critical')
-                ->label('Treat bank vs book variance as critical (not only warning)')
+                ->label(__('Treat bank vs book variance as critical (not only warning)'))
                 ->default(false),
         ];
 
         return [
             Action::make('run_realtime')
-                ->label('Run now (real-time)')
+                ->label(__('Run now (real-time)'))
                 ->icon('heroicon-o-play')
                 ->color('primary')
                 ->visible($canRun)
                 ->schema($bankSchema)
-                ->modalHeading('Run real-time reconciliation')
-                ->modalDescription('Recomputes all checks as of this moment and stores a snapshot tagged realtime.')
+                ->modalHeading(__('Run real-time reconciliation'))
+                ->modalDescription(__('Recomputes all checks as of this moment and stores a snapshot tagged realtime.'))
                 ->action(fn(array $data) => $this->executeRun(ReconciliationSnapshot::MODE_REALTIME, $this->optionsFromActionData($data))),
 
             Action::make('run_daily')
-                ->label('Daily snapshot')
+                ->label(__('Daily snapshot'))
                 ->icon('heroicon-o-calendar-days')
                 ->color('gray')
                 ->visible($canRun)
                 ->schema($bankSchema)
-                ->modalHeading('Record daily snapshot')
-                ->modalDescription('Uses yesterday’s calendar window (app timezone) for period metrics, plus full ledger checks as of now.')
+                ->modalHeading(__('Record daily snapshot'))
+                ->modalDescription(__('Uses yesterday’s calendar window (app timezone) for period metrics, plus full ledger checks as of now.'))
                 ->action(fn(array $data) => $this->executeRun(ReconciliationSnapshot::MODE_DAILY, $this->optionsFromActionData($data))),
 
             Action::make('run_monthly')
-                ->label('Monthly snapshot')
+                ->label(__('Monthly snapshot'))
                 ->icon('heroicon-o-calendar')
                 ->color('gray')
                 ->visible($canRun)
                 ->schema($bankSchema)
-                ->modalHeading('Record monthly snapshot')
-                ->modalDescription('Uses the previous calendar month for period metrics, plus full ledger checks as of now.')
+                ->modalHeading(__('Record monthly snapshot'))
+                ->modalDescription(__('Uses the previous calendar month for period metrics, plus full ledger checks as of now.'))
                 ->action(fn(array $data) => $this->executeRun(ReconciliationSnapshot::MODE_MONTHLY, $this->optionsFromActionData($data))),
         ];
     }
@@ -242,8 +247,12 @@ class ReconciliationPage extends Page
 
         $pass = $report['verdict']['pass'] ?? false;
         $n = Notification::make()
-            ->title($pass ? 'Reconciliation passed' : 'Reconciliation found critical issues')
-            ->body('Snapshot #' . $snap->id . ' — critical: ' . ($report['verdict']['critical_issues'] ?? 0) . ', warnings: ' . ($report['verdict']['warnings'] ?? 0));
+            ->title($pass ? __('Reconciliation passed') : __('Reconciliation found critical issues'))
+            ->body(__('Snapshot #:id — critical: :critical, warnings: :warnings', [
+                'id' => $snap->id,
+                'critical' => ($report['verdict']['critical_issues'] ?? 0),
+                'warnings' => ($report['verdict']['warnings'] ?? 0),
+            ]));
         $pass ? $n->success()->send() : $n->danger()->send();
 
         $this->dispatch('$refresh');

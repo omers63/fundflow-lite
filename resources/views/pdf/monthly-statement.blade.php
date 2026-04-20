@@ -10,16 +10,25 @@
     $lateRepayCount   = $m['late_repay_count']   ?? ($statement->member->late_repayment_count ?? 0);
     $periodLateFees   = $d['period_late_fees']   ?? 0;
 
+    $brandName = app()->getLocale() === 'ar' ? 'فندفلو' : 'FundFlow';
+
     $cfg ??= [
-        'brand'             => 'FundFlow',
+        'brand'             => $brandName,
         'tagline'           => 'Member Fund Management',
         'accent_color'      => '#059669',
         'footer_disclaimer' => 'This is a computer-generated statement. Confidential.',
-        'signature_line'    => 'FundFlow Administration',
+        'signature_line'    => app()->getLocale() === 'ar' ? 'إدارة فندفلو' : 'FundFlow Administration',
         'include_txns'      => true,
         'include_loan'      => true,
         'include_compliance'=> true,
     ];
+
+    $displayBrand = app()->getLocale() === 'ar'
+        ? str_replace('FundFlow', 'فندفلو', (string) ($cfg['brand'] ?? $brandName))
+        : (string) ($cfg['brand'] ?? $brandName);
+    $displaySignatureLine = app()->getLocale() === 'ar'
+        ? str_replace('FundFlow', 'فندفلو', (string) ($cfg['signature_line'] ?? 'إدارة فندفلو'))
+        : (string) ($cfg['signature_line'] ?? 'FundFlow Administration');
 
     $accent     = $cfg['accent_color'];
     $accentDark = '#047857';   // slightly darker shade for borders
@@ -34,7 +43,7 @@
 <html lang="en">
 <head>
 <meta charset="UTF-8">
-<title>{{ $cfg['brand'] }} — Statement {{ $statement->period_formatted }}</title>
+<title>{{ $displayBrand }} — Statement {{ $statement->period_formatted }}</title>
 <style>
     /* ── Reset ── */
     * { box-sizing: border-box; margin: 0; padding: 0; }
@@ -181,7 +190,7 @@
 <div class="page-header">
     <div class="header-row">
         <div class="header-left">
-            <div class="brand">{{ $cfg['brand'] }}</div>
+            <div class="brand">{{ $displayBrand }}</div>
             <div class="tagline">{{ $cfg['tagline'] }}</div>
         </div>
         <div class="header-right">
@@ -214,22 +223,22 @@
         <div class="kpi-row">
             <div class="kpi-box">
                 <div class="kpi-label">Opening Balance</div>
-                <div class="kpi-value">SAR {{ number_format((float)$statement->opening_balance, 2) }}</div>
+                <div class="kpi-value">{{ __('SAR') }} {{ number_format((float)$statement->opening_balance, 2) }}</div>
                 <div class="kpi-sub">Start of {{ $statement->period_formatted }}</div>
             </div>
             <div class="kpi-box">
                 <div class="kpi-label">Contributions</div>
-                <div class="kpi-value" style="color:#0284c7;">SAR {{ number_format((float)$statement->total_contributions, 2) }}</div>
+                <div class="kpi-value" style="color:#0284c7;">{{ __('SAR') }} {{ number_format((float)$statement->total_contributions, 2) }}</div>
                 <div class="kpi-sub">Credits this period</div>
             </div>
             <div class="kpi-box">
                 <div class="kpi-label">Repayments</div>
-                <div class="kpi-value" style="color:#dc2626;">SAR {{ number_format((float)$statement->total_repayments, 2) }}</div>
+                <div class="kpi-value" style="color:#dc2626;">{{ __('SAR') }} {{ number_format((float)$statement->total_repayments, 2) }}</div>
                 <div class="kpi-sub">Debits this period</div>
             </div>
             <div class="kpi-box">
                 <div class="kpi-label">Closing Balance</div>
-                <div class="kpi-value">SAR {{ number_format((float)$statement->closing_balance, 2) }}</div>
+                <div class="kpi-value">{{ __('SAR') }} {{ number_format((float)$statement->closing_balance, 2) }}</div>
                 <div class="kpi-sub">End of {{ $statement->period_formatted }}</div>
             </div>
         </div>
@@ -250,11 +259,11 @@
             </div>
             <div class="col">
                 <table class="info-table">
-                    <tr><td class="lbl">Cash Balance</td><td class="val" style="color:{{ $accent }};">SAR {{ $cashClose }}</td></tr>
-                    <tr><td class="lbl">Fund Balance</td><td class="val" style="color:#6d28d9;">SAR {{ $fundClose }}</td></tr>
-                    <tr><td class="lbl">Monthly Contribution</td><td class="val">SAR {{ number_format($m['monthly_contrib'] ?? $statement->member->monthly_contribution_amount) }}</td></tr>
-                    <tr><td class="lbl">Cash (Opening)</td><td class="val">SAR {{ $cashOpen }}</td></tr>
-                    <tr><td class="lbl">Fund (Opening)</td><td class="val">SAR {{ $fundOpen }}</td></tr>
+                    <tr><td class="lbl">Cash Balance</td><td class="val" style="color:{{ $accent }};">{{ __('SAR') }} {{ $cashClose }}</td></tr>
+                    <tr><td class="lbl">Fund Balance</td><td class="val" style="color:#6d28d9;">{{ __('SAR') }} {{ $fundClose }}</td></tr>
+                    <tr><td class="lbl">Monthly Contribution</td><td class="val">{{ __('SAR') }} {{ number_format($m['monthly_contrib'] ?? $statement->member->monthly_contribution_amount) }}</td></tr>
+                    <tr><td class="lbl">Cash (Opening)</td><td class="val">{{ __('SAR') }} {{ $cashOpen }}</td></tr>
+                    <tr><td class="lbl">Fund (Opening)</td><td class="val">{{ __('SAR') }} {{ $fundOpen }}</td></tr>
                 </table>
             </div>
         </div>
@@ -266,41 +275,41 @@
         <table class="summary">
             <tr>
                 <td style="width:60%;">Opening Balance (brought forward)</td>
-                <td class="amt">SAR {{ number_format((float)$statement->opening_balance, 2) }}</td>
+                <td class="amt">{{ __('SAR') }} {{ number_format((float)$statement->opening_balance, 2) }}</td>
             </tr>
             @foreach($contribs as $c)
             <tr class="highlight">
                 <td>+ Contribution ({{ $c['paid_at'] ?? 'this period' }}) {{ $c['is_late'] ? '<span class="badge-overdue">LATE</span>' : '' }}</td>
-                <td class="amt">SAR {{ number_format($c['amount'], 2) }}</td>
+                <td class="amt">{{ __('SAR') }} {{ number_format($c['amount'], 2) }}</td>
             </tr>
             @endforeach
             @if(empty($contribs) && (float)$statement->total_contributions > 0)
             <tr class="highlight">
                 <td>+ Contributions this period</td>
-                <td class="amt">SAR {{ number_format((float)$statement->total_contributions, 2) }}</td>
+                <td class="amt">{{ __('SAR') }} {{ number_format((float)$statement->total_contributions, 2) }}</td>
             </tr>
             @endif
             @foreach($insts as $i)
             <tr>
                 <td>− Loan Repayment #{{ $i['installment_number'] }} (due {{ $i['due_date'] }}, paid {{ $i['paid_at'] }}){{ (float)$i['late_fee'] > 0 ? ' + late fee SAR '.number_format($i['late_fee'], 2) : '' }}</td>
-                <td class="amt">SAR {{ number_format($i['amount'], 2) }}</td>
+                <td class="amt">{{ __('SAR') }} {{ number_format($i['amount'], 2) }}</td>
             </tr>
             @endforeach
             @if(empty($insts) && (float)$statement->total_repayments > 0)
             <tr>
                 <td>− Loan Repayments this period</td>
-                <td class="amt">SAR {{ number_format((float)$statement->total_repayments, 2) }}</td>
+                <td class="amt">{{ __('SAR') }} {{ number_format((float)$statement->total_repayments, 2) }}</td>
             </tr>
             @endif
             @if($periodLateFees > 0)
             <tr>
                 <td style="color:#dc2626;">− Late Fees (period)</td>
-                <td class="amt" style="color:#dc2626;">SAR {{ number_format($periodLateFees, 2) }}</td>
+                <td class="amt" style="color:#dc2626;">{{ __('SAR') }} {{ number_format($periodLateFees, 2) }}</td>
             </tr>
             @endif
             <tr class="total">
                 <td><strong>Closing Balance</strong></td>
-                <td class="amt"><strong>SAR {{ number_format((float)$statement->closing_balance, 2) }}</strong></td>
+                <td class="amt"><strong>{{ __('SAR') }} {{ number_format((float)$statement->closing_balance, 2) }}</strong></td>
             </tr>
         </table>
     </div>
@@ -363,8 +372,8 @@
                 <table class="info-table">
                     <tr><td class="lbl">Loan ID</td><td class="val">#{{ $loan['id'] }}</td></tr>
                     <tr><td class="lbl">Status</td><td class="val">{{ ucfirst($loan['status']) }}</td></tr>
-                    <tr><td class="lbl">Approved Amount</td><td class="val">SAR {{ number_format($loan['amount_approved'], 2) }}</td></tr>
-                    <tr><td class="lbl">Remaining</td><td class="val" style="color:#dc2626;">SAR {{ number_format($loan['remaining_amount'], 2) }}</td></tr>
+                    <tr><td class="lbl">Approved Amount</td><td class="val">{{ __('SAR') }} {{ number_format($loan['amount_approved'], 2) }}</td></tr>
+                    <tr><td class="lbl">Remaining</td><td class="val" style="color:#dc2626;">{{ __('SAR') }} {{ number_format($loan['remaining_amount'], 2) }}</td></tr>
                     <tr><td class="lbl">Tier</td><td class="val">{{ $loan['tier'] ?? '—' }}</td></tr>
                 </table>
             </div>
@@ -388,8 +397,8 @@
         <div class="alert" style="margin-top:10px;">
             <strong>⚠ Overdue Installments ({{ count($overdue) }}):</strong>
             @foreach($overdue as $ov)
-                Installment #{{ $ov['installment_number'] }} due {{ $ov['due_date'] }}: SAR {{ number_format($ov['amount'], 2) }}
-                @if($ov['late_fee'] > 0) + SAR {{ number_format($ov['late_fee'], 2) }} late fee @endif.
+                Installment #{{ $ov['installment_number'] }} due {{ $ov['due_date'] }}: {{ __('SAR') }} {{ number_format($ov['amount'], 2) }}
+                @if($ov['late_fee'] > 0) + {{ __('SAR') }} {{ number_format($ov['late_fee'], 2) }} late fee @endif.
             @endforeach
         </div>
         @endif
@@ -452,7 +461,7 @@
         </div>
         <div style="display: table-cell; width: 50%; padding-left: 20px;">
             <div style="border-top: 1px solid #cbd5e1; padding-top: 6px; font-size: 9px; color: #94a3b8; text-align: right;">
-                {{ $cfg['signature_line'] }}
+                {{ $displaySignatureLine }}
             </div>
         </div>
     </div>

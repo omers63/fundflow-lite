@@ -31,15 +31,15 @@ class DatabaseBackupsTableWidget extends TableWidget
     public function table(Table $table): Table
     {
         return $table
-            ->heading('Existing Backups')
-            ->description('Backup files stored in storage/app/backups/. You can download or delete individual backups.')
+            ->heading(__('Existing Backups'))
+            ->description(__('Backup files stored in storage/app/backups/. You can download or delete individual backups.'))
             ->columns([
                 Tables\Columns\TextColumn::make('filename')
                     ->searchable()
                     ->copyable()
                     ->weight('medium'),
                 Tables\Columns\TextColumn::make('size_bytes')
-                    ->label('Size')
+                    ->label(__('Size'))
                     ->formatStateUsing(fn (?int $state): string => $state !== null
                         ? Number::fileSize($state, precision: 2)
                         : '—')
@@ -51,24 +51,24 @@ class DatabaseBackupsTableWidget extends TableWidget
                         'primary' => 'mariadb',
                     ]),
                 Tables\Columns\TextColumn::make('created_at')
-                    ->label('Created')
+                    ->label(__('Created'))
                     ->dateTime('d M Y H:i')
                     ->sortable(),
                 Tables\Columns\TextColumn::make('user.name')
-                    ->label('Created by')
+                    ->label(__('Created by'))
                     ->placeholder('—'),
             ])
             ->recordActions([
                 ActionGroup::make([
                     Action::make('download')
-                        ->label('Download')
+                        ->label(__('Download'))
                         ->icon('heroicon-o-arrow-down-tray')
                         ->url(fn (DatabaseBackup $record): string => route('admin.system.backup-stored-download', $record))
                         ->authorize(fn (): bool => auth()->user()?->canAccessPanel(Filament::getPanel('admin')) ?? false),
                     DeleteAction::make()
-                        ->label('Delete')
-                        ->modalHeading('Delete backup?')
-                        ->modalDescription('Removes the database row and deletes the file from storage/app/backups/.')
+                        ->label(__('Delete'))
+                        ->modalHeading(__('Delete backup?'))
+                        ->modalDescription(__('Removes the database row and deletes the file from storage/app/backups/.'))
                         ->authorize(fn (): bool => auth()->user()?->canAccessPanel(Filament::getPanel('admin')) ?? false)
                         ->using(function (DatabaseBackup $record): bool {
                             app(DatabaseMaintenanceService::class)->deleteStoredBackup($record);

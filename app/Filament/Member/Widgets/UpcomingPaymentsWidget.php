@@ -47,7 +47,7 @@ class UpcomingPaymentsWidget extends Widget
                 + $installments->whereIn('status', ['pending', 'overdue'])->sum('amount');
 
             $months[] = [
-                'label' => $date->format('F Y'),
+                'label' => $date->locale(app()->getLocale())->translatedFormat('F Y'),
                 'is_current' => $i === 0,
                 'contribution' => [
                     'amount' => (float) ($member->monthly_contribution_amount ?? 500),
@@ -56,10 +56,10 @@ class UpcomingPaymentsWidget extends Widget
                 ],
                 'installments' => $installments->map(fn ($inst) => [
                     'amount' => (float) $inst->amount,
-                    'due_date' => $inst->due_date->format('d M'),
+                    'due_date' => $inst->due_date->locale(app()->getLocale())->translatedFormat('d M'),
                     'status' => $inst->status,
                     'loan_id' => $inst->loan_id,
-                    'tier' => $inst->loan?->loanTier?->label ?? 'Loan #'.$inst->loan_id,
+                    'tier' => $inst->loan?->loanTier?->label ?? __('Loan #:id', ['id' => $inst->loan_id]),
                 ])->values()->toArray(),
                 'total_due' => $totalDue,
             ];

@@ -8,7 +8,7 @@
             type="button"
             wire:click="$set('activeTab', 'loans')"
         >
-            Loans
+            {{ __('Loans') }}
         </x-filament::tabs.item>
         <x-filament::tabs.item
             :active="$activeTab === 'contribution-cycles'"
@@ -17,7 +17,7 @@
             type="button"
             wire:click="$set('activeTab', 'contribution-cycles')"
         >
-            Contribution cycles
+            {{ __('Contribution cycles') }}
         </x-filament::tabs.item>
         <x-filament::tabs.item
             :active="$activeTab === 'public-membership'"
@@ -26,7 +26,7 @@
             type="button"
             wire:click="$set('activeTab', 'public-membership')"
         >
-            Public membership
+            {{ __('Public membership') }}
         </x-filament::tabs.item>
         <x-filament::tabs.item
             :active="$activeTab === 'statements'"
@@ -35,7 +35,7 @@
             type="button"
             wire:click="$set('activeTab', 'statements')"
         >
-            Statements
+            {{ __('Statements') }}
         </x-filament::tabs.item>
         <x-filament::tabs.item
             :active="$activeTab === 'communication'"
@@ -44,7 +44,7 @@
             type="button"
             wire:click="$set('activeTab', 'communication')"
         >
-            Communication
+            {{ __('Communication') }}
         </x-filament::tabs.item>
         <x-filament::tabs.item
             :active="$activeTab === 'roles'"
@@ -53,14 +53,14 @@
             type="button"
             wire:click="$set('activeTab', 'roles')"
         >
-            Roles & permissions
+            {{ __('Roles & permissions') }}
         </x-filament::tabs.item>
     </x-filament::tabs>
 
     @if ($activeTab === 'loans')
         <div class="rounded-xl border border-gray-200 bg-gray-50/80 p-1 dark:border-white/10 dark:bg-white/5 mb-6">
             <p class="px-3 pt-2 pb-1 text-xs font-semibold uppercase tracking-wide text-gray-500 dark:text-gray-400">
-                Loan configuration
+                {{ __('Loan configuration') }}
             </p>
             <x-filament::tabs>
                 <x-filament::tabs.item
@@ -70,7 +70,7 @@
                     type="button"
                     wire:click="$set('loanSubTab', 'loan-rules')"
                 >
-                    Loan rules
+                    {{ __('Loan rules') }}
                 </x-filament::tabs.item>
                 <x-filament::tabs.item
                     :active="$loanSubTab === 'loan-tiers'"
@@ -79,7 +79,7 @@
                     type="button"
                     wire:click="$set('loanSubTab', 'loan-tiers')"
                 >
-                    Loan tiers
+                    {{ __('Loan tiers') }}
                 </x-filament::tabs.item>
                 <x-filament::tabs.item
                     :active="$loanSubTab === 'fund-tiers'"
@@ -88,7 +88,7 @@
                     type="button"
                     wire:click="$set('loanSubTab', 'fund-tiers')"
                 >
-                    Fund tiers
+                    {{ __('Fund tiers') }}
                 </x-filament::tabs.item>
             </x-filament::tabs>
         </div>
@@ -97,41 +97,41 @@
             @php
                 $settings = [
                     [
-                        'label' => 'Eligibility Period',
-                        'value' => \App\Models\Setting::loanEligibilityMonths() . ' months',
-                        'description' => 'Minimum membership duration before applying for a loan',
+                        'label' => __('Eligibility Period'),
+                        'value' => \App\Models\Setting::loanEligibilityMonths() . ' ' . __('months'),
+                        'description' => __('Minimum membership duration before applying for a loan'),
                         'icon' => 'heroicon-o-calendar-days',
                         'color' => 'text-primary-600 dark:text-primary-400',
                         'accent' => 'bg-primary-500',
                     ],
                     [
-                        'label' => 'Min Fund Balance',
-                        'value' => 'SAR ' . number_format(\App\Models\Setting::loanMinFundBalance()),
-                        'description' => 'Minimum fund account balance required for eligibility',
+                        'label' => __('Min Fund Balance'),
+                        'value' => __('SAR') . ' ' . number_format(\App\Models\Setting::loanMinFundBalance()),
+                        'description' => __('Minimum fund account balance required for eligibility'),
                         'icon' => 'heroicon-o-building-library',
                         'color' => 'text-teal-600 dark:text-teal-400',
                         'accent' => 'bg-teal-500',
                     ],
                     [
-                        'label' => 'Max Borrow Multiplier',
-                        'value' => \App\Models\Setting::loanMaxBorrowMultiplier() . '× Fund Balance',
-                        'description' => 'Maximum loan amount as a multiple of member fund balance',
+                        'label' => __('Max Borrow Multiplier'),
+                        'value' => \App\Models\Setting::loanMaxBorrowMultiplier() . '× ' . __('Fund Balance'),
+                        'description' => __('Maximum loan amount as a multiple of member fund balance'),
                         'icon' => 'heroicon-o-arrows-up-down',
                         'color' => 'text-indigo-600 dark:text-indigo-400',
                         'accent' => 'bg-indigo-500',
                     ],
                     [
-                        'label' => 'Settlement Threshold',
-                        'value' => (\App\Models\Setting::loanSettlementThreshold() * 100) . '% of Loan',
-                        'description' => 'Fund balance required relative to loan amount to trigger early settlement',
+                        'label' => __('Settlement Threshold'),
+                        'value' => (\App\Models\Setting::loanSettlementThreshold() * 100) . '% ' . __('of Loan'),
+                        'description' => __('Fund balance required relative to loan amount to trigger early settlement'),
                         'icon' => 'heroicon-o-scale',
                         'color' => 'text-amber-600 dark:text-amber-400',
                         'accent' => 'bg-amber-500',
                     ],
                     [
-                        'label' => 'Grace Cycles',
-                        'value' => \App\Models\Setting::loanDefaultGraceCycles() . ' cycles',
-                        'description' => 'Missed repayment cycles before guarantor liability begins',
+                        'label' => __('Grace Cycles'),
+                        'value' => \App\Models\Setting::loanDefaultGraceCycles() . ' ' . __('cycles'),
+                        'description' => __('Missed repayment cycles before guarantor liability begins'),
                         'icon' => 'heroicon-o-shield-exclamation',
                         'color' => 'text-rose-600 dark:text-rose-400',
                         'accent' => 'bg-rose-500',
@@ -159,14 +159,14 @@
         @elseif ($loanSubTab === 'loan-tiers')
             <div class="space-y-2">
                 <p class="text-sm text-gray-500 dark:text-gray-400 mb-4">
-                    Amount bands and minimum installments for borrower-facing loan tiers.
+                    {{ __('Amount bands and minimum installments for borrower-facing loan tiers.') }}
                 </p>
                 @livewire(\App\Filament\Admin\Widgets\LoanTiersTableWidget::class, [], key('loan-tiers-table'))
             </div>
         @else
             <div class="space-y-2">
                 <p class="text-sm text-gray-500 dark:text-gray-400 mb-4">
-                    How the master fund is split across queues (including emergency).
+                    {{ __('How the master fund is split across queues (including emergency).') }}
                 </p>
                 @livewire(\App\Filament\Admin\Widgets\FundTiersTableWidget::class, [], key('fund-tiers-table'))
             </div>
@@ -174,12 +174,12 @@
     @elseif ($activeTab === 'contribution-cycles')
         <div class="space-y-6">
             <div class="rounded-xl border border-gray-200 bg-white p-5 shadow-sm dark:border-gray-700 dark:bg-gray-800">
-                <h3 class="text-sm font-semibold text-gray-950 dark:text-white mb-2">How cycles work</h3>
+                <h3 class="text-sm font-semibold text-gray-950 dark:text-white mb-2">{{ __('How cycles work') }}</h3>
                 <ul class="list-disc pl-5 text-sm text-gray-600 dark:text-gray-400 space-y-1">
-                    <li>Each cycle is tied to a calendar month.</li>
-                    <li>It starts on the configured day of that month.</li>
-                    <li>It ends the day before the same numbered day in the next month.</li>
-                    <li>The due date is the last day of that window (end of day).</li>
+                    <li>{{ __('Each cycle is tied to a calendar month.') }}</li>
+                    <li>{{ __('It starts on the configured day of that month.') }}</li>
+                    <li>{{ __('It ends the day before the same numbered day in the next month.') }}</li>
+                    <li>{{ __('The due date is the last day of that window (end of day).') }}</li>
                 </ul>
             </div>
 
@@ -187,103 +187,103 @@
                 <div class="relative overflow-hidden rounded-xl border border-gray-200 bg-white p-5 shadow-sm dark:border-gray-700 dark:bg-gray-800">
                     <div class="absolute inset-y-0 left-0 w-1 rounded-l-xl bg-primary-500"></div>
                     <div class="pl-2">
-                        <p class="text-xs font-semibold uppercase tracking-wide text-gray-500 dark:text-gray-400 mb-4">Example (June, current year)</p>
+                        <p class="text-xs font-semibold uppercase tracking-wide text-gray-500 dark:text-gray-400 mb-4">{{ __('Example (June, current year)') }}</p>
                         <p class="text-sm text-gray-700 dark:text-gray-300 leading-relaxed">{{ $this->exampleJuneCycleLine() }}</p>
                     </div>
                 </div>
                 <div class="relative overflow-hidden rounded-xl border border-gray-200 bg-white p-5 shadow-sm dark:border-gray-700 dark:bg-gray-800">
                     <div class="absolute inset-y-0 left-0 w-1 rounded-l-xl bg-teal-500"></div>
                     <div class="pl-2">
-                        <p class="text-xs font-semibold uppercase tracking-wide text-gray-500 dark:text-gray-400 mb-4">Current open period (today)</p>
+                        <p class="text-xs font-semibold uppercase tracking-wide text-gray-500 dark:text-gray-400 mb-4">{{ __('Current open period (today)') }}</p>
                         <p class="text-sm text-gray-700 dark:text-gray-300 leading-relaxed">{{ $this->currentOpenPeriodLine() }}</p>
                     </div>
                 </div>
             </div>
 
             <div class="rounded-xl border border-amber-200 bg-amber-50/80 p-5 dark:border-amber-800/50 dark:bg-amber-950/20">
-                <h3 class="text-sm font-semibold text-gray-950 dark:text-white mb-2">Delinquency policy (automated)</h3>
+                <h3 class="text-sm font-semibold text-gray-950 dark:text-white mb-2">{{ __('Delinquency policy (automated)') }}</h3>
                 <p class="text-sm text-gray-600 dark:text-gray-400 mb-3">
-                    The scheduled command <code class="text-xs bg-white/60 dark:bg-black/20 px-1 rounded">fund:check-delinquency</code> runs daily.
-                    It evaluates missed contributions (when your cycle rules require them) and unpaid loan installments on active loans.
+                    {{ __('The scheduled command') }} <code class="text-xs bg-white/60 dark:bg-black/20 px-1 rounded">fund:check-delinquency</code> {{ __('runs daily.') }}
+                    {{ __('It evaluates missed contributions (when your cycle rules require them) and unpaid loan installments on active loans.') }}
                 </p>
                 <dl class="grid gap-2 text-sm sm:grid-cols-3">
                     <div>
-                        <dt class="text-gray-500 dark:text-gray-400">Consecutive threshold</dt>
-                        <dd class="font-semibold text-gray-900 dark:text-white">{{ \App\Models\Setting::delinquencyConsecutiveMissThreshold() }} months</dd>
+                        <dt class="text-gray-500 dark:text-gray-400">{{ __('Consecutive threshold') }}</dt>
+                        <dd class="font-semibold text-gray-900 dark:text-white">{{ \App\Models\Setting::delinquencyConsecutiveMissThreshold() }} {{ __('months') }}</dd>
                     </div>
                     <div>
-                        <dt class="text-gray-500 dark:text-gray-400">Total misses (rolling)</dt>
-                        <dd class="font-semibold text-gray-900 dark:text-white">{{ \App\Models\Setting::delinquencyTotalMissThreshold() }} in {{ \App\Models\Setting::delinquencyTotalMissLookbackMonths() }} months</dd>
+                        <dt class="text-gray-500 dark:text-gray-400">{{ __('Total misses (rolling)') }}</dt>
+                        <dd class="font-semibold text-gray-900 dark:text-white">{{ \App\Models\Setting::delinquencyTotalMissThreshold() }} {{ __('in') }} {{ \App\Models\Setting::delinquencyTotalMissLookbackMonths() }} {{ __('months') }}</dd>
                     </div>
                     <div>
-                        <dt class="text-gray-500 dark:text-gray-400">On breach</dt>
-                        <dd class="text-gray-700 dark:text-gray-300">Member suspended (portal blocked); active loan repayments collected via guarantor when configured.</dd>
+                        <dt class="text-gray-500 dark:text-gray-400">{{ __('On breach') }}</dt>
+                        <dd class="text-gray-700 dark:text-gray-300">{{ __('Member suspended (portal blocked); active loan repayments collected via guarantor when configured.') }}</dd>
                     </div>
                 </dl>
             </div>
 
             <div class="rounded-xl border border-gray-200 bg-white p-5 shadow-sm dark:border-gray-700 dark:bg-gray-800">
-                <h3 class="text-sm font-semibold text-gray-950 dark:text-white mb-2">Late fees (tiered)</h3>
-                <p class="text-xs text-gray-500 dark:text-gray-400 mb-3">SAR per tier after the cycle due (highest matching non-zero tier applies).</p>
+                <h3 class="text-sm font-semibold text-gray-950 dark:text-white mb-2">{{ __('Late fees (tiered)') }}</h3>
+                <p class="text-xs text-gray-500 dark:text-gray-400 mb-3">{{ __('SAR per tier after the cycle due (highest matching non-zero tier applies).') }}</p>
                 <div class="grid gap-4 sm:grid-cols-2 text-sm">
                     <div>
-                        <p class="font-medium text-gray-700 dark:text-gray-300 mb-2">Contributions</p>
+                        <p class="font-medium text-gray-700 dark:text-gray-300 mb-2">{{ __('Contributions') }}</p>
                         <dl class="space-y-1">
-                            @foreach([1 => '1+ days', 10 => '10+ days', 20 => '20+ days', 30 => '30+ days'] as $d => $label)
+                            @foreach([1 => __('1+ days'), 10 => __('10+ days'), 20 => __('20+ days'), 30 => __('30+ days')] as $d => $label)
                             <div class="flex justify-between gap-2">
                                 <dt class="text-gray-500 dark:text-gray-400">{{ $label }}</dt>
-                                <dd class="font-medium text-gray-900 dark:text-white">SAR {{ number_format(\App\Models\Setting::lateFeeContributionTier($d), 2) }}</dd>
+                                <dd class="font-medium text-gray-900 dark:text-white">{{ __('SAR') }} {{ number_format(\App\Models\Setting::lateFeeContributionTier($d), 2) }}</dd>
                             </div>
                             @endforeach
                         </dl>
                     </div>
                     <div>
-                        <p class="font-medium text-gray-700 dark:text-gray-300 mb-2">Repayments</p>
+                        <p class="font-medium text-gray-700 dark:text-gray-300 mb-2">{{ __('Repayments') }}</p>
                         <dl class="space-y-1">
-                            @foreach([1 => '1+ days', 10 => '10+ days', 20 => '20+ days', 30 => '30+ days'] as $d => $label)
+                            @foreach([1 => __('1+ days'), 10 => __('10+ days'), 20 => __('20+ days'), 30 => __('30+ days')] as $d => $label)
                             <div class="flex justify-between gap-2">
                                 <dt class="text-gray-500 dark:text-gray-400">{{ $label }}</dt>
-                                <dd class="font-medium text-gray-900 dark:text-white">SAR {{ number_format(\App\Models\Setting::lateFeeRepaymentTier($d), 2) }}</dd>
+                                <dd class="font-medium text-gray-900 dark:text-white">{{ __('SAR') }} {{ number_format(\App\Models\Setting::lateFeeRepaymentTier($d), 2) }}</dd>
                             </div>
                             @endforeach
                         </dl>
                     </div>
                 </div>
                 <p class="mt-3 text-xs text-gray-500 dark:text-gray-400 leading-relaxed">
-                    Cash-account debits bundle principal and late fee; late fees credit master cash only (not master fund).
+                    {{ __('Cash-account debits bundle principal and late fee; late fees credit master cash only (not master fund).') }}
                 </p>
             </div>
         </div>
     @elseif ($activeTab === 'public-membership')
         <x-filament::section
-            heading="Public apply page"
-            description="Limits apply only to new submissions on the public membership wizard (not admin-created applications)."
+            :heading="__('Public apply page')"
+            :description="__('Limits apply only to new submissions on the public membership wizard (not admin-created applications).')"
         >
             <dl class="grid gap-3 text-sm sm:grid-cols-2">
                 <div class="rounded-lg border border-gray-200 p-4 dark:border-white/10">
-                    <dt class="text-gray-500 dark:text-gray-400">Current applications (total)</dt>
+                    <dt class="text-gray-500 dark:text-gray-400">{{ __('Current applications (total)') }}</dt>
                     <dd class="mt-1 text-2xl font-semibold text-gray-950 dark:text-white">
                         {{ number_format($this->getTotalApplicationsCount()) }}
                     </dd>
                 </div>
                 <div class="rounded-lg border border-gray-200 p-4 dark:border-white/10">
-                    <dt class="text-gray-500 dark:text-gray-400">Configured maximum</dt>
+                    <dt class="text-gray-500 dark:text-gray-400">{{ __('Configured maximum') }}</dt>
                     <dd class="mt-1 text-2xl font-semibold text-gray-950 dark:text-white">
                         @if(\App\Models\Setting::maxPublicApplications() === 0)
-                            <span class="text-primary-600 dark:text-primary-400">No limit</span>
+                            <span class="text-primary-600 dark:text-primary-400">{{ __('No limit') }}</span>
                         @else
                             {{ number_format(\App\Models\Setting::maxPublicApplications()) }}
                         @endif
                     </dd>
                 </div>
                 <div class="rounded-lg border border-gray-200 p-4 dark:border-white/10 sm:col-span-2">
-                    <dt class="text-gray-500 dark:text-gray-400">Membership application fees (by type)</dt>
+                    <dt class="text-gray-500 dark:text-gray-400">{{ __('Membership application fees (by type)') }}</dt>
                     <dd class="mt-1 space-y-1 text-sm font-medium text-gray-950 dark:text-white">
                         @php
                             $types = [
-                                'new' => 'New',
-                                'resume' => 'Resume',
-                                'renew' => 'Renew',
+                                'new' => __('New'),
+                                'resume' => __('Resume'),
+                                'renew' => __('Renew'),
                             ];
                         @endphp
                         @foreach($types as $key => $label)
@@ -291,17 +291,17 @@
                                 <span class="text-gray-600 dark:text-gray-400">{{ $label }}</span>
                                 <span>
                                     @if(\App\Models\Setting::membershipApplicationFeeForType($key) > 0)
-                                        SAR {{ number_format(\App\Models\Setting::membershipApplicationFeeForType($key), 2) }}
+                                        {{ __('SAR') }} {{ number_format(\App\Models\Setting::membershipApplicationFeeForType($key), 2) }}
                                     @else
-                                        <span class="text-gray-500 dark:text-gray-400">No fee</span>
+                                        <span class="text-gray-500 dark:text-gray-400">{{ __('No fee') }}</span>
                                     @endif
                                 </span>
                             </div>
                         @endforeach
                         @if(\App\Models\Setting::membershipApplicationFee() <= 0)
-                            <p class="pt-1 text-xs font-normal text-gray-500 dark:text-gray-400">Payment step is hidden on /apply when all fees are 0.</p>
+                            <p class="pt-1 text-xs font-normal text-gray-500 dark:text-gray-400">{{ __('Payment step is hidden on /apply when all fees are 0.') }}</p>
                         @else
-                            <p class="pt-1 text-xs font-normal text-gray-500 dark:text-gray-400">Credited to master cash on submit (per selected type).</p>
+                            <p class="pt-1 text-xs font-normal text-gray-500 dark:text-gray-400">{{ __('Credited to master cash on submit (per selected type).') }}</p>
                         @endif
                     </dd>
                 </div>
@@ -310,12 +310,12 @@
     @elseif ($activeTab === 'statements')
         @php
             $stmtSettings = [
-                ['label' => 'Organization Name',     'value' => \App\Models\Setting::statementBrandName(),         'icon' => 'heroicon-o-building-office-2',    'color' => 'text-emerald-600 dark:text-emerald-400', 'accent' => 'bg-emerald-500'],
-                ['label' => 'Tagline',               'value' => \App\Models\Setting::statementTagline() ?: '—',    'icon' => 'heroicon-o-tag',                 'color' => 'text-sky-600 dark:text-sky-400',        'accent' => 'bg-sky-500'],
-                ['label' => 'Accent Color',          'value' => \App\Models\Setting::statementAccentColor(),       'icon' => 'heroicon-o-swatch',              'color' => 'text-purple-600 dark:text-purple-400',  'accent' => 'bg-purple-500'],
-                ['label' => 'Auto-Email',            'value' => \App\Models\Setting::statementAutoEmail() ? 'Enabled' : 'Disabled', 'icon' => 'heroicon-o-envelope', 'color' => \App\Models\Setting::statementAutoEmail() ? 'text-emerald-600 dark:text-emerald-400' : 'text-gray-500', 'accent' => \App\Models\Setting::statementAutoEmail() ? 'bg-emerald-500' : 'bg-gray-400'],
-                ['label' => 'Include Transactions',  'value' => \App\Models\Setting::statementIncludeTransactions() ? 'Yes' : 'No', 'icon' => 'heroicon-o-list-bullet',     'color' => 'text-indigo-600 dark:text-indigo-400',  'accent' => 'bg-indigo-500'],
-                ['label' => 'Include Loan Section',  'value' => \App\Models\Setting::statementIncludeLoanSection() ? 'Yes' : 'No',  'icon' => 'heroicon-o-document-text',   'color' => 'text-amber-600 dark:text-amber-400',    'accent' => 'bg-amber-500'],
+                ['label' => __('Organization Name'),     'value' => \App\Models\Setting::statementBrandName(),         'icon' => 'heroicon-o-building-office-2',    'color' => 'text-emerald-600 dark:text-emerald-400', 'accent' => 'bg-emerald-500'],
+                ['label' => __('Tagline'),               'value' => \App\Models\Setting::statementTagline() ?: '—',    'icon' => 'heroicon-o-tag',                 'color' => 'text-sky-600 dark:text-sky-400',        'accent' => 'bg-sky-500'],
+                ['label' => __('Accent Color'),          'value' => \App\Models\Setting::statementAccentColor(),       'icon' => 'heroicon-o-swatch',              'color' => 'text-purple-600 dark:text-purple-400',  'accent' => 'bg-purple-500'],
+                ['label' => __('Auto-Email'),            'value' => \App\Models\Setting::statementAutoEmail() ? __('Enabled') : __('Disabled'), 'icon' => 'heroicon-o-envelope', 'color' => \App\Models\Setting::statementAutoEmail() ? 'text-emerald-600 dark:text-emerald-400' : 'text-gray-500', 'accent' => \App\Models\Setting::statementAutoEmail() ? 'bg-emerald-500' : 'bg-gray-400'],
+                ['label' => __('Include Transactions'),  'value' => \App\Models\Setting::statementIncludeTransactions() ? __('Yes') : __('No'), 'icon' => 'heroicon-o-list-bullet',     'color' => 'text-indigo-600 dark:text-indigo-400',  'accent' => 'bg-indigo-500'],
+                ['label' => __('Include Loan Section'),  'value' => \App\Models\Setting::statementIncludeLoanSection() ? __('Yes') : __('No'),  'icon' => 'heroicon-o-document-text',   'color' => 'text-amber-600 dark:text-amber-400',    'accent' => 'bg-amber-500'],
             ];
         @endphp
 
@@ -338,24 +338,24 @@
 
             <div class="grid gap-4 sm:grid-cols-2">
                 <div class="rounded-xl border border-gray-200 bg-white p-5 shadow-sm dark:border-gray-700 dark:bg-gray-800">
-                    <h3 class="text-sm font-semibold text-gray-900 dark:text-white mb-3">Footer Disclaimer</h3>
-                    <p class="text-xs text-gray-600 dark:text-gray-400 leading-relaxed">{{ \App\Models\Setting::statementFooterDisclaimer() ?: '(not set)' }}</p>
+                    <h3 class="text-sm font-semibold text-gray-900 dark:text-white mb-3">{{ __('Footer Disclaimer') }}</h3>
+                    <p class="text-xs text-gray-600 dark:text-gray-400 leading-relaxed">{{ \App\Models\Setting::statementFooterDisclaimer() ?: __('(not set)') }}</p>
                 </div>
                 <div class="rounded-xl border border-gray-200 bg-white p-5 shadow-sm dark:border-gray-700 dark:bg-gray-800">
-                    <h3 class="text-sm font-semibold text-gray-900 dark:text-white mb-3">Authorized Signature Line</h3>
-                    <p class="text-xs text-gray-600 dark:text-gray-400 leading-relaxed">{{ \App\Models\Setting::statementSignatureLine() ?: '(not set)' }}</p>
+                    <h3 class="text-sm font-semibold text-gray-900 dark:text-white mb-3">{{ __('Authorized Signature Line') }}</h3>
+                    <p class="text-xs text-gray-600 dark:text-gray-400 leading-relaxed">{{ \App\Models\Setting::statementSignatureLine() ?: __('(not set)') }}</p>
                 </div>
             </div>
 
             <div class="rounded-xl border border-emerald-200 bg-emerald-50/80 p-5 dark:border-emerald-800/50 dark:bg-emerald-950/20">
-                <h3 class="text-sm font-semibold text-gray-950 dark:text-white mb-2">Statement generation schedule</h3>
+                <h3 class="text-sm font-semibold text-gray-950 dark:text-white mb-2">{{ __('Statement generation schedule') }}</h3>
                 <p class="text-sm text-gray-600 dark:text-gray-400 mb-2">
-                    The scheduled command <code class="text-xs bg-white/60 dark:bg-black/20 px-1 rounded">statements:generate --notify</code>
-                    runs on the <strong>3rd of each month at 08:00</strong>, generating the previous month's statements and emailing members (if auto-email is enabled).
+                    {{ __('The scheduled command') }} <code class="text-xs bg-white/60 dark:bg-black/20 px-1 rounded">statements:generate --notify</code>
+                    {{ __('runs on the') }} <strong>{{ __('3rd of each month at 08:00') }}</strong>, {{ __('generating the previous month\'s statements and emailing members (if auto-email is enabled).') }}
                 </p>
                 <p class="text-xs text-gray-500 dark:text-gray-400">
-                    You can also run it manually from Admin → Finance → Statements using the <strong>"Generate + Send"</strong> action,
-                    or for a specific member/period using the <strong>"Generate for Period"</strong> action.
+                    {{ __('You can also run it manually from Admin → Finance → Statements using the') }} <strong>"{{ __('Generate + Send') }}"</strong> {{ __('action,') }}
+                    {{ __('or for a specific member/period using the') }} <strong>"{{ __('Generate for Period') }}"</strong> {{ __('action.') }}
                 </p>
             </div>
 
@@ -390,7 +390,7 @@
                                 'text-xs font-semibold px-2 py-0.5 rounded-full',
                                 $colors['badge_on']  => $on,
                                 $colors['badge_off'] => !$on,
-                            ])>{{ $on ? 'Enabled' : 'Disabled' }}</span>
+                            ])>{{ $on ? __('Enabled') : __('Disabled') }}</span>
                         </div>
                         <p class="text-sm font-bold text-gray-900 dark:text-white leading-tight">{{ $meta['label'] }}</p>
                         <p class="text-xs text-gray-500 dark:text-gray-400 mt-1 leading-snug">{{ $meta['desc'] }}</p>
@@ -404,12 +404,12 @@
                 <div class="flex items-start gap-3">
                     <x-heroicon-o-information-circle class="w-5 h-5 mt-0.5 text-blue-500 flex-shrink-0" />
                     <div>
-                        <h3 class="text-sm font-semibold text-gray-900 dark:text-white mb-1">How channel settings work</h3>
+                        <h3 class="text-sm font-semibold text-gray-900 dark:text-white mb-1">{{ __('How channel settings work') }}</h3>
                         <ul class="text-sm text-gray-600 dark:text-gray-400 space-y-1 list-disc list-inside">
-                            <li>Disabling a channel <strong>immediately</strong> stops all future notifications on that channel, regardless of individual member preferences.</li>
-                            <li>Member preferences are preserved — if you re-enable a channel, members will resume receiving notifications on their previously chosen settings.</li>
-                            <li><strong>In-App Inbox</strong> is the primary channel. Disabling it will prevent members from seeing any alerts in the portal.</li>
-                            <li><strong>SMS</strong> and <strong>WhatsApp</strong> require valid Twilio credentials in your <code class="text-xs bg-white/60 dark:bg-black/20 px-1 rounded">.env</code> file.</li>
+                            <li>{{ __('Disabling a channel') }} <strong>{{ __('immediately') }}</strong> {{ __('stops all future notifications on that channel, regardless of individual member preferences.') }}</li>
+                            <li>{{ __('Member preferences are preserved — if you re-enable a channel, members will resume receiving notifications on their previously chosen settings.') }}</li>
+                            <li><strong>{{ __('In-App Inbox') }}</strong> {{ __('is the primary channel. Disabling it will prevent members from seeing any alerts in the portal.') }}</li>
+                            <li><strong>SMS</strong> {{ __('and') }} <strong>WhatsApp</strong> {{ __('require valid Twilio credentials in your') }} <code class="text-xs bg-white/60 dark:bg-black/20 px-1 rounded">.env</code> {{ __('file.') }}</li>
                         </ul>
                     </div>
                 </div>
@@ -417,24 +417,24 @@
 
             {{-- ── Per-category channel matrix ────────────────────────────────── --}}
             <x-filament::section>
-                <x-slot name="heading">Notification Category Coverage</x-slot>
-                <x-slot name="description">Which channels each notification category can use. Grayed channels are either unsupported by that category or disabled system-wide.</x-slot>
+                <x-slot name="heading">{{ __('Notification Category Coverage') }}</x-slot>
+                <x-slot name="description">{{ __('Which channels each notification category can use. Grayed channels are either unsupported by that category or disabled system-wide.') }}</x-slot>
 
                 @php
                     $categories = \App\Services\NotificationPreferenceService::CATEGORIES;
-                    $chLabels = ['in_app' => 'In-App', 'email' => 'Email', 'sms' => 'SMS', 'whatsapp' => 'WhatsApp'];
+                    $chLabels = ['in_app' => __('In-App'), 'email' => __('Email'), 'sms' => __('SMS'), 'whatsapp' => __('WhatsApp')];
                 @endphp
 
                 <div class="overflow-x-auto">
                     <table class="w-full text-sm">
                         <thead>
                             <tr class="border-b border-gray-200 dark:border-gray-700">
-                                <th class="py-2 pr-4 text-left text-xs font-semibold uppercase text-gray-500 dark:text-gray-400">Category</th>
+                                <th class="py-2 pr-4 text-left text-xs font-semibold uppercase text-gray-500 dark:text-gray-400">{{ __('Category') }}</th>
                                 @foreach($chLabels as $chKey => $chLabel)
                                 <th class="py-2 px-3 text-center text-xs font-semibold uppercase {{ $enabled[$chKey] ? 'text-gray-500 dark:text-gray-400' : 'text-red-400 dark:text-red-500' }}">
                                     {{ $chLabel }}
                                     @if(!$enabled[$chKey])
-                                    <span class="block text-xs font-normal normal-case text-red-400">Disabled</span>
+                                    <span class="block text-xs font-normal normal-case text-red-400">{{ __('Disabled') }}</span>
                                     @endif
                                 </th>
                                 @endforeach
@@ -460,15 +460,15 @@
                                     @if(!$supported)
                                         <span class="text-gray-300 dark:text-gray-600 text-lg">—</span>
                                     @elseif(!$syson)
-                                        <span title="System disabled" class="inline-flex items-center justify-center w-6 h-6 rounded-full bg-red-100 dark:bg-red-900/30">
+                                        <span title="{{ __('System disabled') }}" class="inline-flex items-center justify-center w-6 h-6 rounded-full bg-red-100 dark:bg-red-900/30">
                                             <x-heroicon-o-x-mark class="w-3.5 h-3.5 text-red-400" />
                                         </span>
                                     @elseif($forced)
-                                        <span title="Required — always on" class="inline-flex items-center justify-center w-6 h-6 rounded-full bg-amber-100 dark:bg-amber-900/30">
+                                        <span title="{{ __('Required — always on') }}" class="inline-flex items-center justify-center w-6 h-6 rounded-full bg-amber-100 dark:bg-amber-900/30">
                                             <x-heroicon-o-lock-closed class="w-3.5 h-3.5 text-amber-500" />
                                         </span>
                                     @else
-                                        <span title="Supported" class="inline-flex items-center justify-center w-6 h-6 rounded-full bg-emerald-100 dark:bg-emerald-900/30">
+                                        <span title="{{ __('Supported') }}" class="inline-flex items-center justify-center w-6 h-6 rounded-full bg-emerald-100 dark:bg-emerald-900/30">
                                             <x-heroicon-o-check class="w-3.5 h-3.5 text-emerald-500" />
                                         </span>
                                     @endif
@@ -481,10 +481,10 @@
                 </div>
 
                 <div class="flex items-center gap-6 mt-4 text-xs text-gray-500 dark:text-gray-400">
-                    <span class="flex items-center gap-1.5"><span class="inline-flex w-5 h-5 rounded-full bg-emerald-100 dark:bg-emerald-900/30 items-center justify-center"><x-heroicon-o-check class="w-3 h-3 text-emerald-500" /></span> Supported</span>
-                    <span class="flex items-center gap-1.5"><span class="inline-flex w-5 h-5 rounded-full bg-amber-100 dark:bg-amber-900/30 items-center justify-center"><x-heroicon-o-lock-closed class="w-3 h-3 text-amber-500" /></span> Required (forced on)</span>
-                    <span class="flex items-center gap-1.5"><span class="inline-flex w-5 h-5 rounded-full bg-red-100 dark:bg-red-900/30 items-center justify-center"><x-heroicon-o-x-mark class="w-3 h-3 text-red-400" /></span> Disabled system-wide</span>
-                    <span class="flex items-center gap-1.5"><span class="text-gray-300 dark:text-gray-600 text-base font-bold leading-none">—</span> Not supported by category</span>
+                    <span class="flex items-center gap-1.5"><span class="inline-flex w-5 h-5 rounded-full bg-emerald-100 dark:bg-emerald-900/30 items-center justify-center"><x-heroicon-o-check class="w-3 h-3 text-emerald-500" /></span> {{ __('Supported') }}</span>
+                    <span class="flex items-center gap-1.5"><span class="inline-flex w-5 h-5 rounded-full bg-amber-100 dark:bg-amber-900/30 items-center justify-center"><x-heroicon-o-lock-closed class="w-3 h-3 text-amber-500" /></span> {{ __('Required (forced on)') }}</span>
+                    <span class="flex items-center gap-1.5"><span class="inline-flex w-5 h-5 rounded-full bg-red-100 dark:bg-red-900/30 items-center justify-center"><x-heroicon-o-x-mark class="w-3 h-3 text-red-400" /></span> {{ __('Disabled system-wide') }}</span>
+                    <span class="flex items-center gap-1.5"><span class="text-gray-300 dark:text-gray-600 text-base font-bold leading-none">—</span> {{ __('Not supported by category') }}</span>
                 </div>
             </x-filament::section>
 
@@ -492,25 +492,25 @@
 
     @else
         <x-filament::section
-            heading="Roles and permissions"
-            description="Manage admin roles and permission assignments used across resources and pages."
+            :heading="__('Roles and permissions')"
+            :description="__('Manage admin roles and permission assignments used across resources and pages.')"
         >
             @if ($this->canViewRolesPage())
                 <div class="flex items-center justify-between gap-3">
                     <p class="text-sm text-gray-600 dark:text-gray-400">
-                        Use the dedicated roles manager for creating/updating roles and granting capabilities.
+                        {{ __('Use the dedicated roles manager for creating/updating roles and granting capabilities.') }}
                     </p>
                     <a
                         href="{{ $this->getRolesPageUrl() }}"
                         class="inline-flex items-center gap-2 rounded-lg bg-primary-600 px-4 py-2 text-sm font-medium text-white hover:bg-primary-500"
                     >
                         <x-heroicon-o-shield-check class="h-4 w-4" />
-                        Open Roles
+                        {{ __('Open Roles') }}
                     </a>
                 </div>
             @else
                 <p class="text-sm text-gray-500 dark:text-gray-400">
-                    You do not currently have permission to view role management.
+                    {{ __('You do not currently have permission to view role management.') }}
                 </p>
             @endif
         </x-filament::section>

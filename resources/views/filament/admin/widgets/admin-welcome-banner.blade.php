@@ -20,7 +20,7 @@
                     {{ $d['greeting'] }}, {{ $d['name'] }}
                 </h1>
                 <p class="mt-1.5 text-sm text-indigo-200">
-                    Here's a snapshot of <span class="font-semibold text-white">FundFlow</span> right now.
+                    {{ __('Here\'s a snapshot of') }} <span class="font-semibold text-white">{{ app()->getLocale() === 'ar' ? 'فندفلو' : 'FundFlow' }}</span> {{ __('right now.') }}
                 </p>
             </div>
 
@@ -28,33 +28,33 @@
             <div class="flex-shrink-0 text-center">
                 <div class="inline-flex flex-col items-center justify-center h-24 w-24 rounded-full bg-white/10 ring-2 ring-white/20">
                     <span class="text-3xl font-extrabold text-white">{{ $d['complianceRate'] }}%</span>
-                    <span class="text-xs text-indigo-300 font-medium mt-0.5">Compliance</span>
+                    <span class="text-xs text-indigo-300 font-medium mt-0.5">{{ __('Compliance') }}</span>
                 </div>
-                <p class="mt-1.5 text-xs text-indigo-300">{{ $d['paidThisMonth'] }} / {{ $d['activeMembers'] }} paid this month</p>
+                <p class="mt-1.5 text-xs text-indigo-300">{{ __(':paid / :active paid this month', ['paid' => $d['paidThisMonth'], 'active' => $d['activeMembers']]) }}</p>
             </div>
         </div>
 
         {{-- KPI tiles --}}
         <div class="mt-6 grid grid-cols-2 gap-3 sm:grid-cols-4">
             <div class="rounded-xl bg-white/8 ring-1 ring-white/15 px-4 py-3 backdrop-blur-sm">
-                <p class="text-xs font-medium text-indigo-300 uppercase tracking-wider">Master Fund</p>
+                <p class="text-xs font-medium text-indigo-300 uppercase tracking-wider">{{ __('Master Fund') }}</p>
                 <p class="mt-1 text-xl font-bold text-white">﷼ {{ number_format($d['masterFund'], 0) }}</p>
-                <p class="mt-0.5 text-xs text-indigo-400">Investable capital</p>
+                <p class="mt-0.5 text-xs text-indigo-400">{{ __('Investable capital') }}</p>
             </div>
             <div class="rounded-xl bg-white/8 ring-1 ring-white/15 px-4 py-3 backdrop-blur-sm">
-                <p class="text-xs font-medium text-indigo-300 uppercase tracking-wider">Cash on Hand</p>
+                <p class="text-xs font-medium text-indigo-300 uppercase tracking-wider">{{ __('Cash on Hand') }}</p>
                 <p class="mt-1 text-xl font-bold text-white">﷼ {{ number_format($d['masterCash'], 0) }}</p>
-                <p class="mt-0.5 text-xs text-indigo-400">Member deposits</p>
+                <p class="mt-0.5 text-xs text-indigo-400">{{ __('Member deposits') }}</p>
             </div>
             <div class="rounded-xl bg-white/8 ring-1 ring-white/15 px-4 py-3 backdrop-blur-sm">
-                <p class="text-xs font-medium text-indigo-300 uppercase tracking-wider">Active Loans</p>
+                <p class="text-xs font-medium text-indigo-300 uppercase tracking-wider">{{ __('Active Loans') }}</p>
                 <p class="mt-1 text-xl font-bold text-white">{{ $d['activeLoans'] }}</p>
-                <p class="mt-0.5 text-xs text-indigo-400">Outstanding</p>
+                <p class="mt-0.5 text-xs text-indigo-400">{{ __('Outstanding') }}</p>
             </div>
             <div class="rounded-xl bg-white/8 ring-1 ring-white/15 px-4 py-3 backdrop-blur-sm">
-                <p class="text-xs font-medium text-indigo-300 uppercase tracking-wider">Active Members</p>
+                <p class="text-xs font-medium text-indigo-300 uppercase tracking-wider">{{ __('Active Members') }}</p>
                 <p class="mt-1 text-xl font-bold text-white">{{ $d['activeMembers'] }}</p>
-                <p class="mt-0.5 text-xs text-indigo-400">Enrolled & active</p>
+                <p class="mt-0.5 text-xs text-indigo-400">{{ __('Enrolled & active') }}</p>
             </div>
         </div>
     </div>

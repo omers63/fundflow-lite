@@ -28,6 +28,11 @@ class LoansRelationManager extends RelationManager
 
     protected static ?string $title = 'Loans';
 
+    public static function getTitle(\Illuminate\Database\Eloquent\Model $ownerRecord, string $pageClass): string
+    {
+        return __('Loans');
+    }
+
     public function isReadOnly(): bool
     {
         return false;
@@ -46,7 +51,7 @@ class LoansRelationManager extends RelationManager
             ->striped()
             ->headerActions([
                 Action::make('new_loan')
-                    ->label('New loan')
+                    ->label(__('New loan'))
                     ->icon('heroicon-o-plus-circle')
                     ->url(fn (): string => LoanResource::getUrl('create').'?member_id='.$this->getOwnerRecord()->getKey())
                     ->visible(fn (): bool => LoanResource::canCreate()
@@ -54,10 +59,10 @@ class LoansRelationManager extends RelationManager
                 $this->repaymentCycleHeaderAction(),
             ])
             ->columns([
-                Tables\Columns\TextColumn::make('id')->label('Loan #')->toggleable(),
-                Tables\Columns\TextColumn::make('amount_requested')->label('Requested')->money('SAR')->toggleable(),
-                Tables\Columns\TextColumn::make('amount_approved')->label('Approved')->money('SAR')->placeholder('—')->toggleable(),
-                Tables\Columns\TextColumn::make('installments_count')->label('Months')->toggleable(),
+                Tables\Columns\TextColumn::make('id')->label(__('Loan #'))->toggleable(),
+                Tables\Columns\TextColumn::make('amount_requested')->label(__('Requested'))->money('SAR')->toggleable(),
+                Tables\Columns\TextColumn::make('amount_approved')->label(__('Approved'))->money('SAR')->placeholder(__('—'))->toggleable(),
+                Tables\Columns\TextColumn::make('installments_count')->label(__('Months'))->toggleable(),
                 Tables\Columns\BadgeColumn::make('status')
                     ->colors([
                         'warning' => 'pending',
@@ -68,45 +73,45 @@ class LoansRelationManager extends RelationManager
                     ])
                     ->toggleable(),
                 Tables\Columns\TextColumn::make('paid_installments_count')
-                    ->label('Paid / Total')
+                    ->label(__('Paid / Total'))
                     ->getStateUsing(fn (Loan $r) => $r->paid_installments_count.' / '.$r->installments_count)
                     ->toggleable(),
                 Tables\Columns\TextColumn::make('remaining_amount')
-                    ->label('Remaining')
+                    ->label(__('Remaining'))
                     ->money('SAR')
                     ->getStateUsing(fn (Loan $r) => $r->remaining_amount)
                     ->toggleable(),
-                Tables\Columns\TextColumn::make('applied_at')->label('Applied')->date('d M Y')->sortable()->toggleable(),
+                Tables\Columns\TextColumn::make('applied_at')->label(__('Applied'))->date('d M Y')->sortable()->toggleable(),
             ])
             ->filters([
                 Tables\Filters\SelectFilter::make('status')->options([
-                    'pending' => 'Pending',
-                    'approved' => 'Approved',
-                    'active' => 'Active',
-                    'completed' => 'Completed',
-                    'early_settled' => 'Early Settled',
-                    'rejected' => 'Rejected',
-                    'cancelled' => 'Cancelled',
+                    'pending' => __('Pending'),
+                    'approved' => __('Approved'),
+                    'active' => __('Active'),
+                    'completed' => __('Completed'),
+                    'early_settled' => __('Early Settled'),
+                    'rejected' => __('Rejected'),
+                    'cancelled' => __('Cancelled'),
                 ]),
                 Tables\Filters\SelectFilter::make('loan_tier_id')
-                    ->label('Loan tier')
+                    ->label(__('Loan tier'))
                     ->options(fn () => LoanTier::query()->orderBy('tier_number')->pluck('label', 'id')),
                 Tables\Filters\SelectFilter::make('fund_tier_id')
-                    ->label('Fund tier')
+                    ->label(__('Fund tier'))
                     ->options(fn () => FundTier::query()->orderBy('label')->pluck('label', 'id')),
-                Tables\Filters\TernaryFilter::make('is_emergency')->label('Emergency'),
+                Tables\Filters\TernaryFilter::make('is_emergency')->label(__('Emergency')),
                 Tables\Filters\TernaryFilter::make('disbursed')
-                    ->label('Disbursed')
-                    ->trueLabel('Disbursed')
-                    ->falseLabel('Not disbursed')
+                    ->label(__('Disbursed'))
+                    ->trueLabel(__('Disbursed'))
+                    ->falseLabel(__('Not disbursed'))
                     ->queries(
                         true: fn ($q) => $q->whereNotNull('disbursed_at'),
                         false: fn ($q) => $q->whereNull('disbursed_at'),
                     ),
                 Tables\Filters\Filter::make('applied_at')
                     ->schema([
-                        Forms\Components\DatePicker::make('from')->label('Applied from'),
-                        Forms\Components\DatePicker::make('until')->label('Applied until'),
+                        Forms\Components\DatePicker::make('from')->label(__('Applied from')),
+                        Forms\Components\DatePicker::make('until')->label(__('Applied until')),
                     ])
                     ->columns(2)
                     ->query(function ($query, array $data) {
@@ -116,8 +121,8 @@ class LoansRelationManager extends RelationManager
                     }),
                 Tables\Filters\Filter::make('amount_requested')
                     ->schema([
-                        Forms\Components\TextInput::make('min')->label('Min requested (SAR)')->numeric(),
-                        Forms\Components\TextInput::make('max')->label('Max requested (SAR)')->numeric(),
+                        Forms\Components\TextInput::make('min')->label(__('Min requested (SAR)'))->numeric(),
+                        Forms\Components\TextInput::make('max')->label(__('Max requested (SAR)'))->numeric(),
                     ])
                     ->columns(2)
                     ->query(function ($query, array $data) {
@@ -127,8 +132,8 @@ class LoansRelationManager extends RelationManager
                     }),
                 Tables\Filters\Filter::make('amount_approved')
                     ->schema([
-                        Forms\Components\TextInput::make('min')->label('Min approved (SAR)')->numeric(),
-                        Forms\Components\TextInput::make('max')->label('Max approved (SAR)')->numeric(),
+                        Forms\Components\TextInput::make('min')->label(__('Min approved (SAR)'))->numeric(),
+                        Forms\Components\TextInput::make('max')->label(__('Max approved (SAR)'))->numeric(),
                     ])
                     ->columns(2)
                     ->query(function ($query, array $data) {
@@ -141,7 +146,7 @@ class LoansRelationManager extends RelationManager
                 ActionGroup::make([
                     DeleteAction::make()
                         ->modalDescription(
-                            'Reverses ledger postings for this loan, removes installments and the loan account, then deletes the loan. Same behavior as Finance → Loans delete.'
+                            __('Reverses ledger postings for this loan, removes installments and the loan account, then deletes the loan. Same behavior as Finance → Loans delete.')
                         )
                         ->using(function (Loan $record) {
                             app(AccountingService::class)->safeDeleteLoan($record);
@@ -154,7 +159,7 @@ class LoansRelationManager extends RelationManager
                 BulkActionGroup::make([
                     DeleteBulkAction::make()
                         ->modalDescription(
-                            'Deletes each selected loan with full ledger reversal. Failures are reported individually.'
+                            __('Deletes each selected loan with full ledger reversal. Failures are reported individually.')
                         )
                         ->using(function (DeleteBulkAction $action, $records) {
                             $accounting = app(AccountingService::class);

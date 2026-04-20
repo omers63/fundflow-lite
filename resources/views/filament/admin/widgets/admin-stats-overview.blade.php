@@ -6,7 +6,7 @@
     <div class="flex items-center justify-between px-6 py-4 border-b border-gray-100 dark:border-gray-700 bg-gray-50 dark:bg-gray-800/80">
         <div class="flex items-center gap-2">
             <x-heroicon-o-chart-bar-square class="w-5 h-5 text-primary-500" />
-            <h3 class="text-base font-semibold text-gray-900 dark:text-white">Fund Overview</h3>
+            <h3 class="text-base font-semibold text-gray-900 dark:text-white">{{ __('Fund Overview') }}</h3>
         </div>
         <span class="text-xs text-gray-400 dark:text-gray-500">{{ now()->format('F Y') }}</span>
     </div>
@@ -31,7 +31,7 @@
             </div>
             <div>
                 <p class="text-2xl font-bold text-gray-900 dark:text-white">{{ number_format($d['active_members']) }}</p>
-                <p class="mt-0.5 text-xs font-medium text-gray-500 dark:text-gray-400">Active Members</p>
+                <p class="mt-0.5 text-xs font-medium text-gray-500 dark:text-gray-400">{{ __('Active Members') }}</p>
             </div>
             <div class="h-1 rounded-full bg-gray-100 dark:bg-gray-700">
                 <div class="h-1 rounded-full bg-emerald-500" style="width: 100%"></div>
@@ -47,7 +47,7 @@
                 </div>
                 @if($d['pending_apps'] > 0)
                 <span class="inline-flex items-center rounded-full bg-amber-100 dark:bg-amber-900/50 px-2 py-0.5 text-xs font-medium text-amber-700 dark:text-amber-300">
-                    Review →
+                    {{ __('Review →') }}
                 </span>
                 @endif
             </div>
@@ -55,7 +55,7 @@
                 <p class="text-2xl font-bold {{ $d['pending_apps'] > 0 ? 'text-amber-600 dark:text-amber-400' : 'text-gray-900 dark:text-white' }}">
                     {{ number_format($d['pending_apps']) }}
                 </p>
-                <p class="mt-0.5 text-xs font-medium text-gray-500 dark:text-gray-400">Pending Applications</p>
+                <p class="mt-0.5 text-xs font-medium text-gray-500 dark:text-gray-400">{{ __('Pending Applications') }}</p>
             </div>
             <div class="h-1 rounded-full bg-gray-100 dark:bg-gray-700">
                 <div class="h-1 rounded-full {{ $d['pending_apps'] > 0 ? 'bg-amber-400' : 'bg-emerald-500' }}" style="width: 100%"></div>
@@ -68,11 +68,11 @@
                 <div class="flex h-10 w-10 items-center justify-center rounded-xl bg-indigo-100 dark:bg-indigo-900/40 ring-1 ring-indigo-200 dark:ring-indigo-800">
                     <x-heroicon-o-banknotes class="w-5 h-5 text-indigo-600 dark:text-indigo-400" />
                 </div>
-                <span class="text-xs font-medium text-indigo-500 dark:text-indigo-400">cumulative</span>
+                <span class="text-xs font-medium text-indigo-500 dark:text-indigo-400">{{ __('cumulative') }}</span>
             </div>
             <div>
                 <p class="text-2xl font-bold text-gray-900 dark:text-white">﷼ {{ number_format($d['total_fund'], 0) }}</p>
-                <p class="mt-0.5 text-xs font-medium text-gray-500 dark:text-gray-400">Total Fund (Cumulative)</p>
+                <p class="mt-0.5 text-xs font-medium text-gray-500 dark:text-gray-400">{{ __('Total Fund (Cumulative)') }}</p>
             </div>
             <div class="h-1 rounded-full bg-gray-100 dark:bg-gray-700">
                 <div class="h-1 rounded-full bg-indigo-500" style="width: 100%"></div>
@@ -85,11 +85,11 @@
                 <div class="flex h-10 w-10 items-center justify-center rounded-xl bg-violet-100 dark:bg-violet-900/40 ring-1 ring-violet-200 dark:ring-violet-800">
                     <x-heroicon-o-arrow-trending-up class="w-5 h-5 text-violet-600 dark:text-violet-400" />
                 </div>
-                <span class="text-xs font-medium text-violet-600 dark:text-violet-400">this month</span>
+                <span class="text-xs font-medium text-violet-600 dark:text-violet-400">{{ __('this month') }}</span>
             </div>
             <div>
                 <p class="text-2xl font-bold text-gray-900 dark:text-white">﷼ {{ number_format($d['contrib_this_month'], 0) }}</p>
-                <p class="mt-0.5 text-xs font-medium text-gray-500 dark:text-gray-400">Contributions (Month)</p>
+                <p class="mt-0.5 text-xs font-medium text-gray-500 dark:text-gray-400">{{ __('Contributions (Month)') }}</p>
             </div>
             <div class="h-1 rounded-full bg-gray-100 dark:bg-gray-700">
                 <div class="h-1 rounded-full bg-violet-500" style="width: 100%"></div>
@@ -107,13 +107,13 @@
                 </div>
                 @if($d['loans_this_month'] > 0)
                 <span class="inline-flex items-center rounded-full bg-sky-100 dark:bg-sky-900/50 px-2 py-0.5 text-xs font-medium text-sky-700 dark:text-sky-300">
-                    +{{ $d['loans_this_month'] }} new
+                    {{ __('+:count new', ['count' => $d['loans_this_month']]) }}
                 </span>
                 @endif
             </div>
             <div>
                 <p class="text-2xl font-bold text-gray-900 dark:text-white">{{ number_format($d['active_loans']) }}</p>
-                <p class="mt-0.5 text-xs font-medium text-gray-500 dark:text-gray-400">Active Loans</p>
+                <p class="mt-0.5 text-xs font-medium text-gray-500 dark:text-gray-400">{{ __('Active Loans') }}</p>
             </div>
             <div class="h-1 rounded-full bg-gray-100 dark:bg-gray-700">
                 <div class="h-1 rounded-full bg-sky-500" style="width: 100%"></div>
@@ -134,7 +134,7 @@
                 <p class="text-2xl font-bold {{ $d['overdue_count'] > 0 ? 'text-red-600 dark:text-red-400' : 'text-gray-900 dark:text-white' }}">
                     {{ number_format($d['overdue_count']) }}
                 </p>
-                <p class="mt-0.5 text-xs font-medium text-gray-500 dark:text-gray-400">Overdue Installments</p>
+                <p class="mt-0.5 text-xs font-medium text-gray-500 dark:text-gray-400">{{ __('Overdue Installments') }}</p>
             </div>
             <div class="h-1 rounded-full bg-gray-100 dark:bg-gray-700">
                 <div class="h-1 rounded-full {{ $d['overdue_count'] > 0 ? 'bg-red-500' : 'bg-emerald-500' }}" style="width: 100%"></div>
@@ -148,14 +148,14 @@
                     <x-heroicon-o-user-minus class="w-5 h-5 {{ $d['delinquent'] > 0 ? 'text-rose-600 dark:text-rose-400' : 'text-gray-400' }}" />
                 </div>
                 @if($d['delinquent'] > 0)
-                <span class="text-xs font-medium text-rose-600 dark:text-rose-400">3+ overdue</span>
+                <span class="text-xs font-medium text-rose-600 dark:text-rose-400">{{ __('3+ overdue') }}</span>
                 @endif
             </div>
             <div>
                 <p class="text-2xl font-bold {{ $d['delinquent'] > 0 ? 'text-rose-600 dark:text-rose-400' : 'text-gray-900 dark:text-white' }}">
                     {{ number_format($d['delinquent']) }}
                 </p>
-                <p class="mt-0.5 text-xs font-medium text-gray-500 dark:text-gray-400">Delinquent Members</p>
+                <p class="mt-0.5 text-xs font-medium text-gray-500 dark:text-gray-400">{{ __('Delinquent Members') }}</p>
             </div>
             <div class="h-1 rounded-full bg-gray-100 dark:bg-gray-700">
                 <div class="h-1 rounded-full {{ $d['delinquent'] > 0 ? 'bg-rose-500' : 'bg-emerald-500' }}" style="width: 100%"></div>
@@ -169,14 +169,14 @@
                     <x-heroicon-o-no-symbol class="w-5 h-5 {{ $d['suspended'] > 0 ? 'text-orange-600 dark:text-orange-400' : 'text-gray-400' }}" />
                 </div>
                 @if($d['suspended'] > 0)
-                <span class="text-xs font-medium text-orange-600 dark:text-orange-400">portal blocked</span>
+                <span class="text-xs font-medium text-orange-600 dark:text-orange-400">{{ __('portal blocked') }}</span>
                 @endif
             </div>
             <div>
                 <p class="text-2xl font-bold {{ $d['suspended'] > 0 ? 'text-orange-600 dark:text-orange-400' : 'text-gray-900 dark:text-white' }}">
                     {{ number_format($d['suspended']) }}
                 </p>
-                <p class="mt-0.5 text-xs font-medium text-gray-500 dark:text-gray-400">Suspended Members</p>
+                <p class="mt-0.5 text-xs font-medium text-gray-500 dark:text-gray-400">{{ __('Suspended Members') }}</p>
             </div>
             <div class="h-1 rounded-full bg-gray-100 dark:bg-gray-700">
                 <div class="h-1 rounded-full {{ $d['suspended'] > 0 ? 'bg-orange-500' : 'bg-emerald-500' }}" style="width: 100%"></div>

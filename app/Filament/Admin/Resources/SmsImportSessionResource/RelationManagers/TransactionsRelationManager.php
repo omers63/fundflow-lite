@@ -20,6 +20,11 @@ class TransactionsRelationManager extends RelationManager
 
     protected static ?string $title = 'Imported SMS Transactions';
 
+    public static function getTitle(\Illuminate\Database\Eloquent\Model $ownerRecord, string $pageClass): string
+    {
+        return __('Imported SMS Transactions');
+    }
+
     public function form(Schema $schema): Schema
     {
         return $schema->schema([]);
@@ -37,44 +42,44 @@ class TransactionsRelationManager extends RelationManager
             ->defaultSort('transaction_date', 'desc')
             ->columns([
                 Tables\Columns\TextColumn::make('transaction_date')
-                    ->label('Date')->date('d M Y')->sortable(),
+                    ->label(__('Date'))->date('d M Y')->sortable(),
                 Tables\Columns\TextColumn::make('amount')->money('SAR')
                     ->color(fn (SmsTransaction $r) => $r->transaction_type === 'credit' ? 'success' : 'danger'),
-                Tables\Columns\BadgeColumn::make('transaction_type')->label('Type')
+                Tables\Columns\BadgeColumn::make('transaction_type')->label(__('Type'))
                     ->colors(['success' => 'credit', 'danger' => 'debit']),
-                Tables\Columns\TextColumn::make('reference')->placeholder('—'),
-                Tables\Columns\TextColumn::make('member.user.name')->label('Member')->placeholder('—'),
-                Tables\Columns\TextColumn::make('raw_sms')->label('SMS')->limit(50)
+                Tables\Columns\TextColumn::make('reference')->placeholder(__('—')),
+                Tables\Columns\TextColumn::make('member.user.name')->label(__('Member'))->placeholder(__('—')),
+                Tables\Columns\TextColumn::make('raw_sms')->label(__('SMS'))->limit(50)
                     ->tooltip(fn (SmsTransaction $r) => $r->raw_sms),
-                Tables\Columns\IconColumn::make('posted_at')->label('Posted')
+                Tables\Columns\IconColumn::make('posted_at')->label(__('Posted'))
                     ->boolean()
                     ->getStateUsing(fn (SmsTransaction $r) => $r->posted_at !== null)
                     ->trueIcon('heroicon-o-check-badge')->falseIcon('heroicon-o-clock')
                     ->trueColor('success')->falseColor('gray'),
-                Tables\Columns\IconColumn::make('is_duplicate')->label('Dup.')
+                Tables\Columns\IconColumn::make('is_duplicate')->label(__('Dup.'))
                     ->boolean()
                     ->trueIcon('heroicon-o-exclamation-triangle')->falseIcon('heroicon-o-check-circle')
                     ->trueColor('warning')->falseColor('success'),
             ])
             ->filters([
                 Tables\Filters\SelectFilter::make('transaction_type')
-                    ->options(['credit' => 'Credit', 'debit' => 'Debit']),
+                    ->options(['credit' => __('Credit'), 'debit' => __('Debit')]),
                 Tables\Filters\TernaryFilter::make('is_duplicate')
-                    ->trueLabel('Duplicates only')->falseLabel('Non-duplicates only')->placeholder('All'),
+                    ->trueLabel(__('Duplicates only'))->falseLabel(__('Non-duplicates only'))->placeholder(__('All')),
                 Tables\Filters\TernaryFilter::make('posted')
-                    ->trueLabel('Posted')->falseLabel('Unposted')->placeholder('All')
+                    ->trueLabel(__('Posted'))->falseLabel(__('Unposted'))->placeholder(__('All'))
                     ->queries(
                         true: fn ($q) => $q->whereNotNull('posted_at'),
                         false: fn ($q) => $q->whereNull('posted_at'),
                     ),
                 Tables\Filters\SelectFilter::make('member_id')
-                    ->label('Member')
+                    ->label(__('Member'))
                     ->searchable()
                     ->options($memberOptions),
                 Tables\Filters\Filter::make('transaction_date')
                     ->schema([
-                        Forms\Components\DatePicker::make('from')->label('From'),
-                        Forms\Components\DatePicker::make('until')->label('Until'),
+                        Forms\Components\DatePicker::make('from')->label(__('From')),
+                        Forms\Components\DatePicker::make('until')->label(__('Until')),
                     ])
                     ->columns(2)
                     ->query(function ($query, array $data) {
@@ -84,8 +89,8 @@ class TransactionsRelationManager extends RelationManager
                     }),
                 Tables\Filters\Filter::make('amount')
                     ->schema([
-                        Forms\Components\TextInput::make('amount_min')->label('Min (SAR)')->numeric(),
-                        Forms\Components\TextInput::make('amount_max')->label('Max (SAR)')->numeric(),
+                        Forms\Components\TextInput::make('amount_min')->label(__('Min (SAR)'))->numeric(),
+                        Forms\Components\TextInput::make('amount_max')->label(__('Max (SAR)'))->numeric(),
                     ])
                     ->columns(2)
                     ->query(function ($query, array $data) {
@@ -97,23 +102,23 @@ class TransactionsRelationManager extends RelationManager
             ->recordActions([
                 ActionGroup::make([
                     Action::make('post_to_cash')
-                        ->label('Post to Cash')
+                        ->label(__('Post to Cash'))
                         ->icon('heroicon-o-arrow-right-circle')
                         ->color('primary')
                         ->visible(fn (SmsTransaction $r) => ! $r->isPosted())
                         ->fillForm(fn (SmsTransaction $r) => ['member_id' => $r->member_id])
                         ->schema([
                             Forms\Components\Select::make('member_id')
-                                ->label('Member')
+                                ->label(__('Member'))
                                 ->options($memberOptions)
                                 ->searchable()
                                 ->required()
-                                ->helperText('Pre-filled from auto-match if available.'),
+                                ->helperText(__('Pre-filled from auto-match if available.')),
                         ])
                         ->action(function (SmsTransaction $record, array $data) {
                             $member = Member::findOrFail($data['member_id']);
                             app(AccountingService::class)->postSmsTransactionToCash($record, $member);
-                            Notification::make()->title('Posted to Cash Account')->success()->send();
+                            Notification::make()->title(__('Posted to Cash Account'))->success()->send();
                         }),
                 ]),
             ]);

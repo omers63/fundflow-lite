@@ -24,6 +24,11 @@ class LoanQueuePage extends Page
 
     protected static ?int $navigationSort = 4;
 
+    public static function getNavigationLabel(): string
+    {
+        return __('Loan Queue');
+    }
+
     public static function getNavigationGroup(): ?string
     {
         return __('app.nav.group.finance');
@@ -31,19 +36,19 @@ class LoanQueuePage extends Page
 
     public function getTitle(): string
     {
-        return 'Loan queue';
+        return __('Loan queue');
     }
 
     public function getSubheading(): string|Htmlable|null
     {
-        return 'Incoming requests stay visible until full disbursement, and are ordered by emergency status, fund tier, loan tier (1 before higher tiers), time received, and available capacity. Tier queues use the same rules; positions refresh when loans are approved, rejected, cancelled, disbursed, or removed.';
+        return __('Incoming requests stay visible until full disbursement, and are ordered by emergency status, fund tier, loan tier (1 before higher tiers), time received, and available capacity. Tier queues use the same rules; positions refresh when loans are approved, rejected, cancelled, disbursed, or removed.');
     }
 
     public function getHeaderActions(): array
     {
         return [
             Action::make('allLoans')
-                ->label('All loans')
+                ->label(__('All loans'))
                 ->icon('heroicon-o-banknotes')
                 ->url(LoanResource::getUrl('index'))
                 ->color('gray'),

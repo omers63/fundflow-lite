@@ -33,6 +33,11 @@ class AdminInboxPage extends Page implements HasTable
 
     protected static ?int $navigationSort = 90;
 
+    public static function getNavigationLabel(): string
+    {
+        return __('Messages');
+    }
+
     public static function getNavigationBadge(): ?string
     {
         $count = DirectMessage::where('to_user_id', auth()->id())
@@ -49,20 +54,20 @@ class AdminInboxPage extends Page implements HasTable
 
     public function getTitle(): string
     {
-        return 'Messages Inbox';
+        return __('Messages Inbox');
     }
 
     public function getHeaderActions(): array
     {
         return [
             Action::make('message_all_members')
-                ->label('Message all members')
+                ->label(__('Message all members'))
                 ->icon('heroicon-o-megaphone')
                 ->color('primary')
-                ->modalHeading('Send message to all members')
-                ->modalDescription(fn (): string => 'This sends the same message (and attachments) to every member who has a login account. Currently: '
+                ->modalHeading(__('Send message to all members'))
+                ->modalDescription(fn (): string => __('This sends the same message (and attachments) to every member who has a login account. Currently: ')
                     .Member::query()->whereNotNull('user_id')->count()
-                    .' member(s).')
+                    .' '.__('member(s).'))
                 ->modalWidth('2xl')
                 ->schema($this->bulkMessageFormSchema())
                 ->action(function (array $data): void {
@@ -127,43 +132,43 @@ class AdminInboxPage extends Page implements HasTable
             ->defaultSort('last_message_at', 'desc')
             ->columns([
                 TextColumn::make('user.name')
-                    ->label('Member')
+                    ->label(__('Member'))
                     ->searchable()
                     ->sortable()
-                    ->placeholder('No linked user'),
+                    ->placeholder(__('No linked user')),
                 TextColumn::make('member_number')
-                    ->label('Member #')
+                    ->label(__('Member #'))
                     ->searchable()
                     ->sortable(),
                 TextColumn::make('messages_received_count')
-                    ->label('Received')
+                    ->label(__('Received'))
                     ->badge()
                     ->color('primary'),
                 TextColumn::make('messages_sent_count')
-                    ->label('Sent')
+                    ->label(__('Sent'))
                     ->badge()
                     ->color('success'),
                 TextColumn::make('unread_messages_count')
-                    ->label('Unread')
+                    ->label(__('Unread'))
                     ->badge()
                     ->color('danger'),
                 TextColumn::make('last_message_at')
-                    ->label('Last Message')
+                    ->label(__('Last Message'))
                     ->since()
                     ->sortable()
-                    ->placeholder('No messages yet'),
+                    ->placeholder(__('No messages yet')),
             ])
             ->recordActions([
                 ActionGroup::make([
                     Action::make('communicate')
-                        ->label('Communicate')
+                        ->label(__('Communicate'))
                         ->icon('heroicon-o-chat-bubble-left-right')
                         ->color('primary')
                         ->disabled(fn (Member $record): bool => blank($record->user_id))
-                        ->modalHeading(fn (Member $record): string => 'Conversation with '.($record->user?->name ?? 'Member'))
-                        ->modalDescription('Single communication thread with full history.')
+                        ->modalHeading(fn (Member $record): string => __('Conversation with').' '.($record->user?->name ?? __('Member')))
+                        ->modalDescription(__('Single communication thread with full history.'))
                         ->modalWidth('5xl')
-                        ->modalSubmitActionLabel('Send Message')
+                        ->modalSubmitActionLabel(__('Send Message'))
                         ->modalContent(fn (Member $record) => view(
                             'filament.admin.pages.partials.member-conversation-modal',
                             [
@@ -173,12 +178,12 @@ class AdminInboxPage extends Page implements HasTable
                         ))
                         ->schema([
                             Forms\Components\Textarea::make('body')
-                                ->label('Message')
+                                ->label(__('Message'))
                                 ->rows(4)
                                 ->required()
                                 ->maxLength(3000),
                             Forms\Components\FileUpload::make('attachments')
-                                ->label('Attachments')
+                                ->label(__('Attachments'))
                                 ->multiple()
                                 ->disk('public')
                                 ->directory('direct-messages')
@@ -197,12 +202,12 @@ class AdminInboxPage extends Page implements HasTable
                             $action->halt();
                         }),
                     Action::make('delete_conversation')
-                        ->label('Delete Conversation')
+                        ->label(__('Delete Conversation'))
                         ->icon('heroicon-o-trash')
                         ->color('danger')
                         ->requiresConfirmation()
-                        ->modalHeading(fn (Member $record): string => 'Delete conversation with '.($record->user?->name ?? 'member').'?')
-                        ->modalDescription('This will clear all previous communications with this member from the inbox.')
+                        ->modalHeading(fn (Member $record): string => __('Delete conversation with').' '.($record->user?->name ?? __('member')).'?')
+                        ->modalDescription(__('This will clear all previous communications with this member from the inbox.'))
                         ->action(function (Member $record): void {
                             $this->deleteConversation($record);
                         }),
@@ -211,11 +216,11 @@ class AdminInboxPage extends Page implements HasTable
             ->toolbarActions([
                 BulkActionGroup::make([
                     BulkAction::make('send_messages')
-                        ->label('Send message')
+                        ->label(__('Send message'))
                         ->icon('heroicon-o-chat-bubble-left-right')
                         ->color('info')
-                        ->modalHeading('Send message to selected members')
-                        ->modalDescription('The same message and attachments are delivered to each selected member’s conversation thread.')
+                        ->modalHeading(__('Send message to selected members'))
+                        ->modalDescription(__('The same message and attachments are delivered to each selected member’s conversation thread.'))
                         ->modalWidth('2xl')
                         ->schema($this->bulkMessageFormSchema())
                         ->action(function (array $data, EloquentCollection $records): void {
@@ -227,12 +232,12 @@ class AdminInboxPage extends Page implements HasTable
                         })
                         ->deselectRecordsAfterCompletion(),
                     BulkAction::make('clear_conversations')
-                        ->label('Clear Conversations')
+                        ->label(__('Clear Conversations'))
                         ->icon('heroicon-o-trash')
                         ->color('danger')
                         ->requiresConfirmation()
-                        ->modalHeading('Clear selected conversations?')
-                        ->modalDescription('This will delete all previous communications for the selected member rows.')
+                        ->modalHeading(__('Clear selected conversations?'))
+                        ->modalDescription(__('This will delete all previous communications for the selected member rows.'))
                         ->action(function (EloquentCollection $records): void {
                             $members = $records->filter(fn ($record): bool => $record instanceof Member);
 
@@ -251,7 +256,7 @@ class AdminInboxPage extends Page implements HasTable
 
                             if ($messagesDeleted === 0) {
                                 Notification::make()
-                                    ->title('No conversations deleted')
+                                    ->title(__('No conversations deleted'))
                                     ->warning()
                                     ->send();
 
@@ -259,16 +264,16 @@ class AdminInboxPage extends Page implements HasTable
                             }
 
                             Notification::make()
-                                ->title('Conversations cleared')
-                                ->body("Members: {$membersCleared}. Messages deleted: {$messagesDeleted}.")
+                                ->title(__('Conversations cleared'))
+                                ->body(__('Members').": {$membersCleared}. ".__('Messages deleted').": {$messagesDeleted}.")
                                 ->success()
                                 ->send();
                         })
                         ->deselectRecordsAfterCompletion(),
                 ]),
             ])
-            ->emptyStateHeading('No members found')
-            ->emptyStateDescription('Members will appear here once created.');
+            ->emptyStateHeading(__('No members found'))
+            ->emptyStateDescription(__('Members will appear here once created.'));
     }
 
     /**
@@ -278,12 +283,12 @@ class AdminInboxPage extends Page implements HasTable
     {
         return [
             Forms\Components\Textarea::make('body')
-                ->label('Message')
+                ->label(__('Message'))
                 ->rows(5)
                 ->required()
                 ->maxLength(3000),
             Forms\Components\FileUpload::make('attachments')
-                ->label('Attachments (optional)')
+                ->label(__('Attachments (optional)'))
                 ->multiple()
                 ->disk('public')
                 ->directory('direct-messages')
@@ -305,7 +310,7 @@ class AdminInboxPage extends Page implements HasTable
 
         if ($body === '' && $attachments === []) {
             Notification::make()
-                ->title('Message body or at least one attachment is required')
+                ->title(__('Message body or at least one attachment is required'))
                 ->warning()
                 ->send();
 
@@ -335,8 +340,8 @@ class AdminInboxPage extends Page implements HasTable
 
         if ($sent === 0) {
             Notification::make()
-                ->title('No messages sent')
-                ->body($skipped > 0 ? 'No eligible members.' : '')
+                ->title(__('No messages sent'))
+                ->body($skipped > 0 ? __('No eligible members.') : '')
                 ->warning()
                 ->send();
 
@@ -344,8 +349,8 @@ class AdminInboxPage extends Page implements HasTable
         }
 
         Notification::make()
-            ->title('Messages sent')
-            ->body("Delivered to {$sent} member(s)".($skipped > 0 ? ". Skipped: {$skipped}." : '.'))
+            ->title(__('Messages sent'))
+            ->body(__('Delivered to')." {$sent} ".__('member(s)').($skipped > 0 ? ". ".__('Skipped').": {$skipped}." : '.'))
             ->success()
             ->send();
     }
@@ -387,7 +392,7 @@ class AdminInboxPage extends Page implements HasTable
         if ($body === '' && $attachments === []) {
             if (! $suppressAdminToast) {
                 Notification::make()
-                    ->title('Message body or at least one attachment is required')
+                    ->title(__('Message body or at least one attachment is required'))
                     ->warning()
                     ->send();
             }
@@ -402,7 +407,7 @@ class AdminInboxPage extends Page implements HasTable
         if (! $member->user_id) {
             if (! $suppressAdminToast) {
                 Notification::make()
-                    ->title('Member account not found')
+                    ->title(__('Member account not found'))
                     ->danger()
                     ->send();
             }
@@ -429,7 +434,7 @@ class AdminInboxPage extends Page implements HasTable
             DirectMessage::create([
                 'from_user_id' => $userId,
                 'to_user_id' => $member->user_id,
-                'subject' => 'Conversation with '.($member->user->name ?? 'member'),
+                'subject' => __('Conversation with').' '.($member->user->name ?? __('member')),
                 'body' => $body,
                 'attachments' => $attachments,
             ]);
@@ -447,7 +452,7 @@ class AdminInboxPage extends Page implements HasTable
         $recipient = User::query()->find($member->user_id);
         if ($recipient) {
             Notification::make()
-                ->title('Message from Administration')
+                ->title(__('Message from Administration'))
                 ->body(auth()->user()->name.': '.mb_strimwidth(trim($body), 0, 100, '…'))
                 ->icon('heroicon-o-chat-bubble-left-right')
                 ->iconColor('info')
@@ -456,7 +461,7 @@ class AdminInboxPage extends Page implements HasTable
 
         if (! $suppressAdminToast) {
             Notification::make()
-                ->title('Message sent')
+                ->title(__('Message sent'))
                 ->success()
                 ->send();
         }
@@ -468,7 +473,7 @@ class AdminInboxPage extends Page implements HasTable
     {
         if (! $member->user_id) {
             Notification::make()
-                ->title('Member account not found')
+                ->title(__('Member account not found'))
                 ->danger()
                 ->send();
 
@@ -479,7 +484,7 @@ class AdminInboxPage extends Page implements HasTable
 
         if ($deleted === 0) {
             Notification::make()
-                ->title('No conversation to delete')
+                ->title(__('No conversation to delete'))
                 ->warning()
                 ->send();
 
@@ -487,7 +492,7 @@ class AdminInboxPage extends Page implements HasTable
         }
 
         Notification::make()
-            ->title('Conversation deleted')
+            ->title(__('Conversation deleted'))
             ->success()
             ->send();
     }

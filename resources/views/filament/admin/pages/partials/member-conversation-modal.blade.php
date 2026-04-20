@@ -5,7 +5,7 @@
             <div class="mb-3 flex {{ $isMine ? 'justify-end' : 'justify-start' }}">
                 <div class="max-w-[85%]">
                     <p class="mb-1 text-[11px] text-gray-500 {{ $isMine ? 'text-right' : '' }}">
-                        {{ $msg->sender?->name ?? 'Unknown' }} · {{ $msg->created_at->format('d M Y H:i') }}
+                        {{ $msg->sender?->name ?? __('Unknown') }} · {{ $msg->created_at->format('d M Y H:i') }}
                     </p>
                     <div class="rounded-xl px-3 py-2 text-sm whitespace-pre-wrap {{ $isMine ? 'bg-primary-600 text-white rounded-tr-none' : 'bg-white dark:bg-gray-800 text-gray-800 dark:text-gray-100 rounded-tl-none border border-gray-200 dark:border-gray-700' }}">
                         {{ $msg->body }}
@@ -29,11 +29,11 @@
             </div>
         @empty
             <div class="py-8 text-center">
-                <p class="text-sm text-gray-500 dark:text-gray-400">No messages in this conversation yet.</p>
+                <p class="text-sm text-gray-500 dark:text-gray-400">{{ __('No messages in this conversation yet.') }}</p>
             </div>
         @endforelse
     </div>
     <p class="text-xs text-gray-500 dark:text-gray-400">
-        Type your new message below and click "Send Message".
+        {{ __('Type your new message below and click "Send Message".') }}
     </p>
 </div>

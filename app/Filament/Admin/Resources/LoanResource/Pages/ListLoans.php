@@ -24,14 +24,14 @@ class ListLoans extends ListRecords
 
     public function getSubheading(): ?string
     {
-        return 'Track the full lifecycle of every loan — from application through disbursement to settlement.';
+        return __('app.loan.list_subheading');
     }
 
     protected function getHeaderActions(): array
     {
         return [
             Actions\Action::make('loanQueue')
-                ->label('Loan Queue')
+                ->label(__('app.loan.queue'))
                 ->icon('heroicon-o-queue-list')
                 ->url(LoanQueuePage::getUrl())
                 ->color('primary'),

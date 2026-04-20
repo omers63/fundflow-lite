@@ -31,10 +31,10 @@ class ViewAccount extends ViewRecord
         $parts = [$record->type_label];
 
         if ($record->member) {
-            $parts[] = 'Member: ' . $record->member->user->name . ' (' . $record->member->member_number . ')';
+            $parts[] = __('Member:') . ' ' . $record->member->user->name . ' (' . $record->member->member_number . ')';
         }
         if ($record->loan_id) {
-            $parts[] = 'Loan #' . $record->loan_id;
+            $parts[] = __('Loan #') . $record->loan_id;
         }
 
         return implode(' · ', $parts);
@@ -79,41 +79,41 @@ class ViewAccount extends ViewRecord
         $balance = (float) $record->balance;
 
         return $schema->schema([
-            Section::make('Account Details')
+            Section::make(__('Account Details'))
                 ->columnSpanFull()
                 ->columns(3)
                 ->schema([
                     TextEntry::make('name')
-                        ->label('Account Name')
+                        ->label(__('Account Name'))
                         ->weight(FontWeight::SemiBold),
                     TextEntry::make('type_label')
-                        ->label('Type')
+                        ->label(__('Type'))
                         ->badge()
                         ->color(fn() => $record->type_color),
                     TextEntry::make('is_active')
-                        ->label('Status')
-                        ->formatStateUsing(fn($state) => $state ? 'Active' : 'Inactive')
+                        ->label(__('Status'))
+                        ->formatStateUsing(fn($state) => $state ? __('Active') : __('Inactive'))
                         ->badge()
                         ->color(fn() => $record->is_active ? 'success' : 'danger'),
                     TextEntry::make('member.user.name')
-                        ->label('Member Name')
+                        ->label(__('Member Name'))
                         ->placeholder('—'),
                     TextEntry::make('member.member_number')
-                        ->label('Member Number')
+                        ->label(__('Member Number'))
                         ->placeholder('—'),
                     TextEntry::make('loan_id')
-                        ->label('Loan #')
+                        ->label(__('Loan #'))
                         ->placeholder('—'),
                     TextEntry::make('balance')
-                        ->label('Current Balance (SAR)')
+                        ->label(__('Current Balance (SAR)'))
                         ->money('SAR')
                         ->weight(FontWeight::Bold)
                         ->color(fn() => $balance >= 0 ? 'success' : 'danger'),
                     TextEntry::make('created_at')
-                        ->label('Opened')
+                        ->label(__('Opened'))
                         ->dateTime('d M Y'),
                     TextEntry::make('updated_at')
-                        ->label('Last Updated')
+                        ->label(__('Last Updated'))
                         ->dateTime('d M Y H:i'),
                 ]),
         ]);

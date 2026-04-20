@@ -30,6 +30,11 @@ class FundTiersResource extends Resource
 
     protected static ?int $navigationSort = 3;
 
+    public static function getNavigationLabel(): string
+    {
+        return __('Fund Tiers');
+    }
+
     public static function shouldRegisterNavigation(): bool
     {
         return false;
@@ -43,24 +48,24 @@ class FundTiersResource extends Resource
     public static function form(Schema $schema): Schema
     {
         return $schema->schema([
-            Section::make('Fund tier')
+            Section::make(__('Fund tier'))
                 ->schema([
-                    Forms\Components\TextInput::make('tier_number')->label('Tier #')->numeric()->required()->minValue(0)->maxValue(20),
-                    Forms\Components\TextInput::make('label')->label('Label')->maxLength(100)->placeholder('e.g. Emergency'),
+                    Forms\Components\TextInput::make('tier_number')->label(__('Tier #'))->numeric()->required()->minValue(0)->maxValue(20),
+                    Forms\Components\TextInput::make('label')->label(__('Label'))->maxLength(100)->placeholder(__('e.g. Emergency')),
                     Forms\Components\Select::make('loan_tier_id')
-                        ->label('Linked Loan Tier')
+                        ->label(__('Linked Loan Tier'))
                         ->options(LoanTier::all()->pluck('label', 'id'))
                         ->nullable()
-                        ->placeholder('Emergency (standalone)'),
+                        ->placeholder(__('Emergency (standalone)')),
                     Forms\Components\TextInput::make('percentage')
-                        ->label('% of Master Fund')
+                        ->label(__('% of Master Fund'))
                         ->numeric()
                         ->suffix('%')
                         ->minValue(1)
                         ->maxValue(100)
                         ->default(100)
                         ->required(),
-                    Forms\Components\Toggle::make('is_active')->label('Active')->default(true),
+                    Forms\Components\Toggle::make('is_active')->label(__('Active'))->default(true),
                 ])->columns(3),
         ]);
     }
@@ -71,36 +76,36 @@ class FundTiersResource extends Resource
 
         return $table
             ->columns([
-                Tables\Columns\TextColumn::make('tier_number')->label('Fund Tier')->sortable(),
-                Tables\Columns\TextColumn::make('label')->label('Label'),
-                Tables\Columns\TextColumn::make('loanTier.label')->label('Loan Tier')->placeholder('Emergency'),
-                Tables\Columns\TextColumn::make('percentage')->label('% Allocation')->suffix('%'),
+                Tables\Columns\TextColumn::make('tier_number')->label(__('Fund Tier'))->sortable(),
+                Tables\Columns\TextColumn::make('label')->label(__('Label')),
+                Tables\Columns\TextColumn::make('loanTier.label')->label(__('Loan Tier'))->placeholder(__('Emergency')),
+                Tables\Columns\TextColumn::make('percentage')->label(__('% Allocation'))->suffix('%'),
                 Tables\Columns\TextColumn::make('allocated_amount')
-                    ->label('Allocated (SAR)')
+                    ->label(__('Allocated (SAR)'))
                     ->money('SAR')
                     ->getStateUsing(fn (FundTier $r) => $r->allocated_amount),
                 Tables\Columns\TextColumn::make('active_exposure')
-                    ->label('Active Loans (SAR)')
+                    ->label(__('Active Loans (SAR)'))
                     ->money('SAR')
                     ->getStateUsing(fn (FundTier $r) => $r->active_exposure),
                 Tables\Columns\TextColumn::make('available_amount')
-                    ->label('Available (SAR)')
+                    ->label(__('Available (SAR)'))
                     ->money('SAR')
                     ->getStateUsing(fn (FundTier $r) => $r->available_amount)
                     ->color(fn (FundTier $r) => $r->available_amount > 0 ? 'success' : 'danger'),
                 Tables\Columns\TextColumn::make('active_loans_count')
-                    ->label('Active Loans #')
+                    ->label(__('Active Loans #'))
                     ->getStateUsing(fn (FundTier $r) => $r->active_loans_count),
-                Tables\Columns\IconColumn::make('is_active')->label('Active')->boolean(),
+                Tables\Columns\IconColumn::make('is_active')->label(__('Active'))->boolean(),
             ])
             ->defaultSort('tier_number')
             ->filters([
                 Tables\Filters\SelectFilter::make('loan_tier_id')
-                    ->label('Linked loan tier')
+                    ->label(__('Linked loan tier'))
                     ->relationship('loanTier', 'label')
                     ->searchable()
                     ->preload(),
-                Tables\Filters\TernaryFilter::make('is_active')->label('Active'),
+                Tables\Filters\TernaryFilter::make('is_active')->label(__('Active')),
                 TrashedFilter::make(),
             ])
             ->recordActions([
@@ -112,7 +117,7 @@ class FundTiersResource extends Resource
                     ForceDeleteAction::make(),
                 ]),
             ])
-            ->description('Master Fund Balance: SAR '.number_format($masterBalance, 2));
+            ->description(__('Master Fund Balance: SAR').' '.number_format($masterBalance, 2));
     }
 
     public static function getPages(): array

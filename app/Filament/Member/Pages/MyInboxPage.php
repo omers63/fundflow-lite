@@ -52,7 +52,12 @@ class MyInboxPage extends Page implements HasTable
 
     public function getTitle(): string
     {
-        return 'My Messages';
+        return __('My Messages');
+    }
+
+    public static function getNavigationLabel(): string
+    {
+        return __('My Messages');
     }
 
     public function getHeaderActions(): array
@@ -113,38 +118,38 @@ class MyInboxPage extends Page implements HasTable
             )
             ->columns([
                 TextColumn::make('conversation')
-                    ->label('Conversation')
-                    ->state('Administration'),
+                    ->label(__('Conversation'))
+                    ->state(__('Administration')),
                 TextColumn::make('messages_received_count')
-                    ->label('Received')
+                    ->label(__('Received'))
                     ->visibleFrom('md')
                     ->badge()
                     ->color('primary'),
                 TextColumn::make('messages_sent_count')
-                    ->label('Sent')
+                    ->label(__('Sent'))
                     ->visibleFrom('md')
                     ->badge()
                     ->color('success'),
                 TextColumn::make('unread_messages_count')
-                    ->label('Unread')
+                    ->label(__('Unread'))
                     ->badge()
                     ->color('danger'),
                 TextColumn::make('last_message_at')
-                    ->label('Last Message')
+                    ->label(__('Last Message'))
                     ->visibleFrom('sm')
                     ->since()
-                    ->placeholder('No messages yet'),
+                    ->placeholder(__('No messages yet')),
             ])
             ->recordActions([
                 ActionGroup::make([
                     Action::make('communicate')
-                        ->label('Communicate')
+                        ->label(__('Communicate'))
                         ->icon('heroicon-o-chat-bubble-left-right')
                         ->color('primary')
-                        ->modalHeading('Conversation with Administration')
-                        ->modalDescription('Single communication thread with full history.')
+                        ->modalHeading(__('Conversation with Administration'))
+                        ->modalDescription(__('Single communication thread with full history.'))
                         ->modalWidth('5xl')
-                        ->modalSubmitActionLabel('Send Message')
+                        ->modalSubmitActionLabel(__('Send Message'))
                         ->modalContent(fn (Member $record) => view(
                             'filament.member.pages.partials.admin-conversation-modal',
                             [
@@ -154,12 +159,12 @@ class MyInboxPage extends Page implements HasTable
                         ))
                         ->schema([
                             Forms\Components\Textarea::make('body')
-                                ->label('Message')
+                                ->label(__('Message'))
                                 ->rows(4)
                                 ->required()
                                 ->maxLength(3000),
                             Forms\Components\FileUpload::make('attachments')
-                                ->label('Attachments')
+                                ->label(__('Attachments'))
                                 ->multiple()
                                 ->disk('public')
                                 ->directory('direct-messages')
@@ -181,8 +186,8 @@ class MyInboxPage extends Page implements HasTable
                     ->label('')
                     ->button(),
             ])
-            ->emptyStateHeading('No conversation found')
-            ->emptyStateDescription('Your member record is required to use inbox messaging.');
+            ->emptyStateHeading(__('No conversation found'))
+            ->emptyStateDescription(__('Your member record is required to use inbox messaging.'));
     }
 
     public function conversationMessages(Member $member): Collection
@@ -214,7 +219,7 @@ class MyInboxPage extends Page implements HasTable
         $body = trim($body);
         if ($body === '') {
             Notification::make()
-                ->title('Message body is required')
+                ->title(__('Message body is required'))
                 ->warning()
                 ->send();
 
@@ -237,7 +242,7 @@ class MyInboxPage extends Page implements HasTable
 
         if (! $toUserId) {
             Notification::make()
-                ->title('No admin user is available')
+                ->title(__('No admin user is available'))
                 ->danger()
                 ->send();
 
@@ -261,7 +266,7 @@ class MyInboxPage extends Page implements HasTable
             DirectMessage::create([
                 'from_user_id' => $userId,
                 'to_user_id' => $toUserId,
-                'subject' => 'Conversation with member #'.$member->member_number,
+                'subject' => __('Conversation with member #:number', ['number' => $member->member_number]),
                 'body' => $body,
                 'attachments' => $attachments,
             ]);
@@ -280,13 +285,13 @@ class MyInboxPage extends Page implements HasTable
         $recipient = User::query()->find($toUserId);
         if ($recipient) {
             Notification::make()
-                ->title('New message from member')
+                ->title(__('New message from member'))
                 ->body(auth()->user()->name.': '.mb_strimwidth($body, 0, 100, '…'))
                 ->icon('heroicon-o-chat-bubble-left-right')
                 ->iconColor('info')
                 ->sendToDatabase($recipient);
         }
 
-        Notification::make()->title('Message sent')->success()->send();
+        Notification::make()->title(__('Message sent'))->success()->send();
     }
 }

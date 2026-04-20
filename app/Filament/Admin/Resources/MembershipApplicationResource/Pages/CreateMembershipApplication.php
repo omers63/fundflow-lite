@@ -27,43 +27,43 @@ class CreateMembershipApplication extends CreateRecord
                 ->contained(false)
                 ->columnSpanFull()
                 ->tabs([
-                    Tab::make('Account')
+                    Tab::make(__('Account'))
                         ->icon('heroicon-o-user')
                         ->schema([
                             Forms\Components\TextInput::make('name')
-                                ->label('Full Name')
+                                ->label(__('Full Name'))
                                 ->required()
                                 ->maxLength(150),
                             Forms\Components\TextInput::make('email')
-                                ->label('Email (login)')
+                                ->label(__('Email (login)'))
                                 ->email()
                                 ->required()
                                 ->unique(User::class, 'email')
                                 ->maxLength(255)
-                                ->helperText('Creates a member login with pending status, same as the public apply flow.'),
+                                ->helperText(__('Creates a member login with pending status, same as the public apply flow.')),
                             Forms\Components\TextInput::make('password')
-                                ->label('Password')
+                                ->label(__('Password'))
                                 ->password()
                                 ->revealable()
                                 ->required()
                                 ->minLength(8)
                                 ->same('password_confirmation'),
                             Forms\Components\TextInput::make('password_confirmation')
-                                ->label('Confirm Password')
+                                ->label(__('Confirm Password'))
                                 ->password()
                                 ->revealable()
                                 ->required()
                                 ->dehydrated(false),
                         ])->columns(2),
 
-                    Tab::make('Details')
+                    Tab::make(__('Details'))
                         ->icon('heroicon-o-clipboard-document-list')
                         ->schema([
-                            Section::make('Profile')
+                            Section::make(__('Profile'))
                                 ->icon('heroicon-o-identification')
                                 ->schema([
                                     Forms\Components\Select::make('application_type')
-                                        ->label('Application type')
+                                        ->label(__('Application type'))
                                         ->options(MembershipApplication::applicationTypeOptions())
                                         ->required()
                                         ->default('new'),
@@ -71,70 +71,70 @@ class CreateMembershipApplication extends CreateRecord
                                         ->options(MembershipApplication::genderOptions())
                                         ->placeholder('—'),
                                     Forms\Components\Select::make('marital_status')
-                                        ->label('Marital status')
+                                        ->label(__('Marital status'))
                                         ->options(MembershipApplication::maritalStatusOptions())
                                         ->placeholder('—'),
                                     Forms\Components\DatePicker::make('membership_date')
-                                        ->label('Membership date')
+                                        ->label(__('Membership date'))
                                         ->native(false),
                                 ])->columns(2),
 
-                            Section::make('Identity & address')
+                            Section::make(__('Identity & address'))
                                 ->icon('heroicon-o-map-pin')
                                 ->schema([
                                     Forms\Components\TextInput::make('national_id')
-                                        ->label('National ID')
+                                        ->label(__('National ID'))
                                         ->required()
                                         ->maxLength(20),
                                     Forms\Components\DatePicker::make('date_of_birth')
-                                        ->label('Date of Birth')
+                                        ->label(__('Date of Birth'))
                                         ->required()
                                         ->native(false)
                                         ->maxDate(now()),
                                     Forms\Components\TextInput::make('city')
-                                        ->label('City')
+                                        ->label(__('City'))
                                         ->required()
                                         ->maxLength(100),
                                     Forms\Components\Textarea::make('address')
-                                        ->label('Address')
+                                        ->label(__('Address'))
                                         ->required()
                                         ->rows(3)
                                         ->columnSpanFull(),
                                 ])->columns(3),
 
-                            Section::make('Contact')
+                            Section::make(__('Contact'))
                                 ->icon('heroicon-o-phone')
                                 ->schema([
                                     Forms\Components\TextInput::make('mobile_phone')
-                                        ->label('Mobile phone')
+                                        ->label(__('Mobile phone'))
                                         ->tel()
                                         ->required()
                                         ->maxLength(30)
-                                        ->helperText('Used for SMS and WhatsApp; also set as the user account phone.'),
+                                        ->helperText(__('Used for SMS and WhatsApp; also set as the user account phone.')),
                                     Forms\Components\TextInput::make('home_phone')
-                                        ->label('Home phone')
+                                        ->label(__('Home phone'))
                                         ->tel()
                                         ->maxLength(30),
                                     Forms\Components\TextInput::make('work_phone')
-                                        ->label('Work phone')
+                                        ->label(__('Work phone'))
                                         ->tel()
                                         ->maxLength(30),
                                 ])->columns(3),
 
-                            Section::make('Work & residency')
+                            Section::make(__('Work & residency'))
                                 ->icon('heroicon-o-building-office')
                                 ->schema([
                                     Forms\Components\TextInput::make('work_place')
-                                        ->label('Work place')
+                                        ->label(__('Work place'))
                                         ->maxLength(255)
                                         ->columnSpanFull(),
                                     Forms\Components\TextInput::make('residency_place')
-                                        ->label('Residency place')
+                                        ->label(__('Residency place'))
                                         ->maxLength(255)
                                         ->columnSpanFull(),
                                 ]),
 
-                            Section::make('Employment')
+                            Section::make(__('Employment'))
                                 ->icon('heroicon-o-briefcase')
                                 ->schema([
                                     Forms\Components\TextInput::make('occupation')
@@ -142,40 +142,40 @@ class CreateMembershipApplication extends CreateRecord
                                     Forms\Components\TextInput::make('employer')
                                         ->maxLength(150),
                                     Forms\Components\TextInput::make('monthly_income')
-                                        ->label('Monthly Income (SAR)')
+                                        ->label(__('Monthly Income (SAR)'))
                                         ->numeric()
                                         ->prefix('SAR')
                                         ->minValue(0),
                                 ])->columns(3),
 
-                            Section::make('Banking')
+                            Section::make(__('Banking'))
                                 ->icon('heroicon-o-building-library')
                                 ->schema([
                                     Forms\Components\TextInput::make('bank_account_number')
-                                        ->label('Bank account number')
+                                        ->label(__('Bank account number'))
                                         ->maxLength(50),
                                     Forms\Components\TextInput::make('iban')
-                                        ->label('IBAN')
+                                        ->label(__('IBAN'))
                                         ->maxLength(34)
                                         ->extraInputAttributes(['dir' => 'ltr', 'class' => 'font-mono']),
                                 ])->columns(2),
 
-                            Section::make('Next of kin')
+                            Section::make(__('Next of kin'))
                                 ->icon('heroicon-o-user-group')
                                 ->schema([
                                     Forms\Components\TextInput::make('next_of_kin_name')
-                                        ->label('Name')
+                                        ->label(__('Name'))
                                         ->required()
                                         ->maxLength(150),
                                     Forms\Components\TextInput::make('next_of_kin_phone')
-                                        ->label('Phone')
+                                        ->label(__('Phone'))
                                         ->tel()
                                         ->required()
                                         ->maxLength(30),
                                 ])->columns(2),
                         ]),
 
-                    Tab::make('Form Upload')
+                    Tab::make(__('Form Upload'))
                         ->icon('heroicon-o-document-text')
                         ->schema([
                             Section::make()
@@ -184,14 +184,14 @@ class CreateMembershipApplication extends CreateRecord
                                 ])->render()))
                                 ->schema([
                                     Forms\Components\FileUpload::make('application_form_path')
-                                        ->label('Signed application form')
+                                        ->label(__('Signed application form'))
                                         ->disk('public')
                                         ->directory('membership-applications')
                                         ->downloadable()
                                         ->openable()
                                         ->acceptedFileTypes(['application/pdf', 'image/jpeg', 'image/png', 'image/webp'])
                                         ->maxSize(10240)
-                                        ->helperText('PDF or image, max 10 MB. Optional if you will add it later from edit.'),
+                                        ->helperText(__('PDF or image, max 10 MB. Optional if you will add it later from edit.')),
                                 ]),
                         ]),
                 ]),
@@ -247,8 +247,8 @@ class CreateMembershipApplication extends CreateRecord
         $record = $this->getRecord();
 
         return Notification::make()
-            ->title('Application created')
-            ->body("Pending application for {$record->user->name} has been created.")
+            ->title(__('Application created'))
+            ->body(__('Pending application for :name has been created.', ['name' => $record->user->name]))
             ->success();
     }
 

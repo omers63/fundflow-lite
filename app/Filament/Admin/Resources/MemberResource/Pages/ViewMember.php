@@ -17,7 +17,7 @@ class ViewMember extends ViewRecord
 
     public function getSubheading(): ?string
     {
-        return 'Full member profile — financial standing, activity, and history.';
+        return __('Full member profile — financial standing, activity, and history.');
     }
 
     protected function getHeaderWidgets(): array

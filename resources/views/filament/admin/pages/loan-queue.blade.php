@@ -14,15 +14,15 @@
     {{-- ── Hero summary bar ── --}}
     <div class="grid grid-cols-2 gap-4 sm:grid-cols-4">
         <div class="rounded-2xl border border-amber-200 bg-amber-50 p-5 shadow-sm dark:border-amber-500/30 dark:bg-amber-500/10">
-            <p class="text-xs font-semibold uppercase tracking-widest text-amber-700 dark:text-amber-400">Pending requests</p>
+            <p class="text-xs font-semibold uppercase tracking-widest text-amber-700 dark:text-amber-400">{{ __('Pending requests') }}</p>
             <p class="mt-2 text-4xl font-extrabold tabular-nums text-amber-700 dark:text-amber-300">{{ $totalPending }}</p>
         </div>
         <div class="rounded-2xl border border-sky-200 bg-sky-50 p-5 shadow-sm dark:border-sky-500/30 dark:bg-sky-500/10">
-            <p class="text-xs font-semibold uppercase tracking-widest text-sky-700 dark:text-sky-400">In-tier queue</p>
+            <p class="text-xs font-semibold uppercase tracking-widest text-sky-700 dark:text-sky-400">{{ __('In-tier queue') }}</p>
             <p class="mt-2 text-4xl font-extrabold tabular-nums text-sky-700 dark:text-sky-300">{{ $totalQueued }}</p>
         </div>
         <div class="col-span-2 rounded-2xl border border-gray-200 bg-white p-5 shadow-sm dark:border-white/10 dark:bg-white/5">
-            <p class="text-xs font-semibold uppercase tracking-widest text-gray-400 dark:text-white/40">Active fund tiers</p>
+            <p class="text-xs font-semibold uppercase tracking-widest text-gray-400 dark:text-white/40">{{ __('Active fund tiers') }}</p>
             <p class="mt-2 text-4xl font-extrabold tabular-nums text-gray-900 dark:text-white">{{ $fundTiers->count() }}</p>
         </div>
     </div>
@@ -43,13 +43,13 @@
                     </svg>
                 </div>
                 <div>
-                    <h2 class="text-base font-bold text-gray-900 dark:text-white">Incoming Requests</h2>
-                    <p class="text-xs text-gray-500 dark:text-gray-400">Loan applications awaiting review or final disbursement completion</p>
+                    <h2 class="text-base font-bold text-gray-900 dark:text-white">{{ __('Incoming Requests') }}</h2>
+                    <p class="text-xs text-gray-500 dark:text-gray-400">{{ __('Loan applications awaiting review or final disbursement completion') }}</p>
                 </div>
             </div>
             @if($totalPending > 0)
                 <span class="inline-flex items-center rounded-full bg-amber-100 px-3 py-1 text-sm font-semibold text-amber-800 dark:bg-amber-500/20 dark:text-amber-300">
-                    {{ $totalPending }} incoming
+                    {{ __(':count incoming', ['count' => $totalPending]) }}
                 </span>
             @endif
         </div>
@@ -62,8 +62,8 @@
                     </svg>
                 </div>
                 <div>
-                    <p class="text-sm font-semibold text-gray-700 dark:text-gray-300">No pending applications</p>
-                    <p class="mt-0.5 text-sm text-gray-400 dark:text-gray-500">All loan requests have been reviewed.</p>
+                    <p class="text-sm font-semibold text-gray-700 dark:text-gray-300">{{ __('No pending applications') }}</p>
+                    <p class="mt-0.5 text-sm text-gray-400 dark:text-gray-500">{{ __('All loan requests have been reviewed.') }}</p>
                 </div>
             </div>
         @else
@@ -72,13 +72,13 @@
                     <thead>
                         <tr class="border-b border-gray-100 dark:border-white/5">
                             <th class="px-4 py-3 text-left text-xs font-semibold uppercase tracking-wide text-gray-400 dark:text-white/40">#</th>
-                            <th class="px-4 py-3 text-left text-xs font-semibold uppercase tracking-wide text-gray-400 dark:text-white/40">Member</th>
-                            <th class="px-4 py-3 text-left text-xs font-semibold uppercase tracking-wide text-gray-400 dark:text-white/40">Purpose</th>
-                            <th class="px-4 py-3 text-right text-xs font-semibold uppercase tracking-wide text-gray-400 dark:text-white/40">Requested</th>
-                            <th class="px-4 py-3 text-left text-xs font-semibold uppercase tracking-wide text-gray-400 dark:text-white/40">Loan / Fund Tier</th>
-                            <th class="px-4 py-3 text-left text-xs font-semibold uppercase tracking-wide text-gray-400 dark:text-white/40">Emergency</th>
-                            <th class="px-4 py-3 text-left text-xs font-semibold uppercase tracking-wide text-gray-400 dark:text-white/40">Disbursement</th>
-                            <th class="px-4 py-3 text-left text-xs font-semibold uppercase tracking-wide text-gray-400 dark:text-white/40">Applied</th>
+                            <th class="px-4 py-3 text-left text-xs font-semibold uppercase tracking-wide text-gray-400 dark:text-white/40">{{ __('Member') }}</th>
+                            <th class="px-4 py-3 text-left text-xs font-semibold uppercase tracking-wide text-gray-400 dark:text-white/40">{{ __('Purpose') }}</th>
+                            <th class="px-4 py-3 text-right text-xs font-semibold uppercase tracking-wide text-gray-400 dark:text-white/40">{{ __('Requested') }}</th>
+                            <th class="px-4 py-3 text-left text-xs font-semibold uppercase tracking-wide text-gray-400 dark:text-white/40">{{ __('Loan / Fund Tier') }}</th>
+                            <th class="px-4 py-3 text-left text-xs font-semibold uppercase tracking-wide text-gray-400 dark:text-white/40">{{ __('Emergency') }}</th>
+                            <th class="px-4 py-3 text-left text-xs font-semibold uppercase tracking-wide text-gray-400 dark:text-white/40">{{ __('Disbursement') }}</th>
+                            <th class="px-4 py-3 text-left text-xs font-semibold uppercase tracking-wide text-gray-400 dark:text-white/40">{{ __('Applied') }}</th>
                             <th class="px-4 py-3"></th>
                         </tr>
                     </thead>
@@ -111,17 +111,17 @@
                                 </td>
                                 <td class="px-4 py-3.5 text-right">
                                     <span class="font-mono font-semibold tabular-nums text-gray-900 dark:text-white">
-                                        SAR {{ number_format($loan->amount_requested, 0) }}
+                                        {{ __('SAR') }} {{ number_format($loan->amount_requested, 0) }}
                                     </span>
                                 </td>
                                 <td class="px-4 py-3.5">
                                     @if($displayLoanTier)
                                         <p class="text-xs font-semibold text-gray-700 dark:text-gray-200">{{ $displayLoanTier->label }}</p>
                                         <p class="text-xs text-gray-400 dark:text-white/40">
-                                            {{ $displayFundTier ? $displayFundTier->label : '⚠ No fund tier' }}
+                                            {{ $displayFundTier ? $displayFundTier->label : __('⚠ No fund tier') }}
                                         </p>
                                     @else
-                                        <span class="text-xs text-red-500 dark:text-red-400 font-medium">⚠ Out of tier range</span>
+                                        <span class="text-xs text-red-500 dark:text-red-400 font-medium">{{ __('⚠ Out of tier range') }}</span>
                                     @endif
                                 </td>
                                 <td class="px-4 py-3.5">
@@ -130,7 +130,7 @@
                                             <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 20 20" fill="currentColor" class="h-3 w-3">
                                                 <path d="M11.983 1.907a.75.75 0 0 0-1.292-.657l-8.5 9.5A.75.75 0 0 0 2.75 12h6.572l-1.305 6.093a.75.75 0 0 0 1.292.657l8.5-9.5A.75.75 0 0 0 17.25 8h-6.572l1.305-6.093Z" />
                                             </svg>
-                                            Emergency
+                                            {{ __('Emergency') }}
                                         </span>
                                     @else
                                         <span class="text-xs text-gray-300 dark:text-white/20">—</span>
@@ -138,7 +138,7 @@
                                 </td>
                                 <td class="px-4 py-3.5">
                                     @if($approved <= 0)
-                                        <span class="text-xs text-gray-400 dark:text-white/40">Pending</span>
+                                        <span class="text-xs text-gray-400 dark:text-white/40">{{ __('Pending') }}</span>
                                     @else
                                         <div class="flex flex-col gap-1">
                                             <div class="flex items-center gap-2">
@@ -148,7 +148,7 @@
                                                 <span class="text-xs {{ $disbursementPct >= 100 ? 'text-emerald-600 dark:text-emerald-400' : 'text-amber-600 dark:text-amber-400' }} font-semibold whitespace-nowrap">{{ $disbursementPct }}%</span>
                                             </div>
                                             <span class="text-xs text-gray-400 dark:text-white/40 whitespace-nowrap tabular-nums">
-                                                SAR {{ number_format($disbursed, 0) }} / {{ number_format($approved, 0) }}
+                                                {{ __('SAR') }} {{ number_format($disbursed, 0) }} / {{ number_format($approved, 0) }}
                                             </span>
                                         </div>
                                     @endif
@@ -160,7 +160,7 @@
                                     @if($loanUrl)
                                         <a href="{{ $loanUrl }}"
                                            class="inline-flex items-center gap-1 rounded-lg border border-gray-200 bg-white px-3 py-1.5 text-xs font-semibold text-gray-600 shadow-sm transition-colors hover:border-primary-300 hover:bg-primary-50 hover:text-primary-700 dark:border-white/10 dark:bg-white/5 dark:text-gray-300 dark:hover:border-primary-500/40 dark:hover:bg-primary-500/10 dark:hover:text-primary-300">
-                                            Review
+                                            {{ __('Review') }}
                                             <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 16 16" fill="currentColor" class="h-3 w-3">
                                                 <path fill-rule="evenodd" d="M6.22 4.22a.75.75 0 0 1 1.06 0l3.25 3.25a.75.75 0 0 1 0 1.06l-3.25 3.25a.75.75 0 0 1-1.06-1.06L8.94 8 6.22 5.28a.75.75 0 0 1 0-1.06Z" clip-rule="evenodd" />
                                             </svg>
@@ -202,33 +202,33 @@
                                 <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 20 20" fill="currentColor" class="h-3 w-3">
                                     <path d="M11.983 1.907a.75.75 0 0 0-1.292-.657l-8.5 9.5A.75.75 0 0 0 2.75 12h6.572l-1.305 6.093a.75.75 0 0 0 1.292.657l8.5-9.5A.75.75 0 0 0 17.25 8h-6.572l1.305-6.093Z" />
                                 </svg>
-                                Emergency
+                                {{ __('Emergency') }}
                             </span>
                         @endif
 
                         @if($queue->count() > 0)
                             <span class="inline-flex items-center rounded-full bg-primary-100 px-2.5 py-0.5 text-xs font-semibold text-primary-800 dark:bg-primary-500/20 dark:text-primary-300">
-                                {{ $queue->count() }} in queue
+                                {{ __(':count in queue', ['count' => $queue->count()]) }}
                             </span>
                         @endif
                     </div>
                     <p class="mt-1 text-sm text-gray-500 dark:text-gray-400">
-                        {{ $ft->percentage }}% of master fund
+                        {{ __(':percent% of master fund', ['percent' => $ft->percentage]) }}
                     </p>
                 </div>
 
                 {{-- Availability stats --}}
                 <div class="flex shrink-0 items-center gap-6 text-right">
                     <div>
-                        <p class="text-xs font-medium text-gray-400 dark:text-white/40">Available</p>
+                        <p class="text-xs font-medium text-gray-400 dark:text-white/40">{{ __('Available') }}</p>
                         <p class="mt-0.5 text-sm font-bold text-emerald-600 dark:text-emerald-400">
-                            SAR {{ number_format($available, 0) }}
+                            {{ __('SAR') }} {{ number_format($available, 0) }}
                         </p>
                     </div>
                     <div>
-                        <p class="text-xs font-medium text-gray-400 dark:text-white/40">Active exposure</p>
+                        <p class="text-xs font-medium text-gray-400 dark:text-white/40">{{ __('Active exposure') }}</p>
                         <p class="mt-0.5 text-sm font-bold text-gray-700 dark:text-gray-200">
-                            SAR {{ number_format($exposure, 0) }}
+                            {{ __('SAR') }} {{ number_format($exposure, 0) }}
                         </p>
                     </div>
                 </div>
@@ -251,8 +251,8 @@
                         </svg>
                     </div>
                     <div>
-                        <p class="text-sm font-semibold text-gray-700 dark:text-gray-300">Queue is clear</p>
-                        <p class="mt-0.5 text-sm text-gray-400 dark:text-gray-500">No approved or active loans in this tier.</p>
+                        <p class="text-sm font-semibold text-gray-700 dark:text-gray-300">{{ __('Queue is clear') }}</p>
+                        <p class="mt-0.5 text-sm text-gray-400 dark:text-gray-500">{{ __('No approved or active loans in this tier.') }}</p>
                     </div>
                 </div>
             @else
@@ -260,14 +260,14 @@
                     <table class="w-full min-w-[48rem] text-sm">
                         <thead>
                             <tr class="border-b border-gray-100 dark:border-white/5">
-                                <th class="px-4 py-3 text-left text-xs font-semibold uppercase tracking-wide text-gray-400 dark:text-white/40">Pos.</th>
-                                <th class="px-4 py-3 text-left text-xs font-semibold uppercase tracking-wide text-gray-400 dark:text-white/40">Member</th>
-                                <th class="px-4 py-3 text-left text-xs font-semibold uppercase tracking-wide text-gray-400 dark:text-white/40">Purpose</th>
-                                <th class="px-4 py-3 text-left text-xs font-semibold uppercase tracking-wide text-gray-400 dark:text-white/40">Loan tier</th>
-                                <th class="px-4 py-3 text-right text-xs font-semibold uppercase tracking-wide text-gray-400 dark:text-white/40">Amount</th>
-                                <th class="px-4 py-3 text-left text-xs font-semibold uppercase tracking-wide text-gray-400 dark:text-white/40">Disbursement</th>
-                                <th class="px-4 py-3 text-left text-xs font-semibold uppercase tracking-wide text-gray-400 dark:text-white/40">Status</th>
-                                <th class="px-4 py-3 text-left text-xs font-semibold uppercase tracking-wide text-gray-400 dark:text-white/40">Applied</th>
+                                <th class="px-4 py-3 text-left text-xs font-semibold uppercase tracking-wide text-gray-400 dark:text-white/40">{{ __('Pos.') }}</th>
+                                <th class="px-4 py-3 text-left text-xs font-semibold uppercase tracking-wide text-gray-400 dark:text-white/40">{{ __('Member') }}</th>
+                                <th class="px-4 py-3 text-left text-xs font-semibold uppercase tracking-wide text-gray-400 dark:text-white/40">{{ __('Purpose') }}</th>
+                                <th class="px-4 py-3 text-left text-xs font-semibold uppercase tracking-wide text-gray-400 dark:text-white/40">{{ __('Loan tier') }}</th>
+                                <th class="px-4 py-3 text-right text-xs font-semibold uppercase tracking-wide text-gray-400 dark:text-white/40">{{ __('Amount') }}</th>
+                                <th class="px-4 py-3 text-left text-xs font-semibold uppercase tracking-wide text-gray-400 dark:text-white/40">{{ __('Disbursement') }}</th>
+                                <th class="px-4 py-3 text-left text-xs font-semibold uppercase tracking-wide text-gray-400 dark:text-white/40">{{ __('Status') }}</th>
+                                <th class="px-4 py-3 text-left text-xs font-semibold uppercase tracking-wide text-gray-400 dark:text-white/40">{{ __('Applied') }}</th>
                                 <th class="px-4 py-3"></th>
                             </tr>
                         </thead>
@@ -292,7 +292,7 @@
                                     </td>
                                     <td class="px-4 py-3.5 text-right">
                                         <span class="font-mono font-semibold tabular-nums text-gray-900 dark:text-white">
-                                            SAR {{ number_format($loan->amount_approved ?? $loan->amount_requested, 0) }}
+                                            {{ __('SAR') }} {{ number_format($loan->amount_approved ?? $loan->amount_requested, 0) }}
                                         </span>
                                     </td>
                                     {{-- Disbursement progress --}}
@@ -308,7 +308,7 @@
                                                 <div class="h-1.5 w-24 overflow-hidden rounded-full bg-gray-100 dark:bg-white/10">
                                                     <div class="h-full rounded-full bg-emerald-500" style="width: 100%"></div>
                                                 </div>
-                                                <span class="text-xs text-emerald-600 dark:text-emerald-400 font-semibold whitespace-nowrap">Full</span>
+                                                <span class="text-xs text-emerald-600 dark:text-emerald-400 font-semibold whitespace-nowrap">{{ __('Full') }}</span>
                                             </div>
                                         @elseif($isPartial)
                                             <div class="flex flex-col gap-1">
@@ -319,23 +319,23 @@
                                                     <span class="text-xs text-amber-600 dark:text-amber-400 font-semibold whitespace-nowrap">{{ $pct }}%</span>
                                                 </div>
                                                 <span class="text-xs text-gray-400 dark:text-white/40 whitespace-nowrap tabular-nums">
-                                                    SAR {{ number_format($disbursed, 0) }} / {{ number_format($approved, 0) }}
+                                                    {{ __('SAR') }} {{ number_format($disbursed, 0) }} / {{ number_format($approved, 0) }}
                                                 </span>
                                             </div>
                                         @else
-                                            <span class="text-xs text-gray-400 dark:text-white/40">Pending</span>
+                                            <span class="text-xs text-gray-400 dark:text-white/40">{{ __('Pending') }}</span>
                                         @endif
                                     </td>
                                     <td class="px-4 py-3.5">
                                         @if($loan->status === 'approved')
                                             <span class="inline-flex items-center gap-1 rounded-full bg-sky-100 px-2.5 py-1 text-xs font-semibold text-sky-800 dark:bg-sky-500/20 dark:text-sky-300">
                                                 <span class="h-1.5 w-1.5 rounded-full bg-sky-500"></span>
-                                                Approved
+                                                {{ __('Approved') }}
                                             </span>
                                         @elseif($loan->status === 'active')
                                             <span class="inline-flex items-center gap-1 rounded-full bg-emerald-100 px-2.5 py-1 text-xs font-semibold text-emerald-800 dark:bg-emerald-500/20 dark:text-emerald-300">
                                                 <span class="h-1.5 w-1.5 animate-pulse rounded-full bg-emerald-500"></span>
-                                                Active
+                                                {{ __('Active') }}
                                             </span>
                                         @else
                                             <span class="inline-flex items-center gap-1 rounded-full bg-amber-100 px-2.5 py-1 text-xs font-semibold text-amber-800 dark:bg-amber-500/20 dark:text-amber-300">
@@ -351,7 +351,7 @@
                                         @if($loanUrl)
                                             <a href="{{ $loanUrl }}"
                                                class="inline-flex items-center gap-1 rounded-lg border border-gray-200 bg-white px-3 py-1.5 text-xs font-semibold text-gray-600 shadow-sm transition-colors hover:border-primary-300 hover:bg-primary-50 hover:text-primary-700 dark:border-white/10 dark:bg-white/5 dark:text-gray-300 dark:hover:border-primary-500/40 dark:hover:bg-primary-500/10 dark:hover:text-primary-300">
-                                                View
+                                                {{ __('View') }}
                                                 <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 16 16" fill="currentColor" class="h-3 w-3">
                                                     <path fill-rule="evenodd" d="M6.22 4.22a.75.75 0 0 1 1.06 0l3.25 3.25a.75.75 0 0 1 0 1.06l-3.25 3.25a.75.75 0 0 1-1.06-1.06L8.94 8 6.22 5.28a.75.75 0 0 1 0-1.06Z" clip-rule="evenodd" />
                                                 </svg>
@@ -374,9 +374,9 @@
                 </svg>
             </div>
             <div>
-                <p class="text-base font-semibold text-gray-700 dark:text-gray-300">No active fund tiers configured</p>
+                <p class="text-base font-semibold text-gray-700 dark:text-gray-300">{{ __('No active fund tiers configured') }}</p>
                 <p class="mt-1 max-w-sm text-sm text-gray-400 dark:text-gray-500">
-                    Configure fund tiers in settings before loans can be queued and disbursed.
+                    {{ __('Configure fund tiers in settings before loans can be queued and disbursed.') }}
                 </p>
             </div>
         </div>

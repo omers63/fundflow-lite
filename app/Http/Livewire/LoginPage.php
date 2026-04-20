@@ -27,25 +27,25 @@ class LoginPage extends Component
         $user = \App\Models\User::where('email', $this->email)->first();
 
         if (! $user) {
-            $this->addError('email', 'No account found with this email address.');
+            $this->addError('email', __('No account found with this email address.'));
             return;
         }
 
         if ($user->status === 'pending') {
             $this->statusType = 'pending';
-            $this->statusMessage = 'Your membership application is currently under review. You will be notified once it is processed.';
+            $this->statusMessage = __('Your membership application is currently under review. You will be notified once it is processed.');
             return;
         }
 
         if ($user->status === 'rejected') {
             $this->statusType = 'rejected';
-            $this->statusMessage = 'Your membership application was not approved.';
+            $this->statusMessage = __('Your membership application was not approved.');
             $this->rejectionReason = $user->membershipApplication?->rejection_reason;
             return;
         }
 
         if (! Auth::attempt(['email' => $this->email, 'password' => $this->password], $this->remember)) {
-            $this->addError('password', 'The provided credentials are incorrect.');
+            $this->addError('password', __('The provided credentials are incorrect.'));
             return;
         }
 
@@ -60,6 +60,6 @@ class LoginPage extends Component
     public function render()
     {
         return view('livewire.login-page')
-            ->layout('layouts.public', ['title' => 'Sign In']);
+            ->layout('layouts.public', ['title' => __('Sign In')]);
     }
 }

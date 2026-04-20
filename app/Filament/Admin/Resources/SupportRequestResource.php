@@ -32,6 +32,11 @@ class SupportRequestResource extends Resource
 
     protected static ?int $navigationSort = 6;
 
+    public static function getNavigationLabel(): string
+    {
+        return __('Support');
+    }
+
     public static function getNavigationGroup(): ?string
     {
         return __('app.nav.group.membership');
@@ -55,31 +60,31 @@ class SupportRequestResource extends Resource
             )
             ->columns([
                 Tables\Columns\TextColumn::make('id')
-                    ->label('ID')
+                    ->label(__('ID'))
                     ->sortable(),
                 Tables\Columns\TextColumn::make('member.member_number')
-                    ->label('Member #')
+                    ->label(__('Member #'))
                     ->placeholder('—')
                     ->sortable(),
                 Tables\Columns\TextColumn::make('user.name')
-                    ->label('Submitted by')
+                    ->label(__('Submitted by'))
                     ->searchable()
                     ->sortable(),
                 Tables\Columns\TextColumn::make('category')
-                    ->label('Category')
+                    ->label(__('Category'))
                     ->badge()
                     ->formatStateUsing(fn (string $state): string => SupportRequest::categoryLabel($state)),
                 Tables\Columns\TextColumn::make('subject')
-                    ->label('Subject')
+                    ->label(__('Subject'))
                     ->searchable()
                     ->wrap(),
                 Tables\Columns\TextColumn::make('message')
-                    ->label('Message')
+                    ->label(__('Message'))
                     ->limit(60)
                     ->tooltip(fn (SupportRequest $record): string => $record->message)
                     ->wrap(),
                 Tables\Columns\TextColumn::make('created_at')
-                    ->label('Submitted')
+                    ->label(__('Submitted'))
                     ->dateTime('d M Y H:i')
                     ->sortable(),
             ])
@@ -91,12 +96,12 @@ class SupportRequestResource extends Resource
             ->recordActions([
                 ActionGroup::make([
                     Action::make('view_message')
-                        ->label('View')
+                        ->label(__('View'))
                         ->icon('heroicon-o-eye')
                         ->color('gray')
-                        ->modalHeading(fn (SupportRequest $record): string => 'Support request #'.$record->id)
+                        ->modalHeading(fn (SupportRequest $record): string => __('Support request #:id', ['id' => $record->id]))
                         ->modalSubmitAction(false)
-                        ->modalCancelActionLabel('Close')
+                        ->modalCancelActionLabel(__('Close'))
                         ->modalContent(fn (SupportRequest $record): View => view(
                             'filament.admin.components.support-request-detail',
                             ['record' => $record],

@@ -23,7 +23,7 @@ class EditMember extends EditRecord
 
     public function getSubheading(): ?string
     {
-        return 'Edit member details — changes are saved together with their linked user and application records.';
+        return __('Edit member details — changes are saved together with their linked user and application records.');
     }
 
     protected function getHeaderWidgets(): array

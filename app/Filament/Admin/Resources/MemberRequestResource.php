@@ -38,6 +38,11 @@ class MemberRequestResource extends Resource
 
     protected static ?int $navigationSort = 5;
 
+    public static function getNavigationLabel(): string
+    {
+        return __('Requests');
+    }
+
     public static function getNavigationGroup(): ?string
     {
         return __('app.nav.group.membership');
@@ -73,18 +78,18 @@ class MemberRequestResource extends Resource
             )
             ->columns([
                 Tables\Columns\TextColumn::make('requester.member_number')
-                    ->label('Member #')
+                    ->label(__('Member #'))
                     ->sortable(),
                 Tables\Columns\TextColumn::make('requester.user.name')
-                    ->label('Member')
+                    ->label(__('Member'))
                     ->searchable()
                     ->sortable(),
                 Tables\Columns\TextColumn::make('type')
-                    ->label('Type')
+                    ->label(__('Type'))
                     ->badge()
                     ->formatStateUsing(fn (string $state): string => MemberRequest::typeLabel($state)),
                 Tables\Columns\TextColumn::make('details_display')
-                    ->label('Details')
+                    ->label(__('Details'))
                     ->getStateUsing(fn (MemberRequest $record): string => $record->describePayload())
                     ->wrap()
                     ->limit(80),
@@ -98,11 +103,11 @@ class MemberRequestResource extends Resource
                         default => 'gray',
                     }),
                 Tables\Columns\TextColumn::make('created_at')
-                    ->label('Submitted')
+                    ->label(__('Submitted'))
                     ->dateTime('d M Y H:i')
                     ->sortable(),
                 Tables\Columns\TextColumn::make('reviewedBy.name')
-                    ->label('Reviewed by')
+                    ->label(__('Reviewed by'))
                     ->placeholder('—')
                     ->toggleable(isToggledHiddenByDefault: true),
                 Tables\Columns\TextColumn::make('reviewed_at')
@@ -113,10 +118,10 @@ class MemberRequestResource extends Resource
             ->filters([
                 Tables\Filters\SelectFilter::make('status')
                     ->options([
-                        MemberRequest::STATUS_PENDING => 'Pending',
-                        MemberRequest::STATUS_APPROVED => 'Approved',
-                        MemberRequest::STATUS_REJECTED => 'Rejected',
-                        MemberRequest::STATUS_CANCELLED => 'Cancelled',
+                        MemberRequest::STATUS_PENDING => __('Pending'),
+                        MemberRequest::STATUS_APPROVED => __('Approved'),
+                        MemberRequest::STATUS_REJECTED => __('Rejected'),
+                        MemberRequest::STATUS_CANCELLED => __('Cancelled'),
                     ]),
                 Tables\Filters\SelectFilter::make('type')
                     ->options([
@@ -131,44 +136,44 @@ class MemberRequestResource extends Resource
             ->recordActions([
                 ActionGroup::make([
                     Action::make('view_payload')
-                        ->label('Details')
+                        ->label(__('Details'))
                         ->icon('heroicon-o-eye')
                         ->color('gray')
-                        ->modalHeading('Request payload')
+                        ->modalHeading(__('Request payload'))
                         ->modalSubmitAction(false)
-                        ->modalCancelActionLabel('Close')
+                        ->modalCancelActionLabel(__('Close'))
                         ->modalContent(fn (MemberRequest $record): View => view(
                             'filament.admin.components.member-request-payload',
                             ['record' => $record],
                         )),
                     Action::make('approve')
-                        ->label('Approve')
+                        ->label(__('Approve'))
                         ->icon('heroicon-o-check-circle')
                         ->color('success')
                         ->visible(fn (MemberRequest $record): bool => $record->isPending())
                         ->requiresConfirmation()
-                        ->modalHeading('Approve this request?')
-                        ->modalDescription('The change will be applied immediately for supported request types.')
+                        ->modalHeading(__('Approve this request?'))
+                        ->modalDescription(__('The change will be applied immediately for supported request types.'))
                         ->action(function (MemberRequest $record): void {
                             try {
                                 app(MemberRequestService::class)->approve($record, auth()->user());
-                                Notification::make()->title('Request approved')->success()->send();
+                                Notification::make()->title(__('Request approved'))->success()->send();
                             } catch (ValidationException $e) {
                                 Notification::make()
-                                    ->title('Cannot approve')
+                                    ->title(__('Cannot approve'))
                                     ->body(collect($e->errors())->flatten()->first() ?? $e->getMessage())
                                     ->danger()
                                     ->send();
                             }
                         }),
                     Action::make('reject')
-                        ->label('Reject')
+                        ->label(__('Reject'))
                         ->icon('heroicon-o-x-circle')
                         ->color('danger')
                         ->visible(fn (MemberRequest $record): bool => $record->isPending())
                         ->schema([
                             Forms\Components\Textarea::make('admin_note')
-                                ->label('Note to member (optional)')
+                                ->label(__('Note to member (optional)'))
                                 ->rows(3)
                                 ->maxLength(2000),
                         ])
@@ -178,7 +183,7 @@ class MemberRequestResource extends Resource
                                 auth()->user(),
                                 $data['admin_note'] ?? null,
                             );
-                            Notification::make()->title('Request rejected')->success()->send();
+                            Notification::make()->title(__('Request rejected'))->success()->send();
                         }),
                     DeleteAction::make(),
                 ]),
@@ -186,12 +191,12 @@ class MemberRequestResource extends Resource
             ->toolbarActions([
                 BulkActionGroup::make([
                     BulkAction::make('approve_selected')
-                        ->label('Approve selected')
+                        ->label(__('Approve selected'))
                         ->icon('heroicon-o-check-circle')
                         ->color('success')
                         ->requiresConfirmation()
-                        ->modalHeading('Approve selected requests')
-                        ->modalDescription('Only rows that are still pending are processed; each is approved like the row action (ledger changes apply where supported). Other rows are skipped.')
+                        ->modalHeading(__('Approve selected requests'))
+                        ->modalDescription(__('Only rows that are still pending are processed; each is approved like the row action (ledger changes apply where supported). Other rows are skipped.'))
                         ->authorizeIndividualRecords('update')
                         ->action(function (EloquentCollection $records): void {
                             $service = app(MemberRequestService::class);
@@ -214,27 +219,27 @@ class MemberRequestResource extends Resource
                                 }
                             }
 
-                            $body = "Approved: {$approved}. Failed: {$failed}. Skipped (not pending): {$skipped}.";
+                            $body = __('Approved').": {$approved}. ".__('Failed').": {$failed}. ".__('Skipped (not pending)').": {$skipped}.";
 
                             Notification::make()
-                                ->title('Bulk approve finished')
+                                ->title(__('Bulk approve finished'))
                                 ->body($body)
                                 ->color($failed > 0 ? 'warning' : 'success')
                                 ->send();
                         })
                         ->deselectRecordsAfterCompletion(),
                     BulkAction::make('reject_selected')
-                        ->label('Reject selected')
+                        ->label(__('Reject selected'))
                         ->icon('heroicon-o-x-circle')
                         ->color('danger')
                         ->schema([
                             Forms\Components\Textarea::make('admin_note')
-                                ->label('Note to members (optional)')
+                                ->label(__('Note to members (optional)'))
                                 ->rows(3)
                                 ->maxLength(2000),
                         ])
-                        ->modalHeading('Reject selected requests')
-                        ->modalDescription('The note below is stored on each selected row that is still pending. Other rows are skipped.')
+                        ->modalHeading(__('Reject selected requests'))
+                        ->modalDescription(__('The note below is stored on each selected row that is still pending. Other rows are skipped.'))
                         ->authorizeIndividualRecords('update')
                         ->action(function (EloquentCollection $records, array $data): void {
                             $service = app(MemberRequestService::class);
@@ -258,10 +263,10 @@ class MemberRequestResource extends Resource
                                 }
                             }
 
-                            $body = "Rejected: {$rejected}. Failed: {$failed}. Skipped (not pending): {$skipped}.";
+                            $body = __('Rejected').": {$rejected}. ".__('Failed').": {$failed}. ".__('Skipped (not pending)').": {$skipped}.";
 
                             Notification::make()
-                                ->title('Bulk reject finished')
+                                ->title(__('Bulk reject finished'))
                                 ->body($body)
                                 ->color($failed > 0 ? 'danger' : 'warning')
                                 ->send();

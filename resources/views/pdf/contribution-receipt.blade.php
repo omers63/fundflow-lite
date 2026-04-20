@@ -29,7 +29,7 @@
 </head>
 <body>
     <div class="header">
-        <h1>FundFlow — Contribution Receipt</h1>
+        <h1>{{ app()->getLocale() === 'ar' ? 'فندفلو' : 'FundFlow' }} — Contribution Receipt</h1>
         <p>Official receipt for monthly fund contribution</p>
     </div>
 
@@ -79,7 +79,7 @@
             @if($contribution->late_fee_amount && (float) $contribution->late_fee_amount > 0)
             <div class="row">
                 <span class="label">Late Fee</span>
-                <span class="value" style="color: #b45309;">SAR {{ number_format((float) $contribution->late_fee_amount, 2) }}</span>
+                <span class="value" style="color: #b45309;">{{ __('SAR') }} {{ number_format((float) $contribution->late_fee_amount, 2) }}</span>
             </div>
             @endif
             <div class="row">
@@ -90,21 +90,21 @@
             {{-- Amount highlight --}}
             <div class="amount-row">
                 <div class="amount-label">Contribution Amount</div>
-                <div class="amount-value">SAR {{ number_format((float) $contribution->amount, 2) }}</div>
+                <div class="amount-value">{{ __('SAR') }} {{ number_format((float) $contribution->amount, 2) }}</div>
             </div>
         </div>
 
         <div class="watermark">✓ PAID</div>
 
         <p style="font-size: 11px; color: #64748b; text-align: center; margin-top: 8px;">
-            This receipt confirms that the above contribution has been recorded in the FundFlow system.
+            This receipt confirms that the above contribution has been recorded in the {{ app()->getLocale() === 'ar' ? 'فندفلو' : 'FundFlow' }} system.
             Please retain this document for your records.
         </p>
 
     </div>
 
     <div class="footer">
-        <p>Generated on {{ now()->format('d F Y \a\t H:i') }} &nbsp;|&nbsp; FundFlow Fund Management System</p>
+        <p>Generated on {{ now()->format('d F Y \a\t H:i') }} &nbsp;|&nbsp; {{ app()->getLocale() === 'ar' ? 'فندفلو' : 'FundFlow' }} Fund Management System</p>
         <p>This is a computer-generated document. No signature is required.</p>
     </div>
 </body>

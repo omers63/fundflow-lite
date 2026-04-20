@@ -4,7 +4,7 @@ return [
 
     /*
     |--------------------------------------------------------------------------
-    | تطبيق FundFlow — ترجمات الواجهة (العربية الفصحى المعاصرة)
+    | تطبيق فندفلو — ترجمات الواجهة (العربية الفصحى المعاصرة)
     |--------------------------------------------------------------------------
     */
 
@@ -17,6 +17,7 @@ return [
     'nav.group.my_finance' => 'ماليتي',
     'nav.group.loans' => 'قروضي',
     'nav.group.account' => 'حسابي',
+    'nav.system_roles' => 'أدوار النظام',
 
     // الموارد (أسماء الجداول/القوائم)
     'resource.member' => 'عضو',
@@ -83,6 +84,23 @@ return [
     'action.reject_loan' => 'رفض القرض',
     'action.apply_loan' => 'طلب قرض',
     'action.generate' => 'توليد كشوف الشهر الحالي',
+    'action.new' => 'جديد',
+    'action.create' => 'إنشاء',
+    'action.save' => 'حفظ',
+    'action.cancel' => 'إلغاء',
+    'action.close' => 'إغلاق',
+    'action.import' => 'استيراد',
+    'action.export' => 'تصدير',
+    'action.download' => 'تنزيل',
+    'action.send' => 'إرسال',
+    'action.generate_send' => 'توليد + إرسال',
+    'action.generate_for_period' => 'توليد لفترة محددة',
+    'action.new_statement' => 'كشف جديد',
+    'action.new_loan' => 'قرض جديد',
+    'action.import_loans' => 'استيراد القروض',
+    'action.export_loans' => 'تصدير القروض',
+    'action.import_contributions' => 'استيراد المساهمات',
+    'action.export_contributions' => 'تصدير المساهمات',
 
     // طرق الدفع
     'payment.cash' => 'نقدًا',
@@ -100,8 +118,111 @@ return [
     'widget.pending_loan' => 'قرض قيد الاعتماد',
     'widget.outstanding_balance' => 'الرصيد المستحق',
 
-    // العلامة التجارية (يُفضّل الإبقاء على الاسم اللاتيني للتعرّف)
-    'brand.admin' => 'FundFlow — الإدارة',
-    'brand.member' => 'FundFlow — بوابة العضو',
+    // العلامة التجارية
+    'brand.admin' => 'فندفلو — الإدارة',
+    'brand.member' => 'فندفلو — بوابة العضو',
+
+    // اللغة
+    'locale.switch_to_english' => 'اللغة: English',
+    'locale.switch_to_arabic' => 'اللغة: العربية',
+    'locale.english' => 'الإنجليزية',
+    'locale.arabic' => 'العربية',
+
+    // واجهة عامة
+    'ui.csv_format' => 'صيغة CSV',
+    'ui.required_fields' => 'الحقول المطلوبة',
+    'ui.optional_fields' => 'الحقول الاختيارية',
+    'ui.status_values' => 'قيم الحالة',
+    'ui.member_identifier' => 'معرّف العضو',
+    'ui.payment_method' => 'طريقة الدفع',
+    'ui.date_columns' => 'أعمدة التواريخ',
+    'ui.installment_columns' => 'أعمدة الأقساط',
+    'ui.amount_columns' => 'أعمدة المبالغ',
+    'ui.tier_columns' => 'أعمدة الشرائح',
+    'ui.flags_and_notes' => 'العلامات والملاحظات',
+    'ui.disbursement_columns' => 'أعمدة الصرف',
+    'ui.before_import' => 'قبل الاستيراد',
+    'ui.need_starter_file' => 'هل تحتاج ملفًا جاهزًا؟',
+    'ui.first_row_headers' => 'يجب أن يكون الصف الأول عناوين الأعمدة.',
+    'ui.leave_blank_for_default' => 'اتركه فارغًا لاستخدام القيم الافتراضية.',
+
+    // الكشوف الشهرية
+    'statement.generate_send_heading' => 'توليد وإرسال الكشوف',
+    'statement.generate_send_desc' => 'يتم توليد كشوف جميع الأعضاء النشطين للفترة :period وإرسال نسخة PDF عبر البريد. إعداد الإرسال التلقائي: :auto_email.',
+    'statement.auto_email_on' => 'نعم',
+    'statement.auto_email_off' => 'لا (الإرسال التلقائي بالبريد معطّل في الإعدادات)',
+    'statement.generated_count' => 'تم توليد :count كشفًا للفترة :period.',
+    'statement.notifications_sent' => 'تم إرسال الإشعارات.',
+    'statement.generate_for_period_heading' => 'توليد الكشوف لأي فترة',
+    'statement.period_input_label' => 'الفترة (YYYY-MM)',
+    'statement.period_input_placeholder' => 'YYYY-MM',
+    'statement.email_members_after_generation' => 'إرسال البريد للأعضاء بعد التوليد',
+    'statement.specific_member' => 'عضو محدد (اتركه فارغًا للجميع)',
+    'statement.all_active_members' => 'جميع الأعضاء النشطين',
+    'statement.member_not_found' => 'العضو غير موجود',
+    'statement.not_notified' => 'لم يتم الإشعار بعد',
+    'loan.queue' => 'قائمة انتظار القروض',
+    'loan.list_subheading' => 'تتبّع دورة حياة كل قرض من التقديم إلى الصرف ثم التسوية.',
+
+    // مساعدة استيراد القروض
+    'loan.import.heading' => 'استيراد القروض من CSV',
+    'loan.import.sample_hint' => 'تحتاج ملفًا جاهزًا؟ نزّل: :filename',
+    'loan.import.warning_opening_balances' => 'إذا كانت الأرصدة الافتتاحية تتضمن هذه القروض بالفعل، فإن استيراد صفوف المرحلة المحاسبية مرة أخرى سيؤدي إلى احتساب مزدوج ما لم تُعدّل الملف.',
+    'loan.import.member_columns_help' => 'استخدم معرّفًا واحدًا: member_number أو member_email أو national_id.',
+    'loan.import.status_help' => 'loan_status: pending, approved, active, completed, early_settled. القيمة الفارغة تعني active.',
+    'loan.import.amount_help' => 'amount_requested و amount_approved. حالة pending تحتاج amount_requested (أو amount_approved كبديل). حالات approved/active/closed تحتاج amount_approved.',
+    'loan.import.disbursement_help' => 'يجب أن يساوي member_portion + master_portion قيمة amount_approved في حالات الصرف (active, completed, early_settled).',
+    'loan.import.installment_help' => 'installments_count و paid_installments_count و total_amount_repaid. عند وجود total_amount_repaid يُستخدم مباشرة، وإلا يُحسب من paid_installments_count × min_monthly_installment.',
+    'loan.import.tier_help' => 'loan_tier_number و fund_tier_number خيارات تجاوز اختيارية (يجب أن تشير إلى شرائح مفعلة). بخلاف ذلك يتم تحديد الشرائح تلقائيًا.',
+    'loan.import.flags_help' => 'is_emergency (0/1/yes/no) و settlement_threshold (0-1) و purpose (نص اختياري).',
+    'loan.import.dates_help' => 'applied_at و approved_at و disbursed_at و settled_at (كلها اختيارية؛ وتُطبق القيم الافتراضية حسب الحالة).',
+    'loan.import.finished' => 'اكتمل استيراد القروض',
+
+    // استيراد المساهمات
+    'contribution.import.heading' => 'استيراد المساهمات من CSV',
+    'contribution.import.finished' => 'اكتمل استيراد المساهمات',
+    'contribution.import.member_identifier_help' => 'وفّر أحد المعرفات التالية لكل صف: member_id أو member_number أو national_id أو member_name (أو name). عند تكرار الأسماء استخدم رقم العضوية/المعرف.',
+
+    // بوابة العضو
+    'member.my_profile' => 'ملفي الشخصي',
+    'member.download_certificate' => 'تنزيل الشهادة',
+    'member.update_phone' => 'تحديث رقم الجوال',
+    'member.phone_helper' => 'يُستخدم هذا الرقم لإشعارات الرسائل القصيرة وواتساب.',
+    'member.phone_updated' => 'تم تحديث رقم الجوال',
+    'member.change_password' => 'تغيير كلمة المرور',
+    'member.current_password' => 'كلمة المرور الحالية',
+    'member.current_password_incorrect' => 'كلمة المرور الحالية غير صحيحة.',
+    'member.new_password' => 'كلمة المرور الجديدة',
+    'member.new_password_helper' => '8 أحرف على الأقل، مع مزيج من أحرف كبيرة وصغيرة وأرقام.',
+    'member.confirm_new_password' => 'تأكيد كلمة المرور الجديدة',
+    'member.password_changed' => 'تم تغيير كلمة المرور',
+    'member.password_changed_body' => 'تم تحديث كلمة المرور الخاصة بك. استخدم كلمة المرور الجديدة عند تسجيل الدخول القادم.',
+    'member.support_requests' => 'الدعم والطلبات',
+    'member.submit_request' => 'إرسال طلب',
+    'member.submit_support_request_heading' => 'إرسال طلب دعم',
+    'member.submit_support_request_desc' => 'سيتم إرسال رسالتك إلى مديري الصندوق وسيتم الرد عبر نظام المراسلة.',
+    'member.category' => 'الفئة',
+    'member.subject' => 'الموضوع',
+    'member.message' => 'الرسالة',
+    'member.support_request_title' => 'طلب دعم #:id: :subject',
+    'member.request_submitted' => 'تم إرسال الطلب',
+    'member.request_submitted_body' => 'تم إرسال طلبك إلى إدارة الصندوق، وسيتم الرد عبر نظام المراسلة.',
+    'member.notification_preferences' => 'تفضيلات الإشعارات',
+    'member.notification_preferences_subheading' => 'اختر طريقة استلام كل نوع من الإشعارات. إشعارات التطبيق تكون مفعلة غالبًا افتراضيًا. القنوات المعلّمة (إلزامي) لا يمكن تعطيلها.',
+    'member.preferences_saved' => 'تم حفظ التفضيلات',
+    'member.preferences_saved_body' => 'تم تحديث تفضيلات قنوات التواصل الخاصة بك.',
+    'member.loan_calculator' => 'حاسبة القروض',
+    'member.contribution_settings' => 'إعدادات المساهمة',
+    'member.save_allocation' => 'حفظ التوزيع',
+    'member.monthly_contribution_amount' => 'مبلغ المساهمة الشهرية',
+    'member.monthly_contribution_helper' => 'مضاعفات 500 ريال من 500 حتى 3000 ريال. يطبّق فورًا مع إشعار الإدارة.',
+    'member.member_record_not_found' => 'تعذر العثور على سجل العضو.',
+    'member.invalid_amount_selected' => 'المبلغ المحدد غير صالح.',
+    'member.no_changes_detected' => 'لم يتم اكتشاف أي تغييرات.',
+    'member.member_allocation_updated' => 'تم تحديث توزيع مساهمة العضو',
+    'member.member_allocation_updated_body' => 'قام :name بتغيير توزيعه من :old ريال إلى :new ريال.',
+    'member.allocation_updated' => 'تم تحديث التوزيع',
+    'member.allocation_updated_body' => 'تم تحديث مبلغ المساهمة الشهرية بنجاح.',
+    'member.my_dependents' => 'المعالون',
 
 ];

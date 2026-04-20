@@ -49,6 +49,11 @@ class MembershipApplicationResource extends Resource
 
     protected static ?int $navigationSort = 1;
 
+    public static function getNavigationLabel(): string
+    {
+        return __('Applications');
+    }
+
     public static function getNavigationGroup(): ?string
     {
         return __('app.nav.group.membership');
@@ -71,103 +76,103 @@ class MembershipApplicationResource extends Resource
                 ->contained(false)
                 ->columnSpanFull()
                 ->tabs([
-                    Tab::make('Account')
+                    Tab::make(__('Account'))
                         ->icon('heroicon-o-user')
                         ->schema([
-                            Section::make('Applicant account')
+                            Section::make(__('Applicant account'))
                                 ->icon('heroicon-o-user')
-                                ->description('Login identity is on the user account. Name and email are read-only. Mobile phone is stored on the application and synced to the user for SMS/WhatsApp.')
+                                ->description(__('Login identity is on the user account. Name and email are read-only. Mobile phone is stored on the application and synced to the user for SMS/WhatsApp.'))
                                 ->schema([
                                     Forms\Components\TextInput::make('_display_user_name')
-                                        ->label('Full Name')
+                                        ->label(__('Full Name'))
                                         ->disabled()
                                         ->dehydrated(false),
                                     Forms\Components\TextInput::make('_display_user_email')
-                                        ->label('Email (login)')
+                                        ->label(__('Email (login)'))
                                         ->disabled()
                                         ->dehydrated(false),
                                 ])->columns(2),
                         ]),
 
-                    Tab::make('Details')
+                    Tab::make(__('Details'))
                         ->icon('heroicon-o-clipboard-document-list')
                         ->schema([
-                            Section::make('Profile')
+                            Section::make(__('Profile'))
                                 ->icon('heroicon-o-identification')
                                 ->schema([
                                     Forms\Components\Select::make('application_type')
-                                        ->label('Application type')
+                                        ->label(__('Application type'))
                                         ->options(MembershipApplication::applicationTypeOptions())
                                         ->required()
                                         ->default('new'),
                                     Forms\Components\Select::make('gender')
                                         ->options(MembershipApplication::genderOptions())
-                                        ->placeholder('—'),
+                                        ->placeholder(__('—')),
                                     Forms\Components\Select::make('marital_status')
-                                        ->label('Marital status')
+                                        ->label(__('Marital status'))
                                         ->options(MembershipApplication::maritalStatusOptions())
-                                        ->placeholder('—'),
+                                        ->placeholder(__('—')),
                                     Forms\Components\DatePicker::make('membership_date')
-                                        ->label('Membership date')
+                                        ->label(__('Membership date'))
                                         ->native(false),
                                 ])->columns(2),
 
-                            Section::make('Identity & address')
+                            Section::make(__('Identity & address'))
                                 ->icon('heroicon-o-map-pin')
                                 ->schema([
                                     Forms\Components\TextInput::make('national_id')
-                                        ->label('National ID')
+                                        ->label(__('National ID'))
                                         ->required()
                                         ->maxLength(20),
                                     Forms\Components\DatePicker::make('date_of_birth')
-                                        ->label('Date of Birth')
+                                        ->label(__('Date of Birth'))
                                         ->required()
                                         ->native(false)
                                         ->maxDate(now()),
                                     Forms\Components\TextInput::make('city')
-                                        ->label('City')
+                                        ->label(__('City'))
                                         ->required()
                                         ->maxLength(100),
                                     Forms\Components\Textarea::make('address')
-                                        ->label('Address')
+                                        ->label(__('Address'))
                                         ->required()
                                         ->rows(3)
                                         ->columnSpanFull(),
                                 ])->columns(3),
 
-                            Section::make('Contact')
+                            Section::make(__('Contact'))
                                 ->icon('heroicon-o-phone')
                                 ->schema([
                                     Forms\Components\TextInput::make('mobile_phone')
-                                        ->label('Mobile phone')
+                                        ->label(__('Mobile phone'))
                                         ->tel()
                                         ->required()
                                         ->maxLength(30)
-                                        ->helperText('Used for SMS and WhatsApp; also updates the user login account.'),
+                                        ->helperText(__('Used for SMS and WhatsApp; also updates the user login account.')),
                                     Forms\Components\TextInput::make('home_phone')
-                                        ->label('Home phone')
+                                        ->label(__('Home phone'))
                                         ->tel()
                                         ->maxLength(30),
                                     Forms\Components\TextInput::make('work_phone')
-                                        ->label('Work phone')
+                                        ->label(__('Work phone'))
                                         ->tel()
                                         ->maxLength(30),
                                 ])->columns(3),
 
-                            Section::make('Work & residency')
+                            Section::make(__('Work & residency'))
                                 ->icon('heroicon-o-building-office')
                                 ->schema([
                                     Forms\Components\TextInput::make('work_place')
-                                        ->label('Work place')
+                                        ->label(__('Work place'))
                                         ->maxLength(255)
                                         ->columnSpanFull(),
                                     Forms\Components\TextInput::make('residency_place')
-                                        ->label('Residency place')
+                                        ->label(__('Residency place'))
                                         ->maxLength(255)
                                         ->columnSpanFull(),
                                 ]),
 
-                            Section::make('Employment')
+                            Section::make(__('Employment'))
                                 ->icon('heroicon-o-briefcase')
                                 ->schema([
                                     Forms\Components\TextInput::make('occupation')
@@ -175,60 +180,60 @@ class MembershipApplicationResource extends Resource
                                     Forms\Components\TextInput::make('employer')
                                         ->maxLength(150),
                                     Forms\Components\TextInput::make('monthly_income')
-                                        ->label('Monthly Income (SAR)')
+                                        ->label(__('Monthly Income (SAR)'))
                                         ->numeric()
                                         ->prefix('SAR')
                                         ->minValue(0),
                                 ])->columns(3),
 
-                            Section::make('Banking')
+                            Section::make(__('Banking'))
                                 ->icon('heroicon-o-building-library')
                                 ->schema([
                                     Forms\Components\TextInput::make('bank_account_number')
-                                        ->label('Bank account number')
+                                        ->label(__('Bank account number'))
                                         ->maxLength(50),
                                     Forms\Components\TextInput::make('iban')
-                                        ->label('IBAN')
+                                        ->label(__('IBAN'))
                                         ->maxLength(34)
                                         ->extraInputAttributes(['dir' => 'ltr', 'class' => 'font-mono']),
                                 ])->columns(2),
 
-                            Section::make('Next of kin')
+                            Section::make(__('Next of kin'))
                                 ->icon('heroicon-o-user-group')
                                 ->schema([
                                     Forms\Components\TextInput::make('next_of_kin_name')
-                                        ->label('Name')
+                                        ->label(__('Name'))
                                         ->required()
                                         ->maxLength(150),
                                     Forms\Components\TextInput::make('next_of_kin_phone')
-                                        ->label('Phone')
+                                        ->label(__('Phone'))
                                         ->tel()
                                         ->required()
                                         ->maxLength(30),
                                 ])->columns(2),
 
-                            Section::make('Review status')
+                            Section::make(__('Review status'))
                                 ->icon('heroicon-o-clipboard-document-check')
-                                ->description('Use Approve / Reject on the list to change status. You can edit the rejection reason below for corrections.')
+                                ->description(__('Use Approve / Reject on the list to change status. You can edit the rejection reason below for corrections.'))
                                 ->schema([
                                     Forms\Components\TextInput::make('status')
-                                        ->label('Current status')
+                                        ->label(__('Current status'))
                                         ->disabled()
                                         ->dehydrated(false)
                                         ->formatStateUsing(fn(?string $state): string => match ($state) {
-                                            'pending' => 'Pending',
-                                            'approved' => 'Approved',
-                                            'rejected' => 'Rejected',
-                                            default => $state ?? '—',
+                                            'pending' => __('Pending'),
+                                            'approved' => __('Approved'),
+                                            'rejected' => __('Rejected'),
+                                            default => $state ? __($state) : __('—'),
                                         }),
                                     Forms\Components\Textarea::make('rejection_reason')
-                                        ->label('Rejection reason')
+                                        ->label(__('Rejection reason'))
                                         ->rows(3)
                                         ->columnSpanFull(),
                                 ])->columns(2),
                         ]),
 
-                    Tab::make('Form Upload')
+                    Tab::make(__('Form Upload'))
                         ->icon('heroicon-o-document-text')
                         ->schema([
                             Section::make()
@@ -237,14 +242,14 @@ class MembershipApplicationResource extends Resource
                                 ])->render()))
                                 ->schema([
                                     Forms\Components\FileUpload::make('application_form_path')
-                                        ->label('Signed application form')
+                                        ->label(__('Signed application form'))
                                         ->disk('public')
                                         ->directory('membership-applications')
                                         ->downloadable()
                                         ->openable()
                                         ->acceptedFileTypes(['application/pdf', 'image/jpeg', 'image/png', 'image/webp'])
                                         ->maxSize(10240)
-                                        ->helperText('PDF or image, max 10 MB. Replace the file if the applicant sends a corrected document.'),
+                                        ->helperText(__('PDF or image, max 10 MB. Replace the file if the applicant sends a corrected document.')),
                                 ]),
                         ]),
                 ]),
@@ -256,19 +261,19 @@ class MembershipApplicationResource extends Resource
         return $table
             ->columns([
                 Tables\Columns\TextColumn::make('user.name')
-                    ->label('Applicant')
+                    ->label(__('Applicant'))
                     ->searchable()
                     ->sortable(),
                 Tables\Columns\TextColumn::make('user.email')
-                    ->label('Email')
+                    ->label(__('Email'))
                     ->searchable(),
                 Tables\Columns\TextColumn::make('mobile_phone')
-                    ->label('Mobile'),
+                    ->label(__('Mobile')),
                 Tables\Columns\TextColumn::make('application_type')
-                    ->label('Type')
+                    ->label(__('Type'))
                     ->formatStateUsing(function (?string $state): string {
                         if ($state === null || $state === '') {
-                            return '—';
+                            return __('—');
                         }
 
                         return MembershipApplication::applicationTypeOptions()[$state] ?? $state;
@@ -276,19 +281,19 @@ class MembershipApplicationResource extends Resource
                     ->badge()
                     ->toggleable(),
                 Tables\Columns\TextColumn::make('membership_fee_amount')
-                    ->label('App fee (SAR)')
+                    ->label(__('App fee (SAR)'))
                     ->numeric(decimalPlaces: 2)
-                    ->placeholder('—')
+                    ->placeholder(__('—'))
                     ->toggleable(isToggledHiddenByDefault: true),
                 Tables\Columns\TextColumn::make('membership_fee_transfer_reference')
-                    ->label('Fee transfer ref')
+                    ->label(__('Fee transfer ref'))
                     ->limit(24)
                     ->tooltip(fn($record) => $record->membership_fee_transfer_reference)
                     ->toggleable(isToggledHiddenByDefault: true),
                 Tables\Columns\TextColumn::make('membership_fee_posted_at')
-                    ->label('Fee posted')
+                    ->label(__('Fee posted'))
                     ->dateTime('d M Y H:i')
-                    ->placeholder('—')
+                    ->placeholder(__('—'))
                     ->toggleable(isToggledHiddenByDefault: true),
                 Tables\Columns\TextColumn::make('city')
                     ->sortable(),
@@ -301,7 +306,7 @@ class MembershipApplicationResource extends Resource
                         default => 'gray',
                     }),
                 Tables\Columns\TextColumn::make('created_at')
-                    ->label('Applied')
+                    ->label(__('Applied'))
                     ->dateTime('d M Y')
                     ->sortable(),
             ])
@@ -309,37 +314,37 @@ class MembershipApplicationResource extends Resource
             ->striped()
             ->filters([
                 Tables\Filters\SelectFilter::make('status')
-                    ->options(['pending' => 'Pending', 'approved' => 'Approved', 'rejected' => 'Rejected']),
+                    ->options(['pending' => __('Pending'), 'approved' => __('Approved'), 'rejected' => __('Rejected')]),
                 Tables\Filters\SelectFilter::make('application_type')
                     ->options(MembershipApplication::applicationTypeOptions()),
                 Tables\Filters\SelectFilter::make('gender')
                     ->options(MembershipApplication::genderOptions()),
                 Tables\Filters\SelectFilter::make('marital_status')
-                    ->label('Marital status')
+                    ->label(__('Marital status'))
                     ->options(MembershipApplication::maritalStatusOptions()),
                 Tables\Filters\Filter::make('city')
                     ->schema([
-                        Forms\Components\TextInput::make('value')->label('City contains'),
+                        Forms\Components\TextInput::make('value')->label(__('City contains')),
                     ])
                     ->query(fn(Builder $query, array $data) => $query->when(
                         filled($data['value'] ?? null),
                         fn(Builder $q) => $q->where('city', 'like', '%' . $data['value'] . '%')
                     )),
                 Tables\Filters\TernaryFilter::make('reviewed')
-                    ->label('Reviewed')
-                    ->trueLabel('Reviewed')
-                    ->falseLabel('Not reviewed')
+                    ->label(__('Reviewed'))
+                    ->trueLabel(__('Reviewed'))
+                    ->falseLabel(__('Not reviewed'))
                     ->queries(
                         true: fn(Builder $q) => $q->whereNotNull('reviewed_at'),
                         false: fn(Builder $q) => $q->whereNull('reviewed_at'),
                     ),
                 Tables\Filters\SelectFilter::make('reviewed_by')
-                    ->label('Reviewer')
+                    ->label(__('Reviewer'))
                     ->options(fn() => User::query()->whereIn('id', MembershipApplication::query()->whereNotNull('reviewed_by')->pluck('reviewed_by'))->orderBy('name')->pluck('name', 'id')),
                 Tables\Filters\Filter::make('created_at')
                     ->schema([
-                        Forms\Components\DatePicker::make('from')->label('Applied from'),
-                        Forms\Components\DatePicker::make('until')->label('Applied until'),
+                        Forms\Components\DatePicker::make('from')->label(__('Applied from')),
+                        Forms\Components\DatePicker::make('until')->label(__('Applied until')),
                     ])
                     ->columns(2)
                     ->query(function (Builder $query, array $data) {
@@ -354,42 +359,42 @@ class MembershipApplicationResource extends Resource
                     ViewAction::make(),
                     EditAction::make(),
                     Action::make('approve')
-                        ->label('Approve')
+                        ->label(__('Approve'))
                         ->icon('heroicon-o-check-circle')
                         ->color('success')
                         ->visible(fn(MembershipApplication $record) => $record->status === 'pending')
                         ->requiresConfirmation()
-                        ->modalHeading('Approve Membership Application')
-                        ->modalDescription('Are you sure you want to approve this application? The applicant will be notified via email, SMS, and WhatsApp.')
+                        ->modalHeading(__('Approve Membership Application'))
+                        ->modalDescription(__('Are you sure you want to approve this application? The applicant will be notified via email, SMS, and WhatsApp.'))
                         ->action(function (MembershipApplication $record, Component $livewire) {
                             $memberNumber = static::approvePendingApplication($record);
 
                             Notification::make()
-                                ->title('Application Approved')
-                                ->body("Member {$record->user->name} has been approved with number {$memberNumber}.")
+                                ->title(__('Application Approved'))
+                                ->body(__('Member :name has been approved with number :number.', ['name' => $record->user->name, 'number' => $memberNumber]))
                                 ->success()
                                 ->send();
 
                             static::dispatchApplicationStatsRefresh($livewire);
                         }),
                     Action::make('reject')
-                        ->label('Reject')
+                        ->label(__('Reject'))
                         ->icon('heroicon-o-x-circle')
                         ->color('danger')
                         ->visible(fn(MembershipApplication $record) => $record->status === 'pending')
                         ->schema([
                             Forms\Components\Textarea::make('rejection_reason')
-                                ->label('Reason for Rejection')
+                                ->label(__('Reason for Rejection'))
                                 ->required()
                                 ->rows(3)
-                                ->placeholder('Please provide a reason for rejecting this application...'),
+                                ->placeholder(__('Please provide a reason for rejecting this application...')),
                         ])
                         ->action(function (MembershipApplication $record, array $data, Component $livewire) {
                             static::rejectPendingApplication($record, $data['rejection_reason']);
 
                             Notification::make()
-                                ->title('Application Rejected')
-                                ->body("Application for {$record->user->name} has been rejected.")
+                                ->title(__('Application Rejected'))
+                                ->body(__('Application for :name has been rejected.', ['name' => $record->user->name]))
                                 ->warning()
                                 ->send();
 
@@ -402,17 +407,17 @@ class MembershipApplicationResource extends Resource
                     ForceDeleteAction::make()
                         ->after(fn(Component $livewire) => static::dispatchApplicationStatsRefresh($livewire)),
                 ])
-                    ->tooltip('Actions'),
+                    ->tooltip(__('Actions')),
             ])
             ->toolbarActions([
                 BulkActionGroup::make([
                     BulkAction::make('approve')
-                        ->label('Approve selected')
+                        ->label(__('Approve selected'))
                         ->icon('heroicon-o-check-circle')
                         ->color('success')
                         ->requiresConfirmation()
-                        ->modalHeading('Approve selected applications')
-                        ->modalDescription('Each selected row that is still pending will be approved: a member record and member number are created, the login is activated, and the applicant is notified (email, SMS, and WhatsApp where configured). Rows that are not pending are skipped.')
+                        ->modalHeading(__('Approve selected applications'))
+                        ->modalDescription(__('Each selected row that is still pending will be approved: a member record and member number are created, the login is activated, and the applicant is notified (email, SMS, and WhatsApp where configured). Rows that are not pending are skipped.'))
                         ->authorizeIndividualRecords('update')
                         ->action(function (EloquentCollection $records, Component $livewire): void {
                             $pending = $records->filter(fn(MembershipApplication $r) => $r->status === 'pending')->values();
@@ -440,10 +445,10 @@ class MembershipApplicationResource extends Resource
                                 }
                             }
 
-                            $body = "Approved: {$approved}. Failed: {$failed}. Skipped (not pending): {$ignored}.";
+                            $body = __('Approved: :approved. Failed: :failed. Skipped (not pending): :skipped.', ['approved' => $approved, 'failed' => $failed, 'skipped' => $ignored]);
 
                             Notification::make()
-                                ->title('Bulk approve finished')
+                                ->title(__('Bulk approve finished'))
                                 ->body($body)
                                 ->color($failed > 0 ? 'warning' : 'success')
                                 ->persistent()
@@ -453,18 +458,18 @@ class MembershipApplicationResource extends Resource
                         })
                         ->deselectRecordsAfterCompletion(),
                     BulkAction::make('reject')
-                        ->label('Reject selected')
+                        ->label(__('Reject selected'))
                         ->icon('heroicon-o-x-circle')
                         ->color('danger')
                         ->schema([
                             Forms\Components\Textarea::make('rejection_reason')
-                                ->label('Reason for rejection')
+                                ->label(__('Reason for rejection'))
                                 ->required()
                                 ->rows(3)
-                                ->placeholder('This message is saved on each application and sent to every selected pending applicant.'),
+                                ->placeholder(__('This message is saved on each application and sent to every selected pending applicant.')),
                         ])
-                        ->modalHeading('Reject selected applications')
-                        ->modalDescription('The reason below is applied to each selected row that is still pending, stored on the record, and included in notifications. Rows that are not pending are skipped.')
+                        ->modalHeading(__('Reject selected applications'))
+                        ->modalDescription(__('The reason below is applied to each selected row that is still pending, stored on the record, and included in notifications. Rows that are not pending are skipped.'))
                         ->authorizeIndividualRecords('update')
                         ->action(function (EloquentCollection $records, array $data, Component $livewire): void {
                             $reason = $data['rejection_reason'];
@@ -493,10 +498,10 @@ class MembershipApplicationResource extends Resource
                                 }
                             }
 
-                            $body = "Rejected: {$rejected}. Failed: {$failed}. Skipped (not pending): {$ignored}.";
+                            $body = __('Rejected: :rejected. Failed: :failed. Skipped (not pending): :skipped.', ['rejected' => $rejected, 'failed' => $failed, 'skipped' => $ignored]);
 
                             Notification::make()
-                                ->title('Bulk reject finished')
+                                ->title(__('Bulk reject finished'))
                                 ->body($body)
                                 ->color($failed > 0 ? 'danger' : 'warning')
                                 ->persistent()

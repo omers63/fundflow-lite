@@ -23,6 +23,11 @@ class TransactionsRelationManager extends RelationManager
 
     protected static ?string $title = 'Imported Transactions';
 
+    public static function getTitle(\Illuminate\Database\Eloquent\Model $ownerRecord, string $pageClass): string
+    {
+        return __('Imported Transactions');
+    }
+
     public function form(Schema $schema): Schema
     {
         return $schema->schema([]);
@@ -40,27 +45,27 @@ class TransactionsRelationManager extends RelationManager
             ->defaultSort('transaction_date', 'desc')
             ->columns([
                 Tables\Columns\TextColumn::make('transaction_date')
-                    ->label('Date')->date('d M Y')->sortable()
+                    ->label(__('Date'))->date('d M Y')->sortable()
                     ->toggleable(),
                 Tables\Columns\TextColumn::make('amount')->money('SAR')
                     ->color(fn (BankTransaction $r) => $r->transaction_type === 'credit' ? 'success' : 'danger')
                     ->toggleable(),
-                Tables\Columns\BadgeColumn::make('transaction_type')->label('Type')
+                Tables\Columns\BadgeColumn::make('transaction_type')->label(__('Type'))
                     ->colors(['success' => 'credit', 'danger' => 'debit'])
                     ->toggleable(),
                 Tables\Columns\TextColumn::make('reference')->placeholder('—')
                     ->toggleable(),
                 Tables\Columns\TextColumn::make('description')->limit(40)->placeholder('—')
                     ->toggleable(),
-                Tables\Columns\TextColumn::make('member.user.name')->label('Member')->placeholder('—')
+                Tables\Columns\TextColumn::make('member.user.name')->label(__('Member'))->placeholder(__('—'))
                     ->toggleable(),
-                Tables\Columns\IconColumn::make('posted_at')->label('Posted')
+                Tables\Columns\IconColumn::make('posted_at')->label(__('Posted'))
                     ->boolean()
                     ->getStateUsing(fn (BankTransaction $r) => $r->posted_at !== null)
                     ->trueIcon('heroicon-o-check-badge')->falseIcon('heroicon-o-clock')
                     ->trueColor('success')->falseColor('gray')
                     ->toggleable(),
-                Tables\Columns\IconColumn::make('is_duplicate')->label('Dup.')
+                Tables\Columns\IconColumn::make('is_duplicate')->label(__('Dup.'))
                     ->boolean()
                     ->trueIcon('heroicon-o-exclamation-triangle')->falseIcon('heroicon-o-check-circle')
                     ->trueColor('warning')->falseColor('success')
@@ -70,23 +75,23 @@ class TransactionsRelationManager extends RelationManager
             ->deferColumnManager(false)
             ->filters([
                 Tables\Filters\SelectFilter::make('transaction_type')
-                    ->options(['credit' => 'Credit', 'debit' => 'Debit']),
+                    ->options(['credit' => __('Credit'), 'debit' => __('Debit')]),
                 Tables\Filters\TernaryFilter::make('is_duplicate')
-                    ->trueLabel('Duplicates only')->falseLabel('Non-duplicates only')->placeholder('All'),
+                    ->trueLabel(__('Duplicates only'))->falseLabel(__('Non-duplicates only'))->placeholder(__('All')),
                 Tables\Filters\TernaryFilter::make('posted')
-                    ->trueLabel('Posted')->falseLabel('Unposted')->placeholder('All')
+                    ->trueLabel(__('Posted'))->falseLabel(__('Unposted'))->placeholder(__('All'))
                     ->queries(
                         true: fn ($q) => $q->whereNotNull('posted_at'),
                         false: fn ($q) => $q->whereNull('posted_at'),
                     ),
                 Tables\Filters\SelectFilter::make('member_id')
-                    ->label('Member')
+                    ->label(__('Member'))
                     ->searchable()
                     ->options($memberOptions),
                 Tables\Filters\Filter::make('transaction_date')
                     ->schema([
-                        Forms\Components\DatePicker::make('from')->label('From'),
-                        Forms\Components\DatePicker::make('until')->label('Until'),
+                        Forms\Components\DatePicker::make('from')->label(__('From')),
+                        Forms\Components\DatePicker::make('until')->label(__('Until')),
                     ])
                     ->columns(2)
                     ->query(function ($query, array $data) {
@@ -96,8 +101,8 @@ class TransactionsRelationManager extends RelationManager
                     }),
                 Tables\Filters\Filter::make('amount')
                     ->schema([
-                        Forms\Components\TextInput::make('amount_min')->label('Min (SAR)')->numeric(),
-                        Forms\Components\TextInput::make('amount_max')->label('Max (SAR)')->numeric(),
+                        Forms\Components\TextInput::make('amount_min')->label(__('Min (SAR)'))->numeric(),
+                        Forms\Components\TextInput::make('amount_max')->label(__('Max (SAR)'))->numeric(),
                     ])
                     ->columns(2)
                     ->query(function ($query, array $data) {
@@ -109,13 +114,13 @@ class TransactionsRelationManager extends RelationManager
             ->recordActions([
                 ActionGroup::make([
                     Action::make('post_to_cash')
-                        ->label('Post to Cash')
+                        ->label(__('Post to Cash'))
                         ->icon('heroicon-o-arrow-right-circle')
                         ->color('primary')
                         ->visible(fn (BankTransaction $r) => ! $r->isPosted())
                         ->schema(fn (BankTransaction $record) => [
                             Forms\Components\Select::make('member_id')
-                                ->label($record->transaction_type === 'debit' ? 'Member' : 'Member (optional)')
+                                ->label($record->transaction_type === 'debit' ? __('Member') : __('Member (optional)'))
                                 ->options($memberOptions)
                                 ->searchable()
                                 ->required($record->transaction_type === 'debit')
@@ -125,7 +130,7 @@ class TransactionsRelationManager extends RelationManager
                                     $set('loan_disbursement_id', null);
                                 }),
                             Forms\Components\Select::make('loan_id')
-                                ->label('Loan')
+                                ->label(__('Loan'))
                                 ->options(fn (Get $get) => Loan::query()
                                     ->where('member_id', $get('member_id'))
                                     ->whereHas('disbursements')
@@ -147,7 +152,7 @@ class TransactionsRelationManager extends RelationManager
                                 ->visible($record->transaction_type === 'debit')
                                 ->required($record->transaction_type === 'debit'),
                             Forms\Components\Select::make('loan_disbursement_id')
-                                ->label('Loan disbursement payout')
+                                ->label(__('Loan disbursement payout'))
                                 ->options(fn (Get $get) => LoanDisbursement::query()
                                     ->where('loan_id', $get('loan_id'))
                                     ->orderByDesc('disbursed_at')
@@ -172,10 +177,10 @@ class TransactionsRelationManager extends RelationManager
                                 ? LoanDisbursement::query()->findOrFail($data['loan_disbursement_id'])
                                 : null;
                             if ($disbursement && ! empty($data['loan_id']) && (int) $disbursement->loan_id !== (int) $data['loan_id']) {
-                                throw new \InvalidArgumentException('Selected disbursement does not belong to the selected loan.');
+                                throw new \InvalidArgumentException(__('Selected disbursement does not belong to the selected loan.'));
                             }
                             app(AccountingService::class)->postBankTransactionToCashWithOptionalMember($record, $member, $disbursement);
-                            Notification::make()->title('Posted to Cash Account')->success()->send();
+                            Notification::make()->title(__('Posted to Cash Account'))->success()->send();
                         }),
                 ]),
             ]);

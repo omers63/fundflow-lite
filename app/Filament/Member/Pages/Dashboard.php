@@ -17,7 +17,15 @@ class Dashboard extends BaseDashboard
 {
     protected static string|\BackedEnum|null $navigationIcon = 'heroicon-o-home';
 
-    protected static ?string $title = 'My Dashboard';
+    public function getTitle(): string
+    {
+        return __('My Dashboard');
+    }
+
+    public static function getNavigationLabel(): string
+    {
+        return __('My Dashboard');
+    }
 
     /**
      * @return array<class-string>

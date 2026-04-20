@@ -51,6 +51,6 @@ class ApplicationStatusPage extends Component
     public function render()
     {
         return view('livewire.application-status-page')
-            ->layout('layouts.public', ['title' => 'Application Status']);
+            ->layout('layouts.public', ['title' => __('Application Status')]);
     }
 }

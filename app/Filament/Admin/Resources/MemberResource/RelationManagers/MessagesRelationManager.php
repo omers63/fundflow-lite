@@ -21,6 +21,11 @@ class MessagesRelationManager extends RelationManager
 
     protected static ?string $title = 'Messages';
 
+    public static function getTitle(\Illuminate\Database\Eloquent\Model $ownerRecord, string $pageClass): string
+    {
+        return __('Messages');
+    }
+
     public function isReadOnly(): bool
     {
         return false;
@@ -58,24 +63,24 @@ class MessagesRelationManager extends RelationManager
             ->defaultSort('created_at', 'desc')
             ->headerActions([
                 Action::make('send_message')
-                    ->label('Send Message')
+                    ->label(__('Send Message'))
                     ->icon('heroicon-o-chat-bubble-left-right')
                     ->color('info')
                     ->visible(fn (): bool => $this->getOwnerRecord()->user !== null)
-                    ->modalHeading(fn (): string => 'Send Message to '.($this->getOwnerRecord()->user->name ?? 'Member'))
+                    ->modalHeading(fn (): string => __('Send Message to :name', ['name' => $this->getOwnerRecord()->user->name ?? __('Member')]))
                     ->modalWidth('lg')
                     ->schema([
                         Forms\Components\TextInput::make('subject')
-                            ->label('Subject')
+                            ->label(__('Subject'))
                             ->required()
                             ->maxLength(150),
                         Forms\Components\Textarea::make('body')
-                            ->label('Message')
+                            ->label(__('Message'))
                             ->required()
                             ->rows(5)
                             ->maxLength(3000),
                         Forms\Components\FileUpload::make('attachments')
-                            ->label('Attachments')
+                            ->label(__('Attachments'))
                             ->multiple()
                             ->disk('public')
                             ->directory('direct-messages')
@@ -122,66 +127,66 @@ class MessagesRelationManager extends RelationManager
                         }
 
                         Notification::make()
-                            ->title('New Message from Administration')
+                            ->title(__('New Message from Administration'))
                             ->body($data['subject'].': '.mb_strimwidth($data['body'], 0, 100, '...'))
                             ->icon('heroicon-o-chat-bubble-left-right')
                             ->iconColor('info')
                             ->actions([
                                 Action::make('view')
-                                    ->label('View Inbox')
+                                    ->label(__('View Inbox'))
                                     ->url(route('filament.member.pages.my-inbox-page')),
                             ])
                             ->sendToDatabase($member->user);
 
                         Notification::make()
-                            ->title('Message sent to '.($member->user->name ?? 'member'))
+                            ->title(__('Message sent to :name', ['name' => $member->user->name ?? __('member')]))
                             ->success()
                             ->send();
                     }),
             ])
             ->columns([
                 Tables\Columns\TextColumn::make('created_at')
-                    ->label('Sent')
+                    ->label(__('Sent'))
                     ->dateTime('d M Y H:i')
                     ->sortable(),
                 Tables\Columns\TextColumn::make('direction')
-                    ->label('Direction')
+                    ->label(__('Direction'))
                     ->badge()
                     ->getStateUsing(function (DirectMessage $record): string {
                         $memberUserId = (int) $this->getOwnerRecord()->user_id;
 
                         return (int) $record->from_user_id === $memberUserId
-                            ? 'Member -> Admin'
-                            : 'Admin -> Member';
+                            ? __('Member -> Admin')
+                            : __('Admin -> Member');
                     })
-                    ->color(fn (string $state): string => $state === 'Member -> Admin' ? 'info' : 'success'),
+                    ->color(fn (string $state): string => $state === __('Member -> Admin') ? 'info' : 'success'),
                 Tables\Columns\TextColumn::make('subject')
-                    ->label('Subject')
-                    ->formatStateUsing(fn (?string $state): string => filled($state) ? $state : 'No subject')
+                    ->label(__('Subject'))
+                    ->formatStateUsing(fn (?string $state): string => filled($state) ? $state : __('No subject'))
                     ->searchable(),
                 Tables\Columns\TextColumn::make('body')
-                    ->label('Message')
+                    ->label(__('Message'))
                     ->limit(120)
                     ->searchable(),
                 Tables\Columns\TextColumn::make('sender.name')
-                    ->label('From')
+                    ->label(__('From'))
                     ->placeholder('-')
                     ->searchable(),
                 Tables\Columns\TextColumn::make('recipient.name')
-                    ->label('To')
+                    ->label(__('To'))
                     ->placeholder('-')
                     ->searchable(),
                 Tables\Columns\TextColumn::make('read_at')
-                    ->label('Read')
+                    ->label(__('Read'))
                     ->badge()
-                    ->formatStateUsing(fn ($state): string => $state ? 'Read' : 'Unread')
+                    ->formatStateUsing(fn ($state): string => $state ? __('Read') : __('Unread'))
                     ->color(fn ($state): string => $state ? 'success' : 'warning'),
             ])
             ->filters([
                 Tables\Filters\SelectFilter::make('direction')
                     ->options([
-                        'member_to_admin' => 'Member -> Admin',
-                        'admin_to_member' => 'Admin -> Member',
+                        'member_to_admin' => __('Member -> Admin'),
+                        'admin_to_member' => __('Admin -> Member'),
                     ])
                     ->query(function (Builder $query, array $data): Builder {
                         $memberUserId = (int) $this->getOwnerRecord()->user_id;
@@ -193,24 +198,24 @@ class MessagesRelationManager extends RelationManager
                         };
                     }),
                 Tables\Filters\TernaryFilter::make('read_at')
-                    ->label('Read state')
-                    ->trueLabel('Read')
-                    ->falseLabel('Unread'),
+                    ->label(__('Read state'))
+                    ->trueLabel(__('Read'))
+                    ->falseLabel(__('Unread')),
             ])
             ->recordActions([
                 ActionGroup::make([
                     Action::make('reply')
-                        ->label('Reply')
+                        ->label(__('Reply'))
                         ->icon('heroicon-o-paper-airplane')
                         ->color('primary')
                         ->schema([
                             Forms\Components\Textarea::make('body')
-                                ->label('Reply')
+                                ->label(__('Reply'))
                                 ->required()
                                 ->rows(4)
                                 ->maxLength(3000),
                             Forms\Components\FileUpload::make('attachments')
-                                ->label('Attachments')
+                                ->label(__('Attachments'))
                                 ->multiple()
                                 ->disk('public')
                                 ->directory('direct-messages')
@@ -237,26 +242,26 @@ class MessagesRelationManager extends RelationManager
                             $recipient = User::find($toUserId);
                             if ($recipient) {
                                 Notification::make()
-                                    ->title('Reply: '.($record->subject ?: 'Message'))
+                                    ->title(__('Reply: :subject', ['subject' => $record->subject ?: __('Message')]))
                                     ->body(auth()->user()->name.': '.mb_strimwidth($data['body'], 0, 100, '...'))
                                     ->icon('heroicon-o-chat-bubble-left-right')
                                     ->iconColor('info')
                                     ->actions([
                                         Action::make('view')
-                                            ->label('View Inbox')
+                                            ->label(__('View Inbox'))
                                             ->url(route('filament.member.pages.my-inbox-page')),
                                     ])
                                     ->sendToDatabase($recipient);
                             }
 
                             Notification::make()
-                                ->title('Reply sent')
+                                ->title(__('Reply sent'))
                                 ->success()
                                 ->send();
                         }),
                 ]),
             ])
-            ->emptyStateHeading('No direct messages')
-            ->emptyStateDescription('No messages have been exchanged with this member yet.');
+            ->emptyStateHeading(__('No direct messages'))
+            ->emptyStateDescription(__('No messages have been exchanged with this member yet.'));
     }
 }

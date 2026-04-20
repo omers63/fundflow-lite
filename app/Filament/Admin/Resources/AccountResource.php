@@ -27,6 +27,11 @@ class AccountResource extends Resource
 
     protected static ?int $navigationSort = 1;
 
+    public static function getNavigationLabel(): string
+    {
+        return __('Accounts');
+    }
+
     public static function getNavigationGroup(): ?string
     {
         return __('app.nav.group.finance');
@@ -47,35 +52,35 @@ class AccountResource extends Resource
                     ->weight(FontWeight::SemiBold)
                     ->toggleable(),
                 Tables\Columns\BadgeColumn::make('type')
-                    ->label('Account Type')
+                    ->label(__('Account Type'))
                     ->formatStateUsing(fn (Account $r) => $r->type_label)
                     ->color(fn (Account $r) => $r->type_color)
                     ->toggleable(),
                 Tables\Columns\TextColumn::make('member.user.name')
-                    ->label('Member')
+                    ->label(__('Member'))
                     ->placeholder('—')
                     ->searchable()
                     ->sortable()
                     ->toggleable(),
                 Tables\Columns\TextColumn::make('member.member_number')
-                    ->label('Member #')
+                    ->label(__('Member #'))
                     ->placeholder('—')
                     ->searchable()
                     ->sortable()
                     ->toggleable(),
                 Tables\Columns\TextColumn::make('loan_id')
-                    ->label('Loan #')
+                    ->label(__('Loan #'))
                     ->placeholder('—')
                     ->toggleable(),
                 Tables\Columns\TextColumn::make('balance')
-                    ->label('Balance (SAR)')
+                    ->label(__('Balance (SAR)'))
                     ->money('SAR')
                     ->sortable()
                     ->color(fn (Account $r) => (float) $r->balance >= 0 ? 'success' : 'danger')
                     ->weight(FontWeight::Bold)
                     ->toggleable(),
                 Tables\Columns\IconColumn::make('is_active')
-                    ->label('Active')
+                    ->label(__('Active'))
                     ->boolean()
                     ->toggleable(),
             ])
@@ -83,38 +88,38 @@ class AccountResource extends Resource
             ->defaultSort('type')
             ->groups([
                 Tables\Grouping\Group::make('type')
-                    ->label('Account Type')
+                    ->label(__('Account Type'))
                     ->titlePrefixedWithLabel(false)
                     ->getTitleFromRecordUsing(fn (Account $r) => $r->type_label),
                 Tables\Grouping\Group::make('member.user.name')
-                    ->label('Member')
+                    ->label(__('Member'))
                     ->titlePrefixedWithLabel(false),
                 Tables\Grouping\Group::make('member.member_number')
-                    ->label('Member #')
+                    ->label(__('Member #'))
                     ->titlePrefixedWithLabel(false),
             ])
             ->filters([
                 Tables\Filters\SelectFilter::make('type')
                     ->options([
-                        Account::TYPE_MASTER_CASH => 'Master Cash',
-                        Account::TYPE_MASTER_FUND => 'Master Fund',
-                        Account::TYPE_MEMBER_CASH => 'Member Cash',
-                        Account::TYPE_MEMBER_FUND => 'Member Fund',
-                        Account::TYPE_LOAN => 'Loan',
+                        Account::TYPE_MASTER_CASH => __('Master Cash'),
+                        Account::TYPE_MASTER_FUND => __('Master Fund'),
+                        Account::TYPE_MEMBER_CASH => __('Member Cash'),
+                        Account::TYPE_MEMBER_FUND => __('Member Fund'),
+                        Account::TYPE_LOAN => __('Loan'),
                     ]),
                 Tables\Filters\SelectFilter::make('member_id')
-                    ->label('Member')
+                    ->label(__('Member'))
                     ->searchable()
                     ->options(fn () => Member::query()->with('user')->orderBy('member_number')->get()
                         ->mapWithKeys(fn (Member $m) => [$m->id => "{$m->member_number} – {$m->user->name}"])),
                 Tables\Filters\TernaryFilter::make('is_active')
-                    ->label('Active')
-                    ->trueLabel('Active only')
-                    ->falseLabel('Inactive only'),
+                    ->label(__('Active'))
+                    ->trueLabel(__('Active only'))
+                    ->falseLabel(__('Inactive only')),
                 Tables\Filters\Filter::make('balance')
                     ->schema([
-                        Forms\Components\TextInput::make('balance_min')->label('Min balance (SAR)')->numeric(),
-                        Forms\Components\TextInput::make('balance_max')->label('Max balance (SAR)')->numeric(),
+                        Forms\Components\TextInput::make('balance_min')->label(__('Min balance (SAR)'))->numeric(),
+                        Forms\Components\TextInput::make('balance_max')->label(__('Max balance (SAR)'))->numeric(),
                     ])
                     ->columns(2)
                     ->query(function ($query, array $data) {
@@ -124,7 +129,7 @@ class AccountResource extends Resource
                     }),
                 Tables\Filters\Filter::make('loan_id')
                     ->schema([
-                        Forms\Components\TextInput::make('loan_id')->label('Loan #')->numeric(),
+                        Forms\Components\TextInput::make('loan_id')->label(__('Loan #'))->numeric(),
                     ])
                     ->query(fn ($query, array $data) => filled($data['loan_id'] ?? null)
                         ? $query->where('loan_id', $data['loan_id'])
@@ -133,7 +138,7 @@ class AccountResource extends Resource
             ])
             ->recordActions([
                 ActionGroup::make([
-                    ViewAction::make()->label('Ledger'),
+                    ViewAction::make()->label(__('Ledger')),
                 ]),
             ]);
     }

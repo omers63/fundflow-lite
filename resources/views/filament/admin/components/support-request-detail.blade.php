@@ -8,22 +8,22 @@
 @endphp
 <div class="space-y-3 text-sm">
     <div>
-        <span class="font-medium text-gray-700 dark:text-gray-300">From</span>
+        <span class="font-medium text-gray-700 dark:text-gray-300">{{ __('From') }}</span>
         <p class="mt-0.5 text-gray-900 dark:text-white">{{ $memberLine }}</p>
     </div>
     <div>
-        <span class="font-medium text-gray-700 dark:text-gray-300">Category</span>
+        <span class="font-medium text-gray-700 dark:text-gray-300">{{ __('Category') }}</span>
         <p class="mt-0.5 text-gray-900 dark:text-white">{{ $categoryLabel }}</p>
     </div>
     <div>
-        <span class="font-medium text-gray-700 dark:text-gray-300">Subject</span>
+        <span class="font-medium text-gray-700 dark:text-gray-300">{{ __('Subject') }}</span>
         <p class="mt-0.5 text-gray-900 dark:text-white">{{ $record->subject }}</p>
     </div>
     <div>
-        <span class="font-medium text-gray-700 dark:text-gray-300">Message</span>
+        <span class="font-medium text-gray-700 dark:text-gray-300">{{ __('Message') }}</span>
         <p class="mt-1 whitespace-pre-wrap text-gray-900 dark:text-white">{{ $record->message }}</p>
     </div>
     <div class="text-xs text-gray-500 dark:text-gray-400">
-        Submitted {{ $record->created_at->format('d M Y H:i') }}
+        {{ __('Submitted') }} {{ $record->created_at->format('d M Y H:i') }}
     </div>
 </div>

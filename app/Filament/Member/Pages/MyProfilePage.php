@@ -20,6 +20,11 @@ class MyProfilePage extends Page
 
     protected static ?int $navigationSort = 1;
 
+    public static function getNavigationLabel(): string
+    {
+        return __('app.member.my_profile');
+    }
+
     public static function getNavigationGroup(): ?string
     {
         return __('app.nav.group.account');
@@ -27,7 +32,7 @@ class MyProfilePage extends Page
 
     public function getTitle(): string
     {
-        return 'My Profile';
+        return __('app.member.my_profile');
     }
 
     protected function currentMember(): ?Member
@@ -39,56 +44,56 @@ class MyProfilePage extends Page
     {
         return [
             Action::make('download_certificate')
-                ->label('Download Certificate')
+                ->label(__('app.member.download_certificate'))
                 ->icon('heroicon-o-document-arrow-down')
                 ->color('success')
                 ->url(fn() => route('member.certificate'))
                 ->openUrlInNewTab(),
 
             Action::make('update_phone')
-                ->label('Update Phone')
+                ->label(__('app.member.update_phone'))
                 ->icon('heroicon-o-phone')
                 ->color('info')
                 ->fillForm(['phone' => auth()->user()?->phone])
                 ->schema([
                     Forms\Components\TextInput::make('phone')
-                        ->label('Phone Number')
+                        ->label(__('app.field.phone'))
                         ->tel()
                         ->required()
                         ->maxLength(50)
-                        ->helperText('Used for SMS and WhatsApp notifications.'),
+                        ->helperText(__('app.member.phone_helper')),
                 ])
                 ->action(function (array $data): void {
                     auth()->user()->update(['phone' => $data['phone']]);
-                    Notification::make()->title('Phone updated')->success()->send();
+                    Notification::make()->title(__('app.member.phone_updated'))->success()->send();
                 }),
 
             Action::make('change_password')
-                ->label('Change Password')
+                ->label(__('app.member.change_password'))
                 ->icon('heroicon-o-lock-closed')
                 ->color('primary')
                 ->schema([
                     Forms\Components\TextInput::make('current_password')
-                        ->label('Current Password')
+                        ->label(__('app.member.current_password'))
                         ->password()
                         ->revealable()
                         ->required()
                         ->rules([
                             fn() => function (string $attribute, mixed $value, \Closure $fail) {
                                 if (!Hash::check($value, auth()->user()->password)) {
-                                    $fail('Your current password is incorrect.');
+                                    $fail(__('app.member.current_password_incorrect'));
                                 }
                             },
                         ]),
                     Forms\Components\TextInput::make('password')
-                        ->label('New Password')
+                        ->label(__('app.member.new_password'))
                         ->password()
                         ->revealable()
                         ->required()
                         ->rules([Password::min(8)->mixedCase()->numbers()])
-                        ->helperText('Minimum 8 characters, mix of upper/lower case and numbers.'),
+                        ->helperText(__('app.member.new_password_helper')),
                     Forms\Components\TextInput::make('password_confirmation')
-                        ->label('Confirm New Password')
+                        ->label(__('app.member.confirm_new_password'))
                         ->password()
                         ->revealable()
                         ->required()
@@ -97,8 +102,8 @@ class MyProfilePage extends Page
                 ->action(function (array $data): void {
                     auth()->user()->update(['password' => Hash::make($data['password'])]);
                     Notification::make()
-                        ->title('Password changed')
-                        ->body('Your password has been updated. Use the new password on your next login.')
+                        ->title(__('app.member.password_changed'))
+                        ->body(__('app.member.password_changed_body'))
                         ->success()
                         ->send();
                 }),

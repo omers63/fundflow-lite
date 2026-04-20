@@ -40,6 +40,11 @@ class UserResource extends Resource
 
     protected static ?int $navigationSort = 0;
 
+    public static function getNavigationLabel(): string
+    {
+        return __('System Users');
+    }
+
     public static function getNavigationGroup(): ?string
     {
         return __('app.nav.group.system');
@@ -53,48 +58,48 @@ class UserResource extends Resource
     public static function form(Schema $schema): Schema
     {
         return $schema->schema([
-            Section::make('Profile')
+            Section::make(__('Profile'))
                 ->schema([
                     Forms\Components\TextInput::make('name')
                         ->required()
                         ->maxLength(255),
                     Forms\Components\TextInput::make('email')
-                        ->label('Email')
+                        ->label(__('Email'))
                         ->email()
                         ->required()
                         ->unique(ignoreRecord: true)
                         ->maxLength(255),
                     Forms\Components\TextInput::make('phone')
-                        ->label('Phone')
+                        ->label(__('Phone'))
                         ->tel()
                         ->maxLength(30)
                         ->placeholder('+966 …'),
                 ])
                 ->columns(2),
 
-            Section::make('Portal access')
-                ->description('User type controls which Filament panel they may open. This is separate from Shield roles in the next section.')
+            Section::make(__('Portal access'))
+                ->description(__('User type controls which Filament panel they may open. This is separate from Shield roles in the next section.'))
                 ->schema([
                     Forms\Components\Select::make('user_type')
-                        ->label('User type')
+                        ->label(__('User type'))
                         ->options([
-                            'admin' => 'Admin',
-                            'member' => 'Member',
+                            'admin' => __('Admin'),
+                            'member' => __('Member'),
                         ])
                         ->required()
                         ->native(false),
                     Forms\Components\Select::make('status')
                         ->options([
-                            'pending' => 'Pending',
-                            'approved' => 'Approved',
-                            'rejected' => 'Rejected',
+                            'pending' => __('Pending'),
+                            'approved' => __('Approved'),
+                            'rejected' => __('Rejected'),
                         ])
                         ->required()
                         ->native(false),
                 ])
                 ->columns(2),
 
-            Section::make('Password')
+            Section::make(__('Password'))
                 ->schema([
                     Forms\Components\TextInput::make('password')
                         ->password()
@@ -104,7 +109,7 @@ class UserResource extends Resource
                         ->same('password_confirmation')
                         ->dehydrated(fn (?string $state): bool => filled($state)),
                     Forms\Components\TextInput::make('password_confirmation')
-                        ->label('Confirm password')
+                        ->label(__('Confirm password'))
                         ->password()
                         ->revealable()
                         ->required(fn (string $operation): bool => $operation === 'create')
@@ -114,11 +119,11 @@ class UserResource extends Resource
                 ->columns(2)
                 ->visible(fn (string $operation): bool => in_array($operation, ['create', 'edit'], true)),
 
-            Section::make('Roles & permissions')
-                ->description('Spatie roles (managed in System Roles). These grant Shield permissions in the admin panel.')
+            Section::make(__('Roles & permissions'))
+                ->description(__('Spatie roles (managed in System Roles). These grant Shield permissions in the admin panel.'))
                 ->schema([
                     Forms\Components\Select::make('roles')
-                        ->label('Roles')
+                        ->label(__('Roles'))
                         ->relationship(
                             'roles',
                             'name',
@@ -138,7 +143,7 @@ class UserResource extends Resource
             ->modifyQueryUsing(fn (Builder $q): Builder => $q->with('roles'))
             ->columns([
                 Tables\Columns\TextColumn::make('id')
-                    ->label('ID')
+                    ->label(__('ID'))
                     ->sortable(),
                 Tables\Columns\TextColumn::make('name')
                     ->searchable()
@@ -147,11 +152,11 @@ class UserResource extends Resource
                     ->searchable()
                     ->sortable(),
                 Tables\Columns\TextColumn::make('role')
-                    ->label('Type')
+                    ->label(__('Type'))
                     ->badge()
                     ->formatStateUsing(fn (string $state): string => match ($state) {
-                        'admin' => 'Admin',
-                        'member' => 'Member',
+                        'admin' => __('Admin'),
+                        'member' => __('Member'),
                         default => $state,
                     })
                     ->color(fn (string $state): string => match ($state) {
@@ -168,7 +173,7 @@ class UserResource extends Resource
                         default => 'gray',
                     }),
                 Tables\Columns\TextColumn::make('roles_list')
-                    ->label('Roles')
+                    ->label(__('Roles'))
                     ->getStateUsing(function (User $record): string {
                         $roles = $record->roles->pluck('name')->sort()->implode(', ');
 
@@ -177,8 +182,8 @@ class UserResource extends Resource
                         }
 
                         return match ($record->role) {
-                            'admin' => 'admin (from user type)',
-                            'member' => 'member (from user type)',
+                            'admin' => __('admin (from user type)'),
+                            'member' => __('member (from user type)'),
                             default => '—',
                         };
                     })
@@ -188,7 +193,7 @@ class UserResource extends Resource
                     ->sortable()
                     ->toggleable(isToggledHiddenByDefault: true),
                 Tables\Columns\TextColumn::make('deleted_at')
-                    ->label('Deleted')
+                    ->label(__('Deleted'))
                     ->dateTime('d M Y H:i')
                     ->placeholder('—')
                     ->sortable()
@@ -197,14 +202,14 @@ class UserResource extends Resource
             ->filters([
                 Tables\Filters\SelectFilter::make('role')
                     ->options([
-                        'admin' => 'Admin',
-                        'member' => 'Member',
+                        'admin' => __('Admin'),
+                        'member' => __('Member'),
                     ]),
                 Tables\Filters\SelectFilter::make('status')
                     ->options([
-                        'pending' => 'Pending',
-                        'approved' => 'Approved',
-                        'rejected' => 'Rejected',
+                        'pending' => __('Pending'),
+                        'approved' => __('Approved'),
+                        'rejected' => __('Rejected'),
                     ]),
                 TrashedFilter::make(),
             ])

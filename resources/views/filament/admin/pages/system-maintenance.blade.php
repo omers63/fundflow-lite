@@ -8,26 +8,26 @@
                         <x-heroicon-o-arrow-down-tray class="w-6 h-6 text-emerald-600 dark:text-emerald-400" />
                     </div>
                     <div>
-                        <h2 class="text-base font-semibold text-gray-900 dark:text-white">Database backups</h2>
+                        <h2 class="text-base font-semibold text-gray-900 dark:text-white">{{ __('Database backups') }}</h2>
                         <p class="text-sm text-gray-500 dark:text-gray-400 mt-0.5">
-                            <strong class="text-gray-700 dark:text-gray-300">Download backup</strong> streams a copy to your browser without saving on the server.
-                            <strong class="text-gray-700 dark:text-gray-300">Save backup to server</strong> writes to <code class="text-xs bg-gray-200 dark:bg-gray-700 px-1 rounded">storage/app/backups/</code> and records it in the history table below.
+                            <strong class="text-gray-700 dark:text-gray-300">{{ __('Download backup') }}</strong> {{ __('streams a copy to your browser without saving on the server.') }}
+                            <strong class="text-gray-700 dark:text-gray-300">{{ __('Save backup to server') }}</strong> {{ __('writes to') }} <code class="text-xs bg-gray-200 dark:bg-gray-700 px-1 rounded">storage/app/backups/</code> {{ __('and records it in the history table below.') }}
                         </p>
                     </div>
                 </div>
 
                 <div class="px-6 py-5 space-y-4 text-sm text-gray-600 dark:text-gray-300">
                     <div class="rounded-xl bg-gray-50 dark:bg-gray-900/40 ring-1 ring-gray-100 dark:ring-gray-700 p-4 space-y-2">
-                        <p class="font-medium text-gray-800 dark:text-gray-200">SQLite</p>
-                        <p>Downloads the configured <code class="text-xs bg-gray-200 dark:bg-gray-700 px-1.5 py-0.5 rounded">.sqlite</code> file as-is. Fast and complete.</p>
+                        <p class="font-medium text-gray-800 dark:text-gray-200">{{ __('SQLite') }}</p>
+                        <p>{{ __('Downloads the configured') }} <code class="text-xs bg-gray-200 dark:bg-gray-700 px-1.5 py-0.5 rounded">.sqlite</code> {{ __('file as-is. Fast and complete.') }}</p>
                     </div>
                     <div class="rounded-xl bg-gray-50 dark:bg-gray-900/40 ring-1 ring-gray-100 dark:ring-gray-700 p-4 space-y-2">
-                        <p class="font-medium text-gray-800 dark:text-gray-200">MySQL / MariaDB</p>
-                        <p>Runs <code class="text-xs bg-gray-200 dark:bg-gray-700 px-1.5 py-0.5 rounded">mysqldump</code> using your <code class="text-xs bg-gray-200 dark:bg-gray-700 px-1.5 py-0.5 rounded">MYSQL_*</code> connection settings. The client tools must be installed and available in your system PATH.</p>
+                        <p class="font-medium text-gray-800 dark:text-gray-200">{{ __('MySQL / MariaDB') }}</p>
+                        <p>{{ __('Runs') }} <code class="text-xs bg-gray-200 dark:bg-gray-700 px-1.5 py-0.5 rounded">mysqldump</code> {{ __('using your') }} <code class="text-xs bg-gray-200 dark:bg-gray-700 px-1.5 py-0.5 rounded">MYSQL_*</code> {{ __('connection settings. The client tools must be installed and available in your system PATH.') }}</p>
                     </div>
                     <p class="text-xs text-amber-600 dark:text-amber-400 flex items-start gap-2">
                         <x-heroicon-o-shield-exclamation class="w-4 h-4 flex-shrink-0 mt-0.5" />
-                        <span>Store backups securely. Anyone with an admin session can use this download while logged in. Use <strong class="text-gray-700 dark:text-gray-300">Download backup</strong> in the page header.</span>
+                        <span>{{ __('Store backups securely. Anyone with an admin session can use this download while logged in. Use') }} <strong class="text-gray-700 dark:text-gray-300">{{ __('Download backup') }}</strong> {{ __('in the page header.') }}</span>
                     </p>
                 </div>
             </div>
@@ -42,10 +42,10 @@
                             <x-heroicon-o-exclamation-triangle class="w-7 h-7 text-white" />
                         </div>
                         <div>
-                            <h2 class="text-lg font-bold text-white">Purge database (destructive)</h2>
+                            <h2 class="text-lg font-bold text-white">{{ __('Purge database (destructive)') }}</h2>
                             <p class="mt-1 text-sm text-red-100">
-                                Purge removes <strong class="text-white">all rows</strong> from every table that does <strong class="text-white">not</strong> have a
-                                <code class="text-xs bg-white/20 px-1 rounded">deleted_at</code> column, except protected system tables (users, permissions, migrations, queues, cache, sessions).
+                                {{ __('Purge removes') }} <strong class="text-white">{{ __('all rows') }}</strong> {{ __('from every table that does') }} <strong class="text-white">{{ __('not') }}</strong> {{ __('have a') }}
+                                <code class="text-xs bg-white/20 px-1 rounded">deleted_at</code> {{ __('column, except protected system tables (users, permissions, migrations, queues, cache, sessions).') }}
                             </p>
                         </div>
                     </div>
@@ -56,13 +56,13 @@
                 <div class="flex items-center justify-between px-6 py-4 border-b border-gray-100 dark:border-gray-700 bg-gray-50 dark:bg-gray-800/80">
                     <div class="flex items-center gap-2">
                         <x-heroicon-o-table-cells class="w-5 h-5 text-red-500" />
-                        <h3 class="text-base font-semibold text-gray-900 dark:text-white">Tables that will be emptied</h3>
+                        <h3 class="text-base font-semibold text-gray-900 dark:text-white">{{ __('Tables that will be emptied') }}</h3>
                     </div>
-                    <span class="text-xs font-medium text-gray-500">{{ count($purgeableTables) }} table{{ count($purgeableTables) !== 1 ? 's' : '' }}</span>
+                    <span class="text-xs font-medium text-gray-500">{{ trans_choice(':count table|:count tables', count($purgeableTables), ['count' => count($purgeableTables)]) }}</span>
                 </div>
                 <div class="px-6 py-4 max-h-64 overflow-y-auto">
                     @if(count($purgeableTables) === 0)
-                        <p class="text-sm text-gray-500 dark:text-gray-400">No tables match the purge rules.</p>
+                        <p class="text-sm text-gray-500 dark:text-gray-400">{{ __('No tables match the purge rules.') }}</p>
                     @else
                         <ul class="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-2">
                             @foreach($purgeableTables as $table)
@@ -81,9 +81,9 @@
                     <div class="px-6 py-4 border-b border-gray-100 dark:border-gray-700">
                         <h3 class="text-sm font-semibold text-gray-900 dark:text-white flex items-center gap-2">
                             <x-heroicon-o-shield-check class="w-4 h-4 text-emerald-500" />
-                            Always preserved
+                            {{ __('Always preserved') }}
                         </h3>
-                        <p class="text-xs text-gray-500 dark:text-gray-400 mt-1">Never truncated by this tool.</p>
+                        <p class="text-xs text-gray-500 dark:text-gray-400 mt-1">{{ __('Never truncated by this tool.') }}</p>
                     </div>
                     <div class="px-6 py-4 max-h-48 overflow-y-auto">
                         <ul class="space-y-1">
@@ -98,13 +98,13 @@
                     <div class="px-6 py-4 border-b border-gray-100 dark:border-gray-700">
                         <h3 class="text-sm font-semibold text-gray-900 dark:text-white flex items-center gap-2">
                             <x-heroicon-o-archive-box-x-mark class="w-4 h-4 text-amber-500" />
-                            Skipped (has <code class="text-xs">deleted_at</code>)
+                            {{ __('Skipped (has deleted_at)') }}
                         </h3>
-                        <p class="text-xs text-gray-500 dark:text-gray-400 mt-1">Not included in purge while this column exists.</p>
+                        <p class="text-xs text-gray-500 dark:text-gray-400 mt-1">{{ __('Not included in purge while this column exists.') }}</p>
                     </div>
                     <div class="px-6 py-4 max-h-48 overflow-y-auto">
                         @if(count($softDeleteSkippedTables) === 0)
-                            <p class="text-xs text-gray-500 dark:text-gray-400">None of your application tables currently use soft deletes.</p>
+                            <p class="text-xs text-gray-500 dark:text-gray-400">{{ __('None of your application tables currently use soft deletes.') }}</p>
                         @else
                             <ul class="space-y-1">
                                 @foreach($softDeleteSkippedTables as $table)
@@ -117,7 +117,7 @@
             </div>
 
             <p class="text-xs text-center text-gray-400">
-                After purging business data you may need to run <code class="bg-gray-200 dark:bg-gray-700 px-1 rounded">php artisan db:seed</code> to restore defaults.
+                {{ __('After purging business data you may need to run') }} <code class="bg-gray-200 dark:bg-gray-700 px-1 rounded">php artisan db:seed</code> {{ __('to restore defaults.') }}
             </p>
         </div>
     </div>

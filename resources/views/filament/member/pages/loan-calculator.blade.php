@@ -7,12 +7,12 @@
         <div class="flex items-start gap-3">
             <x-heroicon-o-calculator class="w-6 h-6 text-primary-600 dark:text-primary-400 mt-0.5 flex-shrink-0" />
             <div>
-                <p class="text-sm font-semibold text-primary-800 dark:text-primary-300">Estimate your loan repayment</p>
+                <p class="text-sm font-semibold text-primary-800 dark:text-primary-300">{{ __('Estimate your loan repayment') }}</p>
                 <p class="text-sm text-primary-700 dark:text-primary-400 mt-1">
-                    Enter an amount to see how many monthly installments you would need to repay it.
-                    Calculations use your current fund balance (SAR {{ number_format($this->memberFundBalance, 2) }})
-                    and the active loan tier settings.
-                    The {{ round($this->settlementPct * 100) }}% settlement threshold is included.
+                    {{ __('Enter an amount to see how many monthly installments you would need to repay it.') }}
+                    Calculations use your current fund balance ({{ __('SAR') }} {{ number_format($this->memberFundBalance, 2) }})
+                    {{ __('and the active loan tier settings.') }}
+                    {{ __('The :percent% settlement threshold is included.', ['percent' => round($this->settlementPct * 100)]) }}
                 </p>
             </div>
         </div>
@@ -20,19 +20,19 @@
 
     {{-- ── Amount input ────────────────────────────────────────────────────────── --}}
     <div class="rounded-xl bg-gradient-to-br from-sky-100 via-white to-indigo-50 dark:from-slate-800 dark:via-sky-950/35 dark:to-indigo-950/30 ring-1 ring-sky-200/80 dark:ring-sky-600/40 p-5 shadow-md">
-        <label class="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">Loan Amount (SAR)</label>
+        <label class="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">{{ __('Loan Amount (SAR)') }}</label>
         <div class="flex gap-3 items-center">
             <input
                 type="number"
                 wire:model.live.debounce.400ms="loanAmount"
                 min="0"
                 step="500"
-                placeholder="e.g. 20000"
+                placeholder="{{ __('e.g. 20000') }}"
                 class="block w-full sm:w-64 rounded-lg border-gray-300 dark:border-gray-600 dark:bg-gray-700 dark:text-white shadow-sm focus:ring-primary-500 focus:border-primary-500 text-base px-4 py-2.5"
             />
             @if($this->loanAmount > 0)
                 <span class="text-sm text-gray-500 dark:text-gray-400">
-                    SAR {{ number_format($this->loanAmount, 2) }}
+                    {{ __('SAR') }} {{ number_format($this->loanAmount, 2) }}
                 </span>
             @endif
         </div>
@@ -46,7 +46,7 @@
                 wire:click="$set('loanAmount', {{ (float) $tier->min_amount }})"
                 class="inline-flex items-center px-3 py-1 rounded-full text-xs font-medium bg-gray-100 dark:bg-gray-700 text-gray-700 dark:text-gray-300 hover:bg-primary-100 dark:hover:bg-primary-900 hover:text-primary-700 dark:hover:text-primary-300 transition-colors"
             >
-                {{ $tier->label }} (SAR {{ number_format($tier->min_amount) }})
+                {{ $tier->label }} ({{ __('SAR') }} {{ number_format($tier->min_amount) }})
             </button>
             @endforeach
         </div>
@@ -66,53 +66,53 @@
                     </div>
                     <div class="text-right">
                         <span class="text-2xl font-bold text-primary-600 dark:text-primary-400">{{ $calc['installments'] }}</span>
-                        <span class="text-sm text-gray-500 dark:text-gray-400 ml-1">months</span>
+                        <span class="text-sm text-gray-500 dark:text-gray-400 ml-1">{{ __('months') }}</span>
                     </div>
                 </div>
 
                 {{-- Body --}}
                 <div class="px-5 py-4 grid grid-cols-2 sm:grid-cols-3 gap-4">
                     <div>
-                        <p class="text-xs text-gray-500 dark:text-gray-400 uppercase tracking-wide">Monthly Installment</p>
+                        <p class="text-xs text-gray-500 dark:text-gray-400 uppercase tracking-wide">{{ __('Monthly Installment') }}</p>
                         <p class="mt-1 text-base font-semibold text-gray-900 dark:text-white">
-                            SAR {{ number_format($calc['min_installment'], 2) }}
+                            {{ __('SAR') }} {{ number_format($calc['min_installment'], 2) }}
                         </p>
-                        <p class="text-xs text-gray-400">minimum</p>
+                        <p class="text-xs text-gray-400">{{ __('minimum') }}</p>
                     </div>
                     <div>
-                        <p class="text-xs text-gray-500 dark:text-gray-400 uppercase tracking-wide">Your Fund Portion</p>
+                        <p class="text-xs text-gray-500 dark:text-gray-400 uppercase tracking-wide">{{ __('Your Fund Portion') }}</p>
                         <p class="mt-1 text-base font-semibold text-emerald-600 dark:text-emerald-400">
-                            SAR {{ number_format($calc['member_portion'], 2) }}
+                            {{ __('SAR') }} {{ number_format($calc['member_portion'], 2) }}
                         </p>
-                        <p class="text-xs text-gray-400">from your fund account</p>
+                        <p class="text-xs text-gray-400">{{ __('from your fund account') }}</p>
                     </div>
                     <div>
-                        <p class="text-xs text-gray-500 dark:text-gray-400 uppercase tracking-wide">Fund Contribution</p>
+                        <p class="text-xs text-gray-500 dark:text-gray-400 uppercase tracking-wide">{{ __('Fund Contribution') }}</p>
                         <p class="mt-1 text-base font-semibold text-amber-600 dark:text-amber-400">
-                            SAR {{ number_format($calc['master_portion'], 2) }}
+                            {{ __('SAR') }} {{ number_format($calc['master_portion'], 2) }}
                         </p>
-                        <p class="text-xs text-gray-400">from master fund</p>
+                        <p class="text-xs text-gray-400">{{ __('from master fund') }}</p>
                     </div>
                     <div>
-                        <p class="text-xs text-gray-500 dark:text-gray-400 uppercase tracking-wide">Settlement Amount</p>
+                        <p class="text-xs text-gray-500 dark:text-gray-400 uppercase tracking-wide">{{ __('Settlement Amount') }}</p>
                         <p class="mt-1 text-base font-semibold text-gray-700 dark:text-gray-300">
-                            SAR {{ number_format($calc['settlement_amt'], 2) }}
+                            {{ __('SAR') }} {{ number_format($calc['settlement_amt'], 2) }}
                         </p>
-                        <p class="text-xs text-gray-400">{{ round($this->settlementPct * 100) }}% of loan</p>
+                        <p class="text-xs text-gray-400">{{ __(':percent% of loan', ['percent' => round($this->settlementPct * 100)]) }}</p>
                     </div>
                     <div>
-                        <p class="text-xs text-gray-500 dark:text-gray-400 uppercase tracking-wide">Total to Repay</p>
+                        <p class="text-xs text-gray-500 dark:text-gray-400 uppercase tracking-wide">{{ __('Total to Repay') }}</p>
                         <p class="mt-1 text-base font-semibold text-gray-900 dark:text-white">
-                            SAR {{ number_format($calc['total_repay'], 2) }}
+                            {{ __('SAR') }} {{ number_format($calc['total_repay'], 2) }}
                         </p>
-                        <p class="text-xs text-gray-400">master portion + settlement</p>
+                        <p class="text-xs text-gray-400">{{ __('master portion + settlement') }}</p>
                     </div>
                     <div>
-                        <p class="text-xs text-gray-500 dark:text-gray-400 uppercase tracking-wide">Duration</p>
+                        <p class="text-xs text-gray-500 dark:text-gray-400 uppercase tracking-wide">{{ __('Duration') }}</p>
                         <p class="mt-1 text-base font-semibold text-gray-900 dark:text-white">
-                            ~{{ number_format($calc['installments'] / 12, 1) }} years
+                            {{ __('~:years years', ['years' => number_format($calc['installments'] / 12, 1)]) }}
                         </p>
-                        <p class="text-xs text-gray-400">{{ $calc['installments'] }} monthly payments</p>
+                        <p class="text-xs text-gray-400">{{ __(':count monthly payments', ['count' => $calc['installments']]) }}</p>
                     </div>
                 </div>
 
@@ -122,7 +122,7 @@
                     $masterPct = 100 - $memberPct;
                 @endphp
                 <div class="px-5 pb-4">
-                    <p class="text-xs text-gray-500 dark:text-gray-400 mb-1">Loan funding split</p>
+                    <p class="text-xs text-gray-500 dark:text-gray-400 mb-1">{{ __('Loan funding split') }}</p>
                     <div class="w-full h-3 rounded-full bg-gray-100 dark:bg-gray-700 overflow-hidden flex">
                         @if($memberPct > 0)
                         <div class="h-full bg-emerald-500 transition-all" style="width: {{ $memberPct }}%"></div>
@@ -132,23 +132,23 @@
                         @endif
                     </div>
                     <div class="flex gap-4 mt-1 text-xs text-gray-500 dark:text-gray-400">
-                        <span class="flex items-center gap-1"><span class="inline-block w-2 h-2 rounded-full bg-emerald-500"></span> Your fund ({{ round($memberPct) }}%)</span>
-                        <span class="flex items-center gap-1"><span class="inline-block w-2 h-2 rounded-full bg-amber-400"></span> Master fund ({{ round($masterPct) }}%)</span>
+                        <span class="flex items-center gap-1"><span class="inline-block w-2 h-2 rounded-full bg-emerald-500"></span> {{ __('Your fund (:percent%)', ['percent' => round($memberPct)]) }}</span>
+                        <span class="flex items-center gap-1"><span class="inline-block w-2 h-2 rounded-full bg-amber-400"></span> {{ __('Master fund (:percent%)', ['percent' => round($masterPct)]) }}</span>
                     </div>
                 </div>
             </div>
             @endforeach
 
             <p class="text-xs text-gray-400 dark:text-gray-500 text-center mt-2">
-                * These are estimates based on current tier settings and your fund balance. Actual terms may vary upon approval.
+                {{ __('* These are estimates based on current tier settings and your fund balance. Actual terms may vary upon approval.') }}
             </p>
 
         @else
             <div class="rounded-xl bg-white dark:bg-gray-800 ring-1 ring-gray-200 dark:ring-gray-700 p-8 text-center shadow-sm">
                 <x-heroicon-o-exclamation-triangle class="w-10 h-10 text-amber-400 mx-auto mb-3" />
-                <p class="text-sm font-semibold text-gray-700 dark:text-gray-300">No matching loan tier</p>
+                <p class="text-sm font-semibold text-gray-700 dark:text-gray-300">{{ __('No matching loan tier') }}</p>
                 <p class="text-sm text-gray-500 dark:text-gray-400 mt-1">
-                    SAR {{ number_format($this->loanAmount, 2) }} does not fall within any active loan tier range.
+                    {{ __(':currency :amount does not fall within any active loan tier range.', ['currency' => __('SAR'), 'amount' => number_format($this->loanAmount, 2)]) }}
                 </p>
                 @if($this->activeTiers->isNotEmpty())
                 <div class="mt-4 flex flex-wrap gap-2 justify-center">
@@ -164,7 +164,7 @@
     @else
         <div class="rounded-xl bg-white dark:bg-gray-800 ring-1 ring-gray-200 dark:ring-gray-700 p-10 text-center shadow-sm">
             <x-heroicon-o-calculator class="w-12 h-12 text-gray-300 dark:text-gray-600 mx-auto mb-3" />
-            <p class="text-sm text-gray-500 dark:text-gray-400">Enter a loan amount above to see your repayment estimate.</p>
+            <p class="text-sm text-gray-500 dark:text-gray-400">{{ __('Enter a loan amount above to see your repayment estimate.') }}</p>
         </div>
     @endif
 

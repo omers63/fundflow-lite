@@ -28,6 +28,11 @@ class MyDependentsResource extends Resource
 
     protected static ?int $navigationSort = 2;
 
+    public static function getNavigationLabel(): string
+    {
+        return __('My Dependents');
+    }
+
     public static function getNavigationGroup(): ?string
     {
         return __('app.nav.group.account');
@@ -48,8 +53,8 @@ class MyDependentsResource extends Resource
         $parentMember = fn () => Member::where('user_id', auth()->id())->first();
 
         return $table
-            ->heading('Your dependents')
-            ->description('Members sponsored under your account. Review allocations and balances, update allocation amounts instantly, fund dependent cash, and open history per dependent.')
+            ->heading(__('Your dependents'))
+            ->description(__('Members sponsored under your account. Review allocations and balances, update allocation amounts instantly, fund dependent cash, and open history per dependent.'))
             ->query(function () use ($parentMember) {
                 $member = $parentMember();
 
@@ -62,18 +67,18 @@ class MyDependentsResource extends Resource
             })
             ->columns([
                 Tables\Columns\TextColumn::make('member_number')
-                    ->label('Member #')
+                    ->label(__('Member #'))
                     ->visibleFrom('sm')
                     ->sortable(),
                 Tables\Columns\TextColumn::make('user.name')
-                    ->label('Name')
+                    ->label(__('Name'))
                     ->searchable(),
                 Tables\Columns\TextColumn::make('monthly_contribution_amount')
-                    ->label('Monthly Allocation')
+                    ->label(__('Monthly Allocation'))
                     ->money('SAR')
                     ->weight('bold'),
                 Tables\Columns\TextColumn::make('last_allocation_change')
-                    ->label('Last Changed')
+                    ->label(__('Last Changed'))
                     ->visibleFrom('md')
                     ->getStateUsing(function (Member $record): ?string {
                         $last = DependentAllocationChange::where('dependent_member_id', $record->id)
@@ -87,6 +92,7 @@ class MyDependentsResource extends Resource
                         return "{$dir} {$last->deltaLabel()} · {$last->created_at->diffForHumans()}";
                     })
                     ->placeholder('Never changed')
+                    ->placeholder(__('Never changed'))
                     ->color(fn (Member $record): ?string => null),
                 Tables\Columns\TextColumn::make('status')
                     ->badge()
@@ -98,7 +104,7 @@ class MyDependentsResource extends Resource
                         default => 'gray',
                     }),
                 Tables\Columns\TextColumn::make('cash_balance')
-                    ->label('Cash Balance')
+                    ->label(__('Cash Balance'))
                     ->money('SAR')
                     ->visibleFrom('md')
                     ->getStateUsing(fn (Member $r) => $r->cash_balance)
@@ -108,21 +114,21 @@ class MyDependentsResource extends Resource
                 Tables\Filters\SelectFilter::make('status')
                     ->options([
                         'active' => 'Active',
-                        'suspended' => 'Suspended',
-                        'delinquent' => 'Delinquent',
-                        'terminated' => 'Terminated',
+                        'suspended' => __('Suspended'),
+                        'delinquent' => __('Delinquent'),
+                        'terminated' => __('Terminated'),
                     ]),
                 Tables\Filters\SelectFilter::make('monthly_contribution_amount')
-                    ->label('Monthly allocation')
+                    ->label(__('Monthly allocation'))
                     ->options(Member::contributionAmountOptions()),
             ])
             ->headerActions([
                 // ── Bulk update all dependents at once ───────────────────────
                 Action::make('bulk_update_allocations')
-                    ->label('Update allocations (all)')
+                    ->label(__('Update allocations (all)'))
                     ->icon('heroicon-o-adjustments-horizontal')
                     ->color('primary')
-                    ->modalHeading('Update dependent allocations')
+                    ->modalHeading(__('Update dependent allocations'))
                     ->modalDescription(new HtmlString(
                         '<p class="text-sm text-gray-600 dark:text-gray-400">Changed amounts are applied immediately and administrators are notified automatically.</p>'
                     ))
@@ -135,7 +141,7 @@ class MyDependentsResource extends Resource
                             return [
                                 Forms\Components\Placeholder::make('none')
                                     ->label('')
-                                    ->content('You have no dependents.'),
+                                    ->content(__('You have no dependents.')),
                             ];
                         }
 
@@ -151,9 +157,9 @@ class MyDependentsResource extends Resource
                         }
 
                         $fields[] = Forms\Components\TextInput::make('note')
-                            ->label('Note / Reason (optional)')
+                            ->label(__('Note / Reason (optional)'))
                             ->maxLength(200)
-                            ->placeholder('e.g. Annual review adjustment')
+                            ->placeholder(__('e.g. Annual review adjustment'))
                             ->columnSpanFull();
 
                         return $fields;
@@ -161,7 +167,7 @@ class MyDependentsResource extends Resource
                     ->action(function (array $data) use ($parentMember) {
                         $parent = $parentMember();
                         if (! $parent) {
-                            Notification::make()->title('Member record not found.')->danger()->send();
+                            Notification::make()->title(__('Member record not found.'))->danger()->send();
 
                             return;
                         }
@@ -170,7 +176,7 @@ class MyDependentsResource extends Resource
                         $note = $data['note'] ?? null;
 
                         if ($amounts === []) {
-                            Notification::make()->title('No dependents to update.')->warning()->send();
+                            Notification::make()->title(__('No dependents to update.'))->warning()->send();
 
                             return;
                         }
@@ -186,7 +192,7 @@ class MyDependentsResource extends Resource
                         $updated = collect($results)->filter(fn (array $row): bool => $row['change'] !== null)->count();
 
                         Notification::make()
-                            ->title($updated > 0 ? 'Allocations updated' : 'No changes applied')
+                            ->title($updated > 0 ? __('Allocations updated') : __('No changes applied'))
                             ->body($body)
                             ->color($updated > 0 ? 'success' : 'info')
                             ->send();
@@ -196,7 +202,7 @@ class MyDependentsResource extends Resource
                 ActionGroup::make([
                     // ── Set single allocation ─────────────────────────────────────
                     Action::make('set_allocation')
-                        ->label('Update allocation')
+                        ->label(__('Update allocation'))
                         ->icon('heroicon-o-adjustments-horizontal')
                         ->color('warning')
                         ->fillForm(fn (Member $record) => [
@@ -205,28 +211,28 @@ class MyDependentsResource extends Resource
                         ])
                         ->schema([
                             Forms\Components\Select::make('monthly_contribution_amount')
-                                ->label('Monthly Contribution Amount')
+                                ->label(__('Monthly Contribution Amount'))
                                 ->options(Member::contributionAmountOptions())
                                 ->required()
                                 ->helperText(fn (?Member $record) => $record
                                     ? 'Current: SAR '.number_format($record->monthly_contribution_amount).' · Cash balance: SAR '.number_format($record->cash_balance, 2)
                                     : ''),
                             Forms\Components\TextInput::make('note')
-                                ->label('Note / Reason (optional)')
+                                ->label(__('Note / Reason (optional)'))
                                 ->maxLength(200)
-                                ->placeholder('e.g. Income change'),
+                                ->placeholder(__('e.g. Income change')),
                         ])
                         ->action(function (Member $record, array $data) use ($parentMember) {
                             $parent = $parentMember();
                             if (! $parent) {
-                                Notification::make()->title('Parent member not found.')->danger()->send();
+                                Notification::make()->title(__('Parent member not found.'))->danger()->send();
 
                                 return;
                             }
 
                             $newAmount = (int) $data['monthly_contribution_amount'];
                             if (! Member::isValidContributionAmount($newAmount)) {
-                                Notification::make()->title('Invalid amount selected.')->danger()->send();
+                                Notification::make()->title(__('Invalid amount selected.'))->danger()->send();
 
                                 return;
                             }
@@ -240,19 +246,19 @@ class MyDependentsResource extends Resource
                                     changedBy: auth()->user(),
                                 );
                             } catch (\Throwable $e) {
-                                Notification::make()->title('Could not update allocation')->body($e->getMessage())->danger()->send();
+                                Notification::make()->title(__('Could not update allocation'))->body($e->getMessage())->danger()->send();
 
                                 return;
                             }
 
                             if ($change === null) {
-                                Notification::make()->title('No changes detected.')->info()->send();
+                                Notification::make()->title(__('No changes detected.'))->info()->send();
 
                                 return;
                             }
 
                             Notification::make()
-                                ->title('Allocation updated')
+                                ->title(__('Allocation updated'))
                                 ->body($record->user?->name.' allocation was updated successfully.')
                                 ->success()
                                 ->send();
@@ -260,7 +266,7 @@ class MyDependentsResource extends Resource
 
                     // ── Fund cash account ─────────────────────────────────────────
                     Action::make('fund_cash')
-                        ->label('Fund Cash Account')
+                        ->label(__('Fund Cash Account'))
                         ->icon('heroicon-o-banknotes')
                         ->color('success')
                         ->schema(function (Member $record) use ($parentMember) {
@@ -268,26 +274,26 @@ class MyDependentsResource extends Resource
 
                             return [
                                 Forms\Components\Placeholder::make('balances')
-                                    ->label('Balances')
+                                    ->label(__('Balances'))
                                     ->content(
                                         'Your cash: SAR '.number_format($parent?->cash_balance ?? 0, 2).
                                         " | {$record->user->name}'s cash: SAR ".number_format($record->cash_balance, 2)
                                     ),
                                 Forms\Components\TextInput::make('amount')
-                                    ->label('Amount to Transfer (SAR)')
+                                    ->label(__('Amount to Transfer (SAR)'))
                                     ->numeric()
                                     ->minValue(1)
                                     ->required()
                                     ->prefix('SAR'),
                                 Forms\Components\TextInput::make('note')
-                                    ->label('Note (optional)')
+                                    ->label(__('Note (optional)'))
                                     ->maxLength(200),
                             ];
                         })
                         ->action(function (Member $record, array $data) use ($parentMember) {
                             $parent = $parentMember();
                             if (! $parent) {
-                                Notification::make()->title('Your member record was not found.')->danger()->send();
+                                Notification::make()->title(__('Your member record was not found.'))->danger()->send();
 
                                 return;
                             }
@@ -299,18 +305,18 @@ class MyDependentsResource extends Resource
                                     note: $data['note'] ?? '',
                                 );
                                 Notification::make()
-                                    ->title('Transfer Successful')
+                                    ->title(__('Transfer Successful'))
                                     ->body('SAR '.number_format($data['amount'], 2)." transferred to {$record->user->name}'s cash account.")
                                     ->success()
                                     ->send();
                             } catch (\Throwable $e) {
-                                Notification::make()->title('Transfer Failed')->body($e->getMessage())->danger()->send();
+                                Notification::make()->title(__('Transfer Failed'))->body($e->getMessage())->danger()->send();
                             }
                         }),
 
                     // ── View allocation history ───────────────────────────────────
                     Action::make('view_history')
-                        ->label('History')
+                        ->label(__('History'))
                         ->icon('heroicon-o-clock')
                         ->color('gray')
                         ->modalHeading(fn (Member $record) => "Allocation History — {$record->user->name}")
@@ -322,7 +328,7 @@ class MyDependentsResource extends Resource
                                 ->get();
 
                             if ($changes->isEmpty()) {
-                                return new HtmlString('<p class="text-sm text-gray-500 p-4">No allocation changes recorded.</p>');
+                                return new HtmlString('<p class="text-sm text-gray-500 p-4">' . e(__('No allocation changes recorded.')) . '</p>');
                             }
 
                             $rows = '';
@@ -333,7 +339,7 @@ class MyDependentsResource extends Resource
                                 $delta = $c->isIncrease()
                                     ? '<span class="text-emerald-600">+SAR '.number_format(abs($c->delta())).'</span>'
                                     : '<span class="text-amber-600">−SAR '.number_format(abs($c->delta())).'</span>';
-                                $by = e($c->changedBy?->name ?? 'System');
+                                $by = e($c->changedBy?->name ?? __('System'));
                                 $note = $c->note ? '<br><span class="text-gray-400 text-xs">'.e($c->note).'</span>' : '';
                                 $date = $c->created_at->format('d M Y H:i');
 
@@ -351,10 +357,10 @@ class MyDependentsResource extends Resource
                                 <table class=\"w-full text-sm\">
                                     <thead>
                                         <tr class=\"bg-gray-50 dark:bg-gray-800 text-xs uppercase text-gray-500\">
-                                            <th class=\"py-2 px-3 text-left\">Date</th>
-                                            <th class=\"py-2 px-3 text-left\">Change</th>
-                                            <th class=\"py-2 px-3 text-left\">Delta</th>
-                                            <th class=\"py-2 px-3 text-left\">Changed By</th>
+                                            <th class=\"py-2 px-3 text-left\">" . e(__('Date')) . "</th>
+                                            <th class=\"py-2 px-3 text-left\">" . e(__('Change')) . "</th>
+                                            <th class=\"py-2 px-3 text-left\">" . e(__('Delta')) . "</th>
+                                            <th class=\"py-2 px-3 text-left\">" . e(__('Changed By')) . "</th>
                                         </tr>
                                     </thead>
                                     <tbody>{$rows}</tbody>
@@ -362,14 +368,14 @@ class MyDependentsResource extends Resource
                             </div>");
                         })
                         ->modalSubmitAction(false)
-                        ->modalCancelActionLabel('Close'),
+                        ->modalCancelActionLabel(__('Close')),
                 ])
                     ->icon('heroicon-m-ellipsis-vertical')
                     ->label('')
                     ->button(),
             ])
-            ->emptyStateHeading('No dependents')
-            ->emptyStateDescription('You have no dependent members assigned to you.');
+            ->emptyStateHeading(__('No dependents'))
+            ->emptyStateDescription(__('You have no dependent members assigned to you.'));
     }
 
     public static function getPages(): array

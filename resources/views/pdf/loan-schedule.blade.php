@@ -37,7 +37,7 @@
 <body>
 
 <div class="header">
-    <h1>FundFlow — Loan Repayment Schedule</h1>
+    <h1>{{ app()->getLocale() === 'ar' ? 'فندفلو' : 'FundFlow' }} — Loan Repayment Schedule</h1>
     <p>Loan #{{ $loan->id }} &nbsp;|&nbsp; Member: {{ $loan->member->user->name }} ({{ $loan->member->member_number }})</p>
 </div>
 
@@ -48,7 +48,7 @@
     <table class="info-table">
         <tr>
             <td class="lbl">Loan Amount</td>
-            <td class="val">SAR {{ number_format((float) $loan->amount_approved ?: $loan->amount_requested, 2) }}</td>
+            <td class="val">{{ __('SAR') }} {{ number_format((float) $loan->amount_approved ?: $loan->amount_requested, 2) }}</td>
             <td class="lbl">Status</td>
             <td class="val">{{ ucfirst(str_replace('_', ' ', $loan->status)) }}</td>
         </tr>
@@ -66,7 +66,7 @@
         </tr>
         <tr>
             <td class="lbl">Monthly Installment</td>
-            <td class="val">SAR {{ number_format((float) ($loan->loanTier?->min_monthly_installment ?? 0), 2) }}</td>
+            <td class="val">{{ __('SAR') }} {{ number_format((float) ($loan->loanTier?->min_monthly_installment ?? 0), 2) }}</td>
             <td class="lbl">Purpose</td>
             <td class="val">{{ $loan->purpose ?? '—' }}</td>
         </tr>
@@ -89,7 +89,7 @@
         </div>
         <div class="summary-cell">
             <div class="summary-label">Amount Remaining</div>
-            <div class="summary-value">SAR {{ number_format($remaining, 2) }}</div>
+            <div class="summary-value">{{ __('SAR') }} {{ number_format($remaining, 2) }}</div>
         </div>
     </div>
 
@@ -138,7 +138,7 @@
                 <td colspan="2">Total</td>
                 <td class="amount-right">{{ number_format((float) $loan->installments->sum('amount'), 2) }}</td>
                 <td></td>
-                <td>Paid: SAR {{ number_format($totalPaid, 2) }}</td>
+                <td>Paid: {{ __('SAR') }} {{ number_format($totalPaid, 2) }}</td>
                 <td class="amount-right">{{ number_format((float) $loan->installments->sum('late_fee_amount'), 2) }}</td>
             </tr>
         </tbody>
@@ -147,7 +147,7 @@
 </div>
 
 <div class="footer">
-    Generated on {{ now()->format('d F Y \a\t H:i') }} &nbsp;|&nbsp; FundFlow Fund Management System &nbsp;|&nbsp; This is a computer-generated document.
+    Generated on {{ now()->format('d F Y \a\t H:i') }} &nbsp;|&nbsp; {{ app()->getLocale() === 'ar' ? 'فندفلو' : 'FundFlow' }} Fund Management System &nbsp;|&nbsp; This is a computer-generated document.
 </div>
 
 </body>

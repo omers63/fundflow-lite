@@ -24,7 +24,7 @@ class ListMembers extends ListRecords
     {
         return [
             Action::make('export_csv')
-                ->label('Export Members')
+                ->label(__('Export Members'))
                 ->icon('heroicon-o-arrow-down-tray')
                 ->color('warning')
                 ->action(function () {
@@ -64,11 +64,11 @@ class ListMembers extends ListRecords
                 }),
 
             Action::make('importMembers')
-                ->label('Import Members')
+                ->label(__('Import Members'))
                 ->icon('heroicon-o-arrow-up-tray')
                 ->color('success')
                 ->visible(fn(): bool => MemberResource::canCreate() || (bool) auth()->user()?->can('Update:Member'))
-                ->modalHeading('Import members from CSV')
+                ->modalHeading(__('Import members from CSV'))
                 ->modalDescription(new HtmlString(
                     '<div class="space-y-3 text-sm">' .
                         '<div class="rounded-lg border border-blue-200 bg-blue-50/80 p-3 text-xs dark:border-blue-500/30 dark:bg-blue-500/10">' .
@@ -117,18 +117,18 @@ class ListMembers extends ListRecords
                 ->modalWidth('2xl')
                 ->schema([
                     Forms\Components\FileUpload::make('csv_file')
-                        ->label('CSV file')
+                        ->label(__('CSV file'))
                         ->disk('local')
                         ->directory('member-imports')
                         ->acceptedFileTypes(['text/csv', 'text/plain', 'application/csv', 'application/vnd.ms-excel'])
                         ->required(),
                     Forms\Components\TextInput::make('default_password')
-                        ->label('Default password')
+                        ->label(__('Default password'))
                         ->password()
                         ->revealable()
                         ->required()
                         ->minLength(8)
-                        ->helperText('Used when the password column is empty or shorter than 8 characters. Members should change it after first login.'),
+                        ->helperText(__('Used when the password column is empty or shorter than 8 characters. Members should change it after first login.')),
                 ])
                 ->action(function (array $data, Component $livewire): void {
                     $relative = $data['csv_file'];
@@ -151,7 +151,7 @@ class ListMembers extends ListRecords
                     }
 
                     Notification::make()
-                        ->title('Member import finished')
+                        ->title(__('Member import finished'))
                         ->body($body)
                         ->color($result['failed'] > 0 || $result['errors'] !== [] ? 'warning' : 'success')
                         ->persistent()
@@ -160,7 +160,7 @@ class ListMembers extends ListRecords
                     MemberResource::dispatchMemberListHeaderWidgetsRefresh($livewire);
                 }),
             CreateAction::make()
-                ->label('New Member')
+                ->label(__('New Member'))
                 ->icon('heroicon-o-plus-circle')
                 ->url(MemberResource::getUrl('create'))
                 ->visible(fn(): bool => MemberResource::canCreate()),
@@ -179,6 +179,6 @@ class ListMembers extends ListRecords
 
     public function getSubheading(): ?string
     {
-        return 'Manage all fund members — review statuses, contribution commitments, and loan activity.';
+        return __('Manage all fund members — review statuses, contribution commitments, and loan activity.');
     }
 }

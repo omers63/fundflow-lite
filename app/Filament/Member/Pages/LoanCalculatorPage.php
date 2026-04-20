@@ -18,6 +18,11 @@ class LoanCalculatorPage extends Page
 
     protected static ?int $navigationSort = 4;
 
+    public static function getNavigationLabel(): string
+    {
+        return __('app.member.loan_calculator');
+    }
+
     public static function getNavigationGroup(): ?string
     {
         return __('app.nav.group.loans');
@@ -102,6 +107,6 @@ class LoanCalculatorPage extends Page
 
     public function getTitle(): string
     {
-        return 'Loan Calculator';
+        return __('app.member.loan_calculator');
     }
 }

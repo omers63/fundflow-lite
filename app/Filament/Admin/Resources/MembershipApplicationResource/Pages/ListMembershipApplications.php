@@ -22,31 +22,31 @@ class ListMembershipApplications extends ListRecords
     {
         return [
             Action::make('importApplications')
-                ->label('Import Applications')
+                ->label(__('Import Applications'))
                 ->icon('heroicon-o-arrow-up-tray')
                 ->color('success')
                 ->visible(fn(): bool => MembershipApplicationResource::canCreate() || (bool) auth()->user()?->can('Update:MembershipApplication'))
-                ->modalHeading('Import applications from CSV')
+                ->modalHeading(__('Import applications from CSV'))
                 ->modalDescription(fn(): HtmlString => new HtmlString(
                     view('filament.admin.membership-application-import-csv-help')->render()
                 ))
                 ->modalWidth('2xl')
                 ->schema([
                     Forms\Components\FileUpload::make('csv_file')
-                        ->label('CSV file')
+                        ->label(__('CSV file'))
                         ->disk('local')
                         ->directory('membership-application-imports')
                         ->maxFiles(1)
                         // Avoid acceptedFileTypes / extension / MIME rules: Livewire temp names and odd client extensions break them; the importer validates CSV content.
-                        ->helperText('Upload comma-separated data (typical .csv). If parsing fails, the importer will show detailed row errors.')
+                        ->helperText(__('Upload comma-separated data (typical .csv). If parsing fails, the importer will show detailed row errors.'))
                         ->required(),
                     Forms\Components\TextInput::make('default_password')
-                        ->label('Default password')
+                        ->label(__('Default password'))
                         ->password()
                         ->revealable()
                         ->required()
                         ->minLength(8)
-                        ->helperText('Used when the password column is empty or shorter than 8 characters. Applicants should change it after first login.'),
+                        ->helperText(__('Used when the password column is empty or shorter than 8 characters. Applicants should change it after first login.')),
                 ])
                 ->action(function (array $data, Component $livewire): void {
                     // With stored files (default), Filament returns a path relative to the local disk — same as member CSV import.
@@ -62,8 +62,8 @@ class ListMembershipApplications extends ListRecords
                         ]);
 
                         Notification::make()
-                            ->title('Import failed')
-                            ->body('No uploaded CSV file was received. Please re-select the file and try again.')
+                            ->title(__('Import failed'))
+                            ->body(__('No uploaded CSV file was received. Please re-select the file and try again.'))
                             ->danger()
                             ->send();
 
@@ -79,8 +79,8 @@ class ListMembershipApplications extends ListRecords
                         ]);
 
                         Notification::make()
-                            ->title('Import failed')
-                            ->body('Uploaded file could not be found on server. Please upload again and try again.')
+                            ->title(__('Import failed'))
+                            ->body(__('Uploaded file could not be found on server. Please upload again and try again.'))
                             ->danger()
                             ->send();
 
@@ -93,7 +93,7 @@ class ListMembershipApplications extends ListRecords
                         report($e);
 
                         Notification::make()
-                            ->title('Import failed')
+                            ->title(__('Import failed'))
                             ->body($e->getMessage())
                             ->danger()
                             ->persistent()
@@ -115,7 +115,7 @@ class ListMembershipApplications extends ListRecords
                     }
 
                     Notification::make()
-                        ->title('Application import finished')
+                        ->title(__('Application import finished'))
                         ->body($body)
                         ->color($result['failed'] > 0 || $result['errors'] !== [] ? 'warning' : 'success')
                         ->persistent()
@@ -124,7 +124,7 @@ class ListMembershipApplications extends ListRecords
                     MembershipApplicationResource::dispatchApplicationStatsRefresh($livewire);
                 }),
             CreateAction::make()
-                ->label('New Application')
+                ->label(__('New Application'))
                 ->icon('heroicon-o-plus-circle')
                 ->url(MembershipApplicationResource::getUrl('create'))
                 ->visible(fn(): bool => MembershipApplicationResource::canCreate()),
@@ -143,6 +143,6 @@ class ListMembershipApplications extends ListRecords
 
     public function getSubheading(): ?string
     {
-        return 'Review new membership applications, track approval rates, and manage the onboarding pipeline.';
+        return __('Review new membership applications, track approval rates, and manage the onboarding pipeline.');
     }
 }

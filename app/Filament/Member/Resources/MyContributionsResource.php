@@ -21,6 +21,11 @@ class MyContributionsResource extends Resource
 
     protected static ?int $navigationSort = 1;
 
+    public static function getNavigationLabel(): string
+    {
+        return __('My Contributions');
+    }
+
     public static function getNavigationGroup(): ?string
     {
         return __('app.nav.group.my_finance');
@@ -38,7 +43,7 @@ class MyContributionsResource extends Resource
                     ->formatStateUsing(fn ($state) => date('F', mktime(0, 0, 0, $state, 1))),
                 Tables\Columns\TextColumn::make('year'),
                 Tables\Columns\TextColumn::make('payment_method')
-                    ->label('Source')
+                    ->label(__('Source'))
                     ->visibleFrom('md')
                     ->badge()
                     ->formatStateUsing(fn (?string $state): string => Contribution::paymentMethodLabel($state)),
@@ -50,7 +55,7 @@ class MyContributionsResource extends Resource
                     ->dateTime('d M Y')
                     ->sortable(),
                 Tables\Columns\IconColumn::make('is_late')
-                    ->label('Late')
+                    ->label(__('Late'))
                     ->visibleFrom('sm')
                     ->boolean()
                     ->trueIcon('heroicon-o-exclamation-triangle')
@@ -62,7 +67,7 @@ class MyContributionsResource extends Resource
             ->recordActions([
                 ActionGroup::make([
                     Action::make('download_receipt')
-                        ->label('Receipt')
+                        ->label(__('Receipt'))
                         ->icon('heroicon-o-arrow-down-tray')
                         ->color('gray')
                         ->url(fn (Contribution $record): string => route('member.contribution.receipt', $record))
@@ -79,16 +84,16 @@ class MyContributionsResource extends Resource
                     ->schema([Forms\Components\TextInput::make('year')->numeric()->default(now()->year)])
                     ->query(fn ($query, $data) => ($data['year'] ?? null) ? $query->where('year', $data['year']) : $query),
                 Tables\Filters\SelectFilter::make('payment_method')
-                    ->label('Source')
+                    ->label(__('Source'))
                     ->options(fn (): array => Contribution::paymentMethodOptions()),
                 Tables\Filters\TernaryFilter::make('is_late')
-                    ->label('Late payment')
-                    ->trueLabel('Late only')
-                    ->falseLabel('On-time only'),
+                    ->label(__('Late payment'))
+                    ->trueLabel(__('Late only'))
+                    ->falseLabel(__('On-time only')),
                 Tables\Filters\Filter::make('paid_at')
                     ->schema([
-                        Forms\Components\DatePicker::make('paid_from')->label('Paid from'),
-                        Forms\Components\DatePicker::make('paid_until')->label('Paid until'),
+                        Forms\Components\DatePicker::make('paid_from')->label(__('Paid from')),
+                        Forms\Components\DatePicker::make('paid_until')->label(__('Paid until')),
                     ])
                     ->columns(2)
                     ->query(function ($query, array $data) {
@@ -98,8 +103,8 @@ class MyContributionsResource extends Resource
                     }),
                 Tables\Filters\Filter::make('amount')
                     ->schema([
-                        Forms\Components\TextInput::make('amount_min')->label('Min amount (SAR)')->numeric(),
-                        Forms\Components\TextInput::make('amount_max')->label('Max amount (SAR)')->numeric(),
+                        Forms\Components\TextInput::make('amount_min')->label(__('Min amount (SAR)'))->numeric(),
+                        Forms\Components\TextInput::make('amount_max')->label(__('Max amount (SAR)'))->numeric(),
                     ])
                     ->columns(2)
                     ->query(function ($query, array $data) {

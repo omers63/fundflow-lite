@@ -25,6 +25,11 @@ class MyInstallmentsResource extends Resource
 
     protected static ?int $navigationSort = 2;
 
+    public static function getNavigationLabel(): string
+    {
+        return __('My Installments');
+    }
+
     public static function getNavigationGroup(): ?string
     {
         return __('app.nav.group.loans');
@@ -61,12 +66,12 @@ class MyInstallmentsResource extends Resource
             })
             ->columns([
                 Tables\Columns\TextColumn::make('loan_id')
-                    ->label('Loan #')
+                    ->label(__('Loan #'))
                     ->visibleFrom('sm')
                     ->sortable(),
                 Tables\Columns\TextColumn::make('installment_number')
                     ->visibleFrom('md')
-                    ->label('#'),
+                    ->label(__('#')),
                 Tables\Columns\TextColumn::make('amount')
                     ->money('SAR')
                     ->weight('bold'),
@@ -90,7 +95,7 @@ class MyInstallmentsResource extends Resource
             ->recordActions([
                 ActionGroup::make([
                     Action::make('pay_installment')
-                        ->label('Pay Now')
+                        ->label(__('Pay Now'))
                         ->icon('heroicon-o-credit-card')
                         ->color('success')
                         ->visible(function () {
@@ -104,28 +109,28 @@ class MyInstallmentsResource extends Resource
                             return ! $member || app(LoanRepaymentService::class)->hasInsufficientCashForOpenPeriodRepayment($member);
                         })
                         ->requiresConfirmation()
-                        ->modalHeading('Pay Your Loan Installment')
+                        ->modalHeading(__('Pay Your Loan Installment'))
                         ->modalDescription(function () {
                             $member = Member::where('user_id', auth()->id())->with('accounts')->first();
                             if (! $member) {
-                                return 'Member record not found.';
+                                return __('Member record not found.');
                             }
 
                             return app(LoanRepaymentService::class)->openPeriodRepaymentModalDescription($member);
                         })
-                        ->modalSubmitActionLabel('Pay Now')
+                        ->modalSubmitActionLabel(__('Pay Now'))
                         ->action(function () {
                             $member = Member::where('user_id', auth()->id())->with(['user', 'accounts'])->first();
                             if (! $member) {
-                                Notification::make()->title('Member record not found')->danger()->send();
+                                Notification::make()->title(__('Member record not found'))->danger()->send();
 
                                 return;
                             }
                             $outcome = app(LoanRepaymentService::class)->applyOpenPeriodRepaymentForMember($member);
                             match ($outcome) {
-                                'applied' => Notification::make()->title('Installment Paid')->body('Your loan installment has been paid successfully.')->success()->send(),
-                                'insufficient' => Notification::make()->title('Insufficient Balance')->body('Your cash account does not have enough balance to cover this installment.')->danger()->send(),
-                                default => Notification::make()->title('Nothing to Pay')->body('No installment is due for the current period.')->warning()->send(),
+                                'applied' => Notification::make()->title(__('Installment Paid'))->body(__('Your loan installment has been paid successfully.'))->success()->send(),
+                                'insufficient' => Notification::make()->title(__('Insufficient Balance'))->body(__('Your cash account does not have enough balance to cover this installment.'))->danger()->send(),
+                                default => Notification::make()->title(__('Nothing to Pay'))->body(__('No installment is due for the current period.'))->warning()->send(),
                             };
                         }),
                 ])
@@ -135,7 +140,7 @@ class MyInstallmentsResource extends Resource
             ])
             ->filters([
                 Tables\Filters\SelectFilter::make('loan_id')
-                    ->label('Loan')
+                    ->label(__('Loan'))
                     ->options(function () {
                         $member = auth()->user()?->member;
                         if (! $member) {
@@ -147,14 +152,14 @@ class MyInstallmentsResource extends Resource
                     }),
                 Tables\Filters\SelectFilter::make('status')
                     ->options([
-                        'pending' => 'Pending',
-                        'paid' => 'Paid',
-                        'overdue' => 'Overdue',
+                        'pending' => __('Pending'),
+                        'paid' => __('Paid'),
+                        'overdue' => __('Overdue'),
                     ]),
                 Tables\Filters\Filter::make('due_date')
                     ->schema([
-                        Forms\Components\DatePicker::make('from')->label('Due from'),
-                        Forms\Components\DatePicker::make('until')->label('Due until'),
+                        Forms\Components\DatePicker::make('from')->label(__('Due from')),
+                        Forms\Components\DatePicker::make('until')->label(__('Due until')),
                     ])
                     ->columns(2)
                     ->query(function ($query, array $data) {
@@ -164,8 +169,8 @@ class MyInstallmentsResource extends Resource
                     }),
                 Tables\Filters\Filter::make('amount')
                     ->schema([
-                        Forms\Components\TextInput::make('amount_min')->label('Min (SAR)')->numeric(),
-                        Forms\Components\TextInput::make('amount_max')->label('Max (SAR)')->numeric(),
+                        Forms\Components\TextInput::make('amount_min')->label(__('Min (SAR)'))->numeric(),
+                        Forms\Components\TextInput::make('amount_max')->label(__('Max (SAR)'))->numeric(),
                     ])
                     ->columns(2)
                     ->query(function ($query, array $data) {
@@ -175,8 +180,8 @@ class MyInstallmentsResource extends Resource
                     }),
                 Tables\Filters\Filter::make('paid_at')
                     ->schema([
-                        Forms\Components\DatePicker::make('from')->label('Paid from'),
-                        Forms\Components\DatePicker::make('until')->label('Paid until'),
+                        Forms\Components\DatePicker::make('from')->label(__('Paid from')),
+                        Forms\Components\DatePicker::make('until')->label(__('Paid until')),
                     ])
                     ->columns(2)
                     ->query(function ($query, array $data) {

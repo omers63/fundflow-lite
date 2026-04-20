@@ -1,7 +1,7 @@
 @php $d = $d ?? $this->getData(); @endphp
 
 @if(!($d['hasRecord'] ?? false))
-    <div class="p-4 text-gray-400 text-sm">No member selected.</div>
+    <div class="p-4 text-gray-400 text-sm">{{ __('No member selected.') }}</div>
 @else
 <div class="grid grid-cols-1 xl:grid-cols-2 gap-4">
 
@@ -14,20 +14,20 @@
                 <div class="w-7 h-7 rounded-lg bg-white/20 flex items-center justify-center">
                     <x-heroicon-o-currency-dollar class="w-4 h-4 text-white" />
                 </div>
-                <h3 class="font-semibold text-white">Contribution History</h3>
+                <h3 class="font-semibold text-white">{{ __('Contribution History') }}</h3>
             </div>
             <div class="flex flex-wrap items-center gap-x-3 gap-y-1 text-sm text-white/80">
                 <span class="flex items-center gap-1">
-                    <span class="w-3 h-3 rounded-sm bg-emerald-300 inline-block"></span> Paid
+                    <span class="w-3 h-3 rounded-sm bg-emerald-300 inline-block"></span> {{ __('Paid') }}
                 </span>
                 <span class="flex items-center gap-1" title="Flagged is_late on the contribution (after deadline)">
-                    <span class="w-3 h-3 rounded-sm bg-amber-300 inline-block"></span> Late
+                    <span class="w-3 h-3 rounded-sm bg-amber-300 inline-block"></span> {{ __('Late') }}
                 </span>
                 <span class="flex items-center gap-1" title="Paid but below monthly allocation">
-                    <span class="w-3 h-3 rounded-sm bg-orange-300 inline-block"></span> Short
+                    <span class="w-3 h-3 rounded-sm bg-orange-300 inline-block"></span> {{ __('Short') }}
                 </span>
                 <span class="flex items-center gap-1">
-                    <span class="w-3 h-3 rounded-sm bg-red-300/70 inline-block"></span> Missed
+                    <span class="w-3 h-3 rounded-sm bg-red-300/70 inline-block"></span> {{ __('Missed') }}
                 </span>
             </div>
         </div>
@@ -36,17 +36,17 @@
         <div class="px-5 pt-4 flex flex-wrap gap-2">
             <div class="flex items-center gap-1.5 px-3 py-1.5 rounded-lg bg-emerald-50 dark:bg-emerald-900/30 border border-emerald-200 dark:border-emerald-700">
                 <x-heroicon-o-check-circle class="w-3.5 h-3.5 text-emerald-600" />
-                <span class="text-xs font-semibold text-emerald-700 dark:text-emerald-300">{{ $d['paid_count'] }} paid (last 12 months)</span>
+                <span class="text-xs font-semibold text-emerald-700 dark:text-emerald-300">{{ __(':count paid (last 12 months)', ['count' => $d['paid_count']]) }}</span>
             </div>
             @if($d['missed_count'] > 0)
             <div class="flex items-center gap-1.5 px-3 py-1.5 rounded-lg bg-red-50 dark:bg-red-900/30 border border-red-200 dark:border-red-700">
                 <x-heroicon-o-x-circle class="w-3.5 h-3.5 text-red-600" />
-                <span class="text-xs font-semibold text-red-700 dark:text-red-300">{{ $d['missed_count'] }} missed</span>
+                <span class="text-xs font-semibold text-red-700 dark:text-red-300">{{ __(':count missed', ['count' => $d['missed_count']]) }}</span>
             </div>
             @endif
             <div class="flex items-center gap-1.5 px-3 py-1.5 rounded-lg bg-gray-50 dark:bg-gray-800 border border-gray-200 dark:border-gray-700">
                 <x-heroicon-o-currency-dollar class="w-3.5 h-3.5 text-gray-500" />
-                <span class="text-xs font-semibold text-gray-600 dark:text-gray-300">SAR {{ number_format($d['monthly_contrib']) }}/month</span>
+                <span class="text-xs font-semibold text-gray-600 dark:text-gray-300">{{ __('SAR :amount/month', ['amount' => number_format($d['monthly_contrib'])]) }}</span>
             </div>
         </div>
 
@@ -55,11 +55,11 @@
             @foreach($d['grid'] as $cell)
             @php
                 $tip = $cell['label'].': ';
-                if ($cell['future'] ?? false) { $tip .= 'Future'; }
-                elseif (!($cell['paid'] ?? false)) { $tip .= 'Missed'; }
-                elseif ($cell['late'] ?? false) { $tip .= 'Late (after deadline) — SAR '.number_format($cell['amount'], 2); }
-                elseif (!empty($cell['underpaid'])) { $tip .= 'Short — SAR '.number_format($cell['amount'], 2).' / '.number_format($d['monthly_contrib']); }
-                else { $tip .= 'Paid — SAR '.number_format($cell['amount'], 2); }
+                if ($cell['future'] ?? false) { $tip .= __('Future'); }
+                elseif (!($cell['paid'] ?? false)) { $tip .= __('Missed'); }
+                elseif ($cell['late'] ?? false) { $tip .= __('Late (after deadline) — SAR :amount', ['amount' => number_format($cell['amount'], 2)]); }
+                elseif (!empty($cell['underpaid'])) { $tip .= __('Short — SAR :amount / :monthly', ['amount' => number_format($cell['amount'], 2), 'monthly' => number_format($d['monthly_contrib'])]); }
+                else { $tip .= __('Paid — SAR :amount', ['amount' => number_format($cell['amount'], 2)]); }
             @endphp
             <div class="group relative" title="{{ $tip }}">
                 <div class="h-8 rounded-md cursor-default
@@ -92,7 +92,7 @@
                             data: {
                                 labels: {{ json_encode($d['chart_labels']) }},
                                 datasets: [{
-                                    label: 'Amount',
+                                    label: @js(__('Amount')),
                                     data: {{ json_encode($d['chart_data']) }},
                                     backgroundColor: function(ctx) {
                                         const val = ctx.dataset.data[ctx.dataIndex];
@@ -107,7 +107,7 @@
                                 plugins: { legend: { display: false } },
                                 scales: {
                                     x: { grid: { color: gridColor }, ticks: { color: textColor, font: { size: 10 } } },
-                                    y: { grid: { color: gridColor }, ticks: { color: textColor, font: { size: 10 }, callback: v => 'SAR '+v } }
+                                    y: { grid: { color: gridColor }, ticks: { color: textColor, font: { size: 10 }, callback: v => @js(__('SAR ')) + v } }
                                 }
                             }
                         });
@@ -131,7 +131,7 @@
                 <div class="w-6 h-6 rounded-lg bg-white/20 flex items-center justify-center">
                     <x-heroicon-o-credit-card class="w-3.5 h-3.5 text-white" />
                 </div>
-                <h3 class="font-semibold text-white text-sm">Loan History</h3>
+                <h3 class="font-semibold text-white text-sm">{{ __('Loan History') }}</h3>
             </div>
             <div class="divide-y divide-gray-100 dark:divide-gray-800">
                 @foreach($d['loans'] as $loan)
@@ -149,10 +149,10 @@
                             <span class="text-xs font-bold text-indigo-600 dark:text-indigo-400">#{{ $loan['id'] }}</span>
                         </div>
                         <div class="min-w-0">
-                            <p class="text-sm font-semibold text-gray-900 dark:text-white">SAR {{ $loan['amount'] }}</p>
+                            <p class="text-sm font-semibold text-gray-900 dark:text-white">{{ __('SAR :amount', ['amount' => $loan['amount']]) }}</p>
                             <p class="text-xs text-gray-400 dark:text-gray-500">
-                                Applied {{ $loan['applied_at'] }}
-                                @if($loan['fully_paid_at']) · Paid {{ $loan['fully_paid_at'] }}@endif
+                                {{ __('Applied :date', ['date' => $loan['applied_at']]) }}
+                                @if($loan['fully_paid_at']) · {{ __('Paid :date', ['date' => $loan['fully_paid_at']]) }}@endif
                             </p>
                         </div>
                     </div>
@@ -172,7 +172,7 @@
                 <div class="w-6 h-6 rounded-lg bg-white/20 flex items-center justify-center">
                     <x-heroicon-o-arrow-path class="w-3.5 h-3.5 text-white" />
                 </div>
-                <h3 class="font-semibold text-white text-sm">Recent Installments</h3>
+                <h3 class="font-semibold text-white text-sm">{{ __('Recent Installments') }}</h3>
             </div>
             <div class="divide-y divide-gray-100 dark:divide-gray-800">
                 @foreach($d['installments'] as $inst)
@@ -183,17 +183,17 @@
                         'overdue' => 'bg-red-100 dark:bg-red-900/50 text-red-700 dark:text-red-300',
                         default  => 'bg-gray-100 dark:bg-gray-800 text-gray-600 dark:text-gray-400',
                     };
-                    $iLabel = $inst['status'] === 'paid' && $inst['is_late'] ? 'Paid Late' : ucfirst($inst['status']);
+                    $iLabel = $inst['status'] === 'paid' && $inst['is_late'] ? __('Paid Late') : __(ucfirst($inst['status']));
                 @endphp
                 <div class="px-4 py-2.5 flex items-center justify-between gap-2">
                     <div class="min-w-0">
                         <p class="text-sm text-gray-900 dark:text-white">
-                            SAR {{ $inst['amount'] }}
+                            {{ __('SAR :amount', ['amount' => $inst['amount']]) }}
                             <span class="text-xs text-gray-400 dark:text-gray-500 ml-1">Loan #{{ $inst['loan_id'] }}</span>
                         </p>
                         <p class="text-xs text-gray-400 dark:text-gray-500">
-                            Due {{ $inst['due_date'] }}
-                            @if($inst['paid_at']) · Paid {{ $inst['paid_at'] }}@endif
+                            {{ __('Due :date', ['date' => $inst['due_date']]) }}
+                            @if($inst['paid_at']) · {{ __('Paid :date', ['date' => $inst['paid_at']]) }}@endif
                         </p>
                     </div>
                     <span class="text-xs font-semibold px-2 py-0.5 rounded-full {{ $ic }} flex-shrink-0">
@@ -206,7 +206,7 @@
         @else
         <div class="rounded-2xl border border-gray-200 dark:border-gray-700 bg-white dark:bg-gray-900 p-6 flex flex-col items-center justify-center text-center gap-2">
             <x-heroicon-o-arrow-path class="w-10 h-10 text-gray-200 dark:text-gray-700" />
-            <p class="text-sm text-gray-400 dark:text-gray-500">No loan installments yet.</p>
+            <p class="text-sm text-gray-400 dark:text-gray-500">{{ __('No loan installments yet.') }}</p>
         </div>
         @endif
     </div>

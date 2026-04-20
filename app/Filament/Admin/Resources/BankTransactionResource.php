@@ -52,7 +52,7 @@ class BankTransactionResource extends Resource
 
     public static function getNavigationGroup(): ?string
     {
-        return 'Banking';
+        return __('app.nav.group.finance');
     }
 
     public static function getNavigationBadge(): ?string

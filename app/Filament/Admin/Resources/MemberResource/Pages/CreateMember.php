@@ -22,92 +22,92 @@ class CreateMember extends CreateRecord
     public function form(Schema $schema): Schema
     {
         return $schema->schema([
-            Section::make('Login Credentials')
-                ->description('These credentials will be used by the member to log in to the member portal.')
+            Section::make(__('Login Credentials'))
+                ->description(__('These credentials will be used by the member to log in to the member portal.'))
                 ->schema([
                     Forms\Components\TextInput::make('name')
-                        ->label('Full Name')
+                        ->label(__('Full Name'))
                         ->required()
                         ->maxLength(255),
                     Forms\Components\TextInput::make('email')
-                        ->label('Email Address')
+                        ->label(__('Email Address'))
                         ->email()
                         ->required()
                         ->unique(User::class, 'email')
                         ->maxLength(255),
                     Forms\Components\TextInput::make('phone')
-                        ->label('Phone Number')
+                        ->label(__('Phone Number'))
                         ->tel()
                         ->maxLength(20)
                         ->placeholder('+966 5x xxx xxxx'),
                     Forms\Components\TextInput::make('password')
-                        ->label('Password')
+                        ->label(__('Password'))
                         ->password()
                         ->revealable()
                         ->required()
                         ->minLength(8)
                         ->same('password_confirmation'),
                     Forms\Components\TextInput::make('password_confirmation')
-                        ->label('Confirm Password')
+                        ->label(__('Confirm Password'))
                         ->password()
                         ->revealable()
                         ->required()
                         ->dehydrated(false),
                 ])->columns(2),
 
-            Section::make('Membership Details')
+            Section::make(__('Membership Details'))
                 ->schema([
                     Forms\Components\DatePicker::make('joined_at')
-                        ->label('Join Date')
+                        ->label(__('Join Date'))
                         ->default(now()->toDateString())
                         ->required(),
                     Forms\Components\Select::make('status')
                         ->options([
-                            'active' => 'Active',
-                            'suspended' => 'Suspended',
-                            'delinquent' => 'Delinquent',
+                            'active' => __('Active'),
+                            'suspended' => __('Suspended'),
+                            'delinquent' => __('Delinquent'),
                         ])
                         ->default('active')
                         ->required(),
                 ])->columns(2),
 
-            Section::make('Contribution & Sponsorship')
+            Section::make(__('Contribution & Sponsorship'))
                 ->schema([
                     Forms\Components\Select::make('monthly_contribution_amount')
-                        ->label('Monthly Contribution Amount')
+                        ->label(__('Monthly Contribution Amount'))
                         ->options(Member::contributionAmountOptions())
                         ->default(500)
                         ->required()
-                        ->helperText('Multiples of SAR 500, from SAR 500 to SAR 3,000.'),
+                        ->helperText(__('Multiples of SAR 500, from SAR 500 to SAR 3,000.')),
                     Forms\Components\Select::make('parent_id')
-                        ->label('Parent Member (Sponsor)')
+                        ->label(__('Parent Member (Sponsor)'))
                         ->options(fn () => Member::with('user')
                             ->whereNull('parent_id')
                             ->get()
                             ->mapWithKeys(fn ($m) => [$m->id => "{$m->member_number} – {$m->user->name}"]))
                         ->searchable()
                         ->nullable()
-                        ->placeholder('None (independent member)')
-                        ->helperText('The parent member can fund this member\'s cash account.'),
+                        ->placeholder(__('None (independent member)'))
+                        ->helperText(__('The parent member can fund this member\'s cash account.')),
                 ])->columns(2),
 
-            Section::make('Opening balances')
-                ->description('Optional. Same paired master + member postings as CSV import (ledger transactions). Cash cannot be negative; fund may be negative.')
+            Section::make(__('Opening balances'))
+                ->description(__('Optional. Same paired master + member postings as CSV import (ledger transactions). Cash cannot be negative; fund may be negative.'))
                 ->schema([
                     Forms\Components\TextInput::make('opening_cash_balance')
-                        ->label('Cash account (SAR)')
+                        ->label(__('Cash account (SAR)'))
                         ->numeric()
                         ->default(0)
                         ->minValue(0)
                         ->step(0.01)
                         ->suffix('SAR'),
                     Forms\Components\TextInput::make('opening_fund_balance')
-                        ->label('Fund account (SAR)')
+                        ->label(__('Fund account (SAR)'))
                         ->numeric()
                         ->default(0)
                         ->step(0.01)
                         ->suffix('SAR')
-                        ->helperText('Negative values debit master and member fund together (e.g. master-funded loan).'),
+                        ->helperText(__('Negative values debit master and member fund together (e.g. master-funded loan).')),
                 ])->columns(2),
         ]);
     }
@@ -123,7 +123,7 @@ class CreateMember extends CreateRecord
         $openingFund = round((float) ($data['opening_fund_balance'] ?? 0), 2);
 
         if ($openingCash < 0) {
-            throw new \InvalidArgumentException('Opening cash balance cannot be negative.');
+            throw new \InvalidArgumentException(__('Opening cash balance cannot be negative.'));
         }
 
         return DB::transaction(function () use ($data, $openingCash, $openingFund) {
@@ -165,8 +165,8 @@ class CreateMember extends CreateRecord
         $record = $this->getRecord();
 
         return Notification::make()
-            ->title('Member Created')
-            ->body("Member {$record->user->name} has been created with number {$record->member_number}.")
+            ->title(__('Member Created'))
+            ->body(__('Member :name has been created with number :number.', ['name' => $record->user->name, 'number' => $record->member_number]))
             ->success();
     }
 }

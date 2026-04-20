@@ -21,6 +21,11 @@ class MyStatementsResource extends Resource
 
     protected static ?int $navigationSort = 2;
 
+    public static function getNavigationLabel(): string
+    {
+        return __('My Statements');
+    }
+
     public static function getNavigationGroup(): ?string
     {
         return __('app.nav.group.my_finance');
@@ -34,33 +39,33 @@ class MyStatementsResource extends Resource
                 Tables\Columns\TextColumn::make('period')
                     ->sortable(),
                 Tables\Columns\TextColumn::make('opening_balance')
-                    ->label('Opening')
+                    ->label(__('Opening'))
                     ->visibleFrom('md')
                     ->money('SAR'),
                 Tables\Columns\TextColumn::make('total_contributions')
-                    ->label('Contributions')
+                    ->label(__('Contributions'))
                     ->visibleFrom('lg')
                     ->money('SAR'),
                 Tables\Columns\TextColumn::make('total_repayments')
-                    ->label('Repayments')
+                    ->label(__('Repayments'))
                     ->visibleFrom('lg')
                     ->money('SAR'),
                 Tables\Columns\TextColumn::make('closing_balance')
-                    ->label('Closing Balance')
+                    ->label(__('Closing Balance'))
                     ->money('SAR')
                     ->weight('bold'),
                 Tables\Columns\TextColumn::make('generated_at')
                     ->dateTime('d M Y')
                     ->visibleFrom('sm')
-                    ->label('Generated'),
+                    ->label(__('Generated')),
             ])
             ->defaultSort('period', 'desc')
             ->filters([
                 Tables\Filters\Filter::make('period')
-                    ->schema([Forms\Components\TextInput::make('period')->placeholder('YYYY-MM')])
+                    ->schema([Forms\Components\TextInput::make('period')->placeholder(__('YYYY-MM'))])
                     ->query(fn ($query, $data) => ($data['period'] ?? null) ? $query->where('period', $data['period']) : $query),
                 Tables\Filters\SelectFilter::make('period_year')
-                    ->label('Year')
+                    ->label(__('Year'))
                     ->options(
                         collect(range((int) now()->year, (int) now()->year - 15))
                             ->mapWithKeys(fn ($y) => [(string) $y => (string) $y])
@@ -72,8 +77,8 @@ class MyStatementsResource extends Resource
                     ),
                 Tables\Filters\Filter::make('closing_balance')
                     ->schema([
-                        Forms\Components\TextInput::make('min')->label('Min closing (SAR)')->numeric(),
-                        Forms\Components\TextInput::make('max')->label('Max closing (SAR)')->numeric(),
+                        Forms\Components\TextInput::make('min')->label(__('Min closing (SAR)'))->numeric(),
+                        Forms\Components\TextInput::make('max')->label(__('Max closing (SAR)'))->numeric(),
                     ])
                     ->columns(2)
                     ->query(function ($query, array $data) {
@@ -85,7 +90,7 @@ class MyStatementsResource extends Resource
             ->recordActions([
                 ActionGroup::make([
                     Action::make('download')
-                        ->label('Download PDF')
+                        ->label(__('Download PDF'))
                         ->icon('heroicon-o-arrow-down-tray')
                         ->color('gray')
                         ->url(fn (MonthlyStatement $record) => route('member.statement.pdf', $record))

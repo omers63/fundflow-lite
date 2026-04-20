@@ -806,64 +806,64 @@ class LoanResource extends Resource
             ])
             ->headerActions([
                 CreateAction::make()
-                    ->label('New Loan')
+                    ->label(__('app.action.new_loan'))
                     ->icon('heroicon-o-plus-circle'),
                 Action::make('importLoans')
-                    ->label('Import Loans')
+                    ->label(__('app.action.import_loans'))
                     ->icon('heroicon-o-arrow-up-tray')
                     ->color('success')
                     ->visible(fn (): bool => static::canCreate())
-                    ->modalHeading('Import loans from CSV')
+                    ->modalHeading(__('app.loan.import.heading'))
                     ->modalDescription(new HtmlString(
                         '<div class="space-y-3 text-sm">' .
                             '<div class="rounded-lg border border-blue-200 bg-blue-50/80 p-3 text-xs dark:border-blue-500/30 dark:bg-blue-500/10">' .
-                                '<p class="font-semibold text-blue-900 dark:text-blue-200 mb-1">Before you import</p>' .
+                                '<p class="font-semibold text-blue-900 dark:text-blue-200 mb-1">' . e(__('app.ui.before_import')) . '</p>' .
                                 '<p class="text-blue-900/90 dark:text-blue-100/90 mb-1">' .
-                                    'Need a starter file? Download: ' .
+                                    e(__('app.loan.import.sample_hint', ['filename' => ''])) . ' ' .
                                     '<a href="' . route('downloads.loan-import-sample') . '" class="font-semibold text-blue-700 underline hover:text-blue-600 dark:text-blue-300 dark:hover:text-blue-200">loans-import-sample-10.csv</a>' .
                                 '</p>' .
                                 '<p class="text-blue-900/90 dark:text-blue-100/90">' .
-                                    'If opening balances already include these loans, importing posted rows again will double-count ledger entries unless you adjust the file.' .
+                                    e(__('app.loan.import.warning_opening_balances')) .
                                 '</p>' .
                             '</div>' .
                             '<div class="overflow-hidden rounded-lg border border-gray-200 dark:border-gray-700">' .
                                 '<table class="w-full text-xs">' .
                                     '<tbody class="divide-y divide-gray-100 dark:divide-gray-800">' .
                                         '<tr>' .
-                                            '<td class="w-44 bg-gray-50 px-3 py-2 font-semibold text-gray-700 dark:bg-gray-900/30 dark:text-gray-200">CSV format</td>' .
-                                            '<td class="px-3 py-2 text-gray-600 dark:text-gray-300">First row must be headers.</td>' .
+                                            '<td class="w-44 bg-gray-50 px-3 py-2 font-semibold text-gray-700 dark:bg-gray-900/30 dark:text-gray-200">' . e(__('app.ui.csv_format')) . '</td>' .
+                                            '<td class="px-3 py-2 text-gray-600 dark:text-gray-300">' . e(__('app.ui.first_row_headers')) . '</td>' .
                                         '</tr>' .
                                         '<tr>' .
-                                            '<td class="bg-gray-50 px-3 py-2 font-semibold text-gray-700 dark:bg-gray-900/30 dark:text-gray-200">Member columns</td>' .
-                                            '<td class="px-3 py-2 text-gray-600 dark:text-gray-300">Use one identifier: <code>member_number</code>, <code>member_email</code>, or <code>national_id</code>.</td>' .
+                                            '<td class="bg-gray-50 px-3 py-2 font-semibold text-gray-700 dark:bg-gray-900/30 dark:text-gray-200">' . e(__('app.ui.member_identifier')) . '</td>' .
+                                            '<td class="px-3 py-2 text-gray-600 dark:text-gray-300">' . e(__('app.loan.import.member_columns_help')) . '</td>' .
                                         '</tr>' .
                                         '<tr>' .
-                                            '<td class="bg-gray-50 px-3 py-2 font-semibold text-gray-700 dark:bg-gray-900/30 dark:text-gray-200">Status column</td>' .
-                                            '<td class="px-3 py-2 text-gray-600 dark:text-gray-300"><code>loan_status</code>: <code>pending</code>, <code>approved</code>, <code>active</code>, <code>completed</code>, <code>early_settled</code>. Blank defaults to <code>active</code>.</td>' .
+                                            '<td class="bg-gray-50 px-3 py-2 font-semibold text-gray-700 dark:bg-gray-900/30 dark:text-gray-200">' . e(__('app.ui.status_values')) . '</td>' .
+                                            '<td class="px-3 py-2 text-gray-600 dark:text-gray-300">' . e(__('app.loan.import.status_help')) . '</td>' .
                                         '</tr>' .
                                         '<tr>' .
-                                            '<td class="bg-gray-50 px-3 py-2 font-semibold text-gray-700 dark:bg-gray-900/30 dark:text-gray-200">Amount columns</td>' .
-                                            '<td class="px-3 py-2 text-gray-600 dark:text-gray-300"><code>amount_requested</code> and <code>amount_approved</code>. Pending needs requested amount (or approved amount as fallback). Approved/Active/Closed require <code>amount_approved</code>.</td>' .
+                                            '<td class="bg-gray-50 px-3 py-2 font-semibold text-gray-700 dark:bg-gray-900/30 dark:text-gray-200">' . e(__('app.ui.amount_columns')) . '</td>' .
+                                            '<td class="px-3 py-2 text-gray-600 dark:text-gray-300">' . e(__('app.loan.import.amount_help')) . '</td>' .
                                         '</tr>' .
                                         '<tr>' .
-                                            '<td class="bg-gray-50 px-3 py-2 font-semibold text-gray-700 dark:bg-gray-900/30 dark:text-gray-200">Disbursement columns</td>' .
-                                            '<td class="px-3 py-2 text-gray-600 dark:text-gray-300"><code>member_portion</code> + <code>master_portion</code> must equal <code>amount_approved</code> for disbursed statuses (<code>active</code>, <code>completed</code>, <code>early_settled</code>).</td>' .
+                                            '<td class="bg-gray-50 px-3 py-2 font-semibold text-gray-700 dark:bg-gray-900/30 dark:text-gray-200">' . e(__('app.ui.disbursement_columns')) . '</td>' .
+                                            '<td class="px-3 py-2 text-gray-600 dark:text-gray-300">' . e(__('app.loan.import.disbursement_help')) . '</td>' .
                                         '</tr>' .
                                         '<tr>' .
-                                            '<td class="bg-gray-50 px-3 py-2 font-semibold text-gray-700 dark:bg-gray-900/30 dark:text-gray-200">Installment columns</td>' .
-                                            '<td class="px-3 py-2 text-gray-600 dark:text-gray-300"><code>installments_count</code>, <code>paid_installments_count</code>, <code>total_amount_repaid</code>. Repaid total uses <code>total_amount_repaid</code> when provided, otherwise <code>paid_installments_count × min_monthly_installment</code>.</td>' .
+                                            '<td class="bg-gray-50 px-3 py-2 font-semibold text-gray-700 dark:bg-gray-900/30 dark:text-gray-200">' . e(__('app.ui.installment_columns')) . '</td>' .
+                                            '<td class="px-3 py-2 text-gray-600 dark:text-gray-300">' . e(__('app.loan.import.installment_help')) . '</td>' .
                                         '</tr>' .
                                         '<tr>' .
-                                            '<td class="bg-gray-50 px-3 py-2 font-semibold text-gray-700 dark:bg-gray-900/30 dark:text-gray-200">Tier columns</td>' .
-                                            '<td class="px-3 py-2 text-gray-600 dark:text-gray-300"><code>loan_tier_number</code> and <code>fund_tier_number</code> are optional overrides (must point to active tiers). Otherwise system resolves tiers automatically.</td>' .
+                                            '<td class="bg-gray-50 px-3 py-2 font-semibold text-gray-700 dark:bg-gray-900/30 dark:text-gray-200">' . e(__('app.ui.tier_columns')) . '</td>' .
+                                            '<td class="px-3 py-2 text-gray-600 dark:text-gray-300">' . e(__('app.loan.import.tier_help')) . '</td>' .
                                         '</tr>' .
                                         '<tr>' .
-                                            '<td class="bg-gray-50 px-3 py-2 font-semibold text-gray-700 dark:bg-gray-900/30 dark:text-gray-200">Flags and notes</td>' .
-                                            '<td class="px-3 py-2 text-gray-600 dark:text-gray-300"><code>is_emergency</code> (0/1/yes/no), <code>settlement_threshold</code> (0-1), and <code>purpose</code> (optional text).</td>' .
+                                            '<td class="bg-gray-50 px-3 py-2 font-semibold text-gray-700 dark:bg-gray-900/30 dark:text-gray-200">' . e(__('app.ui.flags_and_notes')) . '</td>' .
+                                            '<td class="px-3 py-2 text-gray-600 dark:text-gray-300">' . e(__('app.loan.import.flags_help')) . '</td>' .
                                         '</tr>' .
                                         '<tr>' .
-                                            '<td class="bg-gray-50 px-3 py-2 font-semibold text-gray-700 dark:bg-gray-900/30 dark:text-gray-200">Date columns</td>' .
-                                            '<td class="px-3 py-2 text-gray-600 dark:text-gray-300"><code>applied_at</code>, <code>approved_at</code>, <code>disbursed_at</code>, <code>settled_at</code> (all optional; defaults applied by status).</td>' .
+                                            '<td class="bg-gray-50 px-3 py-2 font-semibold text-gray-700 dark:bg-gray-900/30 dark:text-gray-200">' . e(__('app.ui.date_columns')) . '</td>' .
+                                            '<td class="px-3 py-2 text-gray-600 dark:text-gray-300">' . e(__('app.loan.import.dates_help')) . '</td>' .
                                         '</tr>' .
                                     '</tbody>' .
                                 '</table>' .
@@ -900,14 +900,14 @@ class LoanResource extends Resource
                         }
 
                         Notification::make()
-                            ->title('Loan import finished')
+                            ->title(__('app.loan.import.finished'))
                             ->body($body)
                             ->color($result['failed'] > 0 || $result['errors'] !== [] ? 'warning' : 'success')
                             ->persistent()
                             ->send();
                     }),
                 Action::make('export_csv')
-                    ->label('Export Loans')
+                    ->label(__('app.action.export_loans'))
                     ->icon('heroicon-o-arrow-down-tray')
                     ->color('warning')
                     ->action(function () {

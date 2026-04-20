@@ -25,6 +25,11 @@ class MyMemberRequestsTableWidget extends TableWidget
 
     protected int|string|array $columnSpan = 'full';
 
+    public function getHeading(): ?string
+    {
+        return __('Your requests');
+    }
+
     protected function getTableQuery(): Builder|Relation|null
     {
         $memberId = $this->member()?->id ?? 0;
@@ -38,16 +43,16 @@ class MyMemberRequestsTableWidget extends TableWidget
         $service = app(MemberRequestService::class);
 
         return $table
-            ->description('Track requests you have submitted. Use the actions above to ask for independence or to add or remove a dependent. Pending items are reviewed by administration.')
+            ->description(__('Track requests you have submitted. Use the actions above to ask for independence or to add or remove a dependent. Pending items are reviewed by administration.'))
             ->headerActions([
                 Action::make('request_independence')
-                    ->label('Become independent')
+                    ->label(__('Become independent'))
                     ->icon('heroicon-o-arrow-right-start-on-rectangle')
                     ->color('warning')
                     ->visible(fn (): bool => $this->member()?->parent_id !== null)
                     ->requiresConfirmation()
-                    ->modalHeading('Request independence')
-                    ->modalDescription('You will no longer be sponsored under a parent member. Allocation updates are already self-service, while dependent-link changes continue through requests.')
+                    ->modalHeading(__('Request independence'))
+                    ->modalDescription(__('You will no longer be sponsored under a parent member. Allocation updates are already self-service, while dependent-link changes continue through requests.'))
                     ->action(function () use ($service): void {
                         $member = $this->member();
                         if (! $member) {
@@ -55,22 +60,22 @@ class MyMemberRequestsTableWidget extends TableWidget
                         }
                         try {
                             $service->submit($member, MemberRequest::TYPE_REQUEST_INDEPENDENCE, []);
-                            Notification::make()->title('Request submitted')->success()->send();
+                            Notification::make()->title(__('Request submitted'))->success()->send();
                         } catch (ValidationException $e) {
                             $this->validationToNotification($e);
                         }
                     }),
 
                 Action::make('request_add_dependent')
-                    ->label('Request to add a dependent')
+                    ->label(__('Request to add a dependent'))
                     ->icon('heroicon-o-user-plus')
                     ->visible(fn (): bool => $this->member() !== null)
                     ->schema([
                         Forms\Components\Textarea::make('details')
-                            ->label('Who should be added?')
+                            ->label(__('Who should be added?'))
                             ->required()
                             ->rows(4)
-                            ->helperText('Include name and any details the office needs to link a new or existing member.'),
+                            ->helperText(__('Include name and any details the office needs to link a new or existing member.')),
                     ])
                     ->action(function (array $data) use ($service): void {
                         $member = $this->member();
@@ -81,20 +86,20 @@ class MyMemberRequestsTableWidget extends TableWidget
                             $service->submit($member, MemberRequest::TYPE_ADD_DEPENDENT, [
                                 'details' => $data['details'],
                             ]);
-                            Notification::make()->title('Request submitted')->success()->send();
+                            Notification::make()->title(__('Request submitted'))->success()->send();
                         } catch (ValidationException $e) {
                             $this->validationToNotification($e);
                         }
                     }),
 
                 Action::make('request_remove_dependent')
-                    ->label('Request to remove a dependent')
+                    ->label(__('Request to remove a dependent'))
                     ->icon('heroicon-o-user-minus')
                     ->color('danger')
                     ->visible(fn (): bool => $this->member()?->dependents()->exists() ?? false)
                     ->schema([
                         Forms\Components\Select::make('dependent_member_id')
-                            ->label('Dependent')
+                            ->label(__('Dependent'))
                             ->options(function (): array {
                                 $m = $this->member();
                                 if (! $m) {
@@ -106,7 +111,7 @@ class MyMemberRequestsTableWidget extends TableWidget
                                     ->orderBy('member_number')
                                     ->get()
                                     ->mapWithKeys(fn (Member $d): array => [
-                                        $d->id => ($d->user?->name ?? 'Member').' (#'.($d->member_number ?? $d->id).')',
+                                        $d->id => ($d->user?->name ?? __('Member')).' (#'.($d->member_number ?? $d->id).')',
                                     ])
                                     ->all();
                             })
@@ -122,7 +127,7 @@ class MyMemberRequestsTableWidget extends TableWidget
                             $service->submit($member, MemberRequest::TYPE_REMOVE_DEPENDENT, [
                                 'dependent_member_id' => (int) $data['dependent_member_id'],
                             ]);
-                            Notification::make()->title('Request submitted')->success()->send();
+                            Notification::make()->title(__('Request submitted'))->success()->send();
                         } catch (ValidationException $e) {
                             $this->validationToNotification($e);
                         }
@@ -130,10 +135,10 @@ class MyMemberRequestsTableWidget extends TableWidget
             ])
             ->columns([
                 TextColumn::make('type')
-                    ->label('Request')
+                    ->label(__('Request'))
                     ->formatStateUsing(fn (string $state): string => MemberRequest::typeLabel($state)),
                 TextColumn::make('details_display')
-                    ->label('Details')
+                    ->label(__('Details'))
                     ->visibleFrom('md')
                     ->getStateUsing(fn (MemberRequest $record): string => $record->describePayload())
                     ->wrap(),
@@ -147,12 +152,12 @@ class MyMemberRequestsTableWidget extends TableWidget
                         default => 'gray',
                     }),
                 TextColumn::make('admin_note')
-                    ->label('Admin note')
+                    ->label(__('Admin note'))
                     ->visibleFrom('lg')
                     ->placeholder('—')
                     ->toggleable(isToggledHiddenByDefault: true),
                 TextColumn::make('created_at')
-                    ->label('Submitted')
+                    ->label(__('Submitted'))
                     ->dateTime('d M Y H:i')
                     ->sortable(),
             ])
@@ -167,6 +172,6 @@ class MyMemberRequestsTableWidget extends TableWidget
     protected function validationToNotification(ValidationException $e): void
     {
         $msg = collect($e->errors())->flatten()->first() ?? $e->getMessage();
-        Notification::make()->title('Could not submit')->body($msg)->danger()->send();
+        Notification::make()->title(__('Could not submit'))->body($msg)->danger()->send();
     }
 }

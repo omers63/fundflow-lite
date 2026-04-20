@@ -851,7 +851,7 @@ class MemberResource extends Resource
                         )
                         ->authorize(fn (Member $record): bool => auth()->user()?->can('update', $record) ?? false)
                         ->requiresConfirmation()
-                        ->modalHeading('Suspend member')
+                        ->modalHeading(__('Suspend member'))
                         ->modalDescription('Sets membership to Suspended. This member will not be able to sign in to the member portal until their status is changed back.')
                         ->action(function (Member $record, Component $livewire): void {
                             $record->update(['status' => 'suspended']);
@@ -871,7 +871,7 @@ class MemberResource extends Resource
                         )
                         ->authorize(fn (Member $record): bool => auth()->user()?->can('update', $record) ?? false)
                         ->requiresConfirmation()
-                        ->modalHeading('Terminate membership')
+                        ->modalHeading(__('Terminate membership'))
                         ->modalDescription('Ends membership permanently (status: Terminated). The person cannot use the member portal. This does not delete records or ledger history. Use Delete only when a full removal is required.')
                         ->action(function (Member $record, Component $livewire): void {
                             $record->update(['status' => 'terminated']);
@@ -913,7 +913,7 @@ class MemberResource extends Resource
                         ->icon('heroicon-o-pause-circle')
                         ->color('warning')
                         ->requiresConfirmation()
-                        ->modalHeading('Suspend selected members')
+                        ->modalHeading(__('Suspend selected members'))
                         ->modalDescription('Sets each eligible row to Suspended (active or delinquent only). Already suspended, terminated, or trashed rows are skipped.')
                         ->authorizeIndividualRecords('update')
                         ->action(function (EloquentCollection $records, Component $livewire): void {
@@ -943,7 +943,7 @@ class MemberResource extends Resource
                         ->icon('heroicon-o-no-symbol')
                         ->color('danger')
                         ->requiresConfirmation()
-                        ->modalHeading('Terminate selected memberships')
+                        ->modalHeading(__('Terminate selected memberships'))
                         ->modalDescription('Sets each eligible row to Terminated. Rows already terminated or trashed are skipped.')
                         ->authorizeIndividualRecords('update')
                         ->action(function (EloquentCollection $records, Component $livewire): void {
@@ -1068,7 +1068,7 @@ class MemberResource extends Resource
                         ->label('Send Notification')
                         ->icon('heroicon-o-megaphone')
                         ->color('info')
-                        ->modalHeading('Send Custom Notification')
+                        ->modalHeading(__('Send Custom Notification'))
                         ->modalDescription('Sends an email and in-app notification to each selected member. Use this for announcements, reminders, or alerts.')
                         ->modalWidth('lg')
                         ->schema([

@@ -1,7 +1,7 @@
 @php $d = $d ?? $this->getData(); @endphp
 
 @if(!($d['hasRecord'] ?? false))
-    <div class="p-4 text-gray-400 text-sm">No member selected.</div>
+    <div class="p-4 text-gray-400 text-sm">{{ __('No member selected.') }}</div>
 @else
 <div class="space-y-4">
 
@@ -18,12 +18,12 @@
                     {{ $d['cash_balance'] >= 1000 ? 'bg-emerald-500' : ($d['cash_balance'] > 0 ? 'bg-amber-500' : 'bg-red-500') }}">
                     <x-heroicon-o-banknotes class="w-4 h-4 text-white" />
                 </div>
-                <span class="text-xs font-semibold text-gray-500 dark:text-gray-400 uppercase tracking-wide">Cash</span>
+                <span class="text-xs font-semibold text-gray-500 dark:text-gray-400 uppercase tracking-wide">{{ __('Cash') }}</span>
             </div>
             <p class="text-lg font-bold text-gray-900 dark:text-white leading-tight">
-                SAR {{ number_format($d['cash_balance'], 2) }}
+                {{ __('SAR :amount', ['amount' => number_format($d['cash_balance'], 2)]) }}
             </p>
-            <p class="text-xs text-gray-500 dark:text-gray-400">Member cash account</p>
+            <p class="text-xs text-gray-500 dark:text-gray-400">{{ __('Member cash account') }}</p>
         </div>
 
         {{-- Fund Balance --}}
@@ -36,17 +36,17 @@
                     {{ $d['fund_balance'] >= $d['min_fund'] ? 'bg-blue-500' : ($d['fund_balance'] > 0 ? 'bg-amber-500' : 'bg-red-500') }}">
                     <x-heroicon-o-building-library class="w-4 h-4 text-white" />
                 </div>
-                <span class="text-xs font-semibold text-gray-500 dark:text-gray-400 uppercase tracking-wide">Fund</span>
+                <span class="text-xs font-semibold text-gray-500 dark:text-gray-400 uppercase tracking-wide">{{ __('Fund') }}</span>
             </div>
             <p class="text-lg font-bold text-gray-900 dark:text-white leading-tight">
-                SAR {{ number_format($d['fund_balance'], 2) }}
+                {{ __('SAR :amount', ['amount' => number_format($d['fund_balance'], 2)]) }}
             </p>
             <div class="mt-1">
                 <div class="w-full bg-gray-200 dark:bg-gray-700 rounded-full h-1.5">
                     <div class="h-1.5 rounded-full {{ $d['fund_pct'] >= 100 ? 'bg-blue-500' : 'bg-amber-400' }}"
                          style="width: {{ $d['fund_pct'] }}%"></div>
                 </div>
-                <p class="text-xs text-gray-500 dark:text-gray-400 mt-0.5">{{ $d['fund_pct'] }}% of SAR {{ number_format($d['min_fund']) }} min</p>
+                <p class="text-xs text-gray-500 dark:text-gray-400 mt-0.5">{{ __(':pct% of SAR :amount min', ['pct' => $d['fund_pct'], 'amount' => number_format($d['min_fund'])]) }}</p>
             </div>
         </div>
 
@@ -56,13 +56,13 @@
                 <div class="w-7 h-7 rounded-lg flex items-center justify-center bg-indigo-500">
                     <x-heroicon-o-scale class="w-4 h-4 text-white" />
                 </div>
-                <span class="text-xs font-semibold text-gray-500 dark:text-gray-400 uppercase tracking-wide">Net Worth</span>
+                <span class="text-xs font-semibold text-gray-500 dark:text-gray-400 uppercase tracking-wide">{{ __('Net Worth') }}</span>
             </div>
             <p class="text-lg font-bold text-gray-900 dark:text-white leading-tight">
-                SAR {{ number_format($d['net_worth'], 2) }}
+                {{ __('SAR :amount', ['amount' => number_format($d['net_worth'], 2)]) }}
             </p>
             <p class="text-xs text-gray-500 dark:text-gray-400">
-                {{ $d['eligible'] ? '✅ Loan eligible' : '⏳ Not yet loan eligible' }}
+                {{ $d['eligible'] ? __('✅ Loan eligible') : __('⏳ Not yet loan eligible') }}
             </p>
         </div>
 
@@ -72,16 +72,16 @@
                 <div class="w-7 h-7 rounded-lg flex items-center justify-center bg-purple-500">
                     <x-heroicon-o-credit-card class="w-4 h-4 text-white" />
                 </div>
-                <span class="text-xs font-semibold text-gray-500 dark:text-gray-400 uppercase tracking-wide">Max Loan</span>
+                <span class="text-xs font-semibold text-gray-500 dark:text-gray-400 uppercase tracking-wide">{{ __('Max Loan') }}</span>
             </div>
             <p class="text-lg font-bold text-gray-900 dark:text-white leading-tight">
-                SAR {{ number_format($d['max_borrow'], 2) }}
+                {{ __('SAR :amount', ['amount' => number_format($d['max_borrow'], 2)]) }}
             </p>
             <p class="text-xs text-gray-500 dark:text-gray-400">
                 @if($d['active_loans_count'] > 0)
-                    {{ $d['active_loans_count'] }} active loan(s) · SAR {{ number_format($d['outstanding_amt'], 2) }} outstanding
+                    {{ __(':count active loan(s) · SAR :amount outstanding', ['count' => $d['active_loans_count'], 'amount' => number_format($d['outstanding_amt'], 2)]) }}
                 @else
-                    No active loans
+                    {{ __('No active loans') }}
                 @endif
             </p>
         </div>
@@ -94,14 +94,14 @@
                 <div class="w-7 h-7 rounded-lg flex items-center justify-center {{ $d['late_count'] > 0 ? 'bg-amber-500' : 'bg-emerald-500' }}">
                     <x-heroicon-o-currency-dollar class="w-4 h-4 text-white" />
                 </div>
-                <span class="text-xs font-semibold text-gray-500 dark:text-gray-400 uppercase tracking-wide">Contributions</span>
+                <span class="text-xs font-semibold text-gray-500 dark:text-gray-400 uppercase tracking-wide">{{ __('Contributions') }}</span>
             </div>
             <p class="text-lg font-bold text-gray-900 dark:text-white leading-tight">
-                SAR {{ number_format($d['total_contributions'], 2) }}
+                {{ __('SAR :amount', ['amount' => number_format($d['total_contributions'], 2)]) }}
             </p>
             <p class="text-xs text-gray-500 dark:text-gray-400">
-                {{ $d['contrib_count'] }} paid
-                @if($d['late_count'] > 0) · <span class="text-amber-600 dark:text-amber-400">{{ $d['late_count'] }} late</span>@endif
+                {{ __(':count paid', ['count' => $d['contrib_count']]) }}
+                @if($d['late_count'] > 0) · <span class="text-amber-600 dark:text-amber-400">{{ __(':count late', ['count' => $d['late_count']]) }}</span>@endif
             </p>
         </div>
 
@@ -115,22 +115,22 @@
                     {{ $d['overdue_installments'] > 0 ? 'bg-red-500' : ($d['late_repay_count'] > 0 ? 'bg-amber-500' : 'bg-emerald-500') }}">
                     <x-heroicon-o-arrow-path class="w-4 h-4 text-white" />
                 </div>
-                <span class="text-xs font-semibold text-gray-500 dark:text-gray-400 uppercase tracking-wide">Repayments</span>
+                <span class="text-xs font-semibold text-gray-500 dark:text-gray-400 uppercase tracking-wide">{{ __('Repayments') }}</span>
             </div>
             <p class="text-lg font-bold text-gray-900 dark:text-white leading-tight">
                 @if($d['overdue_installments'] > 0)
-                    {{ $d['overdue_installments'] }} overdue
+                    {{ __(':count overdue', ['count' => $d['overdue_installments']]) }}
                 @elseif($d['late_repay_count'] > 0)
-                    {{ $d['late_repay_count'] }} late
+                    {{ __(':count late', ['count' => $d['late_repay_count']]) }}
                 @else
-                    On track
+                    {{ __('On track') }}
                 @endif
             </p>
             <p class="text-xs text-gray-500 dark:text-gray-400">
                 @if($d['late_repay_amount'] > 0)
-                    SAR {{ number_format($d['late_repay_amount'], 2) }} late amt
+                    {{ __('SAR :amount late amt', ['amount' => number_format($d['late_repay_amount'], 2)]) }}
                 @else
-                    No late repayments
+                    {{ __('No late repayments') }}
                 @endif
             </p>
         </div>
@@ -143,14 +143,14 @@
         @if(!$d['paid_this_month'])
         <div class="flex items-center gap-2 px-3 py-2 rounded-lg bg-amber-100 dark:bg-amber-900/40 border border-amber-300 dark:border-amber-600 text-amber-800 dark:text-amber-200 text-sm">
             <x-heroicon-o-exclamation-circle class="w-4 h-4 flex-shrink-0" />
-            Contribution for {{ now()->format('F Y') }} not yet paid
+            {{ __('Contribution for :month not yet paid', ['month' => now()->format('F Y')]) }}
         </div>
         @endif
         @if($d['next_installment'])
         <div class="flex items-center gap-2 px-3 py-2 rounded-lg bg-blue-100 dark:bg-blue-900/40 border border-blue-300 dark:border-blue-600 text-blue-800 dark:text-blue-200 text-sm">
             <x-heroicon-o-clock class="w-4 h-4 flex-shrink-0" />
-            Next loan installment due {{ \Carbon\Carbon::parse($d['next_installment']->due_date)->format('d M Y') }}
-            · SAR {{ number_format((float)$d['next_installment']->amount, 2) }}
+            {{ __('Next loan installment due :date', ['date' => \Carbon\Carbon::parse($d['next_installment']->due_date)->format('d M Y')]) }}
+            · {{ __('SAR :amount', ['amount' => number_format((float)$d['next_installment']->amount, 2)]) }}
         </div>
         @endif
     </div>

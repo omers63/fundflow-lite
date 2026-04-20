@@ -98,8 +98,8 @@ class MembershipApplicationForm extends Component
         $this->hasApplicationFee = Setting::publicMembershipApplicationFeesEnabled();
         $this->totalSteps = $this->hasApplicationFee ? 5 : 4;
         $this->stepLabels = $this->hasApplicationFee
-            ? ['Personal Info', 'Identity', 'Employment', 'Document', 'Membership fee']
-            : ['Personal Info', 'Identity', 'Employment', 'Document'];
+            ? [__('Personal Info'), __('Identity'), __('Employment'), __('Document'), __('Membership fee')]
+            : [__('Personal Info'), __('Identity'), __('Employment'), __('Document')];
     }
 
     /** Fee (SAR) for the currently selected application type; 0 if fees are disabled or this type is free. */
@@ -234,7 +234,7 @@ class MembershipApplicationForm extends Component
     {
         if ($this->applicationCapReached) {
             throw ValidationException::withMessages([
-                'form' => 'We are not accepting new applications at the moment. Please try again later.',
+                'form' => __('We are not accepting new applications at the moment. Please try again later.'),
             ]);
         }
 
@@ -248,7 +248,7 @@ class MembershipApplicationForm extends Component
                     $applicationCount = MembershipApplication::query()->count();
                     if ($applicationCount >= Setting::maxPublicApplications()) {
                         throw ValidationException::withMessages([
-                            'form' => 'We are not accepting new applications at the moment. Please try again later.',
+                            'form' => __('We are not accepting new applications at the moment. Please try again later.'),
                         ]);
                     }
                 }
@@ -303,7 +303,7 @@ class MembershipApplicationForm extends Component
             });
         } catch (LockTimeoutException) {
             throw ValidationException::withMessages([
-                'form' => 'The application service is busy. Please wait a moment and try again.',
+                'form' => __('The application service is busy. Please wait a moment and try again.'),
             ]);
         }
 
@@ -313,6 +313,6 @@ class MembershipApplicationForm extends Component
     public function render()
     {
         return view('livewire.membership-application-form')
-            ->layout('layouts.public', ['title' => 'Apply for Membership']);
+            ->layout('layouts.public', ['title' => __('Apply for Membership')]);
     }
 }

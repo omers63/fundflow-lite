@@ -19,6 +19,11 @@ class MyNotificationPreferencesPage extends Page
 
     protected static ?int $navigationSort = 2;
 
+    public static function getNavigationLabel(): string
+    {
+        return __('app.member.notification_preferences');
+    }
+
     public static function getNavigationGroup(): ?string
     {
         return __('app.nav.group.settings');
@@ -26,12 +31,12 @@ class MyNotificationPreferencesPage extends Page
 
     public function getTitle(): string
     {
-        return 'Notification Preferences';
+        return __('app.member.notification_preferences');
     }
 
     public function getSubheading(): ?string
     {
-        return 'Choose how you receive each type of notification. In-App notifications are always on for most categories. Channel options marked (required) cannot be disabled.';
+        return __('app.member.notification_preferences_subheading');
     }
 
     // ── Livewire state ───────────────────────────────────────────────────────
@@ -88,8 +93,8 @@ class MyNotificationPreferencesPage extends Page
         $this->savedAt = now()->toTimeString();
 
         Notification::make()
-            ->title('Preferences saved')
-            ->body('Your communication preferences have been updated.')
+            ->title(__('app.member.preferences_saved'))
+            ->body(__('app.member.preferences_saved_body'))
             ->success()
             ->send();
     }

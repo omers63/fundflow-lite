@@ -19,9 +19,9 @@
                 </h1>
                 @if($d['hasMember'])
                 <p class="mt-1.5 text-sm text-emerald-200">
-                    Member <span class="font-semibold text-white">{{ $d['memberNumber'] }}</span>
+                    {{ __('Member') }} <span class="font-semibold text-white">{{ $d['memberNumber'] }}</span>
                     @if($d['memberStatus'] !== 'active')
-                        &nbsp;·&nbsp;<span class="text-amber-300 font-semibold">{{ ucfirst($d['memberStatus']) }}</span>
+                        &nbsp;·&nbsp;<span class="text-amber-300 font-semibold">{{ __(ucfirst(str_replace('_', ' ', $d['memberStatus']))) }}</span>
                     @endif
                 </p>
                 {{-- Status badges --}}
@@ -29,20 +29,20 @@
                     @if($d['overdueCount'] > 0)
                     <span class="inline-flex items-center gap-1.5 rounded-full bg-red-500/30 ring-1 ring-red-400/40 px-3 py-1 text-xs font-semibold text-red-200">
                         <x-heroicon-o-exclamation-triangle class="w-3.5 h-3.5" />
-                        {{ $d['overdueCount'] }} overdue installment{{ $d['overdueCount'] > 1 ? 's' : '' }}
+                        {{ $d['overdueCount'] > 1 ? __(':count overdue installments', ['count' => $d['overdueCount']]) : __(':count overdue installment', ['count' => $d['overdueCount']]) }}
                     </span>
                     @elseif($d['paidThisMonth'])
                     <span class="inline-flex items-center gap-1.5 rounded-full bg-emerald-500/30 ring-1 ring-emerald-400/40 px-3 py-1 text-xs font-semibold text-emerald-200">
                         <x-heroicon-o-check-circle class="w-3.5 h-3.5" />
-                        Contribution paid this month
+                        {{ __('Contribution paid this month') }}
                     </span>
                     @endif
                     @if($d['pendingLoan'])
                     <span class="inline-flex items-center gap-1.5 rounded-full bg-blue-500/30 ring-1 ring-blue-400/40 px-3 py-1 text-xs font-semibold text-blue-200">
                         <x-heroicon-o-clock class="w-3.5 h-3.5" />
-                        Loan application under review
+                        {{ __('Loan application under review') }}
                         @if($d['pendingLoan']->queue_position)
-                            (Queue #{{ $d['pendingLoan']->queue_position }})
+                            {{ __('(Queue #:position)', ['position' => $d['pendingLoan']->queue_position]) }}
                         @endif
                     </span>
                     @endif
@@ -54,11 +54,11 @@
             @if($d['hasMember'] && $d['nextPayment'])
             <div class="flex-shrink-0">
                 <div class="rounded-2xl bg-white/10 ring-1 ring-white/20 px-5 py-4 text-center min-w-[140px]">
-                    <p class="text-xs font-medium text-emerald-300 uppercase tracking-wide">Next Payment</p>
-                    <p class="mt-1 text-2xl font-extrabold text-white">﷼ {{ number_format($d['nextPayment']['amount'], 0) }}</p>
+                    <p class="text-xs font-medium text-emerald-300 uppercase tracking-wide">{{ __('Next Payment') }}</p>
+                    <p class="mt-1 text-2xl font-extrabold text-white">{{ __('SAR') }} {{ number_format($d['nextPayment']['amount'], 0) }}</p>
                     <p class="mt-0.5 text-xs text-emerald-200">{{ $d['nextPayment']['label'] }}</p>
                     <span class="mt-2 inline-block rounded-full {{ $d['nextPayment']['type'] === 'installment' ? 'bg-indigo-500/30 text-indigo-200' : 'bg-emerald-500/30 text-emerald-200' }} px-2 py-0.5 text-xs">
-                        {{ $d['nextPayment']['type'] === 'installment' ? 'Loan' : 'Contribution' }}
+                        {{ $d['nextPayment']['type'] === 'installment' ? __('Loan') : __('Contribution') }}
                     </span>
                 </div>
             </div>
@@ -69,28 +69,28 @@
         {{-- KPI tiles --}}
         <div class="mt-6 grid grid-cols-2 gap-3 sm:grid-cols-4">
             <div class="rounded-xl bg-white/8 ring-1 ring-white/15 px-4 py-3 backdrop-blur-sm">
-                <p class="text-xs font-medium text-emerald-300 uppercase tracking-wider">Cash Balance</p>
-                <p class="mt-1 text-xl font-bold text-white">﷼ {{ number_format($d['cash'], 0) }}</p>
+                <p class="text-xs font-medium text-emerald-300 uppercase tracking-wider">{{ __('Cash Balance') }}</p>
+                <p class="mt-1 text-xl font-bold text-white">{{ __('SAR') }} {{ number_format($d['cash'], 0) }}</p>
             </div>
             <div class="rounded-xl bg-white/8 ring-1 ring-white/15 px-4 py-3 backdrop-blur-sm">
-                <p class="text-xs font-medium text-emerald-300 uppercase tracking-wider">Fund Balance</p>
-                <p class="mt-1 text-xl font-bold text-white">﷼ {{ number_format($d['fund'], 0) }}</p>
+                <p class="text-xs font-medium text-emerald-300 uppercase tracking-wider">{{ __('Fund Balance') }}</p>
+                <p class="mt-1 text-xl font-bold text-white">{{ __('SAR') }} {{ number_format($d['fund'], 0) }}</p>
             </div>
             <div class="rounded-xl bg-white/8 ring-1 ring-white/15 px-4 py-3 backdrop-blur-sm">
-                <p class="text-xs font-medium text-emerald-300 uppercase tracking-wider">Active Loan</p>
+                <p class="text-xs font-medium text-emerald-300 uppercase tracking-wider">{{ __('Active Loan') }}</p>
                 @if($d['activeLoan'])
-                <p class="mt-1 text-xl font-bold text-white">﷼ {{ number_format($d['activeLoan']->amount_approved, 0) }}</p>
-                <p class="mt-0.5 text-xs text-emerald-400">Outstanding</p>
+                <p class="mt-1 text-xl font-bold text-white">{{ __('SAR') }} {{ number_format($d['activeLoan']->amount_approved, 0) }}</p>
+                <p class="mt-0.5 text-xs text-emerald-400">{{ __('Outstanding') }}</p>
                 @else
-                <p class="mt-1 text-xl font-bold text-white">None</p>
+                <p class="mt-1 text-xl font-bold text-white">{{ __('None') }}</p>
                 @endif
             </div>
             <div class="rounded-xl bg-white/8 ring-1 ring-white/15 px-4 py-3 backdrop-blur-sm">
-                <p class="text-xs font-medium text-emerald-300 uppercase tracking-wider">Health</p>
+                <p class="text-xs font-medium text-emerald-300 uppercase tracking-wider">{{ __('Health') }}</p>
                 @if($d['overdueCount'] === 0)
-                <p class="mt-1 text-xl font-bold text-emerald-300">Good</p>
+                <p class="mt-1 text-xl font-bold text-emerald-300">{{ __('Good') }}</p>
                 @else
-                <p class="mt-1 text-xl font-bold text-red-300">{{ $d['overdueCount'] }} Overdue</p>
+                <p class="mt-1 text-xl font-bold text-red-300">{{ __(':count Overdue', ['count' => $d['overdueCount']]) }}</p>
                 @endif
             </div>
         </div>
@@ -107,16 +107,16 @@
         <x-heroicon-o-exclamation-circle class="w-6 h-6 text-red-600 dark:text-red-400 flex-shrink-0" />
         <div>
             <p class="text-sm font-semibold text-red-800 dark:text-red-300">
-                {{ $d['overdueCount'] }} overdue installment{{ $d['overdueCount'] > 1 ? 's' : '' }}
-                — SAR {{ number_format($d['overdueAmount'], 2) }} outstanding
+                {{ $d['overdueCount'] > 1 ? __(':count overdue installments', ['count' => $d['overdueCount']]) : __(':count overdue installment', ['count' => $d['overdueCount']]) }}
+                — {{ __('SAR :amount outstanding', ['amount' => number_format($d['overdueAmount'], 2)]) }}
             </p>
-            <p class="text-xs text-red-600 dark:text-red-400 mt-0.5">Late fees may be accruing. Pay as soon as possible to avoid further penalties.</p>
+            <p class="text-xs text-red-600 dark:text-red-400 mt-0.5">{{ __('Late fees may be accruing. Pay as soon as possible to avoid further penalties.') }}</p>
         </div>
     </div>
     <a href="{{ \App\Filament\Member\Resources\MyInstallmentsResource::getUrl('index') }}"
        class="flex-shrink-0 inline-flex items-center gap-1.5 rounded-lg bg-red-600 hover:bg-red-700 px-4 py-2 text-xs font-semibold text-white transition-colors">
         <x-heroicon-o-credit-card class="w-3.5 h-3.5" />
-        View Installments
+        {{ __('View Installments') }}
     </a>
 </div>
 @endif
@@ -126,21 +126,21 @@
     <div class="flex items-center gap-3">
         <x-heroicon-o-credit-card class="w-6 h-6 text-blue-600 dark:text-blue-400 flex-shrink-0" />
         <div>
-            <p class="text-sm font-semibold text-blue-800 dark:text-blue-300">Loan installment is due for this period</p>
-            <p class="text-xs text-blue-600 dark:text-blue-400 mt-0.5">You can pay your installment now from your cash account.</p>
+            <p class="text-sm font-semibold text-blue-800 dark:text-blue-300">{{ __('Loan installment is due for this period') }}</p>
+            <p class="text-xs text-blue-600 dark:text-blue-400 mt-0.5">{{ __('You can pay your installment now from your cash account.') }}</p>
         </div>
     </div>
     <a href="{{ \App\Filament\Member\Resources\MyInstallmentsResource::getUrl('index') }}"
        class="flex-shrink-0 inline-flex items-center gap-1.5 rounded-lg bg-blue-600 hover:bg-blue-700 px-4 py-2 text-xs font-semibold text-white transition-colors">
-        Pay Now
+        {{ __('Pay Now') }}
     </a>
 </div>
 @elseif($d['canRepay'] && $d['repayInsufficient'])
 <div class="flex items-center gap-4 rounded-xl bg-amber-50 dark:bg-amber-950/30 ring-1 ring-amber-200 dark:ring-amber-800 px-5 py-4">
     <x-heroicon-o-exclamation-triangle class="w-6 h-6 text-amber-600 dark:text-amber-400 flex-shrink-0" />
     <div>
-        <p class="text-sm font-semibold text-amber-800 dark:text-amber-300">Loan installment due — insufficient cash</p>
-        <p class="text-xs text-amber-600 dark:text-amber-400 mt-0.5">Your cash balance is too low to cover this month's installment. Contact admin to top up your account.</p>
+        <p class="text-sm font-semibold text-amber-800 dark:text-amber-300">{{ __('Loan installment due — insufficient cash') }}</p>
+        <p class="text-xs text-amber-600 dark:text-amber-400 mt-0.5">{{ __('Your cash balance is too low to cover this month\'s installment. Contact admin to top up your account.') }}</p>
     </div>
 </div>
 @endif
@@ -150,13 +150,13 @@
     <div class="flex items-center gap-3">
         <x-heroicon-o-banknotes class="w-6 h-6 text-amber-600 dark:text-amber-400 flex-shrink-0" />
         <div>
-            <p class="text-sm font-semibold text-amber-800 dark:text-amber-300">Monthly contribution not yet recorded</p>
-            <p class="text-xs text-amber-600 dark:text-amber-400 mt-0.5">Ensure your contribution is processed before the cycle deadline to avoid late fees.</p>
+            <p class="text-sm font-semibold text-amber-800 dark:text-amber-300">{{ __('Monthly contribution not yet recorded') }}</p>
+            <p class="text-xs text-amber-600 dark:text-amber-400 mt-0.5">{{ __('Ensure your contribution is processed before the cycle deadline to avoid late fees.') }}</p>
         </div>
     </div>
     <a href="{{ \App\Filament\Member\Resources\MyContributionsResource::getUrl('index') }}"
        class="flex-shrink-0 inline-flex items-center gap-1.5 rounded-lg bg-amber-600 hover:bg-amber-700 px-4 py-2 text-xs font-semibold text-white transition-colors">
-        View Contributions
+        {{ __('View Contributions') }}
     </a>
 </div>
 @endif
@@ -166,13 +166,13 @@
     <div class="flex items-center gap-3">
         <x-heroicon-o-check-badge class="w-6 h-6 text-emerald-600 dark:text-emerald-400 flex-shrink-0" />
         <div>
-            <p class="text-sm font-semibold text-emerald-800 dark:text-emerald-300">You are eligible to apply for a loan</p>
-            <p class="text-xs text-emerald-600 dark:text-emerald-400 mt-0.5">Your fund balance qualifies you. Use the Loan Calculator to estimate your repayments.</p>
+            <p class="text-sm font-semibold text-emerald-800 dark:text-emerald-300">{{ __('You are eligible to apply for a loan') }}</p>
+            <p class="text-xs text-emerald-600 dark:text-emerald-400 mt-0.5">{{ __('Your fund balance qualifies you. Use the Loan Calculator to estimate your repayments.') }}</p>
         </div>
     </div>
     <a href="{{ \App\Filament\Member\Resources\MyLoansResource::getUrl('index') }}"
        class="flex-shrink-0 inline-flex items-center gap-1.5 rounded-lg bg-emerald-600 hover:bg-emerald-700 px-4 py-2 text-xs font-semibold text-white transition-colors">
-        Apply Now
+        {{ __('Apply Now') }}
     </a>
 </div>
 @endif
@@ -182,37 +182,37 @@
     <a href="{{ \App\Filament\Member\Resources\MyLoansResource::getUrl('index') }}"
        class="inline-flex items-center gap-1.5 rounded-full bg-white dark:bg-gray-800 ring-1 ring-gray-200 dark:ring-gray-700 px-4 py-2 text-xs font-medium text-gray-700 dark:text-gray-300 hover:bg-gray-50 dark:hover:bg-gray-700 transition-colors shadow-sm">
         <x-heroicon-o-document-currency-dollar class="w-3.5 h-3.5 text-emerald-500" />
-        My Loans
+        {{ __('My Loans') }}
     </a>
     <a href="{{ \App\Filament\Member\Resources\MyInstallmentsResource::getUrl('index') }}"
        class="inline-flex items-center gap-1.5 rounded-full bg-white dark:bg-gray-800 ring-1 ring-gray-200 dark:ring-gray-700 px-4 py-2 text-xs font-medium text-gray-700 dark:text-gray-300 hover:bg-gray-50 dark:hover:bg-gray-700 transition-colors shadow-sm">
         <x-heroicon-o-calendar-days class="w-3.5 h-3.5 text-blue-500" />
-        Installments
+        {{ __('Installments') }}
     </a>
     <a href="{{ \App\Filament\Member\Resources\MyContributionsResource::getUrl('index') }}"
        class="inline-flex items-center gap-1.5 rounded-full bg-white dark:bg-gray-800 ring-1 ring-gray-200 dark:ring-gray-700 px-4 py-2 text-xs font-medium text-gray-700 dark:text-gray-300 hover:bg-gray-50 dark:hover:bg-gray-700 transition-colors shadow-sm">
         <x-heroicon-o-banknotes class="w-3.5 h-3.5 text-amber-500" />
-        Contributions
+        {{ __('Contributions') }}
     </a>
     <a href="{{ \App\Filament\Member\Resources\MyStatementsResource::getUrl('index') }}"
        class="inline-flex items-center gap-1.5 rounded-full bg-white dark:bg-gray-800 ring-1 ring-gray-200 dark:ring-gray-700 px-4 py-2 text-xs font-medium text-gray-700 dark:text-gray-300 hover:bg-gray-50 dark:hover:bg-gray-700 transition-colors shadow-sm">
         <x-heroicon-o-document-chart-bar class="w-3.5 h-3.5 text-purple-500" />
-        Statements
+        {{ __('Statements') }}
     </a>
     <a href="{{ \App\Filament\Member\Resources\MyAccountLedgerResource::getUrl('index') }}"
        class="inline-flex items-center gap-1.5 rounded-full bg-white dark:bg-gray-800 ring-1 ring-gray-200 dark:ring-gray-700 px-4 py-2 text-xs font-medium text-gray-700 dark:text-gray-300 hover:bg-gray-50 dark:hover:bg-gray-700 transition-colors shadow-sm">
         <x-heroicon-o-clipboard-document-list class="w-3.5 h-3.5 text-teal-500" />
-        Account Ledger
+        {{ __('Account Ledger') }}
     </a>
     <a href="{{ \App\Filament\Member\Pages\MyProfilePage::getUrl() }}"
        class="inline-flex items-center gap-1.5 rounded-full bg-white dark:bg-gray-800 ring-1 ring-gray-200 dark:ring-gray-700 px-4 py-2 text-xs font-medium text-gray-700 dark:text-gray-300 hover:bg-gray-50 dark:hover:bg-gray-700 transition-colors shadow-sm">
         <x-heroicon-o-user-circle class="w-3.5 h-3.5 text-gray-500" />
-        My Profile
+        {{ __('My Profile') }}
     </a>
     <a href="{{ \App\Filament\Member\Pages\SupportPage::getUrl() }}"
        class="inline-flex items-center gap-1.5 rounded-full bg-white dark:bg-gray-800 ring-1 ring-gray-200 dark:ring-gray-700 px-4 py-2 text-xs font-medium text-gray-700 dark:text-gray-300 hover:bg-gray-50 dark:hover:bg-gray-700 transition-colors shadow-sm">
         <x-heroicon-o-chat-bubble-left-right class="w-3.5 h-3.5 text-indigo-500" />
-        Support
+        {{ __('Support') }}
     </a>
 </div>
 

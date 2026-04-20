@@ -20,6 +20,11 @@ class AccountsRelationManager extends RelationManager
 
     protected static ?string $title = 'Accounts';
 
+    public static function getTitle(\Illuminate\Database\Eloquent\Model $ownerRecord, string $pageClass): string
+    {
+        return __('Accounts');
+    }
+
     /**
      * Allow header cycle actions on member View pages (panel defaults to read-only RMs).
      */
@@ -50,9 +55,9 @@ class AccountsRelationManager extends RelationManager
                     ->formatStateUsing(fn(Account $r) => $r->type_label)
                     ->color(fn(Account $r) => $r->type_color)
                     ->toggleable(),
-                Tables\Columns\TextColumn::make('loan_id')->label('Loan #')->placeholder('—')->toggleable(),
+                Tables\Columns\TextColumn::make('loan_id')->label(__('Loan #'))->placeholder('—')->toggleable(),
                 Tables\Columns\TextColumn::make('balance')
-                    ->label('Balance (SAR)')
+                    ->label(__('Balance (SAR)'))
                     ->money('SAR')
                     ->color(fn(Account $r) => (float) $r->balance >= 0 ? 'success' : 'danger')
                     ->weight(FontWeight::Bold)
@@ -60,25 +65,25 @@ class AccountsRelationManager extends RelationManager
             ])
             ->filters([
                 Tables\Filters\SelectFilter::make('type')
-                    ->label('Account type')
+                    ->label(__('Account type'))
                     ->options([
-                        Account::TYPE_MEMBER_CASH => 'Member Cash',
-                        Account::TYPE_MEMBER_FUND => 'Member Fund',
-                        Account::TYPE_LOAN => 'Loan',
+                        Account::TYPE_MEMBER_CASH => __('Member Cash'),
+                        Account::TYPE_MEMBER_FUND => __('Member Fund'),
+                        Account::TYPE_LOAN => __('Loan'),
                     ]),
-                Tables\Filters\TernaryFilter::make('is_active')->label('Active'),
+                Tables\Filters\TernaryFilter::make('is_active')->label(__('Active')),
                 Tables\Filters\TernaryFilter::make('loan_linked')
-                    ->label('Loan account')
-                    ->trueLabel('Linked to a loan')
-                    ->falseLabel('Not a loan account')
+                    ->label(__('Loan account'))
+                    ->trueLabel(__('Linked to a loan'))
+                    ->falseLabel(__('Not a loan account'))
                     ->queries(
                         true: fn($q) => $q->whereNotNull('loan_id'),
                         false: fn($q) => $q->whereNull('loan_id'),
                     ),
                 Tables\Filters\Filter::make('balance')
                     ->schema([
-                        Forms\Components\TextInput::make('balance_min')->label('Min balance (SAR)')->numeric(),
-                        Forms\Components\TextInput::make('balance_max')->label('Max balance (SAR)')->numeric(),
+                        Forms\Components\TextInput::make('balance_min')->label(__('Min balance (SAR)'))->numeric(),
+                        Forms\Components\TextInput::make('balance_max')->label(__('Max balance (SAR)'))->numeric(),
                     ])
                     ->columns(2)
                     ->query(function ($query, array $data) {

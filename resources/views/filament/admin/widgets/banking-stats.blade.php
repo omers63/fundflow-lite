@@ -21,10 +21,10 @@
             <div class="pl-2">
                 <div class="flex items-center gap-1.5 mb-2">
                     <x-heroicon-o-building-library class="w-4 h-4 text-primary-500" />
-                    <p class="text-xs font-semibold uppercase tracking-wide text-gray-500 dark:text-gray-400">Banks</p>
+                    <p class="text-xs font-semibold uppercase tracking-wide text-gray-500 dark:text-gray-400">{{ __('Banks') }}</p>
                 </div>
                 <p class="text-2xl font-bold text-gray-900 dark:text-white">{{ $d['banks'] }}</p>
-                <p class="mt-0.5 text-xs text-gray-400">{{ $d['active_banks'] }} active</p>
+                <p class="mt-0.5 text-xs text-gray-400">{{ __(':count active', ['count' => $d['active_banks']]) }}</p>
             </div>
         </div>
 
@@ -34,10 +34,10 @@
             <div class="pl-2">
                 <div class="flex items-center gap-1.5 mb-2">
                     <x-heroicon-o-document-text class="w-4 h-4 text-indigo-500" />
-                    <p class="text-xs font-semibold uppercase tracking-wide text-gray-500 dark:text-gray-400">Templates</p>
+                    <p class="text-xs font-semibold uppercase tracking-wide text-gray-500 dark:text-gray-400">{{ __('Templates') }}</p>
                 </div>
                 <p class="text-2xl font-bold text-gray-900 dark:text-white">{{ $d['bank_templates'] + $d['sms_templates'] }}</p>
-                <p class="mt-0.5 text-xs text-gray-400">{{ $d['bank_templates'] }} bank · {{ $d['sms_templates'] }} SMS</p>
+                <p class="mt-0.5 text-xs text-gray-400">{{ __(':bank bank · :sms SMS', ['bank' => $d['bank_templates'], 'sms' => $d['sms_templates']]) }}</p>
             </div>
         </div>
 
@@ -47,10 +47,10 @@
             <div class="pl-2">
                 <div class="flex items-center gap-1.5 mb-2">
                     <x-heroicon-o-arrows-right-left class="w-4 h-4 text-teal-500" />
-                    <p class="text-xs font-semibold uppercase tracking-wide text-gray-500 dark:text-gray-400">Transactions</p>
+                    <p class="text-xs font-semibold uppercase tracking-wide text-gray-500 dark:text-gray-400">{{ __('Transactions') }}</p>
                 </div>
                 <p class="text-2xl font-bold text-gray-900 dark:text-white">{{ $fmt($d['total_tx']) }}</p>
-                <p class="mt-0.5 text-xs text-gray-400">{{ $fmt($d['bank_tx_total']) }} bank · {{ $fmt($d['sms_tx_total']) }} SMS</p>
+                <p class="mt-0.5 text-xs text-gray-400">{{ __(':bank bank · :sms SMS', ['bank' => $fmt($d['bank_tx_total']), 'sms' => $fmt($d['sms_tx_total'])]) }}</p>
             </div>
         </div>
 
@@ -60,10 +60,10 @@
             <div class="pl-2">
                 <div class="flex items-center gap-1.5 mb-2">
                     <x-heroicon-o-check-circle class="w-4 h-4 text-emerald-500" />
-                    <p class="text-xs font-semibold uppercase tracking-wide text-gray-500 dark:text-gray-400">Posted</p>
+                    <p class="text-xs font-semibold uppercase tracking-wide text-gray-500 dark:text-gray-400">{{ __('Posted') }}</p>
                 </div>
                 <p class="text-2xl font-bold text-emerald-600 dark:text-emerald-400">{{ $fmt($d['total_posted']) }}</p>
-                <p class="mt-0.5 text-xs text-gray-400">{{ $d['post_rate'] }}% of total</p>
+                <p class="mt-0.5 text-xs text-gray-400">{{ __(':pct% of total', ['pct' => $d['post_rate']]) }}</p>
             </div>
         </div>
 
@@ -73,10 +73,10 @@
             <div class="pl-2">
                 <div class="flex items-center gap-1.5 mb-2">
                     <x-heroicon-o-document-duplicate class="w-4 h-4 {{ $d['total_dupes'] > 0 ? 'text-amber-500' : 'text-gray-400' }}" />
-                    <p class="text-xs font-semibold uppercase tracking-wide text-gray-500 dark:text-gray-400">Duplicates</p>
+                    <p class="text-xs font-semibold uppercase tracking-wide text-gray-500 dark:text-gray-400">{{ __('Duplicates') }}</p>
                 </div>
                 <p class="text-2xl font-bold {{ $d['total_dupes'] > 0 ? 'text-amber-600 dark:text-amber-400' : 'text-gray-900 dark:text-white' }}">{{ $fmt($d['total_dupes']) }}</p>
-                <p class="mt-0.5 text-xs text-gray-400">{{ $d['dupe_rate'] }}% dupe rate</p>
+                <p class="mt-0.5 text-xs text-gray-400">{{ __(':pct% dupe rate', ['pct' => $d['dupe_rate']]) }}</p>
             </div>
         </div>
 
@@ -86,7 +86,7 @@
             <div class="pl-2">
                 <div class="flex items-center gap-1.5 mb-2">
                     <x-heroicon-o-arrow-up-tray class="w-4 h-4 text-sky-500" />
-                    <p class="text-xs font-semibold uppercase tracking-wide text-gray-500 dark:text-gray-400">Imports (mo.)</p>
+                    <p class="text-xs font-semibold uppercase tracking-wide text-gray-500 dark:text-gray-400">{{ __('Imports (mo.)') }}</p>
                 </div>
                 <p class="text-2xl font-bold text-gray-900 dark:text-white">{{ $d['bank_sessions_month'] + $d['sms_sessions_month'] }}</p>
                 <p class="mt-0.5 text-xs text-gray-400">{{ now()->format('F Y') }}</p>
@@ -102,7 +102,7 @@
         <div class="rounded-xl border border-gray-200 bg-white shadow-sm overflow-hidden dark:border-gray-700 dark:bg-gray-800">
             <div class="flex items-center gap-2 px-5 py-3 border-b border-gray-100 dark:border-gray-700 bg-gray-50 dark:bg-gray-800/70">
                 <x-heroicon-o-arrow-trending-up class="w-4 h-4 text-gray-400" />
-                <h4 class="text-xs font-semibold uppercase tracking-wide text-gray-500 dark:text-gray-400">6-Month Import Activity</h4>
+                <h4 class="text-xs font-semibold uppercase tracking-wide text-gray-500 dark:text-gray-400">{{ __('6-Month Import Activity') }}</h4>
             </div>
             <div class="px-5 py-4">
                 @php $maxTotal = max(1, collect($d['trend'])->max('total')); @endphp
@@ -130,8 +130,8 @@
                     @endforeach
                 </div>
                 <div class="mt-3 flex gap-4 text-xs text-gray-400">
-                    <span class="flex items-center gap-1"><span class="w-2 h-2 rounded-full bg-indigo-500 inline-block"></span>Bank CSV</span>
-                    <span class="flex items-center gap-1"><span class="w-2 h-2 rounded-full bg-teal-400 inline-block"></span>SMS</span>
+                    <span class="flex items-center gap-1"><span class="w-2 h-2 rounded-full bg-indigo-500 inline-block"></span>{{ __('Bank CSV') }}</span>
+                    <span class="flex items-center gap-1"><span class="w-2 h-2 rounded-full bg-teal-400 inline-block"></span>{{ __('SMS') }}</span>
                 </div>
             </div>
         </div>
@@ -140,7 +140,7 @@
         <div class="rounded-xl border border-gray-200 bg-white shadow-sm overflow-hidden dark:border-gray-700 dark:bg-gray-800">
             <div class="flex items-center gap-2 px-5 py-3 border-b border-gray-100 dark:border-gray-700 bg-gray-50 dark:bg-gray-800/70">
                 <x-heroicon-o-clock class="w-4 h-4 text-gray-400" />
-                <h4 class="text-xs font-semibold uppercase tracking-wide text-gray-500 dark:text-gray-400">Recent Bank Import Sessions</h4>
+                <h4 class="text-xs font-semibold uppercase tracking-wide text-gray-500 dark:text-gray-400">{{ __('Recent Bank Import Sessions') }}</h4>
             </div>
             <div class="divide-y divide-gray-100 dark:divide-gray-700">
                 @forelse($d['recent_sessions'] as $session)
@@ -154,13 +154,13 @@
                         <span class="inline-flex items-center px-2 py-0.5 rounded text-xs font-medium {{ $sc }}">
                             {{ str_replace('_', ' ', $session['status']) }}
                         </span>
-                        <p class="text-xs text-gray-400">{{ $session['imported'] }} imported · {{ $session['duplicates'] }} dupes</p>
+                        <p class="text-xs text-gray-400">{{ __(':imported imported · :dupes dupes', ['imported' => $session['imported'], 'dupes' => $session['duplicates']]) }}</p>
                     </div>
                 </div>
                 @empty
                 <div class="px-5 py-6 text-center">
                     <x-heroicon-o-inbox class="mx-auto w-8 h-8 text-gray-300 dark:text-gray-600 mb-1" />
-                    <p class="text-sm text-gray-400">No import sessions yet.</p>
+                    <p class="text-sm text-gray-400">{{ __('No import sessions yet.') }}</p>
                 </div>
                 @endforelse
             </div>

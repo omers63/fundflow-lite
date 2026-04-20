@@ -30,16 +30,16 @@ class MemberWelcomeBannerWidget extends Widget
         $now = now();
 
         $greeting = match (true) {
-            $now->hour < 12 => 'Good morning',
-            $now->hour < 17 => 'Good afternoon',
-            default => 'Good evening',
+            $now->hour < 12 => __('Good morning'),
+            $now->hour < 17 => __('Good afternoon'),
+            default => __('Good evening'),
         };
 
         if (!$member) {
             return [
                 'greeting' => $greeting,
-                'name' => $user?->name ?? 'Member',
-                'date' => $now->format('l, F j Y'),
+                'name' => $user?->name ?? __('Member'),
+                'date' => $now->translatedFormat('l, F j Y'),
                 'hasMember' => false,
                 'cash' => 0,
                 'fund' => 0,
@@ -66,11 +66,11 @@ class MemberWelcomeBannerWidget extends Widget
 
         $nextContribution = [
             'amount' => $member->monthly_contribution_amount ?? 500,
-            'label' => 'Monthly contribution',
+            'label' => __('Monthly contribution'),
         ];
 
         $nextPayment = $nextInstallment
-            ? ['amount' => (float) $nextInstallment->amount, 'label' => 'Loan installment due ' . $nextInstallment->due_date->format('d M'), 'type' => 'installment']
+            ? ['amount' => (float) $nextInstallment->amount, 'label' => __('Loan installment due :date', ['date' => $nextInstallment->due_date->translatedFormat('d M')]), 'type' => 'installment']
             : ['amount' => $nextContribution['amount'], 'label' => $nextContribution['label'], 'type' => 'contribution'];
 
         $overdueCount = LoanInstallment::whereHas('loan', fn($q) => $q->where('member_id', $member->id))
@@ -106,7 +106,7 @@ class MemberWelcomeBannerWidget extends Widget
             'greeting' => $greeting,
             'name' => $user->name,
             'memberNumber' => $member->member_number,
-            'date' => $now->format('l, F j Y'),
+            'date' => $now->translatedFormat('l, F j Y'),
             'hasMember' => true,
             'memberStatus' => $member->status,
             'cash' => $cash,

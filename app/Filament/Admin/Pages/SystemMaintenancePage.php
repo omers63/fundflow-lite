@@ -22,6 +22,11 @@ class SystemMaintenancePage extends Page
 
     protected static ?int $navigationSort = 2;
 
+    public static function getNavigationLabel(): string
+    {
+        return __('System Maintenance');
+    }
+
     /** @var list<string> */
     public array $purgeableTables = [];
 
@@ -43,7 +48,7 @@ class SystemMaintenancePage extends Page
 
     public function getTitle(): string
     {
-        return 'System Maintenance';
+        return __('System Maintenance');
     }
 
     protected function getHeaderWidgets(): array
@@ -74,19 +79,19 @@ class SystemMaintenancePage extends Page
     {
         return [
             Action::make('saveToServer')
-                ->label('Save backup to server')
+                ->label(__('Save backup to server'))
                 ->icon('heroicon-o-server-stack')
                 ->color('success')
                 ->requiresConfirmation()
-                ->modalHeading('Save backup to server?')
-                ->modalDescription('Creates a new file under storage/app/backups/ and adds a row to the backup history. Use Download backup for a one-off copy without storing on the server.')
+                ->modalHeading(__('Save backup to server?'))
+                ->modalDescription(__('Creates a new file under storage/app/backups/ and adds a row to the backup history. Use Download backup for a one-off copy without storing on the server.'))
                 ->action(function (): void {
                     try {
                         app(DatabaseMaintenanceService::class)->createStoredBackup();
                     } catch (\Throwable $e) {
                         report($e);
                         Notification::make()
-                            ->title('Backup failed')
+                            ->title(__('Backup failed'))
                             ->body($e->getMessage())
                             ->danger()
                             ->send();
@@ -95,45 +100,45 @@ class SystemMaintenancePage extends Page
                     }
 
                     Notification::make()
-                        ->title('Backup saved')
-                        ->body('The file was written to storage/app/backups/ and listed below.')
+                        ->title(__('Backup saved'))
+                        ->body(__('The file was written to storage/app/backups/ and listed below.'))
                         ->success()
                         ->send();
 
                     $this->redirect(static::getUrl());
                 }),
             Action::make('download')
-                ->label('Download backup')
+                ->label(__('Download backup'))
                 ->icon('heroicon-o-arrow-down-tray')
                 ->color('primary')
                 ->url(route('admin.system.backup-download')),
             Action::make('purge')
-                ->label('Purge now')
+                ->label(__('Purge now'))
                 ->icon('heroicon-o-trash')
                 ->color('danger')
                 ->requiresConfirmation()
-                ->modalHeading('Purge tables without soft deletes?')
+                ->modalHeading(__('Purge tables without soft deletes?'))
                 ->modalDescription(
-                    'All rows in each listed table will be permanently removed. ' .
-                    'Tables with a deleted_at column are skipped. ' .
-                    'Users, permissions, sessions, queues, cache, and migrations are always preserved.'
+                    __('All rows in each listed table will be permanently removed. ') .
+                    __('Tables with a deleted_at column are skipped. ') .
+                    __('Users, permissions, sessions, queues, cache, and migrations are always preserved.')
                 )
                 ->schema([
                     TextInput::make('confirm')
-                        ->label('Type PURGE to confirm')
+                        ->label(__('Type PURGE to confirm'))
                         ->required()
                         ->rule('in:PURGE')
-                        ->helperText('This action cannot be undone.'),
+                        ->helperText(__('This action cannot be undone.')),
                 ])
                 ->action(function (array $data): void {
                     $service = app(DatabaseMaintenanceService::class);
                     $count = $service->purgePurgeableTables();
 
                     Notification::make()
-                        ->title('Database purged')
+                        ->title(__('Database purged'))
                         ->body($count > 0
-                            ? "Truncated {$count} table(s)."
-                            : 'No tables matched the purge rules.')
+                            ? __('Truncated :count table(s).', ['count' => $count])
+                            : __('No tables matched the purge rules.'))
                         ->success()
                         ->send();
 

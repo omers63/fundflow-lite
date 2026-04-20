@@ -29,6 +29,6 @@ class ListAccounts extends ListRecords
 
     public function getSubheading(): ?string
     {
-        return 'A real-time view of all fund accounts, member accounts, and loan ledgers.';
+        return __('A real-time view of all fund accounts, member accounts, and loan ledgers.');
     }
 }

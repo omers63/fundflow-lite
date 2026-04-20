@@ -34,7 +34,7 @@ class ContributionHistoryWidget extends Widget
             $date = Carbon::now()->subMonths($i)->startOfMonth();
             $m = (int) $date->month;
             $y = (int) $date->year;
-            $labels[] = $date->format('M Y');
+            $labels[] = $date->locale(app()->getLocale())->translatedFormat('M Y');
 
             $row = Contribution::where('member_id', $member->id)
                 ->where('month', $m)->where('year', $y)->first();
@@ -61,7 +61,7 @@ class ContributionHistoryWidget extends Widget
             'chart' => [
                 'datasets' => [
                     [
-                        'label' => 'Contribution (SAR)',
+                        'label' => __('Contribution (SAR)'),
                         'data' => $amounts,
                         'backgroundColor' => $colors,
                         'borderColor' => array_map(
@@ -78,7 +78,7 @@ class ContributionHistoryWidget extends Widget
                 'responsive' => true,
                 'maintainAspectRatio' => false,
                 'scales' => [
-                    'y' => ['beginAtZero' => true, 'title' => ['display' => true, 'text' => 'SAR']],
+                    'y' => ['beginAtZero' => true, 'title' => ['display' => true, 'text' => __('SAR')]],
                 ],
                 'plugins' => [
                     'legend' => ['display' => false],

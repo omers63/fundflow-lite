@@ -33,6 +33,11 @@ class SmsImportSessionResource extends Resource
 
     protected static ?int $navigationSort = 23;
 
+    public static function getNavigationLabel(): string
+    {
+        return __('SMS Import History');
+    }
+
     public static function shouldRegisterNavigation(): bool
     {
         return false;
@@ -40,14 +45,14 @@ class SmsImportSessionResource extends Resource
 
     public static function getNavigationGroup(): ?string
     {
-        return 'Banking';
+        return __('app.nav.group.finance');
     }
 
     public static function form(Schema $schema): Schema
     {
         return $schema->schema([
             Section::make()->schema([
-                Forms\Components\TextInput::make('bank.name')->label('Bank')->disabled(),
+                Forms\Components\TextInput::make('bank.name')->label(__('Bank'))->disabled(),
                 Forms\Components\TextInput::make('filename')->disabled(),
                 Forms\Components\TextInput::make('status')->disabled(),
                 Forms\Components\TextInput::make('total_rows')->disabled(),
@@ -63,9 +68,9 @@ class SmsImportSessionResource extends Resource
     {
         return $table
             ->columns([
-                Tables\Columns\TextColumn::make('bank.name')->label('Bank')->placeholder('—')->sortable(),
+                Tables\Columns\TextColumn::make('bank.name')->label(__('Bank'))->placeholder('—')->sortable(),
                 Tables\Columns\TextColumn::make('filename')->searchable()->limit(40),
-                Tables\Columns\TextColumn::make('template.name')->label('Template')->limit(30),
+                Tables\Columns\TextColumn::make('template.name')->label(__('Template'))->limit(30),
                 Tables\Columns\TextColumn::make('status')
                     ->badge()
                     ->color(fn (string $state) => match ($state) {
@@ -75,47 +80,47 @@ class SmsImportSessionResource extends Resource
                         'failed' => 'danger',
                         default => 'gray',
                     }),
-                Tables\Columns\TextColumn::make('total_rows')->label('Rows')->alignCenter(),
-                Tables\Columns\TextColumn::make('imported_count')->label('Imported')
+                Tables\Columns\TextColumn::make('total_rows')->label(__('Rows'))->alignCenter(),
+                Tables\Columns\TextColumn::make('imported_count')->label(__('Imported'))
                     ->color('success')->alignCenter(),
-                Tables\Columns\TextColumn::make('duplicate_count')->label('Duplicates')
+                Tables\Columns\TextColumn::make('duplicate_count')->label(__('Duplicates'))
                     ->color('warning')->alignCenter(),
-                Tables\Columns\TextColumn::make('error_count')->label('Errors')
+                Tables\Columns\TextColumn::make('error_count')->label(__('Errors'))
                     ->color('danger')->alignCenter(),
-                Tables\Columns\TextColumn::make('importer.name')->label('Imported By'),
-                Tables\Columns\TextColumn::make('created_at')->label('Date')
+                Tables\Columns\TextColumn::make('importer.name')->label(__('Imported By')),
+                Tables\Columns\TextColumn::make('created_at')->label(__('Date'))
                     ->dateTime('d M Y H:i')->sortable(),
             ])
             ->defaultSort('created_at', 'desc')
             ->filters([
-                Tables\Filters\SelectFilter::make('bank_id')->label('Bank')
+                Tables\Filters\SelectFilter::make('bank_id')->label(__('Bank'))
                     ->options(Bank::active()->pluck('name', 'id')),
                 Tables\Filters\SelectFilter::make('template_id')
-                    ->label('Template')
+                    ->label(__('Template'))
                     ->searchable()
                     ->options(fn () => SmsImportTemplate::query()
                         ->with('bank')
                         ->orderBy('name')
                         ->get()
                         ->mapWithKeys(fn (SmsImportTemplate $t) => [
-                            $t->id => ($t->bank?->name ?? 'Any bank').' — '.$t->name,
+                            $t->id => ($t->bank?->name ?? __('Any bank')).' — '.$t->name,
                         ])),
                 Tables\Filters\SelectFilter::make('imported_by')
-                    ->label('Imported by')
+                    ->label(__('Imported by'))
                     ->searchable()
                     ->options(fn () => User::query()->orderBy('name')->pluck('name', 'id')),
                 Tables\Filters\SelectFilter::make('status')
                     ->options([
-                        'pending' => 'Pending',
-                        'processing' => 'Processing',
-                        'completed' => 'Completed',
-                        'partially_completed' => 'Partially Completed',
-                        'failed' => 'Failed',
+                        'pending' => __('Pending'),
+                        'processing' => __('Processing'),
+                        'completed' => __('Completed'),
+                        'partially_completed' => __('Partially Completed'),
+                        'failed' => __('Failed'),
                     ]),
                 Tables\Filters\Filter::make('imported_between')
                     ->schema([
-                        Forms\Components\DatePicker::make('from')->label('From'),
-                        Forms\Components\DatePicker::make('until')->label('Until'),
+                        Forms\Components\DatePicker::make('from')->label(__('From')),
+                        Forms\Components\DatePicker::make('until')->label(__('Until')),
                     ])
                     ->query(function ($query, array $data) {
                         return $query
@@ -126,33 +131,33 @@ class SmsImportSessionResource extends Resource
             ])
             ->headerActions([
                 Action::make('new_sms_import')
-                    ->label('Import SMS File')
+                    ->label(__('Import SMS File'))
                     ->icon('heroicon-o-arrow-up-tray')
                     ->color('primary')
                     ->schema([
                         Forms\Components\Select::make('bank_id')
-                            ->label('Bank (optional)')
+                            ->label(__('Bank (optional)'))
                             ->options(Bank::active()->pluck('name', 'id'))
                             ->nullable()
                             ->live()
                             ->afterStateUpdated(fn ($set) => $set('template_id', null)),
                         Forms\Components\Select::make('template_id')
-                            ->label('SMS Template')
+                            ->label(__('SMS Template'))
                             ->options(fn ($get) => SmsImportTemplate::when(
                                 $get('bank_id'),
                                 fn ($q, $id) => $q->where('bank_id', $id)
                             )->pluck('name', 'id'))
                             ->required()
                             ->live()
-                            ->helperText('Configure SMS templates under Finance → Banking → SMS → Templates.'),
+                            ->helperText(__('Configure SMS templates under Finance → Banking → SMS → Templates.')),
                         Forms\Components\FileUpload::make('csv_file')
-                            ->label('CSV / Text File')
+                            ->label(__('CSV / Text File'))
                             ->disk('local')
                             ->directory('sms-imports')
                             ->acceptedFileTypes(['text/csv', 'text/plain', 'application/csv', 'application/vnd.ms-excel'])
                             ->required(),
                         Forms\Components\Textarea::make('notes')
-                            ->label('Notes (optional)')
+                            ->label(__('Notes (optional)'))
                             ->rows(2),
                     ])
                     ->action(function (array $data) {
@@ -173,11 +178,13 @@ class SmsImportSessionResource extends Resource
                         $session->refresh();
 
                         Notification::make()
-                            ->title('SMS Import '.ucfirst(str_replace('_', ' ', $session->status)))
+                            ->title(__('SMS Import :status', ['status' => ucfirst(str_replace('_', ' ', $session->status))]))
                             ->body(
-                                "Imported: {$session->imported_count} | ".
-                                "Duplicates: {$session->duplicate_count} | ".
-                                "Errors: {$session->error_count}"
+                                __('Imported: :imported | Duplicates: :duplicates | Errors: :errors', [
+                                    'imported' => $session->imported_count,
+                                    'duplicates' => $session->duplicate_count,
+                                    'errors' => $session->error_count,
+                                ])
                             )
                             ->color($session->status === 'completed' ? 'success' : 'warning')
                             ->send();
@@ -187,13 +194,13 @@ class SmsImportSessionResource extends Resource
                 ActionGroup::make([
                     ViewAction::make(),
                     Action::make('view_transactions')
-                        ->label('Transactions')
+                        ->label(__('Transactions'))
                         ->icon('heroicon-o-table-cells')
                         ->url(fn (SmsImportSession $record) => SmsTransactionResource::getUrl('index', [
                             'tableFilters[import_session_id][value]' => $record->id,
                         ])),
                     Action::make('retry')
-                        ->label('Re-import')
+                        ->label(__('Re-import'))
                         ->icon('heroicon-o-arrow-path')
                         ->color('warning')
                         ->visible(fn (SmsImportSession $record) => in_array($record->status, ['failed', 'partially_completed']))
@@ -214,8 +221,8 @@ class SmsImportSessionResource extends Resource
                             $record->refresh();
 
                             Notification::make()
-                                ->title('Re-import '.ucfirst(str_replace('_', ' ', $record->status)))
-                                ->body("Imported: {$record->imported_count} | Duplicates: {$record->duplicate_count}")
+                                ->title(__('Re-import :status', ['status' => ucfirst(str_replace('_', ' ', $record->status))]))
+                                ->body(__('Imported: :imported | Duplicates: :duplicates', ['imported' => $record->imported_count, 'duplicates' => $record->duplicate_count]))
                                 ->success()
                                 ->send();
                         }),

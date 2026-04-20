@@ -24,14 +24,14 @@ class ListContributions extends ListRecords
 
     public function getSubheading(): ?string
     {
-        return 'Monitor monthly contributions, compliance rates, and fund inflows across all active members.';
+        return __('Monitor monthly contributions, compliance rates, and fund inflows across all active members.');
     }
 
     protected function getHeaderActions(): array
     {
         return [
             Actions\Action::make('contributionCycle')
-                ->label('Run Contribution Cycle')
+                ->label(__('Run Contribution Cycle'))
                 ->icon('heroicon-o-arrow-path')
                 ->url(ContributionCyclePage::getUrl())
                 ->color('primary'),

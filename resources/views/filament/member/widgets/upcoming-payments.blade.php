@@ -10,9 +10,9 @@
     <div class="flex items-center justify-between px-6 py-4 border-b border-gray-100 dark:border-gray-700 bg-gray-50 dark:bg-gray-800/80">
         <div class="flex items-center gap-2">
             <x-heroicon-o-calendar-days class="w-5 h-5 text-primary-500" />
-            <h3 class="text-base font-semibold text-gray-900 dark:text-white">Upcoming Payments</h3>
+            <h3 class="text-base font-semibold text-gray-900 dark:text-white">{{ __('Upcoming Payments') }}</h3>
         </div>
-        <span class="text-xs text-gray-400">Next 3 months</span>
+        <span class="text-xs text-gray-400">{{ __('Next 3 months') }}</span>
     </div>
 
     {{-- Month columns --}}
@@ -26,7 +26,7 @@
                     {{ $month['label'] }}
                 </h4>
                 @if($month['is_current'])
-                <span class="inline-flex items-center rounded-full bg-primary-100 dark:bg-primary-900 px-2 py-0.5 text-xs font-medium text-primary-700 dark:text-primary-300">This month</span>
+                <span class="inline-flex items-center rounded-full bg-primary-100 dark:bg-primary-900 px-2 py-0.5 text-xs font-medium text-primary-700 dark:text-primary-300">{{ __('This month') }}</span>
                 @endif
             </div>
 
@@ -40,20 +40,20 @@
                             <x-heroicon-o-banknotes class="w-3.5 h-3.5 {{ $month['contribution']['paid'] ? 'text-emerald-700 dark:text-emerald-300' : 'text-gray-500 dark:text-gray-400' }}" />
                         </div>
                         <div>
-                            <p class="text-xs font-medium {{ $month['contribution']['paid'] ? 'text-emerald-800 dark:text-emerald-200' : 'text-gray-700 dark:text-gray-300' }}">Contribution</p>
+                            <p class="text-xs font-medium {{ $month['contribution']['paid'] ? 'text-emerald-800 dark:text-emerald-200' : 'text-gray-700 dark:text-gray-300' }}">{{ __('Contribution') }}</p>
                             @if($month['contribution']['is_late'])
-                            <p class="text-xs text-amber-600 dark:text-amber-400">Paid late</p>
+                            <p class="text-xs text-amber-600 dark:text-amber-400">{{ __('Paid late') }}</p>
                             @endif
                         </div>
                     </div>
                     <div class="text-right">
                         <p class="text-xs font-semibold {{ $month['contribution']['paid'] ? 'text-emerald-700 dark:text-emerald-300' : 'text-gray-700 dark:text-gray-300' }}">
-                            SAR {{ number_format($month['contribution']['amount']) }}
+                            {{ __('SAR :amount', ['amount' => number_format($month['contribution']['amount'])]) }}
                         </p>
                         @if($month['contribution']['paid'])
-                        <p class="text-xs text-emerald-600 dark:text-emerald-400">Paid</p>
+                        <p class="text-xs text-emerald-600 dark:text-emerald-400">{{ __('Paid') }}</p>
                         @else
-                        <p class="text-xs text-gray-400">Due</p>
+                        <p class="text-xs text-gray-400">{{ __('Due') }}</p>
                         @endif
                     </div>
                 </div>
@@ -73,35 +73,42 @@
                             <p class="text-xs font-medium {{ $isOverdue ? 'text-red-800 dark:text-red-200' : ($isPaid ? 'text-emerald-800 dark:text-emerald-200' : 'text-gray-700 dark:text-gray-300') }}">
                                 {{ $inst['tier'] }}
                             </p>
-                            <p class="text-xs {{ $isOverdue ? 'text-red-500 dark:text-red-400' : 'text-gray-400' }}">Due {{ $inst['due_date'] }}</p>
+                            <p class="text-xs {{ $isOverdue ? 'text-red-500 dark:text-red-400' : 'text-gray-400' }}">{{ __('Due :date', ['date' => $inst['due_date']]) }}</p>
                         </div>
                     </div>
                     <div class="text-right">
                         <p class="text-xs font-semibold {{ $isOverdue ? 'text-red-600 dark:text-red-400' : ($isPaid ? 'text-emerald-700 dark:text-emerald-300' : 'text-gray-700 dark:text-gray-300') }}">
-                            SAR {{ number_format($inst['amount']) }}
+                            {{ __('SAR :amount', ['amount' => number_format($inst['amount'])]) }}
                         </p>
                         <p class="text-xs {{ $isOverdue ? 'text-red-500 dark:text-red-400' : ($isPaid ? 'text-emerald-500 dark:text-emerald-400' : 'text-gray-400') }}">
-                            {{ ucfirst($inst['status']) }}
+                            {{
+                                match ($inst['status']) {
+                                    'paid' => __('Paid'),
+                                    'overdue' => __('Overdue'),
+                                    'pending' => __('Pending'),
+                                    default => __($inst['status']),
+                                }
+                            }}
                         </p>
                     </div>
                 </div>
                 @endforeach
 
                 @if(empty($month['installments']))
-                <p class="text-xs text-gray-400 dark:text-gray-500 px-1">No loan installments this month</p>
+                <p class="text-xs text-gray-400 dark:text-gray-500 px-1">{{ __('No loan installments this month') }}</p>
                 @endif
             </div>
 
             {{-- Month total --}}
             @if($month['total_due'] > 0)
             <div class="mt-3 pt-3 border-t border-gray-200 dark:border-gray-600 flex items-center justify-between">
-                <span class="text-xs font-semibold text-gray-500 dark:text-gray-400 uppercase tracking-wide">Total due</span>
-                <span class="text-sm font-bold text-gray-900 dark:text-white">SAR {{ number_format($month['total_due']) }}</span>
+                <span class="text-xs font-semibold text-gray-500 dark:text-gray-400 uppercase tracking-wide">{{ __('Total due') }}</span>
+                <span class="text-sm font-bold text-gray-900 dark:text-white">{{ __('SAR :amount', ['amount' => number_format($month['total_due'])]) }}</span>
             </div>
             @else
             <div class="mt-3 pt-3 border-t border-gray-200 dark:border-gray-600 flex items-center gap-1.5">
                 <x-heroicon-o-check-circle class="w-4 h-4 text-emerald-500" />
-                <span class="text-xs font-medium text-emerald-600 dark:text-emerald-400">All settled</span>
+                <span class="text-xs font-medium text-emerald-600 dark:text-emerald-400">{{ __('All settled') }}</span>
             </div>
             @endif
 

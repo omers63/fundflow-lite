@@ -18,10 +18,10 @@
             <div class="pl-2">
                 <div class="flex items-center gap-1.5 mb-2">
                     <x-heroicon-o-users class="w-4 h-4 text-primary-500" />
-                    <p class="text-xs font-semibold uppercase tracking-wide text-gray-500 dark:text-gray-400">Total Members</p>
+                    <p class="text-xs font-semibold uppercase tracking-wide text-gray-500 dark:text-gray-400">{{ __('Total Members') }}</p>
                 </div>
                 <p class="text-2xl font-bold text-gray-900 dark:text-white">{{ number_format($d['total']) }}</p>
-                <p class="mt-0.5 text-xs text-gray-400">Across all statuses</p>
+                <p class="mt-0.5 text-xs text-gray-400">{{ __('Across all statuses') }}</p>
             </div>
         </div>
 
@@ -31,10 +31,10 @@
             <div class="pl-2">
                 <div class="flex items-center gap-1.5 mb-2">
                     <x-heroicon-o-check-circle class="w-4 h-4 text-emerald-500" />
-                    <p class="text-xs font-semibold uppercase tracking-wide text-gray-500 dark:text-gray-400">Active</p>
+                    <p class="text-xs font-semibold uppercase tracking-wide text-gray-500 dark:text-gray-400">{{ __('Active') }}</p>
                 </div>
                 <p class="text-2xl font-bold text-emerald-600 dark:text-emerald-400">{{ number_format($d['active']) }}</p>
-                <p class="mt-0.5 text-xs text-gray-400">{{ $activePct }}% of total</p>
+                <p class="mt-0.5 text-xs text-gray-400">{{ __(':pct% of total', ['pct' => $activePct]) }}</p>
             </div>
         </div>
 
@@ -44,10 +44,10 @@
             <div class="pl-2">
                 <div class="flex items-center gap-1.5 mb-2">
                     <x-heroicon-o-user-minus class="w-4 h-4 {{ $d['delinquent'] > 0 ? 'text-red-500' : 'text-gray-400' }}" />
-                    <p class="text-xs font-semibold uppercase tracking-wide text-gray-500 dark:text-gray-400">Delinquent</p>
+                    <p class="text-xs font-semibold uppercase tracking-wide text-gray-500 dark:text-gray-400">{{ __('Delinquent') }}</p>
                 </div>
                 <p class="text-2xl font-bold {{ $d['delinquent'] > 0 ? 'text-red-600 dark:text-red-400' : 'text-gray-900 dark:text-white' }}">{{ number_format($d['delinquent']) }}</p>
-                <p class="mt-0.5 text-xs text-gray-400">{{ $delinquentPct }}% of total</p>
+                <p class="mt-0.5 text-xs text-gray-400">{{ __(':pct% of total', ['pct' => $delinquentPct]) }}</p>
             </div>
         </div>
 
@@ -57,10 +57,10 @@
             <div class="pl-2">
                 <div class="flex items-center gap-1.5 mb-2">
                     <x-heroicon-o-pause-circle class="w-4 h-4 {{ $d['suspended'] > 0 ? 'text-amber-500' : 'text-gray-400' }}" />
-                    <p class="text-xs font-semibold uppercase tracking-wide text-gray-500 dark:text-gray-400">Suspended</p>
+                    <p class="text-xs font-semibold uppercase tracking-wide text-gray-500 dark:text-gray-400">{{ __('Suspended') }}</p>
                 </div>
                 <p class="text-2xl font-bold {{ $d['suspended'] > 0 ? 'text-amber-600 dark:text-amber-400' : 'text-gray-900 dark:text-white' }}">{{ number_format($d['suspended']) }}</p>
-                <p class="mt-0.5 text-xs text-gray-400">{{ $suspendedPct }}% of total</p>
+                <p class="mt-0.5 text-xs text-gray-400">{{ __(':pct% of total', ['pct' => $suspendedPct]) }}</p>
             </div>
         </div>
 
@@ -70,10 +70,10 @@
             <div class="pl-2">
                 <div class="flex items-center gap-1.5 mb-2">
                     <x-heroicon-o-no-symbol class="w-4 h-4 {{ $d['terminated'] > 0 ? 'text-red-600' : 'text-gray-400' }}" />
-                    <p class="text-xs font-semibold uppercase tracking-wide text-gray-500 dark:text-gray-400">Terminated</p>
+                    <p class="text-xs font-semibold uppercase tracking-wide text-gray-500 dark:text-gray-400">{{ __('Terminated') }}</p>
                 </div>
                 <p class="text-2xl font-bold {{ $d['terminated'] > 0 ? 'text-red-600 dark:text-red-400' : 'text-gray-900 dark:text-white' }}">{{ number_format($d['terminated']) }}</p>
-                <p class="mt-0.5 text-xs text-gray-400">{{ $terminatedPct }}% of total</p>
+                <p class="mt-0.5 text-xs text-gray-400">{{ __(':pct% of total', ['pct' => $terminatedPct]) }}</p>
             </div>
         </div>
 
@@ -83,7 +83,7 @@
             <div class="pl-2">
                 <div class="flex items-center gap-1.5 mb-2">
                     <x-heroicon-o-user-plus class="w-4 h-4 text-indigo-500" />
-                    <p class="text-xs font-semibold uppercase tracking-wide text-gray-500 dark:text-gray-400">New This Month</p>
+                    <p class="text-xs font-semibold uppercase tracking-wide text-gray-500 dark:text-gray-400">{{ __('New This Month') }}</p>
                 </div>
                 <p class="text-2xl font-bold text-gray-900 dark:text-white">{{ $d['new_this_month'] }}</p>
                 <p class="mt-0.5 text-xs text-gray-400">{{ now()->format('F Y') }}</p>
@@ -96,10 +96,10 @@
             <div class="pl-2">
                 <div class="flex items-center gap-1.5 mb-2">
                     <x-heroicon-o-credit-card class="w-4 h-4 text-teal-500" />
-                    <p class="text-xs font-semibold uppercase tracking-wide text-gray-500 dark:text-gray-400">With Active Loans</p>
+                    <p class="text-xs font-semibold uppercase tracking-wide text-gray-500 dark:text-gray-400">{{ __('With Active Loans') }}</p>
                 </div>
                 <p class="text-2xl font-bold text-gray-900 dark:text-white">{{ $d['with_active_loans'] }}</p>
-                <p class="mt-0.5 text-xs text-gray-400">{{ $d['with_overdue'] }} have overdue installments</p>
+                <p class="mt-0.5 text-xs text-gray-400">{{ __(':count have overdue installments', ['count' => $d['with_overdue']]) }}</p>
             </div>
         </div>
 
@@ -112,14 +112,14 @@
         <div class="rounded-xl border border-gray-200 bg-white shadow-sm overflow-hidden dark:border-gray-700 dark:bg-gray-800">
             <div class="flex items-center gap-2 px-5 py-3 border-b border-gray-100 dark:border-gray-700 bg-gray-50 dark:bg-gray-800/70">
                 <x-heroicon-o-chart-bar class="w-4 h-4 text-gray-400" />
-                <h4 class="text-xs font-semibold uppercase tracking-wide text-gray-500 dark:text-gray-400">Membership Status</h4>
+                <h4 class="text-xs font-semibold uppercase tracking-wide text-gray-500 dark:text-gray-400">{{ __('Membership Status') }}</h4>
             </div>
             <div class="px-5 py-4 space-y-3">
                 @foreach([
-                    ['label' => 'Active',     'count' => $d['active'],     'color' => 'bg-emerald-500', 'text' => 'text-emerald-600 dark:text-emerald-400'],
-                    ['label' => 'Delinquent', 'count' => $d['delinquent'], 'color' => 'bg-red-500',     'text' => 'text-red-600 dark:text-red-400'],
-                    ['label' => 'Suspended',  'count' => $d['suspended'],  'color' => 'bg-amber-400',   'text' => 'text-amber-600 dark:text-amber-400'],
-                    ['label' => 'Terminated', 'count' => $d['terminated'], 'color' => 'bg-red-500',     'text' => 'text-red-600 dark:text-red-400'],
+                    ['label' => __('Active'),     'count' => $d['active'],     'color' => 'bg-emerald-500', 'text' => 'text-emerald-600 dark:text-emerald-400'],
+                    ['label' => __('Delinquent'), 'count' => $d['delinquent'], 'color' => 'bg-red-500',     'text' => 'text-red-600 dark:text-red-400'],
+                    ['label' => __('Suspended'),  'count' => $d['suspended'],  'color' => 'bg-amber-400',   'text' => 'text-amber-600 dark:text-amber-400'],
+                    ['label' => __('Terminated'), 'count' => $d['terminated'], 'color' => 'bg-red-500',     'text' => 'text-red-600 dark:text-red-400'],
                 ] as $row)
                 @php $pct = $total > 0 ? round($row['count'] / $total * 100) : 0; @endphp
                 <div>
@@ -132,7 +132,7 @@
                     </div>
                 </div>
                 @endforeach
-                <p class="text-xs text-gray-400 pt-1">Avg. monthly contribution: SAR {{ number_format($d['avg_contribution']) }}</p>
+                <p class="text-xs text-gray-400 pt-1">{{ __('Avg. monthly contribution: SAR :amount', ['amount' => number_format($d['avg_contribution'])]) }}</p>
             </div>
         </div>
 
@@ -140,7 +140,7 @@
         <div class="rounded-xl border border-gray-200 bg-white shadow-sm overflow-hidden dark:border-gray-700 dark:bg-gray-800">
             <div class="flex items-center gap-2 px-5 py-3 border-b border-gray-100 dark:border-gray-700 bg-gray-50 dark:bg-gray-800/70">
                 <x-heroicon-o-trophy class="w-4 h-4 text-amber-500" />
-                <h4 class="text-xs font-semibold uppercase tracking-wide text-gray-500 dark:text-gray-400">Top Contributors — {{ $d['year_label'] }}</h4>
+                <h4 class="text-xs font-semibold uppercase tracking-wide text-gray-500 dark:text-gray-400">{{ __('Top Contributors — :year', ['year' => $d['year_label']]) }}</h4>
             </div>
             <div class="divide-y divide-gray-100 dark:divide-gray-700">
                 @forelse($d['top_contributors'] as $i => $c)
@@ -153,10 +153,10 @@
                         <p class="text-sm font-medium text-gray-800 dark:text-gray-200 truncate">{{ $c['name'] }}</p>
                         <p class="text-xs text-gray-400">{{ $c['number'] }}</p>
                     </div>
-                    <span class="text-sm font-semibold text-gray-700 dark:text-gray-300">SAR {{ number_format($c['total']) }}</span>
+                    <span class="text-sm font-semibold text-gray-700 dark:text-gray-300">{{ __('SAR') }} {{ number_format($c['total']) }}</span>
                 </div>
                 @empty
-                <div class="px-5 py-6 text-center text-sm text-gray-400">No contribution data yet.</div>
+                <div class="px-5 py-6 text-center text-sm text-gray-400">{{ __('No contribution data yet.') }}</div>
                 @endforelse
             </div>
         </div>

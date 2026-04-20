@@ -20,6 +20,11 @@ class SupportPage extends Page
 
     protected static ?int $navigationSort = 3;
 
+    public static function getNavigationLabel(): string
+    {
+        return __('app.member.support_requests');
+    }
+
     public static function getNavigationGroup(): ?string
     {
         return __('app.nav.group.settings');
@@ -27,31 +32,31 @@ class SupportPage extends Page
 
     public function getTitle(): string
     {
-        return 'Support & Requests';
+        return __('app.member.support_requests');
     }
 
     public function getHeaderActions(): array
     {
         return [
             Action::make('submit_request')
-                ->label('Submit Request')
+                ->label(__('app.member.submit_request'))
                 ->icon('heroicon-o-paper-airplane')
                 ->color('primary')
-                ->modalHeading('Submit a Support Request')
-                ->modalDescription('Your message will be sent to the fund administrators who will respond via the messaging system.')
+                ->modalHeading(__('app.member.submit_support_request_heading'))
+                ->modalDescription(__('app.member.submit_support_request_desc'))
                 ->modalWidth('lg')
                 ->schema([
                     Forms\Components\Select::make('category')
-                        ->label('Category')
+                        ->label(__('app.member.category'))
                         ->options(SupportRequest::CATEGORY_LABELS)
                         ->required()
                         ->native(false),
                     Forms\Components\TextInput::make('subject')
-                        ->label('Subject')
+                        ->label(__('app.member.subject'))
                         ->required()
                         ->maxLength(150),
                     Forms\Components\Textarea::make('message')
-                        ->label('Message')
+                        ->label(__('app.member.message'))
                         ->required()
                         ->rows(5)
                         ->maxLength(2000),
@@ -78,7 +83,7 @@ class SupportPage extends Page
                     // Notify all admin users (in addition to permanent storage above).
                     User::where('role', 'admin')->each(function (User $admin) use ($data, $body, $supportRequest) {
                         Notification::make()
-                            ->title("Support Request #{$supportRequest->id}: {$data['subject']}")
+                            ->title(__('app.member.support_request_title', ['id' => $supportRequest->id, 'subject' => $data['subject']]))
                             ->body($body)
                             ->icon('heroicon-o-chat-bubble-left-right')
                             ->iconColor('warning')
@@ -86,8 +91,8 @@ class SupportPage extends Page
                     });
 
                     Notification::make()
-                        ->title('Request Submitted')
-                        ->body('Your request has been sent to the fund administrators. They will respond via the messaging system.')
+                        ->title(__('app.member.request_submitted'))
+                        ->body(__('app.member.request_submitted_body'))
                         ->success()
                         ->send();
                 }),

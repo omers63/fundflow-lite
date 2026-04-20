@@ -31,6 +31,11 @@ class SmsImportTemplateResource extends Resource
 
     protected static ?int $navigationSort = 21;
 
+    public static function getNavigationLabel(): string
+    {
+        return __('SMS Templates');
+    }
+
     public static function shouldRegisterNavigation(): bool
     {
         return false;
@@ -38,7 +43,7 @@ class SmsImportTemplateResource extends Resource
 
     public static function getNavigationGroup(): ?string
     {
-        return 'Banking';
+        return __('app.nav.group.finance');
     }
 
     public static function form(Schema $schema): Schema
@@ -47,9 +52,9 @@ class SmsImportTemplateResource extends Resource
             Tabs::make()->tabs([
 
                 // ── Tab 1: General ───────────────────────────────────────
-                Tab::make('General')->schema([
+                Tab::make(__('General'))->schema([
                     Forms\Components\Select::make('bank_id')
-                        ->label('Bank (optional)')
+                        ->label(__('Bank (optional)'))
                         ->options(Bank::active()->pluck('name', 'id'))
                         ->searchable()
                         ->nullable()
@@ -59,16 +64,16 @@ class SmsImportTemplateResource extends Resource
                         ->maxLength(100)
                         ->placeholder('e.g. Al-Rajhi SMS Export v1'),
                     Forms\Components\Toggle::make('is_default')
-                        ->label('Set as default template for this bank'),
+                        ->label(__('Set as default template for this bank')),
                     Forms\Components\Select::make('default_transaction_type')
-                        ->label('Default type when no keyword matches')
-                        ->options(['credit' => 'Credit', 'debit' => 'Debit'])
+                        ->label(__('Default type when no keyword matches'))
+                        ->options(['credit' => __('Credit'), 'debit' => __('Debit')])
                         ->default('credit')
                         ->required(),
                 ])->columns(2),
 
                 // ── Tab 2: CSV Format ─────────────────────────────────────
-                Tab::make('CSV Format')->schema([
+                Tab::make(__('CSV Format'))->schema([
                     Forms\Components\Select::make('delimiter')
                         ->options([
                             ',' => 'Comma  ( , )',
@@ -88,41 +93,41 @@ class SmsImportTemplateResource extends Resource
                         ->required()
                         ->default('UTF-8'),
                     Forms\Components\Toggle::make('has_header')
-                        ->label('File has a header row')
+                        ->label(__('File has a header row'))
                         ->default(true)
                         ->helperText('When enabled, use exact column header names in the mappings below. When disabled, use 0-based column indices.'),
                     Forms\Components\TextInput::make('skip_rows')
-                        ->label('Skip rows at start')
+                        ->label(__('Skip rows at start'))
                         ->numeric()
                         ->default(0)
                         ->minValue(0),
                 ])->columns(2),
 
                 // ── Tab 3: Column Mapping ─────────────────────────────────
-                Tab::make('Column Mapping')->schema([
-                    Section::make('SMS Text')->schema([
+                Tab::make(__('Column Mapping'))->schema([
+                    Section::make(__('SMS Text'))->schema([
                         Forms\Components\TextInput::make('sms_column')
-                            ->label('SMS text column')
+                            ->label(__('SMS text column'))
                             ->required()
                             ->helperText('Header name or 0-based index of the column that contains the raw SMS message.'),
                     ]),
 
-                    Section::make('Date Column (optional)')->schema([
+                    Section::make(__('Date Column (optional)'))->schema([
                         Forms\Components\TextInput::make('date_column')
-                            ->label('Date column')
+                            ->label(__('Date column'))
                             ->helperText('If the CSV has a separate date column, specify it here. Leave blank to extract the date from the SMS text using the pattern below.'),
                         Forms\Components\TextInput::make('date_format')
-                            ->label('Date format (PHP)')
+                            ->label(__('Date format (PHP)'))
                             ->default('Y-m-d H:i:s')
                             ->helperText('e.g. Y-m-d H:i:s · d/m/Y · d-M-Y · m/d/Y H:i'),
                     ])->columns(2),
                 ]),
 
                 // ── Tab 4: SMS Parsing Rules ──────────────────────────────
-                Tab::make('SMS Parsing Rules')->schema([
-                    Section::make('Amount Extraction')->schema([
+                Tab::make(__('SMS Parsing Rules'))->schema([
+                    Section::make(__('Amount Extraction'))->schema([
                         Forms\Components\TextInput::make('amount_pattern')
-                            ->label('Amount regex pattern')
+                            ->label(__('Amount regex pattern'))
                             ->placeholder('/SAR\s*(?P<amount>[\d,]+\.?\d*)/i')
                             ->helperText('Must contain a named capture group called "amount". Wrap with / delimiters or leave bare. Thousands commas are stripped automatically.')
                             ->columnSpanFull(),
@@ -131,14 +136,14 @@ class SmsImportTemplateResource extends Resource
                             ->content('Examples: /SAR\s*(?P<amount>[\d,]+\.?\d*)/i  ·  /Amount:\s*(?P<amount>[\d.]+)/  ·  /(?P<amount>[\d,]+\.\d{2})\s*SAR/i'),
                     ]),
 
-                    Section::make('Date Extraction from SMS (used when no date column is mapped)')->schema([
+                    Section::make(__('Date Extraction from SMS (used when no date column is mapped)'))->schema([
                         Forms\Components\TextInput::make('date_pattern')
-                            ->label('Date regex pattern')
+                            ->label(__('Date regex pattern'))
                             ->placeholder('/on\s+(?P<date>\d{2}\/\d{2}\/\d{4})/i')
                             ->helperText('Must contain a named capture group called "date".')
                             ->columnSpanFull(),
                         Forms\Components\TextInput::make('date_pattern_format')
-                            ->label('Date format for extracted value (PHP)')
+                            ->label(__('Date format for extracted value (PHP)'))
                             ->placeholder('d/m/Y')
                             ->helperText('PHP format string matching the captured date string.'),
                         Forms\Components\Placeholder::make('date_hint')
@@ -146,9 +151,9 @@ class SmsImportTemplateResource extends Resource
                             ->content('Example pattern: /on\s+(?P<date>\d{2}\/\d{2}\/\d{4})/i  →  format: d/m/Y'),
                     ])->columns(2),
 
-                    Section::make('Reference Extraction')->schema([
+                    Section::make(__('Reference Extraction'))->schema([
                         Forms\Components\TextInput::make('reference_pattern')
-                            ->label('Reference regex pattern')
+                            ->label(__('Reference regex pattern'))
                             ->placeholder('/[Rr]ef[:\s]+(?P<reference>\d+)/')
                             ->helperText('Must contain a named capture group called "reference".')
                             ->columnSpanFull(),
@@ -157,14 +162,14 @@ class SmsImportTemplateResource extends Resource
                             ->content('Examples: /[Rr]ef[:\s]+(?P<reference>\w+)/  ·  /TRN[:\s]*(?P<reference>\d+)/i'),
                     ]),
 
-                    Section::make('Transaction Type Detection')->schema([
+                    Section::make(__('Transaction Type Detection'))->schema([
                         Forms\Components\TagsInput::make('credit_keywords')
-                            ->label('Credit keywords')
+                            ->label(__('Credit keywords'))
                             ->default(['credited', 'received', 'deposit', 'credit'])
                             ->helperText('If any of these words (case-insensitive) are found in the SMS text, the transaction is classified as Credit. Press Enter after each keyword.')
                             ->separator(','),
                         Forms\Components\TagsInput::make('debit_keywords')
-                            ->label('Debit keywords')
+                            ->label(__('Debit keywords'))
                             ->default(['debited', 'paid', 'purchase', 'debit', 'withdraw'])
                             ->helperText('If any of these words (case-insensitive) are found in the SMS text, the transaction is classified as Debit.')
                             ->separator(','),
@@ -172,18 +177,18 @@ class SmsImportTemplateResource extends Resource
                 ]),
 
                 // ── Tab 5: Member Auto-match ──────────────────────────────
-                Tab::make('Member Auto-match')->schema([
+                Tab::make(__('Member Auto-match'))->schema([
                     Section::make()->schema([
                         Forms\Components\TextInput::make('member_match_pattern')
-                            ->label('Member regex pattern')
+                            ->label(__('Member regex pattern'))
                             ->placeholder('/Account[:\s]+(?P<member>\d+)/i')
                             ->helperText('Regex with a named capture group called "member". The extracted value will be looked up against the field below.')
                             ->columnSpanFull(),
                         Forms\Components\Select::make('member_match_field')
-                            ->label('Match against')
+                            ->label(__('Match against'))
                             ->options([
-                                'member_number' => 'Member Number',
-                                'user_name' => 'User Full Name',
+                                'member_number' => __('Member Number'),
+                                'user_name' => __('User Full Name'),
                             ])
                             ->default('member_number')
                             ->helperText('The extracted value will be compared to this field on the Member / User record.'),
@@ -194,21 +199,21 @@ class SmsImportTemplateResource extends Resource
                 ]),
 
                 // ── Tab 6: Duplicate Detection ────────────────────────────
-                Tab::make('Duplicate Detection')->schema([
+                Tab::make(__('Duplicate Detection'))->schema([
                     Forms\Components\CheckboxList::make('duplicate_match_fields')
-                        ->label('Match duplicates on these fields')
+                        ->label(__('Match duplicates on these fields'))
                         ->options([
-                            'date' => 'Transaction Date',
-                            'amount' => 'Amount',
-                            'type' => 'Transaction Type (credit / debit)',
-                            'reference' => 'Reference Number',
-                            'raw_sms' => 'Exact SMS Text',
+                            'date' => __('Transaction Date'),
+                            'amount' => __('Amount'),
+                            'type' => __('Transaction Type (credit / debit)'),
+                            'reference' => __('Reference Number'),
+                            'raw_sms' => __('Exact SMS Text'),
                         ])
                         ->default(['date', 'amount', 'reference'])
                         ->columns(2)
                         ->helperText('A message is flagged as a duplicate only when ALL selected fields match an existing record.'),
                     Forms\Components\TextInput::make('duplicate_date_tolerance')
-                        ->label('Date tolerance (days)')
+                        ->label(__('Date tolerance (days)'))
                         ->numeric()
                         ->default(0)
                         ->minValue(0)
@@ -224,9 +229,9 @@ class SmsImportTemplateResource extends Resource
     {
         return $table
             ->columns([
-                Tables\Columns\TextColumn::make('bank.name')->label('Bank')->placeholder('Any')->sortable(),
-                Tables\Columns\TextColumn::make('name')->searchable(),
-                Tables\Columns\IconColumn::make('is_default')->label('Default')->boolean(),
+                Tables\Columns\TextColumn::make('bank.name')->label(__('Bank'))->placeholder(__('Any'))->sortable(),
+                Tables\Columns\TextColumn::make('name')->label(__('Name'))->searchable(),
+                Tables\Columns\IconColumn::make('is_default')->label(__('Default'))->boolean(),
                 Tables\Columns\TextColumn::make('delimiter')
                     ->formatStateUsing(fn ($state) => match ($state) {
                         ',' => 'Comma',
@@ -235,8 +240,8 @@ class SmsImportTemplateResource extends Resource
                         '|' => 'Pipe',
                         default => $state,
                     }),
-                Tables\Columns\IconColumn::make('has_header')->label('Has Header')->boolean(),
-                Tables\Columns\TextColumn::make('sms_column')->label('SMS Col.'),
+                Tables\Columns\IconColumn::make('has_header')->label(__('Has Header'))->boolean(),
+                Tables\Columns\TextColumn::make('sms_column')->label(__('SMS Col.')),
                 Tables\Columns\TextColumn::make('duplicate_match_fields')
                     ->label('Dup. Fields')
                     ->formatStateUsing(fn ($state) => is_array($state) ? implode(', ', $state) : $state),
@@ -244,12 +249,12 @@ class SmsImportTemplateResource extends Resource
             ->defaultSort('name')
             ->filters([
                 Tables\Filters\SelectFilter::make('bank_id')
-                    ->label('Bank')
+                    ->label(__('Bank'))
                     ->options(Bank::active()->pluck('name', 'id')),
-                Tables\Filters\TernaryFilter::make('is_default')->label('Default template'),
+                Tables\Filters\TernaryFilter::make('is_default')->label(__('Default template')),
                 Tables\Filters\SelectFilter::make('default_transaction_type')
-                    ->label('Default type')
-                    ->options(['credit' => 'Credit', 'debit' => 'Debit']),
+                    ->label(__('Default type'))
+                    ->options(['credit' => __('Credit'), 'debit' => __('Debit')]),
                 TrashedFilter::make(),
             ])
             ->recordActions([

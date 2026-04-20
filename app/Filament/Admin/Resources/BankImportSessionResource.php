@@ -40,6 +40,11 @@ class BankImportSessionResource extends Resource
 
     protected static ?int $navigationSort = 13;
 
+    public static function getNavigationLabel(): string
+    {
+        return __('Import History');
+    }
+
     public static function shouldRegisterNavigation(): bool
     {
         return false;
@@ -47,7 +52,7 @@ class BankImportSessionResource extends Resource
 
     public static function getNavigationGroup(): ?string
     {
-        return 'Banking';
+        return __('app.nav.group.finance');
     }
 
     public static function form(Schema $schema): Schema
@@ -56,7 +61,7 @@ class BankImportSessionResource extends Resource
             Section::make()
                 ->columnSpanFull()
                 ->schema([
-                    Forms\Components\Select::make('bank_id')->label('Bank')
+                    Forms\Components\Select::make('bank_id')->label(__('Bank'))
                         ->options(Bank::active()->pluck('name', 'id'))
                         ->disabled()->dehydrated(false),
                     Forms\Components\TextInput::make('filename')->disabled(),
@@ -75,9 +80,9 @@ class BankImportSessionResource extends Resource
         return $table
             ->selectable()
             ->columns([
-                Tables\Columns\TextColumn::make('bank.name')->label('Bank')->searchable()->sortable(),
+                Tables\Columns\TextColumn::make('bank.name')->label(__('Bank'))->searchable()->sortable(),
                 Tables\Columns\TextColumn::make('filename')->searchable()->limit(40),
-                Tables\Columns\TextColumn::make('template.name')->label('Template')->limit(30),
+                Tables\Columns\TextColumn::make('template.name')->label(__('Template'))->limit(30),
                 Tables\Columns\TextColumn::make('status')
                     ->badge()
                     ->color(fn (string $state) => match ($state) {
@@ -87,47 +92,47 @@ class BankImportSessionResource extends Resource
                         'failed' => 'danger',
                         default => 'gray',
                     }),
-                Tables\Columns\TextColumn::make('total_rows')->label('Rows')->alignCenter(),
-                Tables\Columns\TextColumn::make('imported_count')->label('Imported')
+                Tables\Columns\TextColumn::make('total_rows')->label(__('Rows'))->alignCenter(),
+                Tables\Columns\TextColumn::make('imported_count')->label(__('Imported'))
                     ->color('success')->alignCenter(),
-                Tables\Columns\TextColumn::make('duplicate_count')->label('Duplicates')
+                Tables\Columns\TextColumn::make('duplicate_count')->label(__('Duplicates'))
                     ->color('warning')->alignCenter(),
-                Tables\Columns\TextColumn::make('error_count')->label('Errors')
+                Tables\Columns\TextColumn::make('error_count')->label(__('Errors'))
                     ->color('danger')->alignCenter(),
-                Tables\Columns\TextColumn::make('importer.name')->label('Imported By'),
-                Tables\Columns\TextColumn::make('created_at')->label('Date')
+                Tables\Columns\TextColumn::make('importer.name')->label(__('Imported By')),
+                Tables\Columns\TextColumn::make('created_at')->label(__('Date'))
                     ->dateTime('d M Y H:i')->sortable(),
             ])
             ->defaultSort('created_at', 'desc')
             ->filters([
-                Tables\Filters\SelectFilter::make('bank_id')->label('Bank')
+                Tables\Filters\SelectFilter::make('bank_id')->label(__('Bank'))
                     ->options(Bank::active()->pluck('name', 'id')),
                 Tables\Filters\SelectFilter::make('template_id')
-                    ->label('Template')
+                    ->label(__('Template'))
                     ->searchable()
                     ->options(fn () => BankImportTemplate::query()
                         ->with('bank')
                         ->orderBy('name')
                         ->get()
                         ->mapWithKeys(fn (BankImportTemplate $t) => [
-                            $t->id => ($t->bank?->name ?? '—').' — '.$t->name,
+                            $t->id => ($t->bank?->name ?? __('—')).' — '.$t->name,
                         ])),
                 Tables\Filters\SelectFilter::make('imported_by')
-                    ->label('Imported by')
+                    ->label(__('Imported by'))
                     ->searchable()
                     ->options(fn () => User::query()->orderBy('name')->pluck('name', 'id')),
                 Tables\Filters\SelectFilter::make('status')
                     ->options([
-                        'pending' => 'Pending',
-                        'processing' => 'Processing',
-                        'completed' => 'Completed',
-                        'partially_completed' => 'Partially Completed',
-                        'failed' => 'Failed',
+                        'pending' => __('Pending'),
+                        'processing' => __('Processing'),
+                        'completed' => __('Completed'),
+                        'partially_completed' => __('Partially Completed'),
+                        'failed' => __('Failed'),
                     ]),
                 Tables\Filters\Filter::make('imported_between')
                     ->schema([
-                        Forms\Components\DatePicker::make('from')->label('From'),
-                        Forms\Components\DatePicker::make('until')->label('Until'),
+                        Forms\Components\DatePicker::make('from')->label(__('From')),
+                        Forms\Components\DatePicker::make('until')->label(__('Until')),
                     ])
                     ->query(function ($query, array $data) {
                         return $query
@@ -138,44 +143,44 @@ class BankImportSessionResource extends Resource
             ])
             ->headerActions([
                 Action::make('new_import')
-                    ->label('Import Bank Transactions')
+                    ->label(__('Import Bank Transactions'))
                     ->icon('heroicon-o-arrow-up-tray')
                     ->color('primary')
                     ->schema([
                         Forms\Components\Placeholder::make('sample_file')
-                            ->label('Sample file')
+                            ->label(__('Sample file'))
                             ->content(new HtmlString(
                                 '<a href="'.route('downloads.bank-import-sample').'" target="_blank" class="text-primary-600 underline">Download sample bank import CSV</a>'
                             ))
                             ->columnSpanFull(),
-                        Forms\Components\Select::make('bank_id')
-                            ->label('Bank')
+                    Forms\Components\Select::make('bank_id')
+                            ->label(__('Bank'))
                             ->options(Bank::active()->pluck('name', 'id'))
                             ->required()
                             ->live()
                             ->afterStateUpdated(fn ($set) => $set('template_id', null)),
                         Forms\Components\Select::make('template_id')
-                            ->label('Import Template')
+                            ->label(__('Import Template'))
                             ->options(fn ($get) => BankImportTemplate::where('bank_id', $get('bank_id'))
                                 ->pluck('name', 'id'))
                             ->required()
                             ->live()
-                            ->helperText('Configure CSV templates under Finance → Banking → Templates.'),
+                            ->helperText(__('Configure CSV templates under Finance → Banking → Templates.')),
                         Forms\Components\FileUpload::make('csv_file')
-                            ->label('CSV File')
+                            ->label(__('CSV File'))
                             ->disk('local')
                             ->directory('bank-imports')
                             ->acceptedFileTypes(['text/csv', 'text/plain', 'application/csv', 'application/vnd.ms-excel'])
                             ->required(),
                         Forms\Components\Textarea::make('notes')
-                            ->label('Notes (optional)')
+                            ->label(__('Notes (optional)'))
                             ->rows(2),
                     ])
                     ->action(function (array $data) {
                         if (! Storage::disk('local')->exists((string) $data['csv_file'])) {
                             Notification::make()
-                                ->title('Import file not found')
-                                ->body('The uploaded CSV file could not be found in local storage. Please upload the file again.')
+                                ->title(__('Import file not found'))
+                                ->body(__('The uploaded CSV file could not be found in local storage. Please upload the file again.'))
                                 ->danger()
                                 ->send();
 
@@ -199,11 +204,13 @@ class BankImportSessionResource extends Resource
                         $session->refresh();
 
                         Notification::make()
-                            ->title('Import '.ucfirst($session->status))
+                            ->title(__('Import :status', ['status' => ucfirst($session->status)]))
                             ->body(
-                                "Imported: {$session->imported_count} | ".
-                                "Duplicates: {$session->duplicate_count} | ".
-                                "Errors: {$session->error_count}"
+                                __('Imported: :imported | Duplicates: :duplicates | Errors: :errors', [
+                                    'imported' => $session->imported_count,
+                                    'duplicates' => $session->duplicate_count,
+                                    'errors' => $session->error_count,
+                                ])
                             )
                             ->color($session->status === 'completed' ? 'success' : 'warning')
                             ->send();
@@ -213,22 +220,22 @@ class BankImportSessionResource extends Resource
                 ActionGroup::make([
                     ViewAction::make(),
                     DeleteAction::make()
-                        ->label('Delete')
-                        ->modalHeading('Delete import history')
-                        ->modalDescription('Removes this import run and deletes every transaction from it. Posted rows are reversed in the ledger first, then soft-deleted.')
+                        ->label(__('Delete'))
+                        ->modalHeading(__('Delete import history'))
+                        ->modalDescription(__('Removes this import run and deletes every transaction from it. Posted rows are reversed in the ledger first, then soft-deleted.'))
                         ->using(function (BankImportSession $record) {
                             static::deleteSessionAndTransactions($record);
 
                             return true;
                         }),
                     Action::make('view_transactions')
-                        ->label('Transactions')
+                        ->label(__('Transactions'))
                         ->icon('heroicon-o-table-cells')
                         ->url(fn (BankImportSession $record) => BankTransactionResource::getUrl('index', [
                             'tableFilters[import_session_id][value]' => $record->id,
                         ])),
                     Action::make('retry')
-                        ->label('Re-import')
+                        ->label(__('Re-import'))
                         ->icon('heroicon-o-arrow-path')
                         ->color('warning')
                         ->visible(fn (BankImportSession $record) => in_array($record->status, ['failed', 'partially_completed']))
@@ -250,8 +257,8 @@ class BankImportSessionResource extends Resource
                             $record->refresh();
 
                             Notification::make()
-                                ->title('Re-import '.ucfirst($record->status))
-                                ->body("Imported: {$record->imported_count} | Duplicates: {$record->duplicate_count}")
+                                ->title(__('Re-import :status', ['status' => ucfirst($record->status)]))
+                                ->body(__('Imported: :imported | Duplicates: :duplicates', ['imported' => $record->imported_count, 'duplicates' => $record->duplicate_count]))
                                 ->success()
                                 ->send();
                         }),
@@ -260,9 +267,9 @@ class BankImportSessionResource extends Resource
             ->toolbarActions([
                 BulkActionGroup::make([
                     DeleteBulkAction::make()
-                        ->label('Delete selected')
-                        ->modalHeading('Delete import history')
-                        ->modalDescription('Removes the selected import runs and deletes all transactions from each. Posted rows are reversed in the ledger first, then soft-deleted.')
+                        ->label(__('Delete selected'))
+                        ->modalHeading(__('Delete import history'))
+                        ->modalDescription(__('Removes the selected import runs and deletes all transactions from each. Posted rows are reversed in the ledger first, then soft-deleted.'))
                         ->using(function (DeleteBulkAction $action, $records) {
                             foreach ($records as $record) {
                                 try {

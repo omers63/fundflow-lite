@@ -9,6 +9,7 @@ use App\Http\Controllers\ContributionReceiptController;
 use App\Http\Controllers\DirectMessageAttachmentController;
 use App\Http\Controllers\LoanImportSampleController;
 use App\Http\Controllers\LoanSchedulePdfController;
+use App\Http\Controllers\LocaleSwitchController;
 use App\Http\Controllers\MemberImportSampleController;
 use App\Http\Controllers\MembershipApplicationFormTemplateController;
 use App\Http\Controllers\MembershipApplicationImportSampleController;
@@ -40,6 +41,8 @@ Route::get('/downloads/loan-import-sample', LoanImportSampleController::class)
     ->name('downloads.loan-import-sample');
 Route::get('/downloads/terms-and-conditions', TermsConditionsDownloadController::class)
     ->name('downloads.terms-and-conditions');
+Route::get('/locale/{locale}', LocaleSwitchController::class)
+    ->name('locale.switch');
 
 Route::middleware(['auth'])->group(function () {
     Route::get('/direct-messages/{message}/attachment/{index}', [DirectMessageAttachmentController::class, 'show'])

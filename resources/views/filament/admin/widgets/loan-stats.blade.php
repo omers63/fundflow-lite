@@ -16,10 +16,10 @@
             <div class="pl-2">
                 <div class="flex items-center gap-1.5 mb-2">
                     <x-heroicon-o-credit-card class="w-4 h-4 text-emerald-500" />
-                    <p class="text-xs font-semibold uppercase tracking-wide text-gray-500 dark:text-gray-400">Active Loans</p>
+                    <p class="text-xs font-semibold uppercase tracking-wide text-gray-500 dark:text-gray-400">{{ __('Active Loans') }}</p>
                 </div>
                 <p class="text-2xl font-bold text-gray-900 dark:text-white">{{ $d['active_count'] }}</p>
-                <p class="mt-0.5 text-xs text-gray-400">SAR {{ $fmt($d['active_amount']) }} outstanding</p>
+                <p class="mt-0.5 text-xs text-gray-400">{{ __('SAR :amount outstanding', ['amount' => $fmt($d['active_amount'])]) }}</p>
             </div>
         </div>
 
@@ -29,10 +29,10 @@
             <div class="pl-2">
                 <div class="flex items-center gap-1.5 mb-2">
                     <x-heroicon-o-queue-list class="w-4 h-4 text-amber-500" />
-                    <p class="text-xs font-semibold uppercase tracking-wide text-gray-500 dark:text-gray-400">In Queue</p>
+                    <p class="text-xs font-semibold uppercase tracking-wide text-gray-500 dark:text-gray-400">{{ __('In Queue') }}</p>
                 </div>
                 <p class="text-2xl font-bold text-gray-900 dark:text-white">{{ $d['pending_queue_count'] }}</p>
-                <p class="mt-0.5 text-xs text-gray-400">SAR {{ $fmt($d['pending_queue_amount']) }} requested</p>
+                <p class="mt-0.5 text-xs text-gray-400">{{ __('SAR :amount requested', ['amount' => $fmt($d['pending_queue_amount'])]) }}</p>
             </div>
         </div>
 
@@ -42,10 +42,10 @@
             <div class="pl-2">
                 <div class="flex items-center gap-1.5 mb-2">
                     <x-heroicon-o-exclamation-triangle class="w-4 h-4 {{ $d['overdue_count'] > 0 ? 'text-red-500' : 'text-emerald-500' }}" />
-                    <p class="text-xs font-semibold uppercase tracking-wide text-gray-500 dark:text-gray-400">Overdue</p>
+                    <p class="text-xs font-semibold uppercase tracking-wide text-gray-500 dark:text-gray-400">{{ __('Overdue') }}</p>
                 </div>
                 <p class="text-2xl font-bold {{ $d['overdue_count'] > 0 ? 'text-red-600 dark:text-red-400' : 'text-gray-900 dark:text-white' }}">{{ $d['overdue_count'] }}</p>
-                <p class="mt-0.5 text-xs text-gray-400">SAR {{ $fmt($d['overdue_amount']) }} overdue</p>
+                <p class="mt-0.5 text-xs text-gray-400">{{ __('SAR :amount overdue', ['amount' => $fmt($d['overdue_amount'])]) }}</p>
             </div>
         </div>
 
@@ -55,10 +55,10 @@
             <div class="pl-2">
                 <div class="flex items-center gap-1.5 mb-2">
                     <x-heroicon-o-plus-circle class="w-4 h-4 text-indigo-500" />
-                    <p class="text-xs font-semibold uppercase tracking-wide text-gray-500 dark:text-gray-400">New This Month</p>
+                    <p class="text-xs font-semibold uppercase tracking-wide text-gray-500 dark:text-gray-400">{{ __('New This Month') }}</p>
                 </div>
                 <p class="text-2xl font-bold text-gray-900 dark:text-white">{{ $d['new_this_month'] }}</p>
-                <p class="mt-0.5 text-xs text-gray-400">Applications received</p>
+                <p class="mt-0.5 text-xs text-gray-400">{{ __('Applications received') }}</p>
             </div>
         </div>
 
@@ -68,9 +68,9 @@
             <div class="pl-2">
                 <div class="flex items-center gap-1.5 mb-2">
                     <x-heroicon-o-banknotes class="w-4 h-4 text-teal-500" />
-                    <p class="text-xs font-semibold uppercase tracking-wide text-gray-500 dark:text-gray-400">Disbursed (mo.)</p>
+                    <p class="text-xs font-semibold uppercase tracking-wide text-gray-500 dark:text-gray-400">{{ __('Disbursed (mo.)') }}</p>
                 </div>
-                <p class="text-2xl font-bold text-gray-900 dark:text-white">SAR {{ $fmt($d['disbursed_this_month']) }}</p>
+                <p class="text-2xl font-bold text-gray-900 dark:text-white">{{ __('SAR') }} {{ $fmt($d['disbursed_this_month']) }}</p>
                 <p class="mt-0.5 text-xs text-gray-400">{{ now()->format('F Y') }}</p>
             </div>
         </div>
@@ -81,11 +81,11 @@
             <div class="pl-2">
                 <div class="flex items-center gap-1.5 mb-2">
                     <x-heroicon-o-check-badge class="w-4 h-4 text-primary-500" />
-                    <p class="text-xs font-semibold uppercase tracking-wide text-gray-500 dark:text-gray-400">Completed</p>
+                    <p class="text-xs font-semibold uppercase tracking-wide text-gray-500 dark:text-gray-400">{{ __('Completed') }}</p>
                 </div>
                 <p class="text-2xl font-bold text-gray-900 dark:text-white">{{ $d['by_status']['completed']['count'] + $d['by_status']['early_settled']['count'] }}</p>
                 <p class="mt-0.5 text-xs text-gray-400">
-                    {{ $d['by_status']['completed']['count'] }} complete · {{ $d['by_status']['early_settled']['count'] }} early settled
+                    {{ __(':completed complete · :early early settled', ['completed' => $d['by_status']['completed']['count'], 'early' => $d['by_status']['early_settled']['count']]) }}
                 </p>
             </div>
         </div>
@@ -96,17 +96,17 @@
     <div class="rounded-xl border border-gray-200 bg-white shadow-sm overflow-hidden dark:border-gray-700 dark:bg-gray-800">
         <div class="flex items-center gap-2 px-5 py-3 border-b border-gray-100 dark:border-gray-700 bg-gray-50 dark:bg-gray-800/70">
             <x-heroicon-o-chart-bar class="w-4 h-4 text-gray-400" />
-            <h4 class="text-xs font-semibold uppercase tracking-wide text-gray-500 dark:text-gray-400">Portfolio Breakdown by Status</h4>
+            <h4 class="text-xs font-semibold uppercase tracking-wide text-gray-500 dark:text-gray-400">{{ __('Portfolio Breakdown by Status') }}</h4>
         </div>
         @php
             $statusMeta = [
-                'pending'       => ['label' => 'Pending',       'color' => 'bg-amber-400',    'text' => 'text-amber-700 dark:text-amber-300'],
-                'approved'      => ['label' => 'Approved',      'color' => 'bg-indigo-500',   'text' => 'text-indigo-700 dark:text-indigo-300'],
-                'active'        => ['label' => 'Active',        'color' => 'bg-emerald-500',  'text' => 'text-emerald-700 dark:text-emerald-300'],
-                'completed'     => ['label' => 'Completed',     'color' => 'bg-gray-400',     'text' => 'text-gray-600 dark:text-gray-400'],
-                'early_settled' => ['label' => 'Early Settled', 'color' => 'bg-teal-400',     'text' => 'text-teal-700 dark:text-teal-300'],
-                'rejected'      => ['label' => 'Rejected',      'color' => 'bg-red-400',      'text' => 'text-red-700 dark:text-red-300'],
-                'cancelled'     => ['label' => 'Cancelled',     'color' => 'bg-slate-300',    'text' => 'text-slate-600 dark:text-slate-400'],
+                'pending'       => ['label' => __('Pending'),       'color' => 'bg-amber-400',    'text' => 'text-amber-700 dark:text-amber-300'],
+                'approved'      => ['label' => __('Approved'),      'color' => 'bg-indigo-500',   'text' => 'text-indigo-700 dark:text-indigo-300'],
+                'active'        => ['label' => __('Active'),        'color' => 'bg-emerald-500',  'text' => 'text-emerald-700 dark:text-emerald-300'],
+                'completed'     => ['label' => __('Completed'),     'color' => 'bg-gray-400',     'text' => 'text-gray-600 dark:text-gray-400'],
+                'early_settled' => ['label' => __('Early Settled'), 'color' => 'bg-teal-400',     'text' => 'text-teal-700 dark:text-teal-300'],
+                'rejected'      => ['label' => __('Rejected'),      'color' => 'bg-red-400',      'text' => 'text-red-700 dark:text-red-300'],
+                'cancelled'     => ['label' => __('Cancelled'),     'color' => 'bg-slate-300',    'text' => 'text-slate-600 dark:text-slate-400'],
             ];
             $grandTotal = collect($d['by_status'])->sum('count');
         @endphp

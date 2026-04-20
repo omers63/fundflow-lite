@@ -18,6 +18,6 @@ class PublicHomePage extends Component
         ];
 
         return view('livewire.public-home-page', compact('stats'))
-            ->layout('layouts.public', ['title' => 'Welcome']);
+            ->layout('layouts.public', ['title' => __('Welcome')]);
     }
 }

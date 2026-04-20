@@ -26,6 +26,11 @@ class DependentsRelationManager extends RelationManager
 
     protected static ?string $title = 'Dependents';
 
+    public static function getTitle(\Illuminate\Database\Eloquent\Model $ownerRecord, string $pageClass): string
+    {
+        return __('Dependents');
+    }
+
     public function isReadOnly(): bool
     {
         return false;
@@ -40,18 +45,18 @@ class DependentsRelationManager extends RelationManager
     {
         return $table
             ->recordTitleAttribute('member_number')
-            ->emptyStateHeading('No dependent members')
-            ->emptyStateDescription('This member has no dependents assigned.')
+            ->emptyStateHeading(__('No dependent members'))
+            ->emptyStateDescription(__('This member has no dependents assigned.'))
             ->striped()
             ->headerActions([
                 $this->addDependentHeaderAction(),
                 $this->allocateCycleHeaderAction(),
             ])
             ->columns([
-                Tables\Columns\TextColumn::make('member_number')->label('Member #')->sortable()->toggleable(),
-                Tables\Columns\TextColumn::make('user.name')->label('Name')->searchable()->toggleable(),
+                Tables\Columns\TextColumn::make('member_number')->label(__('Member #'))->sortable()->toggleable(),
+                Tables\Columns\TextColumn::make('user.name')->label(__('Name'))->searchable()->toggleable(),
                 Tables\Columns\TextColumn::make('monthly_contribution_amount')
-                    ->label('Monthly Allocation')
+                    ->label(__('Monthly Allocation'))
                     ->money('SAR')
                     ->toggleable(),
                 Tables\Columns\TextColumn::make('status')->badge()
@@ -63,7 +68,7 @@ class DependentsRelationManager extends RelationManager
                     })
                     ->toggleable(),
                 Tables\Columns\TextColumn::make('cash_balance')
-                    ->label('Cash Balance')
+                    ->label(__('Cash Balance'))
                     ->money('SAR')
                     ->getStateUsing(fn (Member $r) => $r->cash_balance)
                     ->color(fn (Member $r) => $r->cash_balance >= 0 ? 'success' : 'danger')
@@ -72,19 +77,19 @@ class DependentsRelationManager extends RelationManager
             ->filters([
                 Tables\Filters\SelectFilter::make('status')
                     ->options([
-                        'active' => 'Active',
-                        'suspended' => 'Suspended',
-                        'delinquent' => 'Delinquent',
-                        'terminated' => 'Terminated',
+                        'active' => __('Active'),
+                        'suspended' => __('Suspended'),
+                        'delinquent' => __('Delinquent'),
+                        'terminated' => __('Terminated'),
                     ]),
                 Tables\Filters\SelectFilter::make('monthly_contribution_amount')
-                    ->label('Monthly allocation')
+                    ->label(__('Monthly allocation'))
                     ->options(Member::contributionAmountOptions()),
                 Tables\Filters\Filter::make('cash_balance')
-                    ->label('Cash balance (SAR)')
+                    ->label(__('Cash balance (SAR)'))
                     ->schema([
-                        Forms\Components\TextInput::make('min')->label('Min')->numeric(),
-                        Forms\Components\TextInput::make('max')->label('Max')->numeric(),
+                        Forms\Components\TextInput::make('min')->label(__('Min'))->numeric(),
+                        Forms\Components\TextInput::make('max')->label(__('Max'))->numeric(),
                     ])
                     ->columns(2)
                     ->query(function ($query, array $data) {
@@ -103,7 +108,7 @@ class DependentsRelationManager extends RelationManager
                 ActionGroup::make([
                     // Change this dependent's allocation amount (notifies dependent + admin)
                     Action::make('set_allocation')
-                        ->label('Set Allocation')
+                        ->label(__('Set Allocation'))
                         ->icon('heroicon-o-adjustments-horizontal')
                         ->color('warning')
                         ->fillForm(fn (Member $record) => [
@@ -112,14 +117,14 @@ class DependentsRelationManager extends RelationManager
                         ])
                         ->schema([
                             Forms\Components\Select::make('monthly_contribution_amount')
-                                ->label('Monthly Contribution Amount')
+                                ->label(__('Monthly Contribution Amount'))
                                 ->options(Member::contributionAmountOptions())
                                 ->required()
-                                ->helperText(fn (Member $record) => 'Current: SAR '.number_format($record->monthly_contribution_amount)),
+                                ->helperText(fn (Member $record) => __('Current: SAR :amount', ['amount' => number_format($record->monthly_contribution_amount)])),
                             Forms\Components\TextInput::make('note')
-                                ->label('Admin Note (optional)')
+                                ->label(__('Admin Note (optional)'))
                                 ->maxLength(200)
-                                ->placeholder('Reason for change (sent to member)'),
+                                ->placeholder(__('Reason for change (sent to member)')),
                         ])
                         ->action(function (Member $record, array $data) {
                             $parent = $record->parent;
@@ -129,8 +134,8 @@ class DependentsRelationManager extends RelationManager
                                 $new = (int) $data['monthly_contribution_amount'];
                                 $record->update(['monthly_contribution_amount' => $new]);
                                 Notification::make()
-                                    ->title('Allocation Updated')
-                                    ->body('SAR '.number_format($old).' → SAR '.number_format($new).' (no parent; no allocation change record).')
+                                    ->title(__('Allocation Updated'))
+                                    ->body(__('SAR :old → SAR :new (no parent; no allocation change record).', ['old' => number_format($old), 'new' => number_format($new)]))
                                     ->warning()
                                     ->send();
 
@@ -145,24 +150,28 @@ class DependentsRelationManager extends RelationManager
                             );
 
                             if ($change === null) {
-                                Notification::make()->title('No change — same amount selected.')->info()->send();
+                                Notification::make()->title(__('No change — same amount selected.'))->info()->send();
 
                                 return;
                             }
 
                             Notification::make()
-                                ->title('Allocation Updated')
-                                ->body("{$record->user->name}: SAR ".number_format($change->old_amount).' → SAR '.number_format($change->new_amount).'. Member notified.')
+                                ->title(__('Allocation Updated'))
+                                ->body(__(':member: SAR :old → SAR :new. Member notified.', [
+                                    'member' => $record->user->name,
+                                    'old' => number_format($change->old_amount),
+                                    'new' => number_format($change->new_amount),
+                                ]))
                                 ->success()
                                 ->send();
                         }),
 
                     // View allocation change history for this dependent
                     Action::make('view_allocation_history')
-                        ->label('History')
+                        ->label(__('History'))
                         ->icon('heroicon-o-clock')
                         ->color('gray')
-                        ->modalHeading(fn (Member $record) => "Allocation History — {$record->user->name}")
+                        ->modalHeading(fn (Member $record) => __('Allocation History — :name', ['name' => $record->user->name]))
                         ->modalContent(function (Member $record): HtmlString {
                             $changes = DependentAllocationChange::where('dependent_member_id', $record->id)
                                 ->with('changedBy', 'parent.user')
@@ -171,7 +180,7 @@ class DependentsRelationManager extends RelationManager
                                 ->get();
 
                             if ($changes->isEmpty()) {
-                                return new HtmlString('<p class="text-sm text-gray-500 p-4">No allocation changes recorded.</p>');
+                                return new HtmlString('<p class="text-sm text-gray-500 p-4">'.e(__('No allocation changes recorded.')).'</p>');
                             }
 
                             $rows = '';
@@ -182,8 +191,8 @@ class DependentsRelationManager extends RelationManager
                                 $delta = $c->isIncrease()
                                     ? '<span class="text-emerald-600">+SAR '.number_format(abs($c->delta())).'</span>'
                                     : '<span class="text-amber-600">−SAR '.number_format(abs($c->delta())).'</span>';
-                                $parent = e($c->parent?->user?->name ?? '—');
-                                $by = e($c->changedBy?->name ?? 'System');
+                                $parent = e($c->parent?->user?->name ?? __('—'));
+                                $by = e($c->changedBy?->name ?? __('System'));
                                 $note = $c->note ? '<br><span class="text-gray-400 text-xs">'.e($c->note).'</span>' : '';
                                 $date = $c->created_at->format('d M Y H:i');
 
@@ -197,16 +206,22 @@ class DependentsRelationManager extends RelationManager
                                 </tr>";
                             }
 
+                            $dateHeading = e(__('Date'));
+                            $changeHeading = e(__('Change'));
+                            $deltaHeading = e(__('Delta'));
+                            $parentHeading = e(__('Parent'));
+                            $changedByHeading = e(__('Changed By'));
+
                             return new HtmlString("
                             <div class=\"overflow-x-auto\">
                                 <table class=\"w-full text-sm\">
                                     <thead>
                                         <tr class=\"bg-gray-50 dark:bg-gray-800 text-xs uppercase text-gray-500\">
-                                            <th class=\"py-2 px-3 text-left\">Date</th>
-                                            <th class=\"py-2 px-3 text-left\">Change</th>
-                                            <th class=\"py-2 px-3 text-left\">Delta</th>
-                                            <th class=\"py-2 px-3 text-left\">Parent</th>
-                                            <th class=\"py-2 px-3 text-left\">Changed By</th>
+                                            <th class=\"py-2 px-3 text-left\">{$dateHeading}</th>
+                                            <th class=\"py-2 px-3 text-left\">{$changeHeading}</th>
+                                            <th class=\"py-2 px-3 text-left\">{$deltaHeading}</th>
+                                            <th class=\"py-2 px-3 text-left\">{$parentHeading}</th>
+                                            <th class=\"py-2 px-3 text-left\">{$changedByHeading}</th>
                                         </tr>
                                     </thead>
                                     <tbody>{$rows}</tbody>
@@ -214,26 +229,28 @@ class DependentsRelationManager extends RelationManager
                             </div>");
                         })
                         ->modalSubmitAction(false)
-                        ->modalCancelActionLabel('Close'),
+                        ->modalCancelActionLabel(__('Close')),
 
                     // Fund dependent's cash account from this parent's cash account
                     Action::make('fund_cash')
-                        ->label('Fund Cash Account')
+                        ->label(__('Fund Cash Account'))
                         ->icon('heroicon-o-banknotes')
                         ->color('success')
                         ->schema([
                             Forms\Components\TextInput::make('amount')
-                                ->label('Amount (SAR)')
+                                ->label(__('Amount (SAR)'))
                                 ->numeric()
                                 ->minValue(1)
                                 ->required()
                                 ->prefix('SAR')
                                 ->helperText(
-                                    fn (Member $record) => "Dependent's cash balance: SAR ".number_format($record->cash_balance, 2).
-                                    ' | Your cash balance: SAR '.number_format($this->getOwnerRecord()->cash_balance, 2)
+                                    fn (Member $record) => __('Dependent\'s cash balance: SAR :dependent | Your cash balance: SAR :owner', [
+                                        'dependent' => number_format($record->cash_balance, 2),
+                                        'owner' => number_format($this->getOwnerRecord()->cash_balance, 2),
+                                    ])
                                 ),
                             Forms\Components\TextInput::make('note')
-                                ->label('Note (optional)')
+                                ->label(__('Note (optional)'))
                                 ->maxLength(200),
                         ])
                         ->action(function (Member $record, array $data) {
@@ -248,13 +265,16 @@ class DependentsRelationManager extends RelationManager
                                 );
 
                                 Notification::make()
-                                    ->title('Cash Account Funded')
-                                    ->body('SAR '.number_format($data['amount'], 2)." transferred to {$record->user->name}'s cash account.")
+                                    ->title(__('Cash Account Funded'))
+                                    ->body(__('SAR :amount transferred to :name\'s cash account.', [
+                                        'amount' => number_format($data['amount'], 2),
+                                        'name' => $record->user->name,
+                                    ]))
                                     ->success()
                                     ->send();
                             } catch (\Throwable $e) {
                                 Notification::make()
-                                    ->title('Transfer Failed')
+                                    ->title(__('Transfer Failed'))
                                     ->body($e->getMessage())
                                     ->danger()
                                     ->send();
@@ -267,24 +287,24 @@ class DependentsRelationManager extends RelationManager
     protected function addDependentHeaderAction(): Action
     {
         return Action::make('add_dependent')
-            ->label('Add Dependent')
+            ->label(__('Add Dependent'))
             ->icon('heroicon-o-user-plus')
             ->color('primary')
             ->authorize(
                 fn (): bool => auth()->user()?->can('update', $this->cycleMember()) ?? false
             )
             ->visible(fn (): bool => $this->cycleMember()->parent_id === null)
-            ->modalHeading('Add dependent')
+            ->modalHeading(__('Add dependent'))
             ->modalDescription(
-                'Link another independent member as a dependent of this member. Only members with no sponsor and no dependents of their own are eligible.'
+                __('Link another independent member as a dependent of this member. Only members with no sponsor and no dependents of their own are eligible.')
             )
             ->schema([
                 Forms\Components\Select::make('member_id')
-                    ->label('Member')
+                    ->label(__('Member'))
                     ->options(fn (): array => $this->eligibleIndependentMemberOptions())
                     ->searchable()
                     ->required()
-                    ->helperText('Must be independent: not sponsored (no parent) and not already sponsoring others.'),
+                    ->helperText(__('Must be independent: not sponsored (no parent) and not already sponsoring others.')),
             ])
             ->action(function (array $data): void {
                 $owner = $this->cycleMember();
@@ -295,15 +315,15 @@ class DependentsRelationManager extends RelationManager
                 }
 
                 if ($dependent->parent_id !== null) {
-                    Notification::make()->title('This member is already sponsored.')->danger()->send();
+                    Notification::make()->title(__('This member is already sponsored.'))->danger()->send();
 
                     return;
                 }
 
                 if ($dependent->dependents()->exists()) {
                     Notification::make()
-                        ->title('This member cannot become a dependent')
-                        ->body('Members who already sponsor dependents cannot be assigned a parent.')
+                        ->title(__('This member cannot become a dependent'))
+                        ->body(__('Members who already sponsor dependents cannot be assigned a parent.'))
                         ->danger()
                         ->send();
 
@@ -313,8 +333,8 @@ class DependentsRelationManager extends RelationManager
                 $dependent->update(['parent_id' => $owner->id]);
 
                 Notification::make()
-                    ->title('Dependent linked')
-                    ->body(($dependent->user?->name ?? 'Member').' is now sponsored by this member.')
+                    ->title(__('Dependent linked'))
+                    ->body((($dependent->user?->name) ?? __('Member')).' '.__('is now sponsored by this member.'))
                     ->success()
                     ->send();
             });

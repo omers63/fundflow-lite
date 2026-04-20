@@ -8,7 +8,7 @@
     $steps = [
         [
             'key'       => 'applied',
-            'label'     => 'Applied',
+            'label'     => __('Applied'),
             'icon'      => 'heroicon-o-paper-airplane',
             'timestamp' => $loan->applied_at,
             'done'      => true,
@@ -16,7 +16,7 @@
         ],
         [
             'key'       => 'reviewed',
-            'label'     => in_array($loan->status, ['rejected', 'cancelled']) ? 'Rejected / Cancelled' : 'Under Review',
+            'label'     => in_array($loan->status, ['rejected', 'cancelled']) ? __('Rejected / Cancelled') : __('Under Review'),
             'icon'      => in_array($loan->status, ['rejected', 'cancelled']) ? 'heroicon-o-x-circle' : 'heroicon-o-magnifying-glass',
             'timestamp' => null,
             'done'      => !in_array($loan->status, ['pending']),
@@ -24,7 +24,7 @@
         ],
         [
             'key'       => 'approved',
-            'label'     => 'Approved',
+            'label'     => __('Approved'),
             'icon'      => 'heroicon-o-check-circle',
             'timestamp' => $loan->approved_at,
             'done'      => in_array($loan->status, ['approved', 'active', 'completed', 'early_settled']),
@@ -32,7 +32,7 @@
         ],
         [
             'key'       => 'disbursed',
-            'label'     => 'Disbursed',
+            'label'     => __('Disbursed'),
             'icon'      => 'heroicon-o-banknotes',
             'timestamp' => $loan->disbursed_at,
             'done'      => in_array($loan->status, ['active', 'completed', 'early_settled']),
@@ -40,7 +40,7 @@
         ],
         [
             'key'       => 'repaying',
-            'label'     => 'Repaying',
+            'label'     => __('Repaying'),
             'icon'      => 'heroicon-o-arrow-path',
             'timestamp' => null,
             'done'      => in_array($loan->status, ['active', 'completed', 'early_settled']),
@@ -48,7 +48,7 @@
         ],
         [
             'key'       => 'settled',
-            'label'     => in_array($loan->status, ['completed', 'early_settled']) ? ucfirst(str_replace('_', ' ', $loan->status)) : 'Settled',
+            'label'     => in_array($loan->status, ['completed', 'early_settled']) ? __(ucfirst(str_replace('_', ' ', $loan->status))) : __('Settled'),
             'icon'      => 'heroicon-o-trophy',
             'timestamp' => $loan->settled_at,
             'done'      => in_array($loan->status, ['completed', 'early_settled']),
@@ -68,7 +68,7 @@
 
     {{-- ── Status timeline ─────────────────────────────────────────────────── --}}
     <div class="rounded-2xl bg-white dark:bg-gray-800 ring-1 ring-gray-200 dark:ring-gray-700 p-6 shadow-sm overflow-x-auto">
-        <h3 class="text-sm font-semibold text-gray-900 dark:text-white mb-5">Loan Status</h3>
+        <h3 class="text-sm font-semibold text-gray-900 dark:text-white mb-5">{{ __('Loan Status') }}</h3>
         <div class="flex items-start gap-0 min-w-max">
             @foreach($steps as $i => $step)
             <div class="flex flex-col items-center" style="min-width: 110px;">
@@ -115,30 +115,30 @@
     <div class="grid grid-cols-1 gap-4 sm:grid-cols-2 lg:grid-cols-4">
 
         <div class="rounded-xl bg-gradient-to-br from-sky-100 via-white to-indigo-50 dark:from-slate-800 dark:via-sky-950/35 dark:to-indigo-950/30 ring-1 ring-sky-200/80 dark:ring-sky-600/40 p-5 shadow-md">
-            <p class="text-xs font-semibold uppercase tracking-wide text-sky-700 dark:text-sky-300 mb-1">Requested</p>
-            <p class="text-xl font-bold text-sky-900 dark:text-sky-100">SAR {{ number_format($loan->amount_requested, 0) }}</p>
+            <p class="text-xs font-semibold uppercase tracking-wide text-sky-700 dark:text-sky-300 mb-1">{{ __('Requested') }}</p>
+            <p class="text-xl font-bold text-sky-900 dark:text-sky-100">{{ __('SAR') }} {{ number_format($loan->amount_requested, 0) }}</p>
         </div>
 
         <div class="rounded-xl bg-white dark:bg-gray-800 ring-1 ring-gray-200 dark:ring-gray-700 p-5 shadow-sm">
-            <p class="text-xs font-semibold uppercase tracking-wide text-gray-500 dark:text-gray-400 mb-1">Approved</p>
+            <p class="text-xs font-semibold uppercase tracking-wide text-gray-500 dark:text-gray-400 mb-1">{{ __('Approved') }}</p>
             <p class="text-xl font-bold text-primary-600 dark:text-primary-400">
-                {{ $loan->amount_approved ? 'SAR ' . number_format($loan->amount_approved, 0) : '—' }}
+                {{ $loan->amount_approved ? __('SAR') . ' ' . number_format($loan->amount_approved, 0) : '—' }}
             </p>
         </div>
 
         <div class="rounded-xl bg-white dark:bg-gray-800 ring-1 ring-gray-200 dark:ring-gray-700 p-5 shadow-sm">
-            <p class="text-xs font-semibold uppercase tracking-wide text-gray-500 dark:text-gray-400 mb-1">Disbursed</p>
+            <p class="text-xs font-semibold uppercase tracking-wide text-gray-500 dark:text-gray-400 mb-1">{{ __('Disbursed') }}</p>
             <p class="text-xl font-bold text-emerald-600 dark:text-emerald-400">
-                {{ $loan->amount_disbursed ? 'SAR ' . number_format($loan->amount_disbursed, 0) : '—' }}
+                {{ $loan->amount_disbursed ? __('SAR') . ' ' . number_format($loan->amount_disbursed, 0) : '—' }}
             </p>
         </div>
 
         <div class="rounded-xl bg-white dark:bg-gray-800 ring-1 ring-gray-200 dark:ring-gray-700 p-5 shadow-sm">
-            <p class="text-xs font-semibold uppercase tracking-wide text-gray-500 dark:text-gray-400 mb-1">Loan Tier</p>
+            <p class="text-xs font-semibold uppercase tracking-wide text-gray-500 dark:text-gray-400 mb-1">{{ __('Loan Tier') }}</p>
             <p class="text-xl font-bold text-gray-900 dark:text-white">{{ $loan->loanTier?->label ?? '—' }}</p>
             @if($loan->is_emergency)
             <span class="inline-flex items-center mt-1 rounded-full bg-red-100 dark:bg-red-900/40 px-2 py-0.5 text-xs font-semibold text-red-700 dark:text-red-300">
-                Emergency
+                {{ __('Emergency') }}
             </span>
             @endif
         </div>
@@ -149,9 +149,9 @@
     @if($totalInstallments > 0)
     <div class="rounded-2xl bg-white dark:bg-gray-800 ring-1 ring-gray-200 dark:ring-gray-700 p-6 shadow-sm">
         <div class="flex items-center justify-between mb-4">
-            <h3 class="text-sm font-semibold text-gray-900 dark:text-white">Repayment Progress</h3>
+            <h3 class="text-sm font-semibold text-gray-900 dark:text-white">{{ __('Repayment Progress') }}</h3>
             <span class="text-sm text-gray-500 dark:text-gray-400">
-                {{ $paidInstallments }} / {{ $totalInstallments }} installments paid
+                {{ __(':paid / :total installments paid', ['paid' => $paidInstallments, 'total' => $totalInstallments]) }}
             </span>
         </div>
 
@@ -162,18 +162,18 @@
         <div class="flex flex-wrap gap-4 text-sm">
             <span class="flex items-center gap-1 text-emerald-600 dark:text-emerald-400">
                 <x-heroicon-o-check-circle class="w-4 h-4" />
-                {{ $paidInstallments }} paid
+                {{ __(':count paid', ['count' => $paidInstallments]) }}
             </span>
             @if($overdueCount > 0)
             <span class="flex items-center gap-1 text-red-600 dark:text-red-400">
                 <x-heroicon-o-exclamation-circle class="w-4 h-4" />
-                {{ $overdueCount }} overdue
+                {{ __(':count overdue', ['count' => $overdueCount]) }}
             </span>
             @endif
             @if($pendingCount > 0)
             <span class="flex items-center gap-1 text-gray-500 dark:text-gray-400">
                 <x-heroicon-o-clock class="w-4 h-4" />
-                {{ $pendingCount }} remaining
+                {{ __(':count remaining', ['count' => $pendingCount]) }}
             </span>
             @endif
         </div>
@@ -184,18 +184,18 @@
     @if($loan->installments->count() > 0)
     <div class="rounded-2xl bg-white dark:bg-gray-800 ring-1 ring-gray-200 dark:ring-gray-700 shadow-sm overflow-hidden">
         <div class="px-6 py-4 border-b border-gray-100 dark:border-gray-700 bg-gray-50/70 dark:bg-gray-800/80">
-            <h3 class="text-sm font-semibold text-gray-900 dark:text-white">Installments</h3>
+            <h3 class="text-sm font-semibold text-gray-900 dark:text-white">{{ __('Installments') }}</h3>
         </div>
         <div class="overflow-x-auto">
             <table class="w-full text-sm text-left">
                 <thead>
                     <tr class="border-b border-gray-100 dark:border-gray-700">
                         <th class="px-5 py-3 text-xs font-semibold uppercase tracking-wide text-gray-500 dark:text-gray-400">#</th>
-                        <th class="px-5 py-3 text-xs font-semibold uppercase tracking-wide text-gray-500 dark:text-gray-400">Due Date</th>
-                        <th class="px-5 py-3 text-xs font-semibold uppercase tracking-wide text-gray-500 dark:text-gray-400 text-right">Amount</th>
-                        <th class="px-5 py-3 text-xs font-semibold uppercase tracking-wide text-gray-500 dark:text-gray-400 text-right">Late Fee</th>
-                        <th class="px-5 py-3 text-xs font-semibold uppercase tracking-wide text-gray-500 dark:text-gray-400">Status</th>
-                        <th class="px-5 py-3 text-xs font-semibold uppercase tracking-wide text-gray-500 dark:text-gray-400">Paid On</th>
+                        <th class="px-5 py-3 text-xs font-semibold uppercase tracking-wide text-gray-500 dark:text-gray-400">{{ __('Due Date') }}</th>
+                        <th class="px-5 py-3 text-xs font-semibold uppercase tracking-wide text-gray-500 dark:text-gray-400 text-right">{{ __('Amount') }}</th>
+                        <th class="px-5 py-3 text-xs font-semibold uppercase tracking-wide text-gray-500 dark:text-gray-400 text-right">{{ __('Late Fee') }}</th>
+                        <th class="px-5 py-3 text-xs font-semibold uppercase tracking-wide text-gray-500 dark:text-gray-400">{{ __('Status') }}</th>
+                        <th class="px-5 py-3 text-xs font-semibold uppercase tracking-wide text-gray-500 dark:text-gray-400">{{ __('Paid On') }}</th>
                     </tr>
                 </thead>
                 <tbody class="divide-y divide-gray-100 dark:divide-gray-700">
@@ -207,12 +207,12 @@
                             {{ $inst->due_date ? \Carbon\Carbon::parse($inst->due_date)->format('d M Y') : '—' }}
                         </td>
                         <td class="px-5 py-3 text-right font-medium text-gray-900 dark:text-white">
-                            SAR {{ number_format((float)$inst->amount, 0) }}
+                            {{ __('SAR') }} {{ number_format((float)$inst->amount, 0) }}
                         </td>
                         <td class="px-5 py-3 text-right">
                             @if((float)$inst->late_fee_amount > 0)
                             <span class="text-orange-600 dark:text-orange-400 font-medium">
-                                SAR {{ number_format((float)$inst->late_fee_amount, 2) }}
+                                {{ __('SAR') }} {{ number_format((float)$inst->late_fee_amount, 2) }}
                             </span>
                             @else
                             <span class="text-gray-400">—</span>
@@ -223,7 +223,7 @@
                                 {{ $inst->status === 'paid'    ? 'bg-emerald-100 text-emerald-700 dark:bg-emerald-900/40 dark:text-emerald-300' :
                                    ($inst->status === 'overdue' ? 'bg-red-100 text-red-700 dark:bg-red-900/40 dark:text-red-300' :
                                    'bg-gray-100 text-gray-600 dark:bg-gray-700 dark:text-gray-300') }}">
-                                {{ ucfirst($inst->status) }}
+                                {{ __(ucfirst($inst->status)) }}
                             </span>
                         </td>
                         <td class="px-5 py-3 text-gray-500 dark:text-gray-400">
@@ -239,35 +239,35 @@
 
     {{-- ── Loan details ────────────────────────────────────────────────────── --}}
     <div class="rounded-2xl bg-white dark:bg-gray-800 ring-1 ring-gray-200 dark:ring-gray-700 p-6 shadow-sm">
-        <h3 class="text-sm font-semibold text-gray-900 dark:text-white mb-4">Loan Details</h3>
+        <h3 class="text-sm font-semibold text-gray-900 dark:text-white mb-4">{{ __('Loan Details') }}</h3>
         <dl class="grid gap-3 text-sm sm:grid-cols-2 lg:grid-cols-3">
             <div>
-                <dt class="text-gray-500 dark:text-gray-400">Applied on</dt>
+                <dt class="text-gray-500 dark:text-gray-400">{{ __('Applied on') }}</dt>
                 <dd class="font-medium text-gray-900 dark:text-white">
                     {{ $loan->applied_at ? $loan->applied_at->format('d M Y') : '—' }}
                 </dd>
             </div>
             @if($loan->guarantor)
             <div>
-                <dt class="text-gray-500 dark:text-gray-400">Guarantor</dt>
+                <dt class="text-gray-500 dark:text-gray-400">{{ __('Guarantor') }}</dt>
                 <dd class="font-medium text-gray-900 dark:text-white">{{ $loan->guarantor->user?->name ?? '—' }}</dd>
             </div>
             @endif
             @if($loan->purpose)
             <div class="sm:col-span-2 lg:col-span-3">
-                <dt class="text-gray-500 dark:text-gray-400">Purpose</dt>
+                <dt class="text-gray-500 dark:text-gray-400">{{ __('Purpose') }}</dt>
                 <dd class="font-medium text-gray-900 dark:text-white">{{ $loan->purpose }}</dd>
             </div>
             @endif
             @if($loan->rejection_reason)
             <div class="sm:col-span-2 lg:col-span-3">
-                <dt class="text-gray-500 dark:text-gray-400">Rejection reason</dt>
+                <dt class="text-gray-500 dark:text-gray-400">{{ __('Rejection reason') }}</dt>
                 <dd class="font-medium text-red-600 dark:text-red-400">{{ $loan->rejection_reason }}</dd>
             </div>
             @endif
             @if($loan->cancellation_reason)
             <div class="sm:col-span-2 lg:col-span-3">
-                <dt class="text-gray-500 dark:text-gray-400">Cancellation reason</dt>
+                <dt class="text-gray-500 dark:text-gray-400">{{ __('Cancellation reason') }}</dt>
                 <dd class="font-medium text-gray-700 dark:text-gray-300">{{ $loan->cancellation_reason }}</dd>
             </div>
             @endif

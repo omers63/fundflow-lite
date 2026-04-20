@@ -34,7 +34,7 @@ class BankResource extends Resource
 
     public static function getNavigationGroup(): ?string
     {
-        return 'Banking';
+        return __('app.nav.group.finance');
     }
 
     public static function form(Schema $schema): Schema
@@ -47,18 +47,18 @@ class BankResource extends Resource
                     ->required()
                     ->maxLength(255),
                 Forms\Components\TextInput::make('code')
-                    ->label('Bank Code')
+                    ->label(__('Bank Code'))
                     ->required()
                     ->unique(ignoreRecord: true)
                     ->maxLength(50)
-                    ->helperText('Short identifier, e.g. ALRAJHI, RIYAD, ANB'),
+                    ->helperText(__('Short identifier, e.g. ALRAJHI, RIYAD, ANB')),
                 Forms\Components\TextInput::make('swift_code')
-                    ->label('SWIFT / BIC Code')
+                    ->label(__('SWIFT / BIC Code'))
                     ->maxLength(20),
                 Forms\Components\TextInput::make('account_number')
                     ->maxLength(100),
                 Forms\Components\Toggle::make('is_active')
-                    ->label('Active')
+                    ->label(__('Active'))
                     ->default(true),
                 Forms\Components\Textarea::make('notes')
                     ->rows(2)
@@ -73,19 +73,19 @@ class BankResource extends Resource
             ->columns([
                 Tables\Columns\TextColumn::make('name')->searchable()->sortable(),
                 Tables\Columns\TextColumn::make('code')->badge()->sortable(),
-                Tables\Columns\TextColumn::make('swift_code')->label('SWIFT')->placeholder('—'),
+                Tables\Columns\TextColumn::make('swift_code')->label(__('SWIFT'))->placeholder('—'),
                 Tables\Columns\TextColumn::make('account_number')->placeholder('—'),
-                Tables\Columns\IconColumn::make('is_active')->label('Active')->boolean(),
+                Tables\Columns\IconColumn::make('is_active')->label(__('Active'))->boolean(),
                 Tables\Columns\TextColumn::make('import_templates_count')
-                    ->label('Templates')
+                    ->label(__('Templates'))
                     ->counts('importTemplates'),
                 Tables\Columns\TextColumn::make('import_sessions_count')
-                    ->label('Imports')
+                    ->label(__('Imports'))
                     ->counts('importSessions'),
             ])
             ->defaultSort('name')
             ->filters([
-                Tables\Filters\TernaryFilter::make('is_active')->label('Active'),
+                Tables\Filters\TernaryFilter::make('is_active')->label(__('Active')),
                 TrashedFilter::make(),
             ])
             ->recordActions([

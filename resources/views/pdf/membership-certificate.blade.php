@@ -44,7 +44,7 @@
         <div class="watermark">MEMBER</div>
 
         <div class="header">
-            <div class="logo-line">FundFlow</div>
+            <div class="logo-line">{{ app()->getLocale() === 'ar' ? 'فندفلو' : 'FundFlow' }}</div>
             <div class="subtitle">Member Fund Management</div>
         </div>
 
@@ -77,7 +77,7 @@
             </tr>
             <tr>
                 <td class="label">Monthly Contribution</td>
-                <td class="value">SAR {{ number_format($member->monthly_contribution_amount) }}</td>
+                <td class="value">{{ __('SAR') }} {{ number_format($member->monthly_contribution_amount) }}</td>
                 <td class="label">Tenure</td>
                 <td class="value">{{ $joinedMonths }} month{{ $joinedMonths === 1 ? '' : 's' }}</td>
             </tr>
@@ -91,21 +91,21 @@
 
         <div class="stats-row">
             <div class="stat-cell">
-                <div class="stat-val">SAR {{ number_format($member->fund_balance ?? 0) }}</div>
+                <div class="stat-val">{{ __('SAR') }} {{ number_format($member->fund_balance ?? 0) }}</div>
                 <div class="stat-lbl">Fund Balance</div>
             </div>
             <div class="stat-cell">
-                <div class="stat-val">SAR {{ number_format($totalContributions) }}</div>
+                <div class="stat-val">{{ __('SAR') }} {{ number_format($totalContributions) }}</div>
                 <div class="stat-lbl">Total Contributed</div>
             </div>
             <div class="stat-cell">
-                <div class="stat-val">SAR {{ number_format($member->cash_balance ?? 0) }}</div>
+                <div class="stat-val">{{ __('SAR') }} {{ number_format($member->cash_balance ?? 0) }}</div>
                 <div class="stat-lbl">Cash Balance</div>
             </div>
         </div>
 
         <p class="body-text">
-            This certificate confirms the membership of the above-named individual in the FundFlow Fund.<br>
+            This certificate confirms the membership of the above-named individual in the {{ app()->getLocale() === 'ar' ? 'فندفلو' : 'FundFlow' }} Fund.<br>
             This document is valid as of the date of issue shown below.
         </p>
 

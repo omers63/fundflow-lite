@@ -38,8 +38,8 @@ class AccountBalancesWidget extends Widget
         $nextContribAmount = (float) ($member->monthly_contribution_amount ?? 500);
         $nextDue = $nextInstallment ? (float) $nextInstallment->amount : $nextContribAmount;
         $nextDueLabel = $nextInstallment
-            ? 'installment due ' . $nextInstallment->due_date->format('d M')
-            : 'monthly contribution';
+            ? __('Installment due :date', ['date' => $nextInstallment->due_date->translatedFormat('d M')])
+            : __('Monthly contribution');
         $cashCovers = $cash >= $nextDue;
         $cashPct = $nextDue > 0 ? min(100, round($cash / $nextDue * 100)) : 100;
 
@@ -50,8 +50,8 @@ class AccountBalancesWidget extends Widget
             && $loanStart->copy()->addMonths($loanMonths)->isPast()
             && $fund >= $minFund;
         $eligibleDate = $loanStart !== null
-            ? $loanStart->copy()->addMonths($loanMonths)->format('d M Y')
-            : '—';
+            ? $loanStart->copy()->addMonths($loanMonths)->translatedFormat('d M Y')
+            : __('—');
 
         $monthlyAlloc = (float) ($member->monthly_contribution_amount ?? 500);
 

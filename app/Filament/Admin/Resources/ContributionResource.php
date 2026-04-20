@@ -177,15 +177,15 @@ class ContributionResource extends Resource
                         }, $filename, ['Content-Type' => 'text/csv']);
                     }),
                 Action::make('importContributions')
-                    ->label('Import Contributions')
+                    ->label(__('app.action.import_contributions'))
                     ->icon('heroicon-o-arrow-up-tray')
                     ->color('success')
                     ->visible(fn (): bool => static::canCreate())
-                    ->modalHeading('Import contributions from CSV')
+                    ->modalHeading(__('app.contribution.import.heading'))
                     ->modalDescription(new HtmlString(
                         '<div class="space-y-3 text-sm">' .
                             '<div class="rounded-lg border border-blue-200 bg-blue-50/80 p-3 text-xs dark:border-blue-500/30 dark:bg-blue-500/10">' .
-                                '<p class="font-semibold text-blue-900 dark:text-blue-200 mb-1">Need a starter file?</p>' .
+                                '<p class="font-semibold text-blue-900 dark:text-blue-200 mb-1">' . e(__('app.ui.need_starter_file')) . '</p>' .
                                 '<p class="text-blue-900/90 dark:text-blue-100/90">' .
                                     'Download a ready sample with common formats (numeric and month-name values): ' .
                                     '<a href="' . route('downloads.contribution-import-sample') . '" class="font-semibold text-blue-700 underline hover:text-blue-600 dark:text-blue-300 dark:hover:text-blue-200">contributions-import-sample-15.csv</a>' .
@@ -195,12 +195,12 @@ class ContributionResource extends Resource
                                 '<table class="w-full text-xs">' .
                                     '<tbody class="divide-y divide-gray-100 dark:divide-gray-800">' .
                                         '<tr>' .
-                                            '<td class="px-3 py-2 font-semibold text-gray-700 dark:text-gray-200 w-44 bg-gray-50 dark:bg-gray-900/30">CSV format</td>' .
-                                            '<td class="px-3 py-2 text-gray-600 dark:text-gray-300">First row must be headers.</td>' .
+                                            '<td class="px-3 py-2 font-semibold text-gray-700 dark:text-gray-200 w-44 bg-gray-50 dark:bg-gray-900/30">' . e(__('app.ui.csv_format')) . '</td>' .
+                                            '<td class="px-3 py-2 text-gray-600 dark:text-gray-300">' . e(__('app.ui.first_row_headers')) . '</td>' .
                                         '</tr>' .
                                         '<tr>' .
-                                            '<td class="px-3 py-2 font-semibold text-gray-700 dark:text-gray-200 bg-gray-50 dark:bg-gray-900/30">Member identifier</td>' .
-                                            '<td class="px-3 py-2 text-gray-600 dark:text-gray-300">Provide one of <code>member_id</code>, <code>member_number</code>, <code>national_id</code>, or <code>member_name</code> (or <code>name</code>) per row. If names are duplicated, use ID/number/national ID instead.</td>' .
+                                            '<td class="px-3 py-2 font-semibold text-gray-700 dark:text-gray-200 bg-gray-50 dark:bg-gray-900/30">' . e(__('app.ui.member_identifier')) . '</td>' .
+                                            '<td class="px-3 py-2 text-gray-600 dark:text-gray-300">' . e(__('app.contribution.import.member_identifier_help')) . '</td>' .
                                         '</tr>' .
                                         '<tr>' .
                                             '<td class="px-3 py-2 font-semibold text-gray-700 dark:text-gray-200 bg-gray-50 dark:bg-gray-900/30">Required fields</td>' .
@@ -257,7 +257,7 @@ class ContributionResource extends Resource
                         }
 
                         Notification::make()
-                            ->title('Contribution import finished')
+                            ->title(__('app.contribution.import.finished'))
                             ->body($body)
                             ->color($result['failed'] > 0 || $result['errors'] !== [] ? 'warning' : 'success')
                             ->persistent()
@@ -266,7 +266,7 @@ class ContributionResource extends Resource
                         static::dispatchContributionStatsRefresh($livewire);
                     }),
                 CreateAction::make()
-                    ->label('New Contribution')
+                    ->label(__('app.action.new').' '.__('app.resource.contribution'))
                     ->icon('heroicon-o-plus-circle')
                     ->modalWidth('2xl')
                     ->createAnother(false)

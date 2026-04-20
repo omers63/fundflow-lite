@@ -20,10 +20,10 @@
             <div class="pl-2">
                 <div class="flex items-center gap-1.5 mb-2">
                     <x-heroicon-o-clock class="w-4 h-4 {{ $d['pending'] > 0 ? 'text-amber-500' : 'text-gray-400' }}" />
-                    <p class="text-xs font-semibold uppercase tracking-wide text-gray-500 dark:text-gray-400">Pending Review</p>
+                    <p class="text-xs font-semibold uppercase tracking-wide text-gray-500 dark:text-gray-400">{{ __('Pending Review') }}</p>
                 </div>
                 <p class="text-2xl font-bold {{ $d['pending'] > 0 ? 'text-amber-600 dark:text-amber-400' : 'text-gray-900 dark:text-white' }}">{{ $d['pending'] }}</p>
-                <p class="mt-0.5 text-xs text-gray-400">Awaiting decision</p>
+                <p class="mt-0.5 text-xs text-gray-400">{{ __('Awaiting decision') }}</p>
             </div>
         </div>
 
@@ -33,10 +33,10 @@
             <div class="pl-2">
                 <div class="flex items-center gap-1.5 mb-2">
                     <x-heroicon-o-check-circle class="w-4 h-4 text-emerald-500" />
-                    <p class="text-xs font-semibold uppercase tracking-wide text-gray-500 dark:text-gray-400">Approved</p>
+                    <p class="text-xs font-semibold uppercase tracking-wide text-gray-500 dark:text-gray-400">{{ __('Approved') }}</p>
                 </div>
                 <p class="text-2xl font-bold text-emerald-600 dark:text-emerald-400">{{ $d['approved'] }}</p>
-                <p class="mt-0.5 text-xs text-gray-400">{{ $d['approved_this_month'] }} this month</p>
+                <p class="mt-0.5 text-xs text-gray-400">{{ __(':count this month', ['count' => $d['approved_this_month']]) }}</p>
             </div>
         </div>
 
@@ -46,10 +46,10 @@
             <div class="pl-2">
                 <div class="flex items-center gap-1.5 mb-2">
                     <x-heroicon-o-x-circle class="w-4 h-4 {{ $d['rejected'] > 0 ? 'text-red-500' : 'text-gray-400' }}" />
-                    <p class="text-xs font-semibold uppercase tracking-wide text-gray-500 dark:text-gray-400">Rejected</p>
+                    <p class="text-xs font-semibold uppercase tracking-wide text-gray-500 dark:text-gray-400">{{ __('Rejected') }}</p>
                 </div>
                 <p class="text-2xl font-bold {{ $d['rejected'] > 0 ? 'text-red-600 dark:text-red-400' : 'text-gray-900 dark:text-white' }}">{{ $d['rejected'] }}</p>
-                <p class="mt-0.5 text-xs text-gray-400">{{ $d['rejected_this_month'] }} this month</p>
+                <p class="mt-0.5 text-xs text-gray-400">{{ __(':count this month', ['count' => $d['rejected_this_month']]) }}</p>
             </div>
         </div>
 
@@ -59,7 +59,7 @@
             <div class="pl-2">
                 <div class="flex items-center gap-1.5 mb-2">
                     <x-heroicon-o-plus-circle class="w-4 h-4 text-indigo-500" />
-                    <p class="text-xs font-semibold uppercase tracking-wide text-gray-500 dark:text-gray-400">New This Month</p>
+                    <p class="text-xs font-semibold uppercase tracking-wide text-gray-500 dark:text-gray-400">{{ __('New This Month') }}</p>
                 </div>
                 <p class="text-2xl font-bold text-gray-900 dark:text-white">{{ $d['new_this_month'] }}</p>
                 <p class="mt-0.5 text-xs text-gray-400">{{ now()->format('F Y') }}</p>
@@ -72,10 +72,10 @@
             <div class="pl-2">
                 <div class="flex items-center gap-1.5 mb-2">
                     <x-heroicon-o-arrow-path class="w-4 h-4 text-teal-500" />
-                    <p class="text-xs font-semibold uppercase tracking-wide text-gray-500 dark:text-gray-400">Avg. Review Time</p>
+                    <p class="text-xs font-semibold uppercase tracking-wide text-gray-500 dark:text-gray-400">{{ __('Avg. Review Time') }}</p>
                 </div>
-                <p class="text-2xl font-bold text-gray-900 dark:text-white">{{ $d['avg_review_days'] }}<span class="text-sm font-normal text-gray-400 ml-1">days</span></p>
-                <p class="mt-0.5 text-xs text-gray-400">From submission to decision</p>
+                <p class="text-2xl font-bold text-gray-900 dark:text-white">{{ $d['avg_review_days'] }}<span class="text-sm font-normal text-gray-400 ml-1">{{ __('days') }}</span></p>
+                <p class="mt-0.5 text-xs text-gray-400">{{ __('From submission to decision') }}</p>
             </div>
         </div>
 
@@ -88,7 +88,7 @@
         <div class="rounded-xl border border-gray-200 bg-white shadow-sm overflow-hidden dark:border-gray-700 dark:bg-gray-800">
             <div class="flex items-center gap-2 px-5 py-3 border-b border-gray-100 dark:border-gray-700 bg-gray-50 dark:bg-gray-800/70">
                 <x-heroicon-o-exclamation-triangle class="w-4 h-4 text-amber-500" />
-                <h4 class="text-xs font-semibold uppercase tracking-wide text-gray-500 dark:text-gray-400">Oldest Pending — Need Attention</h4>
+                <h4 class="text-xs font-semibold uppercase tracking-wide text-gray-500 dark:text-gray-400">{{ __('Oldest Pending — Need Attention') }}</h4>
             </div>
             <div class="divide-y divide-gray-100 dark:divide-gray-700">
                 @forelse($d['recent_pending'] as $app)
@@ -103,7 +103,7 @@
                     <div class="text-right flex-shrink-0">
                         <span class="inline-flex items-center px-2 py-0.5 rounded text-xs font-medium
                             {{ $app['days_ago'] > 7 ? 'bg-red-100 text-red-700 dark:bg-red-900/30 dark:text-red-400' : 'bg-amber-100 text-amber-700 dark:bg-amber-900/30 dark:text-amber-400' }}">
-                            {{ $app['days_ago'] }}d waiting
+                            {{ __(':days d waiting', ['days' => $app['days_ago']]) }}
                         </span>
                         <p class="text-xs text-gray-400 mt-0.5 capitalize">{{ $app['type'] }}</p>
                     </div>
@@ -111,7 +111,7 @@
                 @empty
                 <div class="px-5 py-6 text-center">
                     <x-heroicon-o-check-circle class="mx-auto w-8 h-8 text-emerald-400 mb-1" />
-                    <p class="text-sm text-gray-400">No pending applications — all clear!</p>
+                    <p class="text-sm text-gray-400">{{ __('No pending applications — all clear!') }}</p>
                 </div>
                 @endforelse
             </div>
@@ -121,7 +121,7 @@
         <div class="rounded-xl border border-gray-200 bg-white shadow-sm overflow-hidden dark:border-gray-700 dark:bg-gray-800">
             <div class="flex items-center gap-2 px-5 py-3 border-b border-gray-100 dark:border-gray-700 bg-gray-50 dark:bg-gray-800/70">
                 <x-heroicon-o-arrow-trending-up class="w-4 h-4 text-gray-400" />
-                <h4 class="text-xs font-semibold uppercase tracking-wide text-gray-500 dark:text-gray-400">6-Month Application Volume</h4>
+                <h4 class="text-xs font-semibold uppercase tracking-wide text-gray-500 dark:text-gray-400">{{ __('6-Month Application Volume') }}</h4>
             </div>
             <div class="px-5 py-4">
                 @php $maxTotal = max(1, collect($d['trend'])->max('total')); @endphp
@@ -147,9 +147,9 @@
                     @endforeach
                 </div>
                 <div class="mt-2 flex gap-4 text-xs text-gray-400">
-                    <span class="flex items-center gap-1"><span class="w-2 h-2 rounded-full bg-emerald-500 inline-block"></span>Approved</span>
-                    <span class="flex items-center gap-1"><span class="w-2 h-2 rounded-full bg-red-500 inline-block"></span>Rejected</span>
-                    <span class="flex items-center gap-1"><span class="w-2 h-2 rounded-full bg-indigo-500 inline-block"></span>Total</span>
+                    <span class="flex items-center gap-1"><span class="w-2 h-2 rounded-full bg-emerald-500 inline-block"></span>{{ __('Approved') }}</span>
+                    <span class="flex items-center gap-1"><span class="w-2 h-2 rounded-full bg-red-500 inline-block"></span>{{ __('Rejected') }}</span>
+                    <span class="flex items-center gap-1"><span class="w-2 h-2 rounded-full bg-indigo-500 inline-block"></span>{{ __('Total') }}</span>
                 </div>
             </div>
         </div>

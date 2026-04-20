@@ -21,6 +21,7 @@ class User extends Authenticatable implements FilamentUser
         'phone',
         'role',
         'status',
+        'preferred_locale',
         'password',
     ];
 

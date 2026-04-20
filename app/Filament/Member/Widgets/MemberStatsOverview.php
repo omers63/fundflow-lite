@@ -65,7 +65,7 @@ class MemberStatsOverview extends Widget
         return [
             'hasMember' => true,
             'member_number' => $member->member_number,
-            'joined_at' => $member->joined_at?->format('d M Y') ?? '—',
+            'joined_at' => $member->joined_at?->locale(app()->getLocale())->translatedFormat('d M Y') ?? '—',
             'total_contributions' => $totalContributions,
             'contrib_count' => $contribCount,
             'compliance_rate' => $complianceRate,

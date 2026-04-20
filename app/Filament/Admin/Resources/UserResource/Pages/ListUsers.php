@@ -52,6 +52,6 @@ class ListUsers extends ListRecords
 
     public function getSubheading(): ?string
     {
-        return 'Manage login accounts, approval status, and Spatie roles (Shield permissions). You cannot delete your own account from this list.';
+        return __('Manage login accounts, approval status, and Spatie roles (Shield permissions). You cannot delete your own account from this list.');
     }
 }

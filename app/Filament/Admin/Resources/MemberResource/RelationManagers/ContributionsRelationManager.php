@@ -27,6 +27,11 @@ class ContributionsRelationManager extends RelationManager
 
     protected static ?string $title = 'Contributions';
 
+    public static function getTitle(\Illuminate\Database\Eloquent\Model $ownerRecord, string $pageClass): string
+    {
+        return __('Contributions');
+    }
+
     /**
      * Allow view/edit/delete on member View pages even when the panel defaults
      * to read-only relation managers.
@@ -56,15 +61,15 @@ class ContributionsRelationManager extends RelationManager
                     ->toggleable(),
                 Tables\Columns\TextColumn::make('amount')->money('SAR')->toggleable(),
                 Tables\Columns\BadgeColumn::make('payment_method')
-                    ->label('Source')
+                    ->label(__('Source'))
                     ->formatStateUsing(fn (?string $state): string => Contribution::paymentMethodLabel($state))
                     ->toggleable(),
                 Tables\Columns\TextColumn::make('reference_number')->placeholder('—')->toggleable(),
-                Tables\Columns\TextColumn::make('paid_at')->label('Paid On')
+                Tables\Columns\TextColumn::make('paid_at')->label(__('Paid On'))
                     ->dateTime('d M Y')->sortable()
                     ->toggleable(),
                 Tables\Columns\IconColumn::make('is_late')
-                    ->label('Late')
+                    ->label(__('Late'))
                     ->boolean()
                     ->trueIcon('heroicon-o-exclamation-triangle')
                     ->falseIcon('heroicon-o-check-circle')
@@ -80,16 +85,16 @@ class ContributionsRelationManager extends RelationManager
                     ->schema([Forms\Components\TextInput::make('year')->numeric()->default(now()->year)])
                     ->query(fn ($query, $data) => ($data['year'] ?? null) ? $query->where('year', $data['year']) : $query),
                 Tables\Filters\SelectFilter::make('payment_method')
-                    ->label('Source')
+                    ->label(__('Source'))
                     ->options(fn (): array => Contribution::paymentMethodOptions()),
                 Tables\Filters\TernaryFilter::make('is_late')
-                    ->label('Late payment')
-                    ->trueLabel('Late only')
-                    ->falseLabel('On-time only'),
+                    ->label(__('Late payment'))
+                    ->trueLabel(__('Late only'))
+                    ->falseLabel(__('On-time only')),
                 Tables\Filters\Filter::make('paid_at')
                     ->schema([
-                        Forms\Components\DatePicker::make('paid_from')->label('Paid from'),
-                        Forms\Components\DatePicker::make('paid_until')->label('Paid until'),
+                        Forms\Components\DatePicker::make('paid_from')->label(__('Paid from')),
+                        Forms\Components\DatePicker::make('paid_until')->label(__('Paid until')),
                     ])
                     ->columns(2)
                     ->query(function ($query, array $data) {
@@ -99,8 +104,8 @@ class ContributionsRelationManager extends RelationManager
                     }),
                 Tables\Filters\Filter::make('amount')
                     ->schema([
-                        Forms\Components\TextInput::make('amount_min')->label('Min amount (SAR)')->numeric(),
-                        Forms\Components\TextInput::make('amount_max')->label('Max amount (SAR)')->numeric(),
+                        Forms\Components\TextInput::make('amount_min')->label(__('Min amount (SAR)'))->numeric(),
+                        Forms\Components\TextInput::make('amount_max')->label(__('Max amount (SAR)'))->numeric(),
                     ])
                     ->columns(2)
                     ->query(function ($query, array $data) {
@@ -119,7 +124,7 @@ class ContributionsRelationManager extends RelationManager
                             MemberResource::dispatchMemberRecordHeaderWidgetsRefresh($livewire);
                         }),
                     DeleteAction::make()
-                        ->modalDescription('Soft-deletes this contribution and reverses its fund ledger postings (master + member fund). Restoring re-posts the contribution to the ledger.')
+                        ->modalDescription(__('Soft-deletes this contribution and reverses its fund ledger postings (master + member fund). Restoring re-posts the contribution to the ledger.'))
                         ->after(function (Component $livewire): void {
                             MemberResource::dispatchMemberRecordHeaderWidgetsRefresh($livewire);
                         }),

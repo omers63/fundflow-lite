@@ -23,6 +23,11 @@ class SystemSettingsPage extends Page
 
     protected static ?int $navigationSort = 0;
 
+    public static function getNavigationLabel(): string
+    {
+        return __('System Settings');
+    }
+
     /** @var 'loans'|'contribution-cycles'|'public-membership'|'statements'|'communication'|'roles' */
     #[Url]
     public string $activeTab = 'loans';
@@ -100,14 +105,14 @@ class SystemSettingsPage extends Page
 
     public function getTitle(): string
     {
-        return 'System settings';
+        return __('System settings');
     }
 
     public function getHeaderActions(): array
     {
         return [
             Action::make('save_loan_settings')
-                ->label('Save loan settings')
+                ->label(__('Save loan settings'))
                 ->icon('heroicon-o-check')
                 ->color('primary')
                 ->visible(fn (): bool => $this->activeTab === 'loans' && $this->loanSubTab === 'loan-rules')
@@ -119,26 +124,26 @@ class SystemSettingsPage extends Page
                     'default_grace_cycles' => Setting::loanDefaultGraceCycles(),
                 ])
                 ->schema([
-                    Section::make('Eligibility Rules')->schema([
+                    Section::make(__('Eligibility Rules'))->schema([
                         Forms\Components\TextInput::make('eligibility_months')
-                            ->label('Membership duration before eligible (months)')
+                            ->label(__('Membership duration before eligible (months)'))
                             ->numeric()->required()->minValue(1)->default(12),
                         Forms\Components\TextInput::make('min_fund_balance')
-                            ->label('Minimum fund account balance (SAR)')
+                            ->label(__('Minimum fund account balance (SAR)'))
                             ->numeric()->prefix('SAR')->required()->minValue(0)->default(6000),
                         Forms\Components\TextInput::make('max_borrow_multiplier')
-                            ->label('Max loan = N × fund balance')
+                            ->label(__('Max loan = N × fund balance'))
                             ->numeric()->required()->minValue(1)->maxValue(10)->default(2),
                     ])->columns(3),
-                    Section::make('Repayment Rules')->schema([
+                    Section::make(__('Repayment Rules'))->schema([
                         Forms\Components\TextInput::make('settlement_threshold_pct')
-                            ->label('Settlement Threshold (% of loan)')
+                            ->label(__('Settlement Threshold (% of loan)'))
                             ->numeric()->suffix('%')->required()->minValue(0)->maxValue(100)->default(16)
-                            ->helperText('Loan is settled when master fund is repaid AND member fund reaches this % of the loan amount.'),
+                            ->helperText(__('Loan is settled when master fund is repaid AND member fund reaches this % of the loan amount.')),
                         Forms\Components\TextInput::make('default_grace_cycles')
-                            ->label('Grace cycles before guarantor is debited')
+                            ->label(__('Grace cycles before guarantor is debited'))
                             ->numeric()->required()->minValue(1)->default(2)
-                            ->helperText('Missed cycles before warning period ends and guarantor becomes liable.'),
+                            ->helperText(__('Missed cycles before warning period ends and guarantor becomes liable.')),
                     ])->columns(2),
                 ])
                 ->action(function (array $data): void {
@@ -148,10 +153,10 @@ class SystemSettingsPage extends Page
                     Setting::set('loan.max_borrow_multiplier', $data['max_borrow_multiplier']);
                     Setting::set('loan.default_grace_cycles', $data['default_grace_cycles']);
 
-                    Notification::make()->title('Loan settings saved.')->success()->send();
+                    Notification::make()->title(__('Loan settings saved.'))->success()->send();
                 }),
             Action::make('save_cycle_settings')
-                ->label('Save cycle settings')
+                ->label(__('Save cycle settings'))
                 ->icon('heroicon-o-check')
                 ->color('primary')
                 ->visible(fn (): bool => $this->activeTab === 'contribution-cycles')
@@ -170,81 +175,81 @@ class SystemSettingsPage extends Page
                     'late_fee_repayment_30d' => Setting::lateFeeRepaymentTier(30),
                 ])
                 ->schema([
-                    Section::make('Cycle boundaries')
+                    Section::make(__('Cycle boundaries'))
                         ->description(
-                            'Each cycle is named by a calendar month and starts on the chosen day, ending the day before the same day next month.'
+                            __('Each cycle is named by a calendar month and starts on the chosen day, ending the day before the same day next month.')
                         )
                         ->schema([
                             Forms\Components\TextInput::make('cycle_start_day')
-                                ->label('Cycle start day (day of month)')
+                                ->label(__('Cycle start day (day of month)'))
                                 ->numeric()
                                 ->required()
                                 ->minValue(1)
                                 ->maxValue(28)
                                 ->default(6)
-                                ->helperText('Example: 6 means June cycle runs 6 Jun through 5 Jul. Limited to 28 for February consistency.'),
+                                ->helperText(__('Example: 6 means June cycle runs 6 Jun through 5 Jul. Limited to 28 for February consistency.')),
                         ]),
-                    Section::make('Delinquency policy')
+                    Section::make(__('Delinquency policy'))
                         ->description(
-                            'Daily job `fund:check-delinquency` evaluates missed monthly contributions (when due) and unpaid loan installments for active loans. '.
-                            'Breaching either threshold suspends the member (member portal blocked) and shifts active loan repayment collection to the guarantor until restored.'
+                            __('Daily job `fund:check-delinquency` evaluates missed monthly contributions (when due) and unpaid loan installments for active loans. ').
+                            __('Breaching either threshold suspends the member (member portal blocked) and shifts active loan repayment collection to the guarantor until restored.')
                         )
                         ->schema([
                             Forms\Components\TextInput::make('delinquency_consecutive')
-                                ->label('Consecutive missed cycles')
+                                ->label(__('Consecutive missed cycles'))
                                 ->numeric()
                                 ->required()
                                 ->minValue(1)
                                 ->maxValue(36)
                                 ->default(3)
-                                ->helperText('Trailing streak of closed months where any required contribution or repayment was still missed.'),
+                                ->helperText(__('Trailing streak of closed months where any required contribution or repayment was still missed.')),
                             Forms\Components\TextInput::make('delinquency_total')
-                                ->label('Total misses (rolling window)')
+                                ->label(__('Total misses (rolling window)'))
                                 ->numeric()
                                 ->required()
                                 ->minValue(1)
                                 ->maxValue(240)
                                 ->default(15)
-                                ->helperText('Count of missed months within the lookback window below (spread-out misses).'),
+                                ->helperText(__('Count of missed months within the lookback window below (spread-out misses).')),
                             Forms\Components\TextInput::make('delinquency_lookback_months')
-                                ->label('Rolling window (months)')
+                                ->label(__('Rolling window (months)'))
                                 ->numeric()
                                 ->required()
                                 ->minValue(1)
                                 ->maxValue(240)
                                 ->default(60)
-                                ->helperText('How far back to count toward the total-miss threshold.'),
+                                ->helperText(__('How far back to count toward the total-miss threshold.')),
                         ])->columns(3),
-                    Section::make('Late fees (tiered by days after due)')
+                    Section::make(__('Late fees (tiered by days after due)'))
                         ->description(
-                            'Due is the end of the contribution/repayment cycle for that month. Calendar days after that are counted; '.
-                            'the highest tier reached (30+ ≥ 20+ ≥ 10+ ≥ 1+) with a non-zero SAR amount applies — if a tier is 0, the next lower tier is used. '.
-                            'Cash-account debits bundle principal and late fee; late fees credit master cash only (not master fund).'
+                            __('Due is the end of the contribution/repayment cycle for that month. Calendar days after that are counted; ').
+                            __('the highest tier reached (30+ ≥ 20+ ≥ 10+ ≥ 1+) with a non-zero SAR amount applies — if a tier is 0, the next lower tier is used. ').
+                            __('Cash-account debits bundle principal and late fee; late fees credit master cash only (not master fund).')
                         )
                         ->schema([
                             Forms\Components\TextInput::make('late_fee_contribution_1d')
-                                ->label('Contribution — 1+ days late (SAR)')
+                                ->label(__('Contribution — 1+ days late (SAR)'))
                                 ->numeric()->prefix('SAR')->required()->minValue(0)->default(0),
                             Forms\Components\TextInput::make('late_fee_contribution_10d')
-                                ->label('Contribution — 10+ days late (SAR)')
+                                ->label(__('Contribution — 10+ days late (SAR)'))
                                 ->numeric()->prefix('SAR')->required()->minValue(0)->default(0),
                             Forms\Components\TextInput::make('late_fee_contribution_20d')
-                                ->label('Contribution — 20+ days late (SAR)')
+                                ->label(__('Contribution — 20+ days late (SAR)'))
                                 ->numeric()->prefix('SAR')->required()->minValue(0)->default(0),
                             Forms\Components\TextInput::make('late_fee_contribution_30d')
-                                ->label('Contribution — 30+ days late (SAR)')
+                                ->label(__('Contribution — 30+ days late (SAR)'))
                                 ->numeric()->prefix('SAR')->required()->minValue(0)->default(0),
                             Forms\Components\TextInput::make('late_fee_repayment_1d')
-                                ->label('Repayment — 1+ days late (SAR)')
+                                ->label(__('Repayment — 1+ days late (SAR)'))
                                 ->numeric()->prefix('SAR')->required()->minValue(0)->default(0),
                             Forms\Components\TextInput::make('late_fee_repayment_10d')
-                                ->label('Repayment — 10+ days late (SAR)')
+                                ->label(__('Repayment — 10+ days late (SAR)'))
                                 ->numeric()->prefix('SAR')->required()->minValue(0)->default(0),
                             Forms\Components\TextInput::make('late_fee_repayment_20d')
-                                ->label('Repayment — 20+ days late (SAR)')
+                                ->label(__('Repayment — 20+ days late (SAR)'))
                                 ->numeric()->prefix('SAR')->required()->minValue(0)->default(0),
                             Forms\Components\TextInput::make('late_fee_repayment_30d')
-                                ->label('Repayment — 30+ days late (SAR)')
+                                ->label(__('Repayment — 30+ days late (SAR)'))
                                 ->numeric()->prefix('SAR')->required()->minValue(0)->default(0),
                         ])->columns(3),
                 ])
@@ -263,12 +268,12 @@ class SystemSettingsPage extends Page
                     Setting::set('late_fee.repayment_day_30', max(0, (float) $data['late_fee_repayment_30d']));
 
                     Notification::make()
-                        ->title('Cycle settings saved')
+                        ->title(__('Cycle settings saved'))
                         ->success()
                         ->send();
                 }),
             Action::make('save_statement_settings')
-                ->label('Save statement settings')
+                ->label(__('Save statement settings'))
                 ->icon('heroicon-o-check')
                 ->color('primary')
                 ->visible(fn (): bool => $this->activeTab === 'statements')
@@ -284,52 +289,52 @@ class SystemSettingsPage extends Page
                     'include_compliance' => Setting::statementIncludeCompliance(),
                 ])
                 ->schema([
-                    Section::make('Branding')
-                        ->description('These values appear on every generated PDF statement.')
+                    Section::make(__('Branding'))
+                        ->description(__('These values appear on every generated PDF statement.'))
                         ->schema([
                             Forms\Components\TextInput::make('brand_name')
-                                ->label('Organization Name')
+                                ->label(__('Organization Name'))
                                 ->required()
                                 ->maxLength(80)
-                                ->helperText('Printed at the top of every statement.'),
+                                ->helperText(__('Printed at the top of every statement.')),
                             Forms\Components\TextInput::make('tagline')
-                                ->label('Tagline / Sub-brand')
+                                ->label(__('Tagline / Sub-brand'))
                                 ->maxLength(120)
-                                ->helperText('Small text under the organization name.'),
+                                ->helperText(__('Small text under the organization name.')),
                             Forms\Components\TextInput::make('accent_color')
-                                ->label('Header Accent Color (hex)')
+                                ->label(__('Header Accent Color (hex)'))
                                 ->required()
                                 ->maxLength(7)
                                 ->placeholder('#059669')
-                                ->helperText('Must be a valid 6-digit hex code, e.g. #059669 (green), #1d4ed8 (blue), #7c3aed (purple).'),
+                                ->helperText(__('Must be a valid 6-digit hex code, e.g. #059669 (green), #1d4ed8 (blue), #7c3aed (purple).')),
                         ])->columns(3),
-                    Section::make('Footer & Signature')
+                    Section::make(__('Footer & Signature'))
                         ->schema([
                             Forms\Components\Textarea::make('footer_disclaimer')
-                                ->label('Footer Disclaimer')
+                                ->label(__('Footer Disclaimer'))
                                 ->rows(2)
                                 ->columnSpanFull()
-                                ->helperText('Printed at the bottom of every PDF, e.g. "Confidential — for named member only."'),
+                                ->helperText(__('Printed at the bottom of every PDF, e.g. "Confidential — for named member only."')),
                             Forms\Components\TextInput::make('signature_line')
-                                ->label('Authorized Signature Line')
+                                ->label(__('Authorized Signature Line'))
                                 ->maxLength(100)
-                                ->helperText('Appears in the signature block of the PDF.'),
+                                ->helperText(__('Appears in the signature block of the PDF.')),
                         ]),
-                    Section::make('Delivery & Content')
-                        ->description('Control what is included in each generated PDF and how members are notified.')
+                    Section::make(__('Delivery & Content'))
+                        ->description(__('Control what is included in each generated PDF and how members are notified.'))
                         ->schema([
                             Forms\Components\Toggle::make('auto_email')
-                                ->label('Auto-email members on generation')
-                                ->helperText('When enabled, each member receives an email with the statement PDF attached when statements are generated.'),
+                                ->label(__('Auto-email members on generation'))
+                                ->helperText(__('When enabled, each member receives an email with the statement PDF attached when statements are generated.')),
                             Forms\Components\Toggle::make('include_transactions')
-                                ->label('Include account transaction detail table')
-                                ->helperText('Shows every credit/debit on the member\'s accounts for the period.'),
+                                ->label(__('Include account transaction detail table'))
+                                ->helperText(__('Shows every credit/debit on the member\'s accounts for the period.')),
                             Forms\Components\Toggle::make('include_loan_section')
-                                ->label('Include loan standing section')
-                                ->helperText('Shows active loan balance, installment progress, and overdue alerts.'),
+                                ->label(__('Include loan standing section'))
+                                ->helperText(__('Shows active loan balance, installment progress, and overdue alerts.')),
                             Forms\Components\Toggle::make('include_compliance')
-                                ->label('Include compliance snapshot')
-                                ->helperText('Shows compliance score, late contribution/repayment counts.'),
+                                ->label(__('Include compliance snapshot'))
+                                ->helperText(__('Shows compliance score, late contribution/repayment counts.')),
                         ])->columns(2),
                 ])
                 ->action(function (array $data): void {
@@ -348,13 +353,13 @@ class SystemSettingsPage extends Page
                     Setting::set('statement.include_compliance', $data['include_compliance'] ? '1' : '0');
 
                     Notification::make()
-                        ->title('Statement settings saved')
+                        ->title(__('Statement settings saved'))
                         ->success()
                         ->send();
                 }),
 
             Action::make('save_public_membership_settings')
-                ->label('Save public membership settings')
+                ->label(__('Save public membership settings'))
                 ->icon('heroicon-o-check')
                 ->color('primary')
                 ->visible(fn (): bool => $this->activeTab === 'public-membership')
@@ -366,46 +371,46 @@ class SystemSettingsPage extends Page
                     'membership_application_fee_bank_instructions' => Setting::membershipApplicationFeeBankInstructions(),
                 ])
                 ->schema([
-                    Section::make('Application capacity')
-                        ->description('Controls the public application page at /apply. Existing member login is unchanged.')
+                    Section::make(__('Application capacity'))
+                        ->description(__('Controls the public application page at /apply. Existing member login is unchanged.'))
                         ->schema([
                             Forms\Components\TextInput::make('max_pending_public')
-                                ->label('Maximum applications (public apply)')
+                                ->label(__('Maximum applications (public apply)'))
                                 ->numeric()
                                 ->minValue(0)
                                 ->required()
                                 ->default(0)
-                                ->helperText('Counts all application rows. Use 0 for no limit.'),
+                                ->helperText(__('Counts all application rows. Use 0 for no limit.')),
                         ]),
-                    Section::make('Membership application fees')
+                    Section::make(__('Membership application fees'))
                         ->description(
-                            'Set a separate fee for each application type. When at least one fee is greater than zero, /apply adds a final payment step (after identity, employment, and document upload): applicants transfer to your bank and submit a reference for the fee that matches their chosen type, then submit the application. '.
-                            'On successful submission, that amount is credited to the master cash account only (not the master fund). Reconcile with your bank to avoid double-counting if you also import the same deposit.'
+                            __('Set a separate fee for each application type. When at least one fee is greater than zero, /apply adds a final payment step (after identity, employment, and document upload): applicants transfer to your bank and submit a reference for the fee that matches their chosen type, then submit the application. ').
+                            __('On successful submission, that amount is credited to the master cash account only (not the master fund). Reconcile with your bank to avoid double-counting if you also import the same deposit.')
                         )
                         ->schema([
                             Forms\Components\TextInput::make('membership_application_fee_new')
-                                ->label('New membership (SAR)')
+                                ->label(__('New membership (SAR)'))
                                 ->numeric()
                                 ->minValue(0)
                                 ->required()
                                 ->default(0),
                             Forms\Components\TextInput::make('membership_application_fee_resume')
-                                ->label('Resume membership (SAR)')
+                                ->label(__('Resume membership (SAR)'))
                                 ->numeric()
                                 ->minValue(0)
                                 ->required()
                                 ->default(0),
                             Forms\Components\TextInput::make('membership_application_fee_renew')
-                                ->label('Renew membership (SAR)')
+                                ->label(__('Renew membership (SAR)'))
                                 ->numeric()
                                 ->minValue(0)
                                 ->required()
                                 ->default(0),
                             Forms\Components\Textarea::make('membership_application_fee_bank_instructions')
-                                ->label('Bank transfer instructions')
+                                ->label(__('Bank transfer instructions'))
                                 ->rows(6)
                                 ->columnSpanFull()
-                                ->helperText('Shown on the application form (plain text; line breaks preserved). Include IBAN, account name, and bank name.'),
+                                ->helperText(__('Shown on the application form (plain text; line breaks preserved). Include IBAN, account name, and bank name.')),
                         ])
                         ->columns(3),
                 ])
@@ -422,13 +427,13 @@ class SystemSettingsPage extends Page
                     Setting::set('membership.application_fee_amount', max($feeNew, $feeResume, $feeRenew));
 
                     Notification::make()
-                        ->title('Public membership settings saved')
+                        ->title(__('Public membership settings saved'))
                         ->success()
                         ->send();
                 }),
 
             Action::make('save_communication_settings')
-                ->label('Save communication settings')
+                ->label(__('Save communication settings'))
                 ->icon('heroicon-o-check')
                 ->color('primary')
                 ->visible(fn (): bool => $this->activeTab === 'communication')
@@ -439,31 +444,31 @@ class SystemSettingsPage extends Page
                     'channel_whatsapp' => Setting::commChannelEnabled('whatsapp'),
                 ])
                 ->schema([
-                    Section::make('Communication Channels')
+                    Section::make(__('Communication Channels'))
                         ->description(
-                            'Enable or disable each outbound communication channel system-wide. '.
-                            'When a channel is disabled, no notifications of any type will be sent through it, '.
-                            'regardless of individual member preferences.'
+                            __('Enable or disable each outbound communication channel system-wide. ').
+                            __('When a channel is disabled, no notifications of any type will be sent through it, ').
+                            __('regardless of individual member preferences.')
                         )
                         ->schema([
                             Forms\Components\Toggle::make('channel_in_app')
-                                ->label('In-App Inbox')
-                                ->helperText('Shows notifications inside the member portal. Disabling this silences all in-app alerts — use with caution.')
+                                ->label(__('In-App Inbox'))
+                                ->helperText(__('Shows notifications inside the member portal. Disabling this silences all in-app alerts — use with caution.'))
                                 ->onColor('success')
                                 ->offColor('danger'),
                             Forms\Components\Toggle::make('channel_email')
-                                ->label('Email')
-                                ->helperText('Sends emails via the configured SMTP/mail driver (MAIL_* environment variables).')
+                                ->label(__('Email'))
+                                ->helperText(__('Sends emails via the configured SMTP/mail driver (MAIL_* environment variables).'))
                                 ->onColor('success')
                                 ->offColor('danger'),
                             Forms\Components\Toggle::make('channel_sms')
-                                ->label('SMS')
-                                ->helperText('Sends SMS messages via Twilio (TWILIO_* environment variables must be set).')
+                                ->label(__('SMS'))
+                                ->helperText(__('Sends SMS messages via Twilio (TWILIO_* environment variables must be set).'))
                                 ->onColor('success')
                                 ->offColor('danger'),
                             Forms\Components\Toggle::make('channel_whatsapp')
-                                ->label('WhatsApp')
-                                ->helperText('Sends WhatsApp messages via Twilio. Requires a verified WhatsApp sender number.')
+                                ->label(__('WhatsApp'))
+                                ->helperText(__('Sends WhatsApp messages via Twilio. Requires a verified WhatsApp sender number.'))
                                 ->onColor('success')
                                 ->offColor('danger'),
                         ])
@@ -476,7 +481,7 @@ class SystemSettingsPage extends Page
                     Setting::setCommChannel('whatsapp', (bool) $data['channel_whatsapp']);
 
                     Notification::make()
-                        ->title('Communication settings saved')
+                        ->title(__('Communication settings saved'))
                         ->success()
                         ->send();
                 }),

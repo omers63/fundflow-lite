@@ -26,6 +26,11 @@ class NotificationLogResource extends Resource
 
     protected static ?int $navigationSort = 5;
 
+    public static function getNavigationLabel(): string
+    {
+        return __('Notification Logs');
+    }
+
     public static function getNavigationGroup(): ?string
     {
         return __('app.nav.group.system');
@@ -49,17 +54,17 @@ class NotificationLogResource extends Resource
             ->query(NotificationLog::query()->with('user')->latest('sent_at'))
             ->columns([
                 Tables\Columns\TextColumn::make('user.name')
-                    ->label('Recipient')
+                    ->label(__('Recipient'))
                     ->searchable()
                     ->placeholder('—')
                     ->sortable(),
                 Tables\Columns\TextColumn::make('user.email')
-                    ->label('Email')
+                    ->label(__('Email'))
                     ->searchable()
                     ->placeholder('—')
                     ->toggleable(isToggledHiddenByDefault: true),
                 Tables\Columns\BadgeColumn::make('channel')
-                    ->label('Channel')
+                    ->label(__('Channel'))
                     ->colors([
                         'primary' => 'mail',
                         'info' => 'database',
@@ -67,14 +72,14 @@ class NotificationLogResource extends Resource
                         'warning' => 'whatsapp',
                     ])
                     ->formatStateUsing(fn (?string $state) => match ($state) {
-                        'mail' => 'Email',
-                        'database' => 'In-App',
-                        'twilio' => 'SMS',
-                        'whatsapp' => 'WhatsApp',
+                        'mail' => __('Email'),
+                        'database' => __('In-App'),
+                        'twilio' => __('SMS'),
+                        'whatsapp' => __('WhatsApp'),
                         default => $state ?? '—',
                     }),
                 Tables\Columns\TextColumn::make('subject')
-                    ->label('Subject')
+                    ->label(__('Subject'))
                     ->searchable()
                     ->limit(60)
                     ->tooltip(fn (NotificationLog $r) => $r->subject),
@@ -85,11 +90,11 @@ class NotificationLogResource extends Resource
                         'gray' => 'skipped',
                     ]),
                 Tables\Columns\TextColumn::make('sent_at')
-                    ->label('Sent At')
+                    ->label(__('Sent At'))
                     ->dateTime('d M Y H:i')
                     ->sortable(),
                 Tables\Columns\TextColumn::make('created_at')
-                    ->label('Logged At')
+                    ->label(__('Logged At'))
                     ->dateTime('d M Y H:i')
                     ->sortable()
                     ->toggleable(isToggledHiddenByDefault: true),
@@ -97,21 +102,21 @@ class NotificationLogResource extends Resource
             ->filters([
                 Tables\Filters\SelectFilter::make('channel')
                     ->options([
-                        'mail' => 'Email',
-                        'database' => 'In-App',
-                        'twilio' => 'SMS',
-                        'whatsapp' => 'WhatsApp',
+                        'mail' => __('Email'),
+                        'database' => __('In-App'),
+                        'twilio' => __('SMS'),
+                        'whatsapp' => __('WhatsApp'),
                     ]),
                 Tables\Filters\SelectFilter::make('status')
                     ->options([
-                        'sent' => 'Sent',
-                        'failed' => 'Failed',
-                        'skipped' => 'Skipped',
+                        'sent' => __('Sent'),
+                        'failed' => __('Failed'),
+                        'skipped' => __('Skipped'),
                     ]),
                 Tables\Filters\Filter::make('sent_at')
                     ->schema([
-                        DatePicker::make('from')->label('From'),
-                        DatePicker::make('until')->label('Until'),
+                        DatePicker::make('from')->label(__('From')),
+                        DatePicker::make('until')->label(__('Until')),
                     ])
                     ->columns(2)
                     ->query(function (Builder $query, array $data): Builder {
@@ -133,11 +138,11 @@ class NotificationLogResource extends Resource
     public static function infolist(Schema $schema): Schema
     {
         return $schema->components([
-            Section::make('Recipient')->schema([
-                TextEntry::make('user.name')->label('Name')->placeholder('—'),
-                TextEntry::make('user.email')->label('Email')->placeholder('—'),
+            Section::make(__('Recipient'))->schema([
+                TextEntry::make('user.name')->label(__('Name'))->placeholder('—'),
+                TextEntry::make('user.email')->label(__('Email'))->placeholder('—'),
                 TextEntry::make('channel')
-                    ->label('Channel')
+                    ->label(__('Channel'))
                     ->badge()
                     ->color(fn (?string $state) => match ($state) {
                         'mail' => 'primary',
@@ -147,10 +152,10 @@ class NotificationLogResource extends Resource
                         default => 'gray',
                     })
                     ->formatStateUsing(fn (?string $state) => match ($state) {
-                        'mail' => 'Email',
-                        'database' => 'In-App',
-                        'twilio' => 'SMS',
-                        'whatsapp' => 'WhatsApp',
+                        'mail' => __('Email'),
+                        'database' => __('In-App'),
+                        'twilio' => __('SMS'),
+                        'whatsapp' => __('WhatsApp'),
                         default => $state ?? '—',
                     }),
                 TextEntry::make('status')
@@ -161,21 +166,21 @@ class NotificationLogResource extends Resource
                         'skipped' => 'gray',
                         default => 'gray',
                     }),
-                TextEntry::make('sent_at')->label('Sent At')->dateTime('d M Y H:i')->placeholder('—'),
+                TextEntry::make('sent_at')->label(__('Sent At'))->dateTime('d M Y H:i')->placeholder('—'),
             ])->columns(3),
 
-            Section::make('Content')->schema([
-                TextEntry::make('subject')->label('Subject')->columnSpanFull(),
+            Section::make(__('Content'))->schema([
+                TextEntry::make('subject')->label(__('Subject'))->columnSpanFull(),
                 TextEntry::make('body')
-                    ->label('Message Body')
+                    ->label(__('Message Body'))
                     ->html()
                     ->columnSpanFull(),
             ]),
 
-            Section::make('Error Details')
+            Section::make(__('Error Details'))
                 ->schema([
                     TextEntry::make('error_message')
-                        ->label('Error')
+                        ->label(__('Error'))
                         ->columnSpanFull()
                         ->color('danger'),
                 ])

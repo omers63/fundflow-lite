@@ -20,6 +20,11 @@ class MyGuaranteedLoansResource extends Resource
 
     protected static ?int $navigationSort = 3;
 
+    public static function getNavigationLabel(): string
+    {
+        return __('Loans I Guarantee');
+    }
+
     public static function getNavigationGroup(): ?string
     {
         return __('app.nav.group.loans');
@@ -72,23 +77,23 @@ class MyGuaranteedLoansResource extends Resource
             ->defaultSort('created_at', 'desc')
             ->columns([
                 Tables\Columns\TextColumn::make('member.user.name')
-                    ->label('Borrower')
+                    ->label(__('Borrower'))
                     ->searchable()
                     ->sortable(),
                 Tables\Columns\TextColumn::make('member.member_number')
-                    ->label('Member #')
+                    ->label(__('Member #'))
                     ->visibleFrom('md')
                     ->placeholder('—'),
                 Tables\Columns\TextColumn::make('loanTier.label')
-                    ->label('Tier')
+                    ->label(__('Tier'))
                     ->visibleFrom('sm')
                     ->placeholder('—'),
                 Tables\Columns\TextColumn::make('amount_approved')
-                    ->label('Approved')
+                    ->label(__('Approved'))
                     ->money('SAR')
                     ->placeholder('—'),
                 Tables\Columns\TextColumn::make('installments_count')
-                    ->label('Months')
+                    ->label(__('Months'))
                     ->visibleFrom('lg')
                     ->placeholder('—'),
                 Tables\Columns\TextColumn::make('status')
@@ -102,37 +107,37 @@ class MyGuaranteedLoansResource extends Resource
                         default => 'gray',
                     }),
                 Tables\Columns\TextColumn::make('overdue_installments_count')
-                    ->label('Overdue')
+                    ->label(__('Overdue'))
                     ->getStateUsing(fn (Loan $r) => $r->installments
                         ->where('status', 'overdue')->count())
                     ->badge()
                     ->color(fn ($state) => $state > 0 ? 'danger' : 'success'),
                 Tables\Columns\TextColumn::make('late_repayment_count')
-                    ->label('Late Total')
+                    ->label(__('Late Total'))
                     ->visibleFrom('md')
                     ->badge()
                     ->color(fn ($state) => $state > 0 ? 'warning' : 'success'),
                 Tables\Columns\TextColumn::make('guarantor_liability_transferred_at')
-                    ->label('Liability Transferred')
+                    ->label(__('Liability Transferred'))
                     ->visibleFrom('lg')
                     ->dateTime('d M Y')
-                    ->placeholder('Not transferred')
+                    ->placeholder(__('Not transferred'))
                     ->color('danger'),
             ])
             ->filters([
                 Tables\Filters\SelectFilter::make('status')
                     ->options([
-                        'pending' => 'Pending',
-                        'approved' => 'Approved',
-                        'active' => 'Active',
-                        'completed' => 'Completed',
-                        'early_settled' => 'Early Settled',
-                        'rejected' => 'Rejected',
-                        'cancelled' => 'Cancelled',
+                        'pending' => __('Pending'),
+                        'approved' => __('Approved'),
+                        'active' => __('Active'),
+                        'completed' => __('Completed'),
+                        'early_settled' => __('Early Settled'),
+                        'rejected' => __('Rejected'),
+                        'cancelled' => __('Cancelled'),
                     ]),
             ])
-            ->emptyStateHeading('No guaranteed loans')
-            ->emptyStateDescription('You are not currently listed as a guarantor on any loans.')
+            ->emptyStateHeading(__('No guaranteed loans'))
+            ->emptyStateDescription(__('You are not currently listed as a guarantor on any loans.'))
             ->emptyStateIcon('heroicon-o-shield-check')
             ->recordActions([])
             ->bulkActions([]);

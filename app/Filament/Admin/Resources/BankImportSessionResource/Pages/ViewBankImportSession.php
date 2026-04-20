@@ -14,9 +14,9 @@ class ViewBankImportSession extends ViewRecord
     {
         return [
             DeleteAction::make()
-                ->label('Delete import')
-                ->modalHeading('Delete import history')
-                ->modalDescription('Removes this import run and deletes every transaction from it. Posted rows are reversed in the ledger first, then soft-deleted.')
+                ->label(__('Delete import'))
+                ->modalHeading(__('Delete import history'))
+                ->modalDescription(__('Removes this import run and deletes every transaction from it. Posted rows are reversed in the ledger first, then soft-deleted.'))
                 ->visible(fn (): bool => ! $this->getRecord()->trashed())
                 ->using(function (): bool {
                     BankImportSessionResource::deleteSessionAndTransactions($this->getRecord());

@@ -22,6 +22,11 @@ class PublicMembershipSettingsPage extends Page
 
     protected static ?int $navigationSort = 3;
 
+    public static function getNavigationLabel(): string
+    {
+        return __('Public membership');
+    }
+
     public static function getNavigationGroup(): ?string
     {
         return __('app.nav.group.settings');
@@ -29,7 +34,7 @@ class PublicMembershipSettingsPage extends Page
 
     public function getTitle(): string
     {
-        return 'Public membership';
+        return __('Public membership');
     }
 
     public function mount(): void
@@ -41,30 +46,30 @@ class PublicMembershipSettingsPage extends Page
     {
         return [
             Action::make('save_settings')
-                ->label('Save settings')
+                ->label(__('Save settings'))
                 ->icon('heroicon-o-check')
                 ->color('primary')
                 ->fillForm([
                     'max_pending_public' => Setting::maxPublicApplications(),
                 ])
                 ->schema([
-                    Section::make('Application capacity')
-                        ->description('Controls the public “Apply for membership” page at /apply. Login is unchanged: existing members and applicants can still sign in.')
+                    Section::make(__('Application capacity'))
+                        ->description(__('Controls the public “Apply for membership” page at /apply. Login is unchanged: existing members and applicants can still sign in.'))
                         ->schema([
                             Forms\Components\TextInput::make('max_pending_public')
-                                ->label('Maximum applications (public apply)')
+                                ->label(__('Maximum applications (public apply)'))
                                 ->numeric()
                                 ->minValue(0)
                                 ->required()
                                 ->default(0)
-                                ->helperText('Counts all membership applications (any status). When this number is reached, new visitors cannot submit the public form. Use 0 for no limit.'),
+                                ->helperText(__('Counts all membership applications (any status). When this number is reached, new visitors cannot submit the public form. Use 0 for no limit.')),
                         ]),
                 ])
                 ->action(function (array $data): void {
                     Setting::set('membership.max_pending_public', max(0, (int) $data['max_pending_public']));
 
                     Notification::make()
-                        ->title('Public membership settings saved')
+                        ->title(__('Public membership settings saved'))
                         ->success()
                         ->send();
                 }),

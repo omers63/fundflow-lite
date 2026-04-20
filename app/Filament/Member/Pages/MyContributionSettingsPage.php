@@ -20,6 +20,11 @@ class MyContributionSettingsPage extends Page
 
     protected static ?int $navigationSort = 1;
 
+    public static function getNavigationLabel(): string
+    {
+        return __('app.member.contribution_settings');
+    }
+
     public int $monthly_contribution_amount = 500;
 
     public static function getNavigationGroup(): ?string
@@ -43,22 +48,22 @@ class MyContributionSettingsPage extends Page
         $member = $this->currentMember();
         $actions = [
             Action::make('save_allocation')
-                ->label('Save allocation')
+                ->label(__('app.member.save_allocation'))
                 ->icon('heroicon-o-check-circle')
                 ->color('primary')
                 ->fillForm(['monthly_contribution_amount' => $this->monthly_contribution_amount])
                 ->schema([
                     Forms\Components\Select::make('monthly_contribution_amount')
-                        ->label('Monthly contribution amount')
+                        ->label(__('app.member.monthly_contribution_amount'))
                         ->options(Member::contributionAmountOptions())
                         ->required()
-                        ->helperText('Multiples of SAR 500, from SAR 500 to SAR 3,000. Applies immediately and notifies administration.'),
+                        ->helperText(__('app.member.monthly_contribution_helper')),
                 ])
                 ->action(function (array $data): void {
                     $member = $this->currentMember();
 
                     if (! $member) {
-                        Notification::make()->title('Member record not found.')->danger()->send();
+                        Notification::make()->title(__('app.member.member_record_not_found'))->danger()->send();
 
                         return;
                     }
@@ -67,12 +72,12 @@ class MyContributionSettingsPage extends Page
                     $oldAmount = (int) $member->monthly_contribution_amount;
 
                     if (! Member::isValidContributionAmount($newAmount)) {
-                        Notification::make()->title('Invalid amount selected.')->danger()->send();
+                        Notification::make()->title(__('app.member.invalid_amount_selected'))->danger()->send();
                         return;
                     }
 
                     if ($newAmount === $oldAmount) {
-                        Notification::make()->title('No changes detected.')->info()->send();
+                        Notification::make()->title(__('app.member.no_changes_detected'))->info()->send();
                         return;
                     }
 
@@ -80,11 +85,13 @@ class MyContributionSettingsPage extends Page
 
                     User::where('role', 'admin')->each(function (User $admin) use ($member, $oldAmount, $newAmount): void {
                         Notification::make()
-                            ->title('Member allocation updated')
+                            ->title(__('app.member.member_allocation_updated'))
                             ->body(
-                                ($member->user?->name ?? 'Member')
-                                .' changed own allocation from SAR '.number_format($oldAmount)
-                                .' to SAR '.number_format($newAmount).'.'
+                                __('app.member.member_allocation_updated_body', [
+                                    'name' => ($member->user?->name ?? __('app.resource.member')),
+                                    'old' => number_format($oldAmount),
+                                    'new' => number_format($newAmount),
+                                ])
                             )
                             ->icon('heroicon-o-adjustments-horizontal')
                             ->iconColor('info')
@@ -92,8 +99,8 @@ class MyContributionSettingsPage extends Page
                     });
 
                     Notification::make()
-                        ->title('Allocation updated')
-                        ->body('Your monthly contribution amount was updated successfully.')
+                        ->title(__('app.member.allocation_updated'))
+                        ->body(__('app.member.allocation_updated_body'))
                         ->success()
                         ->send();
 
@@ -103,7 +110,7 @@ class MyContributionSettingsPage extends Page
 
         if ($member && $member->dependents()->exists()) {
             $actions[] = Action::make('family_requests')
-                ->label('My Dependents')
+                ->label(__('app.member.my_dependents'))
                 ->icon('heroicon-o-users')
                 ->url(MyDependentsResource::getUrl())
                 ->color('gray');
@@ -114,6 +121,6 @@ class MyContributionSettingsPage extends Page
 
     public function getTitle(): string
     {
-        return 'Contribution Settings';
+        return __('app.member.contribution_settings');
     }
 }

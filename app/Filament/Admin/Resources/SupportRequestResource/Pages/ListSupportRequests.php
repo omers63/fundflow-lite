@@ -52,6 +52,6 @@ class ListSupportRequests extends ListRecords
 
     public function getSubheading(): ?string
     {
-        return 'Messages submitted by members from Support & Requests in the member portal. Stored permanently; not tied to notification history.';
+        return __('Messages submitted by members from Support & Requests in the member portal. Stored permanently; not tied to notification history.');
     }
 }
