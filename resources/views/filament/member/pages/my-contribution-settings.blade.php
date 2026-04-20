@@ -39,7 +39,7 @@
     <div class="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4">
         <div>
             <p class="text-sm font-medium text-primary-100 uppercase tracking-wide">Monthly Contribution</p>
-            <p class="mt-1 text-5xl font-extrabold tracking-tight">SAR {{ number_format($current) }}</p>
+            <p class="mt-1 text-4xl sm:text-5xl font-extrabold tracking-tight">SAR {{ number_format($current) }}</p>
             <p class="mt-2 text-sm text-primary-200">
                 Deducted automatically from your cash account each cycle
             </p>
@@ -96,7 +96,7 @@
         Use <strong>Save allocation</strong> above to apply your new amount immediately; administrators are notified automatically.
     </x-slot>
 
-    <div class="grid grid-cols-3 gap-3 sm:grid-cols-6">
+    <div class="grid grid-cols-2 gap-3 sm:grid-cols-4 lg:grid-cols-6">
         @foreach($options as $value => $label)
         @php $isActive = $value == $current; @endphp
         <div @class([

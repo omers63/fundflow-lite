@@ -5,28 +5,28 @@
             <div class="absolute top-20 left-10 w-72 h-72 bg-sky-400 rounded-full blur-3xl"></div>
             <div class="absolute bottom-10 right-10 w-96 h-96 bg-blue-400 rounded-full blur-3xl"></div>
         </div>
-        <div class="relative max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-28 text-center">
+        <div class="relative max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-20 sm:py-24 lg:py-28 text-center">
             <div class="inline-flex items-center px-4 py-2 rounded-full bg-sky-500/20 border border-sky-400/30 text-sky-200 text-sm font-medium mb-8">
                 <svg class="w-4 h-4 mr-2" fill="currentColor" viewBox="0 0 20 20"><path fill-rule="evenodd" d="M10 18a8 8 0 100-16 8 8 0 000 16zm3.707-9.293a1 1 0 00-1.414-1.414L9 10.586 7.707 9.293a1 1 0 00-1.414 1.414l2 2a1 1 0 001.414 0l4-4z" clip-rule="evenodd"/></svg>
                 Zero-Interest Family Fund
             </div>
-            <h1 class="text-5xl md:text-6xl font-extrabold leading-tight mb-6">
+            <h1 class="text-3xl sm:text-4xl md:text-6xl font-extrabold leading-tight mb-5 sm:mb-6">
                 Manage Your Family Fund
                 <span class="block text-transparent bg-clip-text bg-gradient-to-r from-sky-300 via-blue-200 to-cyan-200">
                     Together & Transparently
                 </span>
             </h1>
-            <p class="text-xl text-slate-300 max-w-2xl mx-auto mb-10 leading-relaxed">
+            <p class="text-base sm:text-lg md:text-xl text-slate-300 max-w-2xl mx-auto mb-8 sm:mb-10 leading-relaxed">
                 A trusted platform for family fund contributions, interest-free loans, and complete financial transparency — empowering families to support each other.
             </p>
-            <div class="flex flex-col sm:flex-row gap-4 justify-center">
-                <a href="{{ route('apply') }}" class="bg-gradient-to-r from-blue-600 to-sky-500 hover:from-blue-500 hover:to-sky-400 text-white font-bold px-8 py-4 rounded-2xl transition-all shadow-lg hover:shadow-blue-500/30 text-lg">
+            <div class="flex flex-col sm:flex-row gap-3 sm:gap-4 justify-center">
+                <a href="{{ route('apply') }}" class="w-full sm:w-auto bg-gradient-to-r from-blue-600 to-sky-500 hover:from-blue-500 hover:to-sky-400 text-white font-bold px-8 py-4 rounded-2xl transition-all shadow-lg hover:shadow-blue-500/30 text-lg">
                     Apply for Membership
                 </a>
-                <a href="{{ route('login') }}" class="bg-white/10 hover:bg-white/20 border border-white/20 text-white font-semibold px-8 py-4 rounded-2xl transition-all text-lg">
+                <a href="{{ route('login') }}" class="w-full sm:w-auto bg-white/10 hover:bg-white/20 border border-white/20 text-white font-semibold px-8 py-4 rounded-2xl transition-all text-lg">
                     Member Login
                 </a>
-                <a href="{{ route('downloads.terms-and-conditions') }}" class="bg-white/10 hover:bg-white/20 border border-white/20 text-white font-semibold px-8 py-4 rounded-2xl transition-all text-lg">
+                <a href="{{ route('downloads.terms-and-conditions') }}" class="w-full sm:w-auto bg-white/10 hover:bg-white/20 border border-white/20 text-white font-semibold px-8 py-4 rounded-2xl transition-all text-lg">
                     Download Terms &amp; Conditions
                 </a>
             </div>

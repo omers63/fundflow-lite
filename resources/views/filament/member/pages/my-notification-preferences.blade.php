@@ -9,9 +9,9 @@
             ['whatsapp', '💬', 'WhatsApp',       'WhatsApp message to your registered phone.', 'bg-green-100 text-green-700 dark:bg-green-900/30 dark:text-green-300'],
         ];
     @endphp
-    <div class="mb-6 rounded-xl bg-white dark:bg-gray-800 ring-1 ring-gray-200 dark:ring-gray-700 p-5 shadow-sm">
+    <div class="mb-6 rounded-xl bg-gradient-to-br from-sky-100 via-white to-indigo-50 dark:from-slate-800 dark:via-sky-950/35 dark:to-indigo-950/30 ring-1 ring-sky-200/80 dark:ring-sky-600/40 p-5 shadow-md">
         <h3 class="text-sm font-semibold text-gray-900 dark:text-white mb-4">Available Communication Channels</h3>
-        <div class="grid grid-cols-2 gap-3 sm:grid-cols-4">
+        <div class="grid grid-cols-1 gap-3 sm:grid-cols-2 lg:grid-cols-4">
             @foreach ($sysChannels as [$ch, $icon, $label, $desc, $style])
             @php $chEnabled = $this->isSystemEnabled($ch); @endphp
             <div @class([
@@ -86,7 +86,7 @@
                 </div>
 
                 {{-- Channel toggles --}}
-                <div class="lg:col-span-8 grid grid-cols-2 gap-3 sm:grid-cols-4">
+                <div class="lg:col-span-8 grid grid-cols-1 gap-3 sm:grid-cols-2 lg:grid-cols-4">
                     @foreach ($channels as $ch)
                     @php
                         $supported  = $this->isSupported($type, $ch);

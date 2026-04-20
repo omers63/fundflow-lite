@@ -1,7 +1,7 @@
-<div class="min-h-screen bg-gradient-to-br from-slate-50 to-blue-50 py-16 px-4">
+<div class="min-h-screen bg-gradient-to-br from-slate-50 to-blue-50 py-10 sm:py-16 px-4">
     <div class="max-w-lg mx-auto">
-        <div class="text-center mb-10">
-            <h1 class="text-3xl font-bold text-slate-800 mb-2">Check Application Status</h1>
+        <div class="text-center mb-8 sm:mb-10">
+            <h1 class="text-2xl sm:text-3xl font-bold text-slate-800 mb-2">Check Application Status</h1>
             <p class="text-slate-500">Enter your email and National ID to check the status of your membership application.</p>
         </div>
 
@@ -15,7 +15,7 @@
                 </div>
             </div>
 
-            <div class="p-8">
+            <div class="p-5 sm:p-8">
                 <form wire:submit="check" class="space-y-5">
                     <div>
                         <label class="block text-sm font-semibold text-slate-700 mb-2">Email Address *</label>

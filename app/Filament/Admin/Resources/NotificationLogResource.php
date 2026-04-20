@@ -4,7 +4,9 @@ namespace App\Filament\Admin\Resources;
 
 use App\Filament\Admin\Resources\NotificationLogResource\Pages;
 use App\Models\NotificationLog;
+use Filament\Actions\ActionGroup;
 use Filament\Actions\ViewAction;
+use Filament\Forms\Components\DatePicker;
 use Filament\Infolists\Components\TextEntry;
 use Filament\Resources\Resource;
 use Filament\Schemas\Components\Section;
@@ -59,28 +61,28 @@ class NotificationLogResource extends Resource
                 Tables\Columns\BadgeColumn::make('channel')
                     ->label('Channel')
                     ->colors([
-                        'primary'   => 'mail',
-                        'info'      => 'database',
-                        'success'   => 'twilio',
-                        'warning'   => 'whatsapp',
+                        'primary' => 'mail',
+                        'info' => 'database',
+                        'success' => 'twilio',
+                        'warning' => 'whatsapp',
                     ])
-                    ->formatStateUsing(fn(?string $state) => match ($state) {
-                        'mail'     => 'Email',
+                    ->formatStateUsing(fn (?string $state) => match ($state) {
+                        'mail' => 'Email',
                         'database' => 'In-App',
-                        'twilio'   => 'SMS',
+                        'twilio' => 'SMS',
                         'whatsapp' => 'WhatsApp',
-                        default    => $state ?? '—',
+                        default => $state ?? '—',
                     }),
                 Tables\Columns\TextColumn::make('subject')
                     ->label('Subject')
                     ->searchable()
                     ->limit(60)
-                    ->tooltip(fn(NotificationLog $r) => $r->subject),
+                    ->tooltip(fn (NotificationLog $r) => $r->subject),
                 Tables\Columns\BadgeColumn::make('status')
                     ->colors([
                         'success' => 'sent',
-                        'danger'  => 'failed',
-                        'gray'    => 'skipped',
+                        'danger' => 'failed',
+                        'gray' => 'skipped',
                     ]),
                 Tables\Columns\TextColumn::make('sent_at')
                     ->label('Sent At')
@@ -95,33 +97,35 @@ class NotificationLogResource extends Resource
             ->filters([
                 Tables\Filters\SelectFilter::make('channel')
                     ->options([
-                        'mail'     => 'Email',
+                        'mail' => 'Email',
                         'database' => 'In-App',
-                        'twilio'   => 'SMS',
+                        'twilio' => 'SMS',
                         'whatsapp' => 'WhatsApp',
                     ]),
                 Tables\Filters\SelectFilter::make('status')
                     ->options([
-                        'sent'    => 'Sent',
-                        'failed'  => 'Failed',
+                        'sent' => 'Sent',
+                        'failed' => 'Failed',
                         'skipped' => 'Skipped',
                     ]),
                 Tables\Filters\Filter::make('sent_at')
                     ->schema([
-                        \Filament\Forms\Components\DatePicker::make('from')->label('From'),
-                        \Filament\Forms\Components\DatePicker::make('until')->label('Until'),
+                        DatePicker::make('from')->label('From'),
+                        DatePicker::make('until')->label('Until'),
                     ])
                     ->columns(2)
                     ->query(function (Builder $query, array $data): Builder {
                         return $query
-                            ->when($data['from'] ?? null, fn($q) => $q->whereDate('sent_at', '>=', $data['from']))
-                            ->when($data['until'] ?? null, fn($q) => $q->whereDate('sent_at', '<=', $data['until']));
+                            ->when($data['from'] ?? null, fn ($q) => $q->whereDate('sent_at', '>=', $data['from']))
+                            ->when($data['until'] ?? null, fn ($q) => $q->whereDate('sent_at', '<=', $data['until']));
                     }),
                 TrashedFilter::make(),
             ])
             ->defaultSort('sent_at', 'desc')
             ->recordActions([
-                ViewAction::make(),
+                ActionGroup::make([
+                    ViewAction::make(),
+                ]),
             ])
             ->bulkActions([]);
     }
@@ -135,27 +139,27 @@ class NotificationLogResource extends Resource
                 TextEntry::make('channel')
                     ->label('Channel')
                     ->badge()
-                    ->color(fn(?string $state) => match ($state) {
-                        'mail'     => 'primary',
+                    ->color(fn (?string $state) => match ($state) {
+                        'mail' => 'primary',
                         'database' => 'info',
-                        'twilio'   => 'success',
+                        'twilio' => 'success',
                         'whatsapp' => 'warning',
-                        default    => 'gray',
+                        default => 'gray',
                     })
-                    ->formatStateUsing(fn(?string $state) => match ($state) {
-                        'mail'     => 'Email',
+                    ->formatStateUsing(fn (?string $state) => match ($state) {
+                        'mail' => 'Email',
                         'database' => 'In-App',
-                        'twilio'   => 'SMS',
+                        'twilio' => 'SMS',
                         'whatsapp' => 'WhatsApp',
-                        default    => $state ?? '—',
+                        default => $state ?? '—',
                     }),
                 TextEntry::make('status')
                     ->badge()
-                    ->color(fn(?string $state) => match ($state) {
-                        'sent'    => 'success',
-                        'failed'  => 'danger',
+                    ->color(fn (?string $state) => match ($state) {
+                        'sent' => 'success',
+                        'failed' => 'danger',
                         'skipped' => 'gray',
-                        default   => 'gray',
+                        default => 'gray',
                     }),
                 TextEntry::make('sent_at')->label('Sent At')->dateTime('d M Y H:i')->placeholder('—'),
             ])->columns(3),
@@ -175,7 +179,7 @@ class NotificationLogResource extends Resource
                         ->columnSpanFull()
                         ->color('danger'),
                 ])
-                ->visible(fn(NotificationLog $record) => filled($record->error_message))
+                ->visible(fn (NotificationLog $record) => filled($record->error_message))
                 ->collapsible(),
         ]);
     }
@@ -184,7 +188,7 @@ class NotificationLogResource extends Resource
     {
         return [
             'index' => Pages\ListNotificationLogs::route('/'),
-            'view'  => Pages\ViewNotificationLog::route('/{record}'),
+            'view' => Pages\ViewNotificationLog::route('/{record}'),
         ];
     }
 

@@ -6,6 +6,7 @@ use App\Filament\Admin\Resources\ContributionResource;
 use App\Filament\Admin\Resources\MemberResource;
 use App\Filament\Admin\Resources\MemberResource\Concerns\InteractsWithMemberCycleHeaderActions;
 use App\Models\Contribution;
+use Filament\Actions\ActionGroup;
 use Filament\Actions\BulkActionGroup;
 use Filament\Actions\DeleteAction;
 use Filament\Actions\DeleteBulkAction;
@@ -51,12 +52,12 @@ class ContributionsRelationManager extends RelationManager
             ->columns([
                 Tables\Columns\TextColumn::make('year')->sortable()->toggleable(),
                 Tables\Columns\TextColumn::make('month')
-                    ->formatStateUsing(fn($state) => date('F', mktime(0, 0, 0, $state, 1)))
+                    ->formatStateUsing(fn ($state) => date('F', mktime(0, 0, 0, $state, 1)))
                     ->toggleable(),
                 Tables\Columns\TextColumn::make('amount')->money('SAR')->toggleable(),
                 Tables\Columns\BadgeColumn::make('payment_method')
                     ->label('Source')
-                    ->formatStateUsing(fn(?string $state): string => Contribution::paymentMethodLabel($state))
+                    ->formatStateUsing(fn (?string $state): string => Contribution::paymentMethodLabel($state))
                     ->toggleable(),
                 Tables\Columns\TextColumn::make('reference_number')->placeholder('—')->toggleable(),
                 Tables\Columns\TextColumn::make('paid_at')->label('Paid On')
@@ -74,13 +75,13 @@ class ContributionsRelationManager extends RelationManager
             ->defaultSort('paid_at', 'desc')
             ->filters([
                 Tables\Filters\SelectFilter::make('month')
-                    ->options(array_combine(range(1, 12), array_map(fn($m) => date('F', mktime(0, 0, 0, $m, 1)), range(1, 12)))),
+                    ->options(array_combine(range(1, 12), array_map(fn ($m) => date('F', mktime(0, 0, 0, $m, 1)), range(1, 12)))),
                 Tables\Filters\Filter::make('year')
                     ->schema([Forms\Components\TextInput::make('year')->numeric()->default(now()->year)])
-                    ->query(fn($query, $data) => ($data['year'] ?? null) ? $query->where('year', $data['year']) : $query),
+                    ->query(fn ($query, $data) => ($data['year'] ?? null) ? $query->where('year', $data['year']) : $query),
                 Tables\Filters\SelectFilter::make('payment_method')
                     ->label('Source')
-                    ->options(fn(): array => Contribution::paymentMethodOptions()),
+                    ->options(fn (): array => Contribution::paymentMethodOptions()),
                 Tables\Filters\TernaryFilter::make('is_late')
                     ->label('Late payment')
                     ->trueLabel('Late only')
@@ -93,8 +94,8 @@ class ContributionsRelationManager extends RelationManager
                     ->columns(2)
                     ->query(function ($query, array $data) {
                         return $query
-                            ->when($data['paid_from'] ?? null, fn($q) => $q->whereDate('paid_at', '>=', $data['paid_from']))
-                            ->when($data['paid_until'] ?? null, fn($q) => $q->whereDate('paid_at', '<=', $data['paid_until']));
+                            ->when($data['paid_from'] ?? null, fn ($q) => $q->whereDate('paid_at', '>=', $data['paid_from']))
+                            ->when($data['paid_until'] ?? null, fn ($q) => $q->whereDate('paid_at', '<=', $data['paid_until']));
                     }),
                 Tables\Filters\Filter::make('amount')
                     ->schema([
@@ -104,23 +105,25 @@ class ContributionsRelationManager extends RelationManager
                     ->columns(2)
                     ->query(function ($query, array $data) {
                         return $query
-                            ->when(filled($data['amount_min'] ?? null), fn($q) => $q->where('amount', '>=', $data['amount_min']))
-                            ->when(filled($data['amount_max'] ?? null), fn($q) => $q->where('amount', '<=', $data['amount_max']));
+                            ->when(filled($data['amount_min'] ?? null), fn ($q) => $q->where('amount', '>=', $data['amount_min']))
+                            ->when(filled($data['amount_max'] ?? null), fn ($q) => $q->where('amount', '<=', $data['amount_max']));
                     }),
             ])
             ->recordActions([
-                ViewAction::make()
-                    ->modalWidth('2xl'),
-                EditAction::make()
-                    ->modalWidth('2xl')
-                    ->after(function (Component $livewire): void {
-                        MemberResource::dispatchMemberRecordHeaderWidgetsRefresh($livewire);
-                    }),
-                DeleteAction::make()
-                    ->modalDescription('Soft-deletes this contribution and reverses its fund ledger postings (master + member fund). Restoring re-posts the contribution to the ledger.')
-                    ->after(function (Component $livewire): void {
-                        MemberResource::dispatchMemberRecordHeaderWidgetsRefresh($livewire);
-                    }),
+                ActionGroup::make([
+                    ViewAction::make()
+                        ->modalWidth('2xl'),
+                    EditAction::make()
+                        ->modalWidth('2xl')
+                        ->after(function (Component $livewire): void {
+                            MemberResource::dispatchMemberRecordHeaderWidgetsRefresh($livewire);
+                        }),
+                    DeleteAction::make()
+                        ->modalDescription('Soft-deletes this contribution and reverses its fund ledger postings (master + member fund). Restoring re-posts the contribution to the ledger.')
+                        ->after(function (Component $livewire): void {
+                            MemberResource::dispatchMemberRecordHeaderWidgetsRefresh($livewire);
+                        }),
+                ]),
             ])
             ->toolbarActions([
                 BulkActionGroup::make([

@@ -8,6 +8,7 @@ use App\Models\LoanInstallment;
 use App\Models\Member;
 use App\Services\LoanRepaymentService;
 use Filament\Actions\Action;
+use Filament\Actions\ActionGroup;
 use Filament\Forms;
 use Filament\Notifications\Notification;
 use Filament\Resources\Resource;
@@ -32,10 +33,10 @@ class MyInstallmentsResource extends Resource
     public static function getNavigationBadge(): ?string
     {
         $member = auth()->user()?->member;
-        if (!$member) {
+        if (! $member) {
             return null;
         }
-        $count = LoanInstallment::whereHas('loan', fn($q) => $q->where('member_id', $member->id))
+        $count = LoanInstallment::whereHas('loan', fn ($q) => $q->where('member_id', $member->id))
             ->where('status', 'overdue')
             ->count();
 
@@ -55,14 +56,16 @@ class MyInstallmentsResource extends Resource
 
                 return LoanInstallment::whereHas(
                     'loan',
-                    fn($q) => $q->where('member_id', $member?->id ?? 0)
+                    fn ($q) => $q->where('member_id', $member?->id ?? 0)
                 );
             })
             ->columns([
                 Tables\Columns\TextColumn::make('loan_id')
                     ->label('Loan #')
+                    ->visibleFrom('sm')
                     ->sortable(),
                 Tables\Columns\TextColumn::make('installment_number')
+                    ->visibleFrom('md')
                     ->label('#'),
                 Tables\Columns\TextColumn::make('amount')
                     ->money('SAR')
@@ -72,63 +75,75 @@ class MyInstallmentsResource extends Resource
                     ->sortable(),
                 Tables\Columns\TextColumn::make('status')
                     ->badge()
-                    ->color(fn(string $state) => match ($state) {
+                    ->color(fn (string $state) => match ($state) {
                         'pending' => 'warning',
                         'paid' => 'success',
                         'overdue' => 'danger',
                         default => 'gray',
                     }),
                 Tables\Columns\TextColumn::make('paid_at')
+                    ->visibleFrom('md')
                     ->dateTime('d M Y')
                     ->placeholder('—'),
             ])
             ->defaultSort('due_date', 'asc')
             ->recordActions([
-                Action::make('pay_installment')
-                    ->label('Pay Now')
-                    ->icon('heroicon-o-credit-card')
-                    ->color('success')
-                    ->visible(function () {
-                        $member = Member::where('user_id', auth()->id())->first();
-                        return $member && app(LoanRepaymentService::class)->shouldOfferOpenPeriodRepayment($member);
-                    })
-                    ->disabled(function () {
-                        $member = Member::where('user_id', auth()->id())->first();
-                        return !$member || app(LoanRepaymentService::class)->hasInsufficientCashForOpenPeriodRepayment($member);
-                    })
-                    ->requiresConfirmation()
-                    ->modalHeading('Pay Your Loan Installment')
-                    ->modalDescription(function () {
-                        $member = Member::where('user_id', auth()->id())->with('accounts')->first();
-                        if (!$member) return 'Member record not found.';
-                        return app(LoanRepaymentService::class)->openPeriodRepaymentModalDescription($member);
-                    })
-                    ->modalSubmitActionLabel('Pay Now')
-                    ->action(function () {
-                        $member = Member::where('user_id', auth()->id())->with(['user', 'accounts'])->first();
-                        if (!$member) {
-                            Notification::make()->title('Member record not found')->danger()->send();
-                            return;
-                        }
-                        $outcome = app(LoanRepaymentService::class)->applyOpenPeriodRepaymentForMember($member);
-                        match ($outcome) {
-                            'applied' => Notification::make()->title('Installment Paid')->body('Your loan installment has been paid successfully.')->success()->send(),
-                            'insufficient' => Notification::make()->title('Insufficient Balance')->body('Your cash account does not have enough balance to cover this installment.')->danger()->send(),
-                            default => Notification::make()->title('Nothing to Pay')->body('No installment is due for the current period.')->warning()->send(),
-                        };
-                    }),
+                ActionGroup::make([
+                    Action::make('pay_installment')
+                        ->label('Pay Now')
+                        ->icon('heroicon-o-credit-card')
+                        ->color('success')
+                        ->visible(function () {
+                            $member = Member::where('user_id', auth()->id())->first();
+
+                            return $member && app(LoanRepaymentService::class)->shouldOfferOpenPeriodRepayment($member);
+                        })
+                        ->disabled(function () {
+                            $member = Member::where('user_id', auth()->id())->first();
+
+                            return ! $member || app(LoanRepaymentService::class)->hasInsufficientCashForOpenPeriodRepayment($member);
+                        })
+                        ->requiresConfirmation()
+                        ->modalHeading('Pay Your Loan Installment')
+                        ->modalDescription(function () {
+                            $member = Member::where('user_id', auth()->id())->with('accounts')->first();
+                            if (! $member) {
+                                return 'Member record not found.';
+                            }
+
+                            return app(LoanRepaymentService::class)->openPeriodRepaymentModalDescription($member);
+                        })
+                        ->modalSubmitActionLabel('Pay Now')
+                        ->action(function () {
+                            $member = Member::where('user_id', auth()->id())->with(['user', 'accounts'])->first();
+                            if (! $member) {
+                                Notification::make()->title('Member record not found')->danger()->send();
+
+                                return;
+                            }
+                            $outcome = app(LoanRepaymentService::class)->applyOpenPeriodRepaymentForMember($member);
+                            match ($outcome) {
+                                'applied' => Notification::make()->title('Installment Paid')->body('Your loan installment has been paid successfully.')->success()->send(),
+                                'insufficient' => Notification::make()->title('Insufficient Balance')->body('Your cash account does not have enough balance to cover this installment.')->danger()->send(),
+                                default => Notification::make()->title('Nothing to Pay')->body('No installment is due for the current period.')->warning()->send(),
+                            };
+                        }),
+                ])
+                    ->icon('heroicon-m-ellipsis-vertical')
+                    ->label('')
+                    ->button(),
             ])
             ->filters([
                 Tables\Filters\SelectFilter::make('loan_id')
                     ->label('Loan')
                     ->options(function () {
                         $member = auth()->user()?->member;
-                        if (!$member) {
+                        if (! $member) {
                             return [];
                         }
 
                         return Loan::query()->where('member_id', $member->id)->orderByDesc('id')->get()
-                            ->mapWithKeys(fn(Loan $l) => [$l->id => 'Loan #' . $l->id]);
+                            ->mapWithKeys(fn (Loan $l) => [$l->id => 'Loan #'.$l->id]);
                     }),
                 Tables\Filters\SelectFilter::make('status')
                     ->options([
@@ -144,8 +159,8 @@ class MyInstallmentsResource extends Resource
                     ->columns(2)
                     ->query(function ($query, array $data) {
                         return $query
-                            ->when($data['from'] ?? null, fn($q) => $q->whereDate('due_date', '>=', $data['from']))
-                            ->when($data['until'] ?? null, fn($q) => $q->whereDate('due_date', '<=', $data['until']));
+                            ->when($data['from'] ?? null, fn ($q) => $q->whereDate('due_date', '>=', $data['from']))
+                            ->when($data['until'] ?? null, fn ($q) => $q->whereDate('due_date', '<=', $data['until']));
                     }),
                 Tables\Filters\Filter::make('amount')
                     ->schema([
@@ -155,8 +170,8 @@ class MyInstallmentsResource extends Resource
                     ->columns(2)
                     ->query(function ($query, array $data) {
                         return $query
-                            ->when(filled($data['amount_min'] ?? null), fn($q) => $q->where('amount', '>=', $data['amount_min']))
-                            ->when(filled($data['amount_max'] ?? null), fn($q) => $q->where('amount', '<=', $data['amount_max']));
+                            ->when(filled($data['amount_min'] ?? null), fn ($q) => $q->where('amount', '>=', $data['amount_min']))
+                            ->when(filled($data['amount_max'] ?? null), fn ($q) => $q->where('amount', '<=', $data['amount_max']));
                     }),
                 Tables\Filters\Filter::make('paid_at')
                     ->schema([
@@ -166,8 +181,8 @@ class MyInstallmentsResource extends Resource
                     ->columns(2)
                     ->query(function ($query, array $data) {
                         return $query
-                            ->when($data['from'] ?? null, fn($q) => $q->whereDate('paid_at', '>=', $data['from']))
-                            ->when($data['until'] ?? null, fn($q) => $q->whereDate('paid_at', '<=', $data['until']));
+                            ->when($data['from'] ?? null, fn ($q) => $q->whereDate('paid_at', '>=', $data['from']))
+                            ->when($data['until'] ?? null, fn ($q) => $q->whereDate('paid_at', '<=', $data['until']));
                     }),
             ]);
     }

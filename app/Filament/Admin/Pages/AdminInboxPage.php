@@ -6,6 +6,7 @@ use App\Models\DirectMessage;
 use App\Models\Member;
 use App\Models\User;
 use Filament\Actions\Action;
+use Filament\Actions\ActionGroup;
 use Filament\Actions\BulkAction;
 use Filament\Actions\BulkActionGroup;
 use Filament\Forms;
@@ -153,57 +154,59 @@ class AdminInboxPage extends Page implements HasTable
                     ->placeholder('No messages yet'),
             ])
             ->recordActions([
-                Action::make('communicate')
-                    ->label('Communicate')
-                    ->icon('heroicon-o-chat-bubble-left-right')
-                    ->color('primary')
-                    ->disabled(fn (Member $record): bool => blank($record->user_id))
-                    ->modalHeading(fn (Member $record): string => 'Conversation with '.($record->user?->name ?? 'Member'))
-                    ->modalDescription('Single communication thread with full history.')
-                    ->modalWidth('5xl')
-                    ->modalSubmitActionLabel('Send Message')
-                    ->modalContent(fn (Member $record) => view(
-                        'filament.admin.pages.partials.member-conversation-modal',
-                        [
-                            'messages' => $this->conversationMessages($record),
-                            'userId' => auth()->id(),
-                        ]
-                    ))
-                    ->schema([
-                        Forms\Components\Textarea::make('body')
-                            ->label('Message')
-                            ->rows(4)
-                            ->required()
-                            ->maxLength(3000),
-                        Forms\Components\FileUpload::make('attachments')
-                            ->label('Attachments')
-                            ->multiple()
-                            ->disk('public')
-                            ->directory('direct-messages')
-                            ->openable()
-                            ->downloadable()
-                            ->maxFiles(5),
-                    ])
-                    ->action(function (Action $action, Member $record, array $data): void {
-                        $this->sendMessageToMember(
-                            $record,
-                            (string) ($data['body'] ?? ''),
-                            is_array($data['attachments'] ?? null) ? $data['attachments'] : [],
-                            false
-                        );
-                        $action->data(['body' => '', 'attachments' => []], shouldMutate: false);
-                        $action->halt();
-                    }),
-                Action::make('delete_conversation')
-                    ->label('Delete Conversation')
-                    ->icon('heroicon-o-trash')
-                    ->color('danger')
-                    ->requiresConfirmation()
-                    ->modalHeading(fn (Member $record): string => 'Delete conversation with '.($record->user?->name ?? 'member').'?')
-                    ->modalDescription('This will clear all previous communications with this member from the inbox.')
-                    ->action(function (Member $record): void {
-                        $this->deleteConversation($record);
-                    }),
+                ActionGroup::make([
+                    Action::make('communicate')
+                        ->label('Communicate')
+                        ->icon('heroicon-o-chat-bubble-left-right')
+                        ->color('primary')
+                        ->disabled(fn (Member $record): bool => blank($record->user_id))
+                        ->modalHeading(fn (Member $record): string => 'Conversation with '.($record->user?->name ?? 'Member'))
+                        ->modalDescription('Single communication thread with full history.')
+                        ->modalWidth('5xl')
+                        ->modalSubmitActionLabel('Send Message')
+                        ->modalContent(fn (Member $record) => view(
+                            'filament.admin.pages.partials.member-conversation-modal',
+                            [
+                                'messages' => $this->conversationMessages($record),
+                                'userId' => auth()->id(),
+                            ]
+                        ))
+                        ->schema([
+                            Forms\Components\Textarea::make('body')
+                                ->label('Message')
+                                ->rows(4)
+                                ->required()
+                                ->maxLength(3000),
+                            Forms\Components\FileUpload::make('attachments')
+                                ->label('Attachments')
+                                ->multiple()
+                                ->disk('public')
+                                ->directory('direct-messages')
+                                ->openable()
+                                ->downloadable()
+                                ->maxFiles(5),
+                        ])
+                        ->action(function (Action $action, Member $record, array $data): void {
+                            $this->sendMessageToMember(
+                                $record,
+                                (string) ($data['body'] ?? ''),
+                                is_array($data['attachments'] ?? null) ? $data['attachments'] : [],
+                                false
+                            );
+                            $action->data(['body' => '', 'attachments' => []], shouldMutate: false);
+                            $action->halt();
+                        }),
+                    Action::make('delete_conversation')
+                        ->label('Delete Conversation')
+                        ->icon('heroicon-o-trash')
+                        ->color('danger')
+                        ->requiresConfirmation()
+                        ->modalHeading(fn (Member $record): string => 'Delete conversation with '.($record->user?->name ?? 'member').'?')
+                        ->modalDescription('This will clear all previous communications with this member from the inbox.')
+                        ->action(function (Member $record): void {
+                            $this->deleteConversation($record);
+                        }),
+                ]),
             ])
             ->toolbarActions([
                 BulkActionGroup::make([

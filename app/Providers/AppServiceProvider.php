@@ -9,6 +9,8 @@ use App\Observers\ContributionObserver;
 use App\Observers\LoanInstallmentObserver;
 use BezhanSalleh\LanguageSwitch\LanguageSwitch;
 use Filament\Auth\Http\Responses\Contracts\LogoutResponse as LogoutResponseContract;
+use Filament\Tables\Enums\FiltersLayout;
+use Filament\Tables\Table;
 use Illuminate\Support\ServiceProvider;
 
 class AppServiceProvider extends ServiceProvider
@@ -22,6 +24,11 @@ class AppServiceProvider extends ServiceProvider
     {
         Contribution::observe(ContributionObserver::class);
         LoanInstallment::observe(LoanInstallmentObserver::class);
+
+        // Apply consistent filter UX (show/hide toggle) across all Filament tables.
+        Table::configureUsing(function (Table $table): void {
+            $table->filtersLayout(FiltersLayout::AboveContentCollapsible);
+        });
 
         LanguageSwitch::configureUsing(function (LanguageSwitch $switch) {
             $switch

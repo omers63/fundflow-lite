@@ -6,6 +6,7 @@ use App\Filament\Admin\Resources\LoanResource;
 use App\Models\Loan;
 use App\Models\LoanInstallment;
 use Filament\Actions\Action;
+use Filament\Actions\ActionGroup;
 use Filament\Forms;
 use Filament\Notifications\Notification;
 use Filament\Resources\RelationManagers\RelationManager;
@@ -78,7 +79,7 @@ class InstallmentsRelationManager extends RelationManager
                     $livewire->resetTable();
                     $livewire->dispatch('fundflow-refresh-loan-installments');
                 })
-                    ->record(fn(): Loan => $this->getOwnerRecord()),
+                    ->record(fn (): Loan => $this->getOwnerRecord()),
             ])
             ->filters([
                 Tables\Filters\SelectFilter::make('status')
@@ -95,8 +96,8 @@ class InstallmentsRelationManager extends RelationManager
                     ->columns(2)
                     ->query(function ($query, array $data) {
                         return $query
-                            ->when($data['from'] ?? null, fn($q) => $q->whereDate('due_date', '>=', $data['from']))
-                            ->when($data['until'] ?? null, fn($q) => $q->whereDate('due_date', '<=', $data['until']));
+                            ->when($data['from'] ?? null, fn ($q) => $q->whereDate('due_date', '>=', $data['from']))
+                            ->when($data['until'] ?? null, fn ($q) => $q->whereDate('due_date', '<=', $data['until']));
                     }),
                 Tables\Filters\Filter::make('amount')
                     ->schema([
@@ -106,8 +107,8 @@ class InstallmentsRelationManager extends RelationManager
                     ->columns(2)
                     ->query(function ($query, array $data) {
                         return $query
-                            ->when(filled($data['amount_min'] ?? null), fn($q) => $q->where('amount', '>=', $data['amount_min']))
-                            ->when(filled($data['amount_max'] ?? null), fn($q) => $q->where('amount', '<=', $data['amount_max']));
+                            ->when(filled($data['amount_min'] ?? null), fn ($q) => $q->where('amount', '>=', $data['amount_min']))
+                            ->when(filled($data['amount_max'] ?? null), fn ($q) => $q->where('amount', '<=', $data['amount_max']));
                     }),
                 Tables\Filters\Filter::make('paid_at')
                     ->schema([
@@ -117,70 +118,72 @@ class InstallmentsRelationManager extends RelationManager
                     ->columns(2)
                     ->query(function ($query, array $data) {
                         return $query
-                            ->when($data['from'] ?? null, fn($q) => $q->whereDate('paid_at', '>=', $data['from']))
-                            ->when($data['until'] ?? null, fn($q) => $q->whereDate('paid_at', '<=', $data['until']));
+                            ->when($data['from'] ?? null, fn ($q) => $q->whereDate('paid_at', '>=', $data['from']))
+                            ->when($data['until'] ?? null, fn ($q) => $q->whereDate('paid_at', '<=', $data['until']));
                     }),
             ])
             ->recordActions([
-                Action::make('mark_paid')
-                    ->label('Mark Paid')
-                    ->icon('heroicon-o-check-circle')
-                    ->color('success')
-                    ->visible(fn(LoanInstallment $record) => $record->status !== 'paid')
-                    ->requiresConfirmation()
-                    ->action(function (LoanInstallment $record) {
-                        $record->update([
-                            'status' => 'paid',
-                            'paid_at' => now(),
-                        ]);
-
-                        Notification::make()
-                            ->title('Installment marked as paid')
-                            ->success()
-                            ->send();
-                    }),
-
-                Action::make('waive_late_fee')
-                    ->label('Waive Late Fee')
-                    ->icon('heroicon-o-x-circle')
-                    ->color('warning')
-                    ->visible(fn(LoanInstallment $record) => $record->is_late
-                        && (float) $record->late_fee_amount > 0
-                        && $record->status !== 'paid')
-                    ->requiresConfirmation()
-                    ->modalHeading('Waive Late Fee')
-                    ->modalDescription(fn(LoanInstallment $record) => 'This will waive the SAR '
-                        . number_format((float) $record->late_fee_amount, 2)
-                        . ' late fee on installment #' . $record->installment_number
-                        . '. The base amount is still owed. This cannot be undone.')
-                    ->action(function (LoanInstallment $record) {
-                        $record->update([
-                            'late_fee_amount' => 0,
-                            'is_late' => false,
-                        ]);
-
-                        // Refresh the member's aggregate late repayment stats
-                        $loan = $record->loan()->with('member')->first();
-                        if ($loan && $loan->member) {
-                            $member = $loan->member;
-                            $totalLate = $member->loans()
-                                ->whereIn('status', ['active', 'completed', 'early_settled'])
-                                ->sum('late_repayment_count');
-                            $totalAmount = $member->loans()
-                                ->whereIn('status', ['active', 'completed', 'early_settled'])
-                                ->sum('late_repayment_amount');
-                            $member->update([
-                                'late_repayment_count'  => max(0, (int) $totalLate),
-                                'late_repayment_amount' => max(0.0, (float) $totalAmount),
+                ActionGroup::make([
+                    Action::make('mark_paid')
+                        ->label('Mark Paid')
+                        ->icon('heroicon-o-check-circle')
+                        ->color('success')
+                        ->visible(fn (LoanInstallment $record) => $record->status !== 'paid')
+                        ->requiresConfirmation()
+                        ->action(function (LoanInstallment $record) {
+                            $record->update([
+                                'status' => 'paid',
+                                'paid_at' => now(),
                             ]);
-                        }
 
-                        Notification::make()
-                            ->title('Late fee waived')
-                            ->body('The late fee for installment #' . $record->installment_number . ' has been removed.')
-                            ->success()
-                            ->send();
-                    }),
+                            Notification::make()
+                                ->title('Installment marked as paid')
+                                ->success()
+                                ->send();
+                        }),
+
+                    Action::make('waive_late_fee')
+                        ->label('Waive Late Fee')
+                        ->icon('heroicon-o-x-circle')
+                        ->color('warning')
+                        ->visible(fn (LoanInstallment $record) => $record->is_late
+                            && (float) $record->late_fee_amount > 0
+                            && $record->status !== 'paid')
+                        ->requiresConfirmation()
+                        ->modalHeading('Waive Late Fee')
+                        ->modalDescription(fn (LoanInstallment $record) => 'This will waive the SAR '
+                            .number_format((float) $record->late_fee_amount, 2)
+                            .' late fee on installment #'.$record->installment_number
+                            .'. The base amount is still owed. This cannot be undone.')
+                        ->action(function (LoanInstallment $record) {
+                            $record->update([
+                                'late_fee_amount' => 0,
+                                'is_late' => false,
+                            ]);
+
+                            // Refresh the member's aggregate late repayment stats
+                            $loan = $record->loan()->with('member')->first();
+                            if ($loan && $loan->member) {
+                                $member = $loan->member;
+                                $totalLate = $member->loans()
+                                    ->whereIn('status', ['active', 'completed', 'early_settled'])
+                                    ->sum('late_repayment_count');
+                                $totalAmount = $member->loans()
+                                    ->whereIn('status', ['active', 'completed', 'early_settled'])
+                                    ->sum('late_repayment_amount');
+                                $member->update([
+                                    'late_repayment_count' => max(0, (int) $totalLate),
+                                    'late_repayment_amount' => max(0.0, (float) $totalAmount),
+                                ]);
+                            }
+
+                            Notification::make()
+                                ->title('Late fee waived')
+                                ->body('The late fee for installment #'.$record->installment_number.' has been removed.')
+                                ->success()
+                                ->send();
+                        }),
+                ]),
             ]);
     }
 }

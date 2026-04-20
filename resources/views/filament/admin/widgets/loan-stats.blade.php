@@ -11,7 +11,7 @@
     <div class="grid grid-cols-2 gap-4 sm:grid-cols-3 xl:grid-cols-6">
 
         {{-- Active loans --}}
-        <div class="relative overflow-hidden rounded-xl bg-white dark:bg-gray-800 p-5 ring-1 ring-gray-200 dark:ring-gray-700 shadow-sm">
+        <div class="relative overflow-hidden rounded-xl border border-gray-200 bg-white p-5 shadow-sm dark:border-gray-700 dark:bg-gray-800">
             <div class="absolute inset-y-0 left-0 w-1 rounded-l-xl bg-emerald-500"></div>
             <div class="pl-2">
                 <div class="flex items-center gap-1.5 mb-2">
@@ -24,7 +24,7 @@
         </div>
 
         {{-- Awaiting disbursement --}}
-        <div class="relative overflow-hidden rounded-xl bg-white dark:bg-gray-800 p-5 ring-1 ring-gray-200 dark:ring-gray-700 shadow-sm">
+        <div class="relative overflow-hidden rounded-xl border border-gray-200 bg-white p-5 shadow-sm dark:border-gray-700 dark:bg-gray-800">
             <div class="absolute inset-y-0 left-0 w-1 rounded-l-xl bg-amber-500"></div>
             <div class="pl-2">
                 <div class="flex items-center gap-1.5 mb-2">
@@ -37,7 +37,7 @@
         </div>
 
         {{-- Overdue installments --}}
-        <div class="relative overflow-hidden rounded-xl bg-white dark:bg-gray-800 p-5 ring-1 ring-gray-200 dark:ring-gray-700 shadow-sm">
+        <div class="relative overflow-hidden rounded-xl border border-gray-200 bg-white p-5 shadow-sm dark:border-gray-700 dark:bg-gray-800">
             <div class="absolute inset-y-0 left-0 w-1 rounded-l-xl {{ $d['overdue_count'] > 0 ? 'bg-red-500' : 'bg-emerald-500' }}"></div>
             <div class="pl-2">
                 <div class="flex items-center gap-1.5 mb-2">
@@ -50,7 +50,7 @@
         </div>
 
         {{-- New this month --}}
-        <div class="relative overflow-hidden rounded-xl bg-white dark:bg-gray-800 p-5 ring-1 ring-gray-200 dark:ring-gray-700 shadow-sm">
+        <div class="relative overflow-hidden rounded-xl border border-gray-200 bg-white p-5 shadow-sm dark:border-gray-700 dark:bg-gray-800">
             <div class="absolute inset-y-0 left-0 w-1 rounded-l-xl bg-indigo-500"></div>
             <div class="pl-2">
                 <div class="flex items-center gap-1.5 mb-2">
@@ -63,7 +63,7 @@
         </div>
 
         {{-- Disbursed this month --}}
-        <div class="relative overflow-hidden rounded-xl bg-white dark:bg-gray-800 p-5 ring-1 ring-gray-200 dark:ring-gray-700 shadow-sm">
+        <div class="relative overflow-hidden rounded-xl border border-gray-200 bg-white p-5 shadow-sm dark:border-gray-700 dark:bg-gray-800">
             <div class="absolute inset-y-0 left-0 w-1 rounded-l-xl bg-teal-500"></div>
             <div class="pl-2">
                 <div class="flex items-center gap-1.5 mb-2">
@@ -76,7 +76,7 @@
         </div>
 
         {{-- Completed / settled --}}
-        <div class="relative overflow-hidden rounded-xl bg-white dark:bg-gray-800 p-5 ring-1 ring-gray-200 dark:ring-gray-700 shadow-sm">
+        <div class="relative overflow-hidden rounded-xl border border-gray-200 bg-white p-5 shadow-sm dark:border-gray-700 dark:bg-gray-800">
             <div class="absolute inset-y-0 left-0 w-1 rounded-l-xl bg-primary-500"></div>
             <div class="pl-2">
                 <div class="flex items-center gap-1.5 mb-2">
@@ -93,7 +93,7 @@
     </div>
 
     {{-- ── Status breakdown bar ───────────────────────────────────────────── --}}
-    <div class="rounded-xl bg-white dark:bg-gray-800 ring-1 ring-gray-200 dark:ring-gray-700 shadow-sm overflow-hidden">
+    <div class="rounded-xl border border-gray-200 bg-white shadow-sm overflow-hidden dark:border-gray-700 dark:bg-gray-800">
         <div class="flex items-center gap-2 px-5 py-3 border-b border-gray-100 dark:border-gray-700 bg-gray-50 dark:bg-gray-800/70">
             <x-heroicon-o-chart-bar class="w-4 h-4 text-gray-400" />
             <h4 class="text-xs font-semibold uppercase tracking-wide text-gray-500 dark:text-gray-400">Portfolio Breakdown by Status</h4>

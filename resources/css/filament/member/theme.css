@@ -58,3 +58,71 @@
 .fi-wi-chart .fi-section-header-heading {
     @apply font-semibold text-base;
 }
+
+/* ─── Mobile responsiveness ─────────────────────────────────────────────── */
+
+.fi-ta-content-ctn {
+    overflow-x: auto;
+    -webkit-overflow-scrolling: touch;
+}
+
+@media (max-width: 640px) {
+    .fi-header-heading {
+        font-size: 1.25rem;
+        line-height: 1.75rem;
+    }
+
+    .fi-section-header-heading {
+        font-size: 1rem;
+        line-height: 1.5rem;
+    }
+
+    .fi-ta-header-cell {
+        font-size: 0.65rem;
+        letter-spacing: 0.02em;
+    }
+
+    .fi-ta-cell {
+        font-size: 0.75rem;
+    }
+
+    .fi-ta-actions {
+        gap: 0.25rem;
+    }
+
+    .fi-btn {
+        font-size: 0.75rem;
+    }
+
+    .fi-fo-field-wrp-label {
+        font-size: 0.75rem;
+    }
+
+    .fi-input,
+    .fi-select-input,
+    .fi-fo-textarea {
+        font-size: 0.875rem;
+    }
+
+    /*
+     * Final tap-target pass:
+     * Enlarge only high-priority action controls on mobile.
+     * Keep text compact while improving touch ergonomics.
+     */
+    .fi-btn.fi-color-primary,
+    .fi-btn.fi-color-success,
+    .fi-btn.fi-color-warning,
+    .fi-btn.fi-color-danger {
+        min-height: 2.5rem;
+        padding-inline: 0.875rem;
+        padding-block: 0.5rem;
+    }
+
+    .fi-icon-btn.fi-color-primary,
+    .fi-icon-btn.fi-color-success,
+    .fi-icon-btn.fi-color-warning,
+    .fi-icon-btn.fi-color-danger {
+        min-height: 2.5rem;
+        min-width: 2.5rem;
+    }
+}

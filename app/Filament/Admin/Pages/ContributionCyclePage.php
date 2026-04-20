@@ -7,6 +7,7 @@ use App\Models\Contribution;
 use App\Models\Member;
 use App\Services\ContributionCycleService;
 use Filament\Actions\Action;
+use Filament\Actions\ActionGroup;
 use Filament\Forms;
 use Filament\Notifications\Notification;
 use Filament\Pages\Page;
@@ -67,7 +68,7 @@ class ContributionCyclePage extends Page implements HasTable
 
                     Notification::make()
                         ->title('Notifications Sent')
-                        ->body("{$count} member(s) notified for " . $this->periodLbl($data['month'], $data['year']))
+                        ->body("{$count} member(s) notified for ".$this->periodLbl($data['month'], $data['year']))
                         ->success()
                         ->send();
                 }),
@@ -125,15 +126,15 @@ class ContributionCyclePage extends Page implements HasTable
 
         return $table
             ->query(
-                fn(): Builder => Member::query()
+                fn (): Builder => Member::query()
                     ->where('status', 'active')
                     ->with(['user', 'accounts'])
                     ->whereNotIn('id', $applied)
             )
-            ->heading('Pending Members – ' . $this->periodLbl($month, $year))
+            ->heading('Pending Members – '.$this->periodLbl($month, $year))
             ->description('Active members who have not yet contributed for this period.')
             ->emptyStateHeading('All members have contributed')
-            ->emptyStateDescription('No pending contributions for ' . $this->periodLbl($month, $year))
+            ->emptyStateDescription('No pending contributions for '.$this->periodLbl($month, $year))
             ->emptyStateIcon('heroicon-o-check-circle')
             ->columns([
                 TextColumn::make('member_number')->label('Member #')->sortable(),
@@ -144,65 +145,67 @@ class ContributionCyclePage extends Page implements HasTable
                 TextColumn::make('cash_balance')
                     ->label('Cash Balance')
                     ->money('SAR')
-                    ->getStateUsing(fn(Member $r) => $r->cash_balance)
-                    ->color(fn(Member $r) => $r->cash_balance >= $r->monthly_contribution_amount ? 'success' : 'danger'),
+                    ->getStateUsing(fn (Member $r) => $r->cash_balance)
+                    ->color(fn (Member $r) => $r->cash_balance >= $r->monthly_contribution_amount ? 'success' : 'danger'),
                 TextColumn::make('shortfall')
                     ->label('Shortfall')
                     ->money('SAR')
-                    ->getStateUsing(fn(Member $r) => max(0, $r->monthly_contribution_amount - $r->cash_balance))
+                    ->getStateUsing(fn (Member $r) => max(0, $r->monthly_contribution_amount - $r->cash_balance))
                     ->color('danger'),
                 TextColumn::make('parent.user.name')->label('Parent')->placeholder('—'),
             ])
             ->recordActions([
-                Action::make('apply_single')
-                    ->label('Apply Now')
-                    ->icon('heroicon-o-check')
-                    ->color('success')
-                    ->requiresConfirmation()
-                    ->modalHeading(fn(Member $r) => "Apply Contribution for {$r->user->name}?")
-                    ->modalDescription(
-                        fn(Member $r) => 'This will debit SAR ' . number_format($r->monthly_contribution_amount) .
-                        ' from their cash account (balance: SAR ' . number_format($r->cash_balance, 2) . ').'
-                    )
-                    ->disabled(function (Member $r) use ($month, $year) {
-                        $late = app(ContributionCycleService::class)->lateFeeForContributionPeriod($month, $year);
+                ActionGroup::make([
+                    Action::make('apply_single')
+                        ->label('Apply Now')
+                        ->icon('heroicon-o-check')
+                        ->color('success')
+                        ->requiresConfirmation()
+                        ->modalHeading(fn (Member $r) => "Apply Contribution for {$r->user->name}?")
+                        ->modalDescription(
+                            fn (Member $r) => 'This will debit SAR '.number_format($r->monthly_contribution_amount).
+                            ' from their cash account (balance: SAR '.number_format($r->cash_balance, 2).').'
+                        )
+                        ->disabled(function (Member $r) use ($month, $year) {
+                            $late = app(ContributionCycleService::class)->lateFeeForContributionPeriod($month, $year);
 
-                        return (float) $r->cash_balance < (float) $r->monthly_contribution_amount + $late;
-                    })
-                    ->action(function (Member $record) use ($month, $year) {
-                        $service = app(ContributionCycleService::class);
-                        $dummy = [];
-                        $outcome = $service->applyOne($record, $month, $year, $dummy);
+                            return (float) $r->cash_balance < (float) $r->monthly_contribution_amount + $late;
+                        })
+                        ->action(function (Member $record) use ($month, $year) {
+                            $service = app(ContributionCycleService::class);
+                            $dummy = [];
+                            $outcome = $service->applyOne($record, $month, $year, $dummy);
 
-                        if ($outcome === 'applied') {
-                            Notification::make()
-                                ->title('Contribution Applied')
-                                ->body('SAR ' . number_format($record->monthly_contribution_amount) . " applied for {$record->user->name}.")
-                                ->success()
-                                ->send();
-                        } elseif ($outcome === 'already_contributed') {
-                            Notification::make()
-                                ->title('Already recorded')
-                                ->body(Contribution::duplicateCycleMessage($month, $year))
-                                ->warning()
-                                ->send();
-                        } elseif ($outcome === 'exempt') {
-                            Notification::make()
-                                ->title('Member exempt')
-                                ->body('This member is exempt from contributions while they have an approved or active loan.')
-                                ->warning()
-                                ->send();
-                        } else {
-                            Notification::make()
-                                ->title('Could Not Apply')
-                                ->body(match ($outcome) {
-                                    'insufficient' => 'Cash balance is below the required monthly amount.',
-                                    default => 'Status: ' . $outcome,
-                                })
-                                ->warning()
-                                ->send();
-                        }
-                    }),
+                            if ($outcome === 'applied') {
+                                Notification::make()
+                                    ->title('Contribution Applied')
+                                    ->body('SAR '.number_format($record->monthly_contribution_amount)." applied for {$record->user->name}.")
+                                    ->success()
+                                    ->send();
+                            } elseif ($outcome === 'already_contributed') {
+                                Notification::make()
+                                    ->title('Already recorded')
+                                    ->body(Contribution::duplicateCycleMessage($month, $year))
+                                    ->warning()
+                                    ->send();
+                            } elseif ($outcome === 'exempt') {
+                                Notification::make()
+                                    ->title('Member exempt')
+                                    ->body('This member is exempt from contributions while they have an approved or active loan.')
+                                    ->warning()
+                                    ->send();
+                            } else {
+                                Notification::make()
+                                    ->title('Could Not Apply')
+                                    ->body(match ($outcome) {
+                                        'insufficient' => 'Cash balance is below the required monthly amount.',
+                                        default => 'Status: '.$outcome,
+                                    })
+                                    ->warning()
+                                    ->send();
+                            }
+                        }),
+                ]),
             ]);
     }
 
@@ -210,7 +213,7 @@ class ContributionCyclePage extends Page implements HasTable
     {
         return $table
             ->query(
-                fn(): Builder => Member::query()
+                fn (): Builder => Member::query()
                     ->join('contributions', function ($join) use ($month, $year) {
                         $join->on('contributions.member_id', '=', 'members.id')
                             ->where('contributions.month', $month)
@@ -220,10 +223,10 @@ class ContributionCyclePage extends Page implements HasTable
                     ->select('members.*', 'contributions.amount as contribution_amount', 'contributions.is_late as contribution_is_late', 'contributions.created_at as contribution_date')
                     ->with('user')
             )
-            ->heading('Paid Members – ' . $this->periodLbl($month, $year))
+            ->heading('Paid Members – '.$this->periodLbl($month, $year))
             ->description('Members who have already contributed for this period.')
             ->emptyStateHeading('No contributions recorded')
-            ->emptyStateDescription('No members have contributed for ' . $this->periodLbl($month, $year) . ' yet.')
+            ->emptyStateDescription('No members have contributed for '.$this->periodLbl($month, $year).' yet.')
             ->emptyStateIcon('heroicon-o-banknotes')
             ->columns([
                 TextColumn::make('member_number')->label('Member #')->sortable(),
@@ -234,8 +237,8 @@ class ContributionCyclePage extends Page implements HasTable
                 TextColumn::make('contribution_is_late')
                     ->label('On Time?')
                     ->badge()
-                    ->getStateUsing(fn(Member $r) => $r->contribution_is_late ? 'Late' : 'On Time')
-                    ->color(fn(string $state) => $state === 'Late' ? 'warning' : 'success'),
+                    ->getStateUsing(fn (Member $r) => $r->contribution_is_late ? 'Late' : 'On Time')
+                    ->color(fn (string $state) => $state === 'Late' ? 'warning' : 'success'),
                 TextColumn::make('contribution_date')
                     ->label('Recorded At')
                     ->dateTime('d M Y, H:i')
@@ -254,7 +257,7 @@ class ContributionCyclePage extends Page implements HasTable
                 ->label('Month')
                 ->options(array_combine(
                     range(1, 12),
-                    array_map(fn($m) => date('F', mktime(0, 0, 0, $m, 1)), range(1, 12))
+                    array_map(fn ($m) => date('F', mktime(0, 0, 0, $m, 1)), range(1, 12))
                 ))
                 ->required(),
             Forms\Components\TextInput::make('year')
@@ -280,6 +283,6 @@ class ContributionCyclePage extends Page implements HasTable
 
     private function periodLbl(int $month, int $year): string
     {
-        return date('F', mktime(0, 0, 0, $month, 1)) . ' ' . $year;
+        return date('F', mktime(0, 0, 0, $month, 1)).' '.$year;
     }
 }

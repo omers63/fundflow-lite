@@ -10,6 +10,7 @@ use App\Models\LoanTier;
 use App\Services\AccountingService;
 use App\Services\LoanEligibilityService;
 use Filament\Actions\Action;
+use Filament\Actions\ActionGroup;
 use Filament\Actions\BulkActionGroup;
 use Filament\Actions\DeleteAction;
 use Filament\Actions\DeleteBulkAction;
@@ -47,8 +48,8 @@ class LoansRelationManager extends RelationManager
                 Action::make('new_loan')
                     ->label('New loan')
                     ->icon('heroicon-o-plus-circle')
-                    ->url(fn(): string => LoanResource::getUrl('create') . '?member_id=' . $this->getOwnerRecord()->getKey())
-                    ->visible(fn(): bool => LoanResource::canCreate()
+                    ->url(fn (): string => LoanResource::getUrl('create').'?member_id='.$this->getOwnerRecord()->getKey())
+                    ->visible(fn (): bool => LoanResource::canCreate()
                         && app(LoanEligibilityService::class)->isEligible($this->getOwnerRecord())),
                 $this->repaymentCycleHeaderAction(),
             ])
@@ -68,12 +69,12 @@ class LoansRelationManager extends RelationManager
                     ->toggleable(),
                 Tables\Columns\TextColumn::make('paid_installments_count')
                     ->label('Paid / Total')
-                    ->getStateUsing(fn(Loan $r) => $r->paid_installments_count . ' / ' . $r->installments_count)
+                    ->getStateUsing(fn (Loan $r) => $r->paid_installments_count.' / '.$r->installments_count)
                     ->toggleable(),
                 Tables\Columns\TextColumn::make('remaining_amount')
                     ->label('Remaining')
                     ->money('SAR')
-                    ->getStateUsing(fn(Loan $r) => $r->remaining_amount)
+                    ->getStateUsing(fn (Loan $r) => $r->remaining_amount)
                     ->toggleable(),
                 Tables\Columns\TextColumn::make('applied_at')->label('Applied')->date('d M Y')->sortable()->toggleable(),
             ])
@@ -89,18 +90,18 @@ class LoansRelationManager extends RelationManager
                 ]),
                 Tables\Filters\SelectFilter::make('loan_tier_id')
                     ->label('Loan tier')
-                    ->options(fn() => LoanTier::query()->orderBy('tier_number')->pluck('label', 'id')),
+                    ->options(fn () => LoanTier::query()->orderBy('tier_number')->pluck('label', 'id')),
                 Tables\Filters\SelectFilter::make('fund_tier_id')
                     ->label('Fund tier')
-                    ->options(fn() => FundTier::query()->orderBy('label')->pluck('label', 'id')),
+                    ->options(fn () => FundTier::query()->orderBy('label')->pluck('label', 'id')),
                 Tables\Filters\TernaryFilter::make('is_emergency')->label('Emergency'),
                 Tables\Filters\TernaryFilter::make('disbursed')
                     ->label('Disbursed')
                     ->trueLabel('Disbursed')
                     ->falseLabel('Not disbursed')
                     ->queries(
-                        true: fn($q) => $q->whereNotNull('disbursed_at'),
-                        false: fn($q) => $q->whereNull('disbursed_at'),
+                        true: fn ($q) => $q->whereNotNull('disbursed_at'),
+                        false: fn ($q) => $q->whereNull('disbursed_at'),
                     ),
                 Tables\Filters\Filter::make('applied_at')
                     ->schema([
@@ -110,8 +111,8 @@ class LoansRelationManager extends RelationManager
                     ->columns(2)
                     ->query(function ($query, array $data) {
                         return $query
-                            ->when($data['from'] ?? null, fn($q) => $q->whereDate('applied_at', '>=', $data['from']))
-                            ->when($data['until'] ?? null, fn($q) => $q->whereDate('applied_at', '<=', $data['until']));
+                            ->when($data['from'] ?? null, fn ($q) => $q->whereDate('applied_at', '>=', $data['from']))
+                            ->when($data['until'] ?? null, fn ($q) => $q->whereDate('applied_at', '<=', $data['until']));
                     }),
                 Tables\Filters\Filter::make('amount_requested')
                     ->schema([
@@ -121,8 +122,8 @@ class LoansRelationManager extends RelationManager
                     ->columns(2)
                     ->query(function ($query, array $data) {
                         return $query
-                            ->when(filled($data['min'] ?? null), fn($q) => $q->where('amount_requested', '>=', $data['min']))
-                            ->when(filled($data['max'] ?? null), fn($q) => $q->where('amount_requested', '<=', $data['max']));
+                            ->when(filled($data['min'] ?? null), fn ($q) => $q->where('amount_requested', '>=', $data['min']))
+                            ->when(filled($data['max'] ?? null), fn ($q) => $q->where('amount_requested', '<=', $data['max']));
                     }),
                 Tables\Filters\Filter::make('amount_approved')
                     ->schema([
@@ -132,20 +133,22 @@ class LoansRelationManager extends RelationManager
                     ->columns(2)
                     ->query(function ($query, array $data) {
                         return $query
-                            ->when(filled($data['min'] ?? null), fn($q) => $q->where('amount_approved', '>=', $data['min']))
-                            ->when(filled($data['max'] ?? null), fn($q) => $q->where('amount_approved', '<=', $data['max']));
+                            ->when(filled($data['min'] ?? null), fn ($q) => $q->where('amount_approved', '>=', $data['min']))
+                            ->when(filled($data['max'] ?? null), fn ($q) => $q->where('amount_approved', '<=', $data['max']));
                     }),
             ])
             ->recordActions([
-                DeleteAction::make()
-                    ->modalDescription(
-                        'Reverses ledger postings for this loan, removes installments and the loan account, then deletes the loan. Same behavior as Finance → Loans delete.'
-                    )
-                    ->using(function (Loan $record) {
-                        app(AccountingService::class)->safeDeleteLoan($record);
+                ActionGroup::make([
+                    DeleteAction::make()
+                        ->modalDescription(
+                            'Reverses ledger postings for this loan, removes installments and the loan account, then deletes the loan. Same behavior as Finance → Loans delete.'
+                        )
+                        ->using(function (Loan $record) {
+                            app(AccountingService::class)->safeDeleteLoan($record);
 
-                        return true;
-                    }),
+                            return true;
+                        }),
+                ]),
             ])
             ->toolbarActions([
                 BulkActionGroup::make([

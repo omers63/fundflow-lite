@@ -19,7 +19,7 @@
 <body class="antialiased bg-slate-50 font-sans text-slate-800">
 
     {{-- Navigation --}}
-    <nav class="bg-white/95 backdrop-blur-sm border-b border-slate-200 sticky top-0 z-50 shadow-sm">
+    <nav x-data="{ open: false }" class="bg-white/95 backdrop-blur-sm border-b border-slate-200 sticky top-0 z-50 shadow-sm">
         <div class="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
             <div class="flex justify-between items-center h-16">
                 {{-- Logo --}}
@@ -40,12 +40,43 @@
                     <a href="{{ route('application.status') }}" class="text-sm font-medium text-slate-600 hover:text-blue-600 transition-colors">Check Status</a>
                 </div>
 
-                {{-- CTA Buttons --}}
-                <div class="flex items-center space-x-3">
+                {{-- CTA Buttons (desktop) --}}
+                <div class="hidden md:flex items-center space-x-3">
                     <a href="{{ route('login') }}" class="text-sm font-medium text-slate-600 hover:text-blue-600 transition-colors px-4 py-2">Sign In</a>
                     <a href="{{ route('apply') }}" class="bg-gradient-to-r from-blue-600 to-indigo-600 hover:from-blue-700 hover:to-indigo-700 text-white text-sm font-semibold px-5 py-2.5 rounded-xl transition-all shadow-sm hover:shadow-md">
                         Apply Now
                     </a>
+                </div>
+
+                {{-- Mobile menu toggle --}}
+                <button
+                    type="button"
+                    class="md:hidden inline-flex items-center justify-center rounded-lg border border-slate-200 p-2 text-slate-600 hover:bg-slate-100 hover:text-slate-800 transition-colors"
+                    @click="open = ! open"
+                    :aria-expanded="open.toString()"
+                    aria-controls="public-mobile-menu"
+                    aria-label="Toggle navigation"
+                >
+                    <svg x-show="!open" class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24" aria-hidden="true">
+                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 6h16M4 12h16M4 18h16"/>
+                    </svg>
+                    <svg x-show="open" x-cloak class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24" aria-hidden="true">
+                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M6 18L18 6M6 6l12 12"/>
+                    </svg>
+                </button>
+            </div>
+
+            {{-- Mobile menu --}}
+            <div id="public-mobile-menu" x-show="open" x-cloak class="md:hidden border-t border-slate-200 py-3">
+                <div class="grid gap-1">
+                    <a href="{{ route('home') }}" @click="open = false" class="rounded-lg px-3 py-2 text-sm font-medium text-slate-700 hover:bg-slate-100">Home</a>
+                    <a href="{{ route('home') }}#features" @click="open = false" class="rounded-lg px-3 py-2 text-sm font-medium text-slate-700 hover:bg-slate-100">Features</a>
+                    <a href="{{ route('home') }}#how-it-works" @click="open = false" class="rounded-lg px-3 py-2 text-sm font-medium text-slate-700 hover:bg-slate-100">How It Works</a>
+                    <a href="{{ route('application.status') }}" @click="open = false" class="rounded-lg px-3 py-2 text-sm font-medium text-slate-700 hover:bg-slate-100">Check Status</a>
+                </div>
+                <div class="mt-3 grid grid-cols-2 gap-2">
+                    <a href="{{ route('login') }}" @click="open = false" class="inline-flex items-center justify-center rounded-xl border border-slate-200 px-4 py-2.5 text-sm font-semibold text-slate-700 hover:bg-slate-100">Sign In</a>
+                    <a href="{{ route('apply') }}" @click="open = false" class="inline-flex items-center justify-center rounded-xl bg-gradient-to-r from-blue-600 to-indigo-600 px-4 py-2.5 text-sm font-semibold text-white shadow-sm">Apply Now</a>
                 </div>
             </div>
         </div>

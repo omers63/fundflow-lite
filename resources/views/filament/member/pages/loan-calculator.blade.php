@@ -19,7 +19,7 @@
     </div>
 
     {{-- ── Amount input ────────────────────────────────────────────────────────── --}}
-    <div class="rounded-xl bg-white dark:bg-gray-800 ring-1 ring-gray-200 dark:ring-gray-700 p-5 shadow-sm">
+    <div class="rounded-xl bg-gradient-to-br from-sky-100 via-white to-indigo-50 dark:from-slate-800 dark:via-sky-950/35 dark:to-indigo-950/30 ring-1 ring-sky-200/80 dark:ring-sky-600/40 p-5 shadow-md">
         <label class="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">Loan Amount (SAR)</label>
         <div class="flex gap-3 items-center">
             <input

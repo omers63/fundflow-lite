@@ -44,6 +44,7 @@ class MyAccountLedgerResource extends Resource
                     ->sortable(),
                 Tables\Columns\TextColumn::make('account.type')
                     ->label('Account')
+                    ->visibleFrom('sm')
                     ->badge()
                     ->formatStateUsing(fn (string $state) => match ($state) {
                         Account::TYPE_MEMBER_CASH => 'Cash',
@@ -68,6 +69,7 @@ class MyAccountLedgerResource extends Resource
                     ->weight('bold'),
                 Tables\Columns\TextColumn::make('description')
                     ->label('Description')
+                    ->visibleFrom('md')
                     ->wrap()
                     ->limit(80),
             ])

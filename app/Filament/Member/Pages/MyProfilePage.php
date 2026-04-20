@@ -48,7 +48,7 @@ class MyProfilePage extends Page
             Action::make('update_phone')
                 ->label('Update Phone')
                 ->icon('heroicon-o-phone')
-                ->color('gray')
+                ->color('info')
                 ->fillForm(['phone' => auth()->user()?->phone])
                 ->schema([
                     Forms\Components\TextInput::make('phone')

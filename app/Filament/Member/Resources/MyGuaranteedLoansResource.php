@@ -4,7 +4,6 @@ namespace App\Filament\Member\Resources;
 
 use App\Filament\Member\Resources\MyGuaranteedLoansResource\Pages;
 use App\Models\Loan;
-use App\Models\LoanInstallment;
 use App\Models\Member;
 use Filament\Resources\Resource;
 use Filament\Schemas\Schema;
@@ -30,7 +29,7 @@ class MyGuaranteedLoansResource extends Resource
     public static function shouldRegisterNavigation(): bool
     {
         $member = Member::where('user_id', auth()->id())->first();
-        if (!$member) {
+        if (! $member) {
             return false;
         }
 
@@ -40,14 +39,14 @@ class MyGuaranteedLoansResource extends Resource
     public static function getNavigationBadge(): ?string
     {
         $member = Member::where('user_id', auth()->id())->first();
-        if (!$member) {
+        if (! $member) {
             return null;
         }
 
         // Badge = active guaranteed loans where borrower has overdue installments
         $count = Loan::where('guarantor_member_id', $member->id)
             ->where('status', 'active')
-            ->whereHas('installments', fn($q) => $q->where('status', 'overdue'))
+            ->whereHas('installments', fn ($q) => $q->where('status', 'overdue'))
             ->count();
 
         return $count > 0 ? (string) $count : null;
@@ -68,7 +67,7 @@ class MyGuaranteedLoansResource extends Resource
         $member = Member::where('user_id', auth()->id())->first();
 
         return $table
-            ->query(fn() => Loan::where('guarantor_member_id', $member?->id ?? 0)
+            ->query(fn () => Loan::where('guarantor_member_id', $member?->id ?? 0)
                 ->with(['member.user', 'loanTier', 'installments']))
             ->defaultSort('created_at', 'desc')
             ->columns([
@@ -78,9 +77,11 @@ class MyGuaranteedLoansResource extends Resource
                     ->sortable(),
                 Tables\Columns\TextColumn::make('member.member_number')
                     ->label('Member #')
+                    ->visibleFrom('md')
                     ->placeholder('—'),
                 Tables\Columns\TextColumn::make('loanTier.label')
                     ->label('Tier')
+                    ->visibleFrom('sm')
                     ->placeholder('—'),
                 Tables\Columns\TextColumn::make('amount_approved')
                     ->label('Approved')
@@ -88,29 +89,32 @@ class MyGuaranteedLoansResource extends Resource
                     ->placeholder('—'),
                 Tables\Columns\TextColumn::make('installments_count')
                     ->label('Months')
+                    ->visibleFrom('lg')
                     ->placeholder('—'),
                 Tables\Columns\TextColumn::make('status')
                     ->badge()
-                    ->color(fn(string $state) => match ($state) {
-                        'pending'                   => 'warning',
-                        'approved'                  => 'info',
-                        'active'                    => 'success',
+                    ->color(fn (string $state) => match ($state) {
+                        'pending' => 'warning',
+                        'approved' => 'info',
+                        'active' => 'success',
                         'completed', 'early_settled' => 'gray',
-                        'rejected', 'cancelled'     => 'danger',
-                        default                     => 'gray',
+                        'rejected', 'cancelled' => 'danger',
+                        default => 'gray',
                     }),
                 Tables\Columns\TextColumn::make('overdue_installments_count')
                     ->label('Overdue')
-                    ->getStateUsing(fn(Loan $r) => $r->installments
+                    ->getStateUsing(fn (Loan $r) => $r->installments
                         ->where('status', 'overdue')->count())
                     ->badge()
-                    ->color(fn($state) => $state > 0 ? 'danger' : 'success'),
+                    ->color(fn ($state) => $state > 0 ? 'danger' : 'success'),
                 Tables\Columns\TextColumn::make('late_repayment_count')
                     ->label('Late Total')
+                    ->visibleFrom('md')
                     ->badge()
-                    ->color(fn($state) => $state > 0 ? 'warning' : 'success'),
+                    ->color(fn ($state) => $state > 0 ? 'warning' : 'success'),
                 Tables\Columns\TextColumn::make('guarantor_liability_transferred_at')
                     ->label('Liability Transferred')
+                    ->visibleFrom('lg')
                     ->dateTime('d M Y')
                     ->placeholder('Not transferred')
                     ->color('danger'),
@@ -118,13 +122,13 @@ class MyGuaranteedLoansResource extends Resource
             ->filters([
                 Tables\Filters\SelectFilter::make('status')
                     ->options([
-                        'pending'       => 'Pending',
-                        'approved'      => 'Approved',
-                        'active'        => 'Active',
-                        'completed'     => 'Completed',
+                        'pending' => 'Pending',
+                        'approved' => 'Approved',
+                        'active' => 'Active',
+                        'completed' => 'Completed',
                         'early_settled' => 'Early Settled',
-                        'rejected'      => 'Rejected',
-                        'cancelled'     => 'Cancelled',
+                        'rejected' => 'Rejected',
+                        'cancelled' => 'Cancelled',
                     ]),
             ])
             ->emptyStateHeading('No guaranteed loans')

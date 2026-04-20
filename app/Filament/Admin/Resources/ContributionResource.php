@@ -7,9 +7,11 @@ use App\Filament\Admin\Widgets\ContributionStatsWidget;
 use App\Models\Contribution;
 use App\Models\Member;
 use App\Services\ContributionCycleService;
-use Carbon\Carbon;
 use App\Services\ContributionImportService;
+use Carbon\Carbon;
+use Closure;
 use Filament\Actions\Action;
+use Filament\Actions\ActionGroup;
 use Filament\Actions\BulkActionGroup;
 use Filament\Actions\CreateAction;
 use Filament\Actions\DeleteAction;
@@ -20,7 +22,6 @@ use Filament\Actions\ForceDeleteBulkAction;
 use Filament\Actions\RestoreAction;
 use Filament\Actions\RestoreBulkAction;
 use Filament\Actions\ViewAction;
-use Closure;
 use Filament\Forms;
 use Filament\Forms\Components\Field;
 use Filament\Notifications\Notification;
@@ -53,7 +54,7 @@ class ContributionResource extends Resource
         return $schema->schema([
             Forms\Components\Select::make('member_id')
                 ->label('Member')
-                ->options(fn() => Member::with('user')
+                ->options(fn () => Member::with('user')
                     ->get()
                     ->pluck('user.name', 'id')
                     ->prepend('-- Select Member --', ''))
@@ -80,11 +81,11 @@ class ContributionResource extends Resource
                 ->required()
                 ->minValue(0)
                 ->readOnlyOn('create')
-                ->helperText(fn(string $operation): ?string => $operation === 'create'
+                ->helperText(fn (string $operation): ?string => $operation === 'create'
                     ? 'Filled from the member\'s monthly contribution amount.'
                     : null),
             Forms\Components\Select::make('month')
-                ->options(array_combine(range(1, 12), array_map(fn($m) => date('F', mktime(0, 0, 0, $m, 1)), range(1, 12))))
+                ->options(array_combine(range(1, 12), array_map(fn ($m) => date('F', mktime(0, 0, 0, $m, 1)), range(1, 12))))
                 ->required(),
             Forms\Components\TextInput::make('year')
                 ->numeric()
@@ -95,7 +96,7 @@ class ContributionResource extends Resource
                         $memberId = $get('member_id');
                         $month = $get('month');
 
-                        if (!filled($memberId) || !filled($month) || !filled($value)) {
+                        if (! filled($memberId) || ! filled($month) || ! filled($value)) {
                             return;
                         }
 
@@ -103,7 +104,7 @@ class ContributionResource extends Resource
                             ? (int) $record->getKey()
                             : null;
 
-                        if (!Contribution::activePeriodExists((int) $memberId, (int) $month, (int) $value, $exceptId)) {
+                        if (! Contribution::activePeriodExists((int) $memberId, (int) $month, (int) $value, $exceptId)) {
                             return;
                         }
 
@@ -122,7 +123,7 @@ class ContributionResource extends Resource
                 ->numeric()
                 ->prefix('SAR')
                 ->nullable()
-                ->visible(fn(Get $get): bool => (bool) $get('is_late'))
+                ->visible(fn (Get $get): bool => (bool) $get('is_late'))
                 ->helperText('Credited to master cash only (not master fund). Leave empty to use the configured default when saving.'),
             Forms\Components\TextInput::make('reference_number')
                 ->label('Reference #')
@@ -142,13 +143,13 @@ class ContributionResource extends Resource
                     ->label('Import Contributions')
                     ->icon('heroicon-o-arrow-up-tray')
                     ->color('success')
-                    ->visible(fn(): bool => static::canCreate())
+                    ->visible(fn (): bool => static::canCreate())
                     ->modalHeading('Import contributions from CSV')
                     ->modalDescription(
-                        'First row must be headers. One of member_id or member_number is required per row. ' .
-                        'Required: month, year, amount. Month may be 1–12 or a name (e.g. January). ' .
-                        'Optional: paid_at (defaults to now), reference_number, notes, is_late (0/1 or yes/no), late_fee_amount (SAR; if omitted and is_late, uses system default), ' .
-                        'payment_method (leave empty for admin entry: ' . implode(', ', array_keys(Contribution::paymentMethodOptions())) . ').'
+                        'First row must be headers. One of member_id or member_number is required per row. '.
+                        'Required: month, year, amount. Month may be 1–12 or a name (e.g. January). '.
+                        'Optional: paid_at (defaults to now), reference_number, notes, is_late (0/1 or yes/no), late_fee_amount (SAR; if omitted and is_late, uses system default), '.
+                        'payment_method (leave empty for admin entry: '.implode(', ', array_keys(Contribution::paymentMethodOptions())).').'
                     )
                     ->modalWidth('2xl')
                     ->schema([
@@ -174,9 +175,9 @@ class ContributionResource extends Resource
                         if ($result['errors'] !== []) {
                             $preview = implode("\n", array_slice($result['errors'], 0, 8));
                             if (count($result['errors']) > 8) {
-                                $preview .= "\n… and " . (count($result['errors']) - 8) . ' more';
+                                $preview .= "\n… and ".(count($result['errors']) - 8).' more';
                             }
-                            $body .= "\n\n" . $preview;
+                            $body .= "\n\n".$preview;
                         }
 
                         Notification::make()
@@ -195,10 +196,10 @@ class ContributionResource extends Resource
                     ->createAnother(false)
                     ->mutateDataUsing(function (array $data): array {
                         $data['payment_method'] = Contribution::PAYMENT_METHOD_ADMIN;
-                        if (!empty($data['is_late'])) {
+                        if (! empty($data['is_late'])) {
                             $raw = $data['late_fee_amount'] ?? null;
                             if ($raw === null || $raw === '') {
-                                $at = !empty($data['paid_at']) ? Carbon::parse($data['paid_at']) : now();
+                                $at = ! empty($data['paid_at']) ? Carbon::parse($data['paid_at']) : now();
                                 $fee = app(ContributionCycleService::class)->lateFeeForContributionPeriod(
                                     (int) $data['month'],
                                     (int) $data['year'],
@@ -215,7 +216,7 @@ class ContributionResource extends Resource
                     ->after(function (Component $livewire): void {
                         static::dispatchContributionStatsRefresh($livewire);
                     })
-                    ->visible(fn(): bool => static::canCreate()),
+                    ->visible(fn (): bool => static::canCreate()),
             ])
             ->columns([
                 Tables\Columns\TextColumn::make('member.member_number')
@@ -232,7 +233,7 @@ class ContributionResource extends Resource
                     ->sortable()
                     ->toggleable(),
                 Tables\Columns\TextColumn::make('month')
-                    ->formatStateUsing(fn($state) => date('F', mktime(0, 0, 0, $state, 1)))
+                    ->formatStateUsing(fn ($state) => date('F', mktime(0, 0, 0, $state, 1)))
                     ->toggleable(),
                 Tables\Columns\TextColumn::make('year')
                     ->sortable()
@@ -240,7 +241,7 @@ class ContributionResource extends Resource
                 Tables\Columns\TextColumn::make('payment_method')
                     ->label('Source')
                     ->badge()
-                    ->formatStateUsing(fn(?string $state): string => Contribution::paymentMethodLabel($state))
+                    ->formatStateUsing(fn (?string $state): string => Contribution::paymentMethodLabel($state))
                     ->toggleable(),
                 Tables\Columns\TextColumn::make('paid_at')
                     ->dateTime('d M Y')
@@ -265,16 +266,16 @@ class ContributionResource extends Resource
                 Tables\Filters\SelectFilter::make('member_id')
                     ->label('Member')
                     ->searchable()
-                    ->options(fn() => Member::with('user')->orderBy('member_number')->get()
-                        ->mapWithKeys(fn(Member $m) => [$m->id => "{$m->member_number} – {$m->user->name}"])),
+                    ->options(fn () => Member::with('user')->orderBy('member_number')->get()
+                        ->mapWithKeys(fn (Member $m) => [$m->id => "{$m->member_number} – {$m->user->name}"])),
                 Tables\Filters\SelectFilter::make('month')
-                    ->options(array_combine(range(1, 12), array_map(fn($m) => date('F', mktime(0, 0, 0, $m, 1)), range(1, 12)))),
+                    ->options(array_combine(range(1, 12), array_map(fn ($m) => date('F', mktime(0, 0, 0, $m, 1)), range(1, 12)))),
                 Tables\Filters\Filter::make('year')
                     ->schema([Forms\Components\TextInput::make('year')->numeric()->default(now()->year)])
-                    ->query(fn($query, $data) => $data['year'] ? $query->where('year', $data['year']) : $query),
+                    ->query(fn ($query, $data) => $data['year'] ? $query->where('year', $data['year']) : $query),
                 Tables\Filters\SelectFilter::make('payment_method')
                     ->label('Source')
-                    ->options(fn(): array => Contribution::paymentMethodOptions()),
+                    ->options(fn (): array => Contribution::paymentMethodOptions()),
                 Tables\Filters\TernaryFilter::make('is_late')
                     ->label('Late payment')
                     ->trueLabel('Late only')
@@ -287,8 +288,8 @@ class ContributionResource extends Resource
                     ->columns(2)
                     ->query(function ($query, array $data) {
                         return $query
-                            ->when($data['paid_from'] ?? null, fn($q) => $q->whereDate('paid_at', '>=', $data['paid_from']))
-                            ->when($data['paid_until'] ?? null, fn($q) => $q->whereDate('paid_at', '<=', $data['paid_until']));
+                            ->when($data['paid_from'] ?? null, fn ($q) => $q->whereDate('paid_at', '>=', $data['paid_from']))
+                            ->when($data['paid_until'] ?? null, fn ($q) => $q->whereDate('paid_at', '<=', $data['paid_until']));
                     }),
                 Tables\Filters\Filter::make('amount')
                     ->schema([
@@ -298,27 +299,29 @@ class ContributionResource extends Resource
                     ->columns(2)
                     ->query(function ($query, array $data) {
                         return $query
-                            ->when(filled($data['amount_min'] ?? null), fn($q) => $q->where('amount', '>=', $data['amount_min']))
-                            ->when(filled($data['amount_max'] ?? null), fn($q) => $q->where('amount', '<=', $data['amount_max']));
+                            ->when(filled($data['amount_min'] ?? null), fn ($q) => $q->where('amount', '>=', $data['amount_min']))
+                            ->when(filled($data['amount_max'] ?? null), fn ($q) => $q->where('amount', '<=', $data['amount_max']));
                     }),
                 TrashedFilter::make(),
             ])
             ->recordActions([
-                ViewAction::make()
-                    ->modalWidth('2xl'),
-                EditAction::make()
-                    ->modalWidth('2xl')
-                    ->after(function (Component $livewire): void {
-                        static::dispatchContributionStatsRefresh($livewire);
-                    }),
-                DeleteAction::make()
-                    ->modalDescription('Soft-deletes this contribution and reverses its fund ledger postings (master + member fund). Restoring re-posts the contribution to the ledger.'),
-                RestoreAction::make(),
-                ForceDeleteAction::make(),
+                ActionGroup::make([
+                    ViewAction::make()
+                        ->modalWidth('2xl'),
+                    EditAction::make()
+                        ->modalWidth('2xl')
+                        ->after(function (Component $livewire): void {
+                            static::dispatchContributionStatsRefresh($livewire);
+                        }),
+                    DeleteAction::make()
+                        ->modalDescription('Soft-deletes this contribution and reverses its fund ledger postings (master + member fund). Restoring re-posts the contribution to the ledger.'),
+                    RestoreAction::make(),
+                    ForceDeleteAction::make(),
+                ]),
             ])
             ->recordUrl(null)
             ->recordAction(function (Model $record): ?string {
-                if (!$record instanceof Contribution) {
+                if (! $record instanceof Contribution) {
                     return null;
                 }
 
@@ -365,7 +368,7 @@ class ContributionResource extends Resource
         );
 
         $livewire->js(
-            'setTimeout(() => window.Livewire.getByName(' . $targetName . ').forEach(w => w.$refresh()), 0)'
+            'setTimeout(() => window.Livewire.getByName('.$targetName.').forEach(w => w.$refresh()), 0)'
         );
     }
 }

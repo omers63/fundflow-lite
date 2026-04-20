@@ -114,9 +114,9 @@
     {{-- ── Loan summary ─────────────────────────────────────────────────────── --}}
     <div class="grid grid-cols-1 gap-4 sm:grid-cols-2 lg:grid-cols-4">
 
-        <div class="rounded-xl bg-white dark:bg-gray-800 ring-1 ring-gray-200 dark:ring-gray-700 p-5 shadow-sm">
-            <p class="text-xs font-semibold uppercase tracking-wide text-gray-500 dark:text-gray-400 mb-1">Requested</p>
-            <p class="text-xl font-bold text-gray-900 dark:text-white">SAR {{ number_format($loan->amount_requested, 0) }}</p>
+        <div class="rounded-xl bg-gradient-to-br from-sky-100 via-white to-indigo-50 dark:from-slate-800 dark:via-sky-950/35 dark:to-indigo-950/30 ring-1 ring-sky-200/80 dark:ring-sky-600/40 p-5 shadow-md">
+            <p class="text-xs font-semibold uppercase tracking-wide text-sky-700 dark:text-sky-300 mb-1">Requested</p>
+            <p class="text-xl font-bold text-sky-900 dark:text-sky-100">SAR {{ number_format($loan->amount_requested, 0) }}</p>
         </div>
 
         <div class="rounded-xl bg-white dark:bg-gray-800 ring-1 ring-gray-200 dark:ring-gray-700 p-5 shadow-sm">

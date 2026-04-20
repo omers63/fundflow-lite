@@ -7,6 +7,7 @@ namespace App\Filament\Admin\Widgets;
 use App\Models\DatabaseBackup;
 use App\Services\DatabaseMaintenanceService;
 use Filament\Actions\Action;
+use Filament\Actions\ActionGroup;
 use Filament\Actions\DeleteAction;
 use Filament\Facades\Filament;
 use Filament\Tables;
@@ -39,7 +40,7 @@ class DatabaseBackupsTableWidget extends TableWidget
                     ->weight('medium'),
                 Tables\Columns\TextColumn::make('size_bytes')
                     ->label('Size')
-                    ->formatStateUsing(fn(?int $state): string => $state !== null
+                    ->formatStateUsing(fn (?int $state): string => $state !== null
                         ? Number::fileSize($state, precision: 2)
                         : '—')
                     ->sortable(),
@@ -58,21 +59,23 @@ class DatabaseBackupsTableWidget extends TableWidget
                     ->placeholder('—'),
             ])
             ->recordActions([
-                Action::make('download')
-                    ->label('Download')
-                    ->icon('heroicon-o-arrow-down-tray')
-                    ->url(fn(DatabaseBackup $record): string => route('admin.system.backup-stored-download', $record))
-                    ->authorize(fn(): bool => auth()->user()?->canAccessPanel(Filament::getPanel('admin')) ?? false),
-                DeleteAction::make()
-                    ->label('Delete')
-                    ->modalHeading('Delete backup?')
-                    ->modalDescription('Removes the database row and deletes the file from storage/app/backups/.')
-                    ->authorize(fn(): bool => auth()->user()?->canAccessPanel(Filament::getPanel('admin')) ?? false)
-                    ->using(function (DatabaseBackup $record): bool {
-                        app(DatabaseMaintenanceService::class)->deleteStoredBackup($record);
+                ActionGroup::make([
+                    Action::make('download')
+                        ->label('Download')
+                        ->icon('heroicon-o-arrow-down-tray')
+                        ->url(fn (DatabaseBackup $record): string => route('admin.system.backup-stored-download', $record))
+                        ->authorize(fn (): bool => auth()->user()?->canAccessPanel(Filament::getPanel('admin')) ?? false),
+                    DeleteAction::make()
+                        ->label('Delete')
+                        ->modalHeading('Delete backup?')
+                        ->modalDescription('Removes the database row and deletes the file from storage/app/backups/.')
+                        ->authorize(fn (): bool => auth()->user()?->canAccessPanel(Filament::getPanel('admin')) ?? false)
+                        ->using(function (DatabaseBackup $record): bool {
+                            app(DatabaseMaintenanceService::class)->deleteStoredBackup($record);
 
-                        return true;
-                    }),
+                            return true;
+                        }),
+                ]),
             ])
             ->defaultSort('created_at', 'desc');
     }

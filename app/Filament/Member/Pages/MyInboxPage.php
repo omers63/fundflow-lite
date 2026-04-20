@@ -6,6 +6,7 @@ use App\Models\DirectMessage;
 use App\Models\Member;
 use App\Models\User;
 use Filament\Actions\Action;
+use Filament\Actions\ActionGroup;
 use Filament\Forms;
 use Filament\Notifications\Notification;
 use Filament\Pages\Page;
@@ -116,10 +117,12 @@ class MyInboxPage extends Page implements HasTable
                     ->state('Administration'),
                 TextColumn::make('messages_received_count')
                     ->label('Received')
+                    ->visibleFrom('md')
                     ->badge()
                     ->color('primary'),
                 TextColumn::make('messages_sent_count')
                     ->label('Sent')
+                    ->visibleFrom('md')
                     ->badge()
                     ->color('success'),
                 TextColumn::make('unread_messages_count')
@@ -128,49 +131,55 @@ class MyInboxPage extends Page implements HasTable
                     ->color('danger'),
                 TextColumn::make('last_message_at')
                     ->label('Last Message')
+                    ->visibleFrom('sm')
                     ->since()
                     ->placeholder('No messages yet'),
             ])
             ->recordActions([
-                Action::make('communicate')
-                    ->label('Communicate')
-                    ->icon('heroicon-o-chat-bubble-left-right')
-                    ->color('primary')
-                    ->modalHeading('Conversation with Administration')
-                    ->modalDescription('Single communication thread with full history.')
-                    ->modalWidth('5xl')
-                    ->modalSubmitActionLabel('Send Message')
-                    ->modalContent(fn (Member $record) => view(
-                        'filament.member.pages.partials.admin-conversation-modal',
-                        [
-                            'messages' => $this->conversationMessages($record),
-                            'userId' => auth()->id(),
-                        ]
-                    ))
-                    ->schema([
-                        Forms\Components\Textarea::make('body')
-                            ->label('Message')
-                            ->rows(4)
-                            ->required()
-                            ->maxLength(3000),
-                        Forms\Components\FileUpload::make('attachments')
-                            ->label('Attachments')
-                            ->multiple()
-                            ->disk('public')
-                            ->directory('direct-messages')
-                            ->openable()
-                            ->downloadable()
-                            ->maxFiles(5),
-                    ])
-                    ->action(function (Action $action, Member $record, array $data): void {
-                        $this->sendMessageToAdmin(
-                            $record,
-                            (string) ($data['body'] ?? ''),
-                            is_array($data['attachments'] ?? null) ? $data['attachments'] : []
-                        );
-                        $action->data(['body' => '', 'attachments' => []], shouldMutate: false);
-                        $action->halt();
-                    }),
+                ActionGroup::make([
+                    Action::make('communicate')
+                        ->label('Communicate')
+                        ->icon('heroicon-o-chat-bubble-left-right')
+                        ->color('primary')
+                        ->modalHeading('Conversation with Administration')
+                        ->modalDescription('Single communication thread with full history.')
+                        ->modalWidth('5xl')
+                        ->modalSubmitActionLabel('Send Message')
+                        ->modalContent(fn (Member $record) => view(
+                            'filament.member.pages.partials.admin-conversation-modal',
+                            [
+                                'messages' => $this->conversationMessages($record),
+                                'userId' => auth()->id(),
+                            ]
+                        ))
+                        ->schema([
+                            Forms\Components\Textarea::make('body')
+                                ->label('Message')
+                                ->rows(4)
+                                ->required()
+                                ->maxLength(3000),
+                            Forms\Components\FileUpload::make('attachments')
+                                ->label('Attachments')
+                                ->multiple()
+                                ->disk('public')
+                                ->directory('direct-messages')
+                                ->openable()
+                                ->downloadable()
+                                ->maxFiles(5),
+                        ])
+                        ->action(function (Action $action, Member $record, array $data): void {
+                            $this->sendMessageToAdmin(
+                                $record,
+                                (string) ($data['body'] ?? ''),
+                                is_array($data['attachments'] ?? null) ? $data['attachments'] : []
+                            );
+                            $action->data(['body' => '', 'attachments' => []], shouldMutate: false);
+                            $action->halt();
+                        }),
+                ])
+                    ->icon('heroicon-m-ellipsis-vertical')
+                    ->label('')
+                    ->button(),
             ])
             ->emptyStateHeading('No conversation found')
             ->emptyStateDescription('Your member record is required to use inbox messaging.');

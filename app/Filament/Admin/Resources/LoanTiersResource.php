@@ -4,6 +4,7 @@ namespace App\Filament\Admin\Resources;
 
 use App\Filament\Admin\Resources\LoanTiersResource\Pages;
 use App\Models\LoanTier;
+use Filament\Actions\ActionGroup;
 use Filament\Actions\DeleteAction;
 use Filament\Actions\EditAction;
 use Filament\Actions\ForceDeleteAction;
@@ -61,7 +62,7 @@ class LoanTiersResource extends Resource
                 Tables\Columns\TextColumn::make('min_amount')->label('Min Amount')->money('SAR'),
                 Tables\Columns\TextColumn::make('max_amount')->label('Max Amount')->money('SAR'),
                 Tables\Columns\TextColumn::make('min_monthly_installment')->label('Min Installment/mo')->money('SAR'),
-                Tables\Columns\TextColumn::make('active_loans_count')->label('Active Loans')->getStateUsing(fn(LoanTier $r) => $r->active_loans_count),
+                Tables\Columns\TextColumn::make('active_loans_count')->label('Active Loans')->getStateUsing(fn (LoanTier $r) => $r->active_loans_count),
                 Tables\Columns\IconColumn::make('is_active')->label('Active')->boolean(),
             ])
             ->defaultSort('tier_number')
@@ -70,11 +71,13 @@ class LoanTiersResource extends Resource
                 TrashedFilter::make(),
             ])
             ->recordActions([
-                EditAction::make()
-                    ->schema(fn(Schema $schema): Schema => static::form($schema)),
-                DeleteAction::make(),
-                RestoreAction::make(),
-                ForceDeleteAction::make(),
+                ActionGroup::make([
+                    EditAction::make()
+                        ->schema(fn (Schema $schema): Schema => static::form($schema)),
+                    DeleteAction::make(),
+                    RestoreAction::make(),
+                    ForceDeleteAction::make(),
+                ]),
             ])
             ->reorderable('tier_number');
     }

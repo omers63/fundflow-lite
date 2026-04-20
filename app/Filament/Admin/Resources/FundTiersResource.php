@@ -6,6 +6,7 @@ use App\Filament\Admin\Resources\FundTiersResource\Pages;
 use App\Models\Account;
 use App\Models\FundTier;
 use App\Models\LoanTier;
+use Filament\Actions\ActionGroup;
 use Filament\Actions\DeleteAction;
 use Filament\Actions\EditAction;
 use Filament\Actions\ForceDeleteAction;
@@ -77,19 +78,19 @@ class FundTiersResource extends Resource
                 Tables\Columns\TextColumn::make('allocated_amount')
                     ->label('Allocated (SAR)')
                     ->money('SAR')
-                    ->getStateUsing(fn(FundTier $r) => $r->allocated_amount),
+                    ->getStateUsing(fn (FundTier $r) => $r->allocated_amount),
                 Tables\Columns\TextColumn::make('active_exposure')
                     ->label('Active Loans (SAR)')
                     ->money('SAR')
-                    ->getStateUsing(fn(FundTier $r) => $r->active_exposure),
+                    ->getStateUsing(fn (FundTier $r) => $r->active_exposure),
                 Tables\Columns\TextColumn::make('available_amount')
                     ->label('Available (SAR)')
                     ->money('SAR')
-                    ->getStateUsing(fn(FundTier $r) => $r->available_amount)
-                    ->color(fn(FundTier $r) => $r->available_amount > 0 ? 'success' : 'danger'),
+                    ->getStateUsing(fn (FundTier $r) => $r->available_amount)
+                    ->color(fn (FundTier $r) => $r->available_amount > 0 ? 'success' : 'danger'),
                 Tables\Columns\TextColumn::make('active_loans_count')
                     ->label('Active Loans #')
-                    ->getStateUsing(fn(FundTier $r) => $r->active_loans_count),
+                    ->getStateUsing(fn (FundTier $r) => $r->active_loans_count),
                 Tables\Columns\IconColumn::make('is_active')->label('Active')->boolean(),
             ])
             ->defaultSort('tier_number')
@@ -103,13 +104,15 @@ class FundTiersResource extends Resource
                 TrashedFilter::make(),
             ])
             ->recordActions([
-                EditAction::make()
-                    ->schema(fn(Schema $schema): Schema => static::form($schema)),
-                DeleteAction::make(),
-                RestoreAction::make(),
-                ForceDeleteAction::make(),
+                ActionGroup::make([
+                    EditAction::make()
+                        ->schema(fn (Schema $schema): Schema => static::form($schema)),
+                    DeleteAction::make(),
+                    RestoreAction::make(),
+                    ForceDeleteAction::make(),
+                ]),
             ])
-            ->description('Master Fund Balance: SAR ' . number_format($masterBalance, 2));
+            ->description('Master Fund Balance: SAR '.number_format($masterBalance, 2));
     }
 
     public static function getPages(): array

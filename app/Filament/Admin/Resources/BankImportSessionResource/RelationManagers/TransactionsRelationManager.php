@@ -8,6 +8,7 @@ use App\Models\LoanDisbursement;
 use App\Models\Member;
 use App\Services\AccountingService;
 use Filament\Actions\Action;
+use Filament\Actions\ActionGroup;
 use Filament\Forms;
 use Filament\Notifications\Notification;
 use Filament\Resources\RelationManagers\RelationManager;
@@ -106,75 +107,77 @@ class TransactionsRelationManager extends RelationManager
                     }),
             ])
             ->recordActions([
-                Action::make('post_to_cash')
-                    ->label('Post to Cash')
-                    ->icon('heroicon-o-arrow-right-circle')
-                    ->color('primary')
-                    ->visible(fn (BankTransaction $r) => ! $r->isPosted())
-                    ->schema(fn (BankTransaction $record) => [
-                        Forms\Components\Select::make('member_id')
-                            ->label($record->transaction_type === 'debit' ? 'Member' : 'Member (optional)')
-                            ->options($memberOptions)
-                            ->searchable()
-                            ->required($record->transaction_type === 'debit')
-                            ->live()
-                            ->afterStateUpdated(function ($set) {
-                                $set('loan_id', null);
-                                $set('loan_disbursement_id', null);
-                            }),
-                        Forms\Components\Select::make('loan_id')
-                            ->label('Loan')
-                            ->options(fn (Get $get) => Loan::query()
-                                ->where('member_id', $get('member_id'))
-                                ->whereHas('disbursements')
-                                ->orderByDesc('id')
-                                ->get()
-                                ->mapWithKeys(fn (Loan $loan) => [
-                                    $loan->id => sprintf(
-                                        '#%d — SAR %s approved, SAR %s disbursed, %s',
-                                        $loan->id,
-                                        number_format((float) $loan->amount_approved, 2),
-                                        number_format((float) $loan->amount_disbursed, 2),
-                                        $loan->status
-                                    ),
-                                ]))
-                            ->searchable()
-                            ->preload()
-                            ->live()
-                            ->afterStateUpdated(fn ($set) => $set('loan_disbursement_id', null))
-                            ->visible($record->transaction_type === 'debit')
-                            ->required($record->transaction_type === 'debit'),
-                        Forms\Components\Select::make('loan_disbursement_id')
-                            ->label('Loan disbursement payout')
-                            ->options(fn (Get $get) => LoanDisbursement::query()
-                                ->where('loan_id', $get('loan_id'))
-                                ->orderByDesc('disbursed_at')
-                                ->orderByDesc('id')
-                                ->get()
-                                ->mapWithKeys(fn (LoanDisbursement $d) => [
-                                    $d->id => sprintf(
-                                        'SAR %s on %s — disbursement #%d',
-                                        number_format((float) $d->amount, 2),
-                                        $d->disbursed_at?->format('d M Y') ?? '?',
-                                        $d->id
-                                    ),
-                                ]))
-                            ->searchable()
-                            ->preload()
-                            ->visible($record->transaction_type === 'debit')
-                            ->required($record->transaction_type === 'debit'),
-                    ])
-                    ->action(function (BankTransaction $record, array $data) {
-                        $member = ! empty($data['member_id']) ? Member::findOrFail($data['member_id']) : null;
-                        $disbursement = ! empty($data['loan_disbursement_id'])
-                            ? LoanDisbursement::query()->findOrFail($data['loan_disbursement_id'])
-                            : null;
-                        if ($disbursement && ! empty($data['loan_id']) && (int) $disbursement->loan_id !== (int) $data['loan_id']) {
-                            throw new \InvalidArgumentException('Selected disbursement does not belong to the selected loan.');
-                        }
-                        app(AccountingService::class)->postBankTransactionToCashWithOptionalMember($record, $member, $disbursement);
-                        Notification::make()->title('Posted to Cash Account')->success()->send();
-                    }),
+                ActionGroup::make([
+                    Action::make('post_to_cash')
+                        ->label('Post to Cash')
+                        ->icon('heroicon-o-arrow-right-circle')
+                        ->color('primary')
+                        ->visible(fn (BankTransaction $r) => ! $r->isPosted())
+                        ->schema(fn (BankTransaction $record) => [
+                            Forms\Components\Select::make('member_id')
+                                ->label($record->transaction_type === 'debit' ? 'Member' : 'Member (optional)')
+                                ->options($memberOptions)
+                                ->searchable()
+                                ->required($record->transaction_type === 'debit')
+                                ->live()
+                                ->afterStateUpdated(function ($set) {
+                                    $set('loan_id', null);
+                                    $set('loan_disbursement_id', null);
+                                }),
+                            Forms\Components\Select::make('loan_id')
+                                ->label('Loan')
+                                ->options(fn (Get $get) => Loan::query()
+                                    ->where('member_id', $get('member_id'))
+                                    ->whereHas('disbursements')
+                                    ->orderByDesc('id')
+                                    ->get()
+                                    ->mapWithKeys(fn (Loan $loan) => [
+                                        $loan->id => sprintf(
+                                            '#%d — SAR %s approved, SAR %s disbursed, %s',
+                                            $loan->id,
+                                            number_format((float) $loan->amount_approved, 2),
+                                            number_format((float) $loan->amount_disbursed, 2),
+                                            $loan->status
+                                        ),
+                                    ]))
+                                ->searchable()
+                                ->preload()
+                                ->live()
+                                ->afterStateUpdated(fn ($set) => $set('loan_disbursement_id', null))
+                                ->visible($record->transaction_type === 'debit')
+                                ->required($record->transaction_type === 'debit'),
+                            Forms\Components\Select::make('loan_disbursement_id')
+                                ->label('Loan disbursement payout')
+                                ->options(fn (Get $get) => LoanDisbursement::query()
+                                    ->where('loan_id', $get('loan_id'))
+                                    ->orderByDesc('disbursed_at')
+                                    ->orderByDesc('id')
+                                    ->get()
+                                    ->mapWithKeys(fn (LoanDisbursement $d) => [
+                                        $d->id => sprintf(
+                                            'SAR %s on %s — disbursement #%d',
+                                            number_format((float) $d->amount, 2),
+                                            $d->disbursed_at?->format('d M Y') ?? '?',
+                                            $d->id
+                                        ),
+                                    ]))
+                                ->searchable()
+                                ->preload()
+                                ->visible($record->transaction_type === 'debit')
+                                ->required($record->transaction_type === 'debit'),
+                        ])
+                        ->action(function (BankTransaction $record, array $data) {
+                            $member = ! empty($data['member_id']) ? Member::findOrFail($data['member_id']) : null;
+                            $disbursement = ! empty($data['loan_disbursement_id'])
+                                ? LoanDisbursement::query()->findOrFail($data['loan_disbursement_id'])
+                                : null;
+                            if ($disbursement && ! empty($data['loan_id']) && (int) $disbursement->loan_id !== (int) $data['loan_id']) {
+                                throw new \InvalidArgumentException('Selected disbursement does not belong to the selected loan.');
+                            }
+                            app(AccountingService::class)->postBankTransactionToCashWithOptionalMember($record, $member, $disbursement);
+                            Notification::make()->title('Posted to Cash Account')->success()->send();
+                        }),
+                ]),
             ]);
     }
 }

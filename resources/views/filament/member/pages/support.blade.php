@@ -18,7 +18,7 @@
     </div>
 
     {{-- Categories overview --}}
-    <div class="grid grid-cols-2 sm:grid-cols-3 gap-4">
+    <div class="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4">
         @foreach([
             ['icon' => 'heroicon-o-banknotes', 'title' => 'Cash Deposit', 'desc' => 'Request a cash top-up to your account', 'color' => 'emerald'],
             ['icon' => 'heroicon-o-document-currency-dollar', 'title' => 'Loan Inquiry', 'desc' => 'Questions about your loan or application', 'color' => 'blue'],

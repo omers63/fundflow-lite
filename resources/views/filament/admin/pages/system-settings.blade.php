@@ -141,7 +141,7 @@
 
             <div class="grid grid-cols-1 gap-4 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-5 mb-6">
                 @foreach($settings as $s)
-                    <div class="relative overflow-hidden rounded-xl bg-white dark:bg-gray-800 p-5 ring-1 ring-gray-200 dark:ring-gray-700 shadow-sm">
+                    <div class="relative overflow-hidden rounded-xl border border-gray-200 bg-white p-5 shadow-sm dark:border-gray-700 dark:bg-gray-800">
                         <div class="absolute inset-y-0 left-0 w-1 rounded-l-xl {{ $s['accent'] }}"></div>
                         <div class="pl-2">
                             <div class="flex items-center gap-2 mb-3">
@@ -173,7 +173,7 @@
         @endif
     @elseif ($activeTab === 'contribution-cycles')
         <div class="space-y-6">
-            <div class="rounded-xl bg-white dark:bg-gray-800 ring-1 ring-gray-200 dark:ring-gray-700 p-5 shadow-sm">
+            <div class="rounded-xl border border-gray-200 bg-white p-5 shadow-sm dark:border-gray-700 dark:bg-gray-800">
                 <h3 class="text-sm font-semibold text-gray-950 dark:text-white mb-2">How cycles work</h3>
                 <ul class="list-disc pl-5 text-sm text-gray-600 dark:text-gray-400 space-y-1">
                     <li>Each cycle is tied to a calendar month.</li>
@@ -184,14 +184,14 @@
             </div>
 
             <div class="grid grid-cols-1 gap-4 sm:grid-cols-2">
-                <div class="relative overflow-hidden rounded-xl bg-white dark:bg-gray-800 p-5 ring-1 ring-gray-200 dark:ring-gray-700 shadow-sm">
+                <div class="relative overflow-hidden rounded-xl border border-gray-200 bg-white p-5 shadow-sm dark:border-gray-700 dark:bg-gray-800">
                     <div class="absolute inset-y-0 left-0 w-1 rounded-l-xl bg-primary-500"></div>
                     <div class="pl-2">
                         <p class="text-xs font-semibold uppercase tracking-wide text-gray-500 dark:text-gray-400 mb-4">Example (June, current year)</p>
                         <p class="text-sm text-gray-700 dark:text-gray-300 leading-relaxed">{{ $this->exampleJuneCycleLine() }}</p>
                     </div>
                 </div>
-                <div class="relative overflow-hidden rounded-xl bg-white dark:bg-gray-800 p-5 ring-1 ring-gray-200 dark:ring-gray-700 shadow-sm">
+                <div class="relative overflow-hidden rounded-xl border border-gray-200 bg-white p-5 shadow-sm dark:border-gray-700 dark:bg-gray-800">
                     <div class="absolute inset-y-0 left-0 w-1 rounded-l-xl bg-teal-500"></div>
                     <div class="pl-2">
                         <p class="text-xs font-semibold uppercase tracking-wide text-gray-500 dark:text-gray-400 mb-4">Current open period (today)</p>
@@ -200,7 +200,7 @@
                 </div>
             </div>
 
-            <div class="rounded-xl bg-amber-50/80 dark:bg-amber-950/20 ring-1 ring-amber-200/80 dark:ring-amber-800/50 p-5">
+            <div class="rounded-xl border border-amber-200 bg-amber-50/80 p-5 dark:border-amber-800/50 dark:bg-amber-950/20">
                 <h3 class="text-sm font-semibold text-gray-950 dark:text-white mb-2">Delinquency policy (automated)</h3>
                 <p class="text-sm text-gray-600 dark:text-gray-400 mb-3">
                     The scheduled command <code class="text-xs bg-white/60 dark:bg-black/20 px-1 rounded">fund:check-delinquency</code> runs daily.
@@ -222,7 +222,7 @@
                 </dl>
             </div>
 
-            <div class="rounded-xl bg-white dark:bg-gray-800 ring-1 ring-gray-200 dark:ring-gray-700 p-5 shadow-sm">
+            <div class="rounded-xl border border-gray-200 bg-white p-5 shadow-sm dark:border-gray-700 dark:bg-gray-800">
                 <h3 class="text-sm font-semibold text-gray-950 dark:text-white mb-2">Late fees (tiered)</h3>
                 <p class="text-xs text-gray-500 dark:text-gray-400 mb-3">SAR per tier after the cycle due (highest matching non-zero tier applies).</p>
                 <div class="grid gap-4 sm:grid-cols-2 text-sm">
@@ -323,7 +323,7 @@
 
             <div class="grid grid-cols-2 gap-4 sm:grid-cols-3 xl:grid-cols-6 mb-2">
                 @foreach($stmtSettings as $s)
-                <div class="relative overflow-hidden rounded-xl bg-white dark:bg-gray-800 p-5 ring-1 ring-gray-200 dark:ring-gray-700 shadow-sm">
+                <div class="relative overflow-hidden rounded-xl border border-gray-200 bg-white p-5 shadow-sm dark:border-gray-700 dark:bg-gray-800">
                     <div class="absolute inset-y-0 left-0 w-1 rounded-l-xl {{ $s['accent'] }}"></div>
                     <div class="pl-2">
                         <div class="flex items-center gap-2 mb-2">
@@ -337,17 +337,17 @@
             </div>
 
             <div class="grid gap-4 sm:grid-cols-2">
-                <div class="rounded-xl bg-white dark:bg-gray-800 ring-1 ring-gray-200 dark:ring-gray-700 p-5 shadow-sm">
+                <div class="rounded-xl border border-gray-200 bg-white p-5 shadow-sm dark:border-gray-700 dark:bg-gray-800">
                     <h3 class="text-sm font-semibold text-gray-900 dark:text-white mb-3">Footer Disclaimer</h3>
                     <p class="text-xs text-gray-600 dark:text-gray-400 leading-relaxed">{{ \App\Models\Setting::statementFooterDisclaimer() ?: '(not set)' }}</p>
                 </div>
-                <div class="rounded-xl bg-white dark:bg-gray-800 ring-1 ring-gray-200 dark:ring-gray-700 p-5 shadow-sm">
+                <div class="rounded-xl border border-gray-200 bg-white p-5 shadow-sm dark:border-gray-700 dark:bg-gray-800">
                     <h3 class="text-sm font-semibold text-gray-900 dark:text-white mb-3">Authorized Signature Line</h3>
                     <p class="text-xs text-gray-600 dark:text-gray-400 leading-relaxed">{{ \App\Models\Setting::statementSignatureLine() ?: '(not set)' }}</p>
                 </div>
             </div>
 
-            <div class="rounded-xl bg-emerald-50/80 dark:bg-emerald-950/20 ring-1 ring-emerald-200/80 dark:ring-emerald-800/50 p-5">
+            <div class="rounded-xl border border-emerald-200 bg-emerald-50/80 p-5 dark:border-emerald-800/50 dark:bg-emerald-950/20">
                 <h3 class="text-sm font-semibold text-gray-950 dark:text-white mb-2">Statement generation schedule</h3>
                 <p class="text-sm text-gray-600 dark:text-gray-400 mb-2">
                     The scheduled command <code class="text-xs bg-white/60 dark:bg-black/20 px-1 rounded">statements:generate --notify</code>
@@ -381,7 +381,7 @@
             <div class="grid grid-cols-2 gap-4 sm:grid-cols-4">
                 @foreach($channels as $key => $meta)
                 @php $on = $enabled[$key]; $colors = $channelColors[$key]; @endphp
-                <div class="relative overflow-hidden rounded-xl bg-white dark:bg-gray-800 p-5 ring-1 ring-gray-200 dark:ring-gray-700 shadow-sm">
+                <div class="relative overflow-hidden rounded-xl border border-gray-200 bg-white p-5 shadow-sm dark:border-gray-700 dark:bg-gray-800">
                     <div class="absolute inset-y-0 left-0 w-1 rounded-l-xl {{ $on ? $colors['on'] : $colors['off'] }}"></div>
                     <div class="pl-3">
                         <div class="flex items-center justify-between mb-2">
@@ -400,7 +400,7 @@
             </div>
 
             {{-- ── Info box ──────────────────────────────────────────────────── --}}
-            <div class="rounded-xl bg-blue-50/80 dark:bg-blue-950/20 ring-1 ring-blue-200/80 dark:ring-blue-800/50 p-5">
+            <div class="rounded-xl border border-blue-200 bg-blue-50/80 p-5 dark:border-blue-800/50 dark:bg-blue-950/20">
                 <div class="flex items-start gap-3">
                     <x-heroicon-o-information-circle class="w-5 h-5 mt-0.5 text-blue-500 flex-shrink-0" />
                     <div>

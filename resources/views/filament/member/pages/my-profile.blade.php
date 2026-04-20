@@ -7,7 +7,7 @@
 <div class="space-y-6">
 
     {{-- ── Identity card ───────────────────────────────────────────────────── --}}
-    <div class="rounded-2xl bg-gradient-to-br from-sky-600 to-sky-700 dark:from-sky-700 dark:to-sky-900 p-6 text-white shadow-lg">
+    <div class="rounded-2xl bg-gradient-to-br from-sky-700 via-sky-800 to-indigo-900 p-6 text-white shadow-lg ring-1 ring-sky-400/30">
         <div class="flex flex-col sm:flex-row sm:items-center gap-5">
             {{-- Avatar initials --}}
             <div class="flex-shrink-0 h-20 w-20 rounded-full bg-white/20 ring-2 ring-white/30 flex items-center justify-center text-3xl font-bold select-none">
@@ -16,14 +16,14 @@
             <div class="flex-1 min-w-0">
                 <p class="text-2xl font-bold leading-tight">{{ $user?->name }}</p>
                 @if($member)
-                <p class="mt-1 text-sky-200 text-sm font-mono">{{ $member->member_number }}</p>
+                <p class="mt-1 text-white/90 text-sm font-mono">{{ $member->member_number }}</p>
                 @endif
                 <div class="mt-2 flex flex-wrap gap-3 text-sm">
-                    <span class="flex items-center gap-1 text-sky-100">
+                    <span class="flex items-center gap-1 text-white/90">
                         <x-heroicon-o-envelope class="w-4 h-4" /> {{ $user?->email }}
                     </span>
                     @if($user?->phone)
-                    <span class="flex items-center gap-1 text-sky-100">
+                    <span class="flex items-center gap-1 text-white/90">
                         <x-heroicon-o-phone class="w-4 h-4" /> {{ $user?->phone }}
                     </span>
                     @endif
@@ -32,8 +32,8 @@
             @if($member)
             <div class="flex-shrink-0">
                 <span class="inline-flex items-center rounded-full px-3 py-1 text-xs font-semibold ring-1
-                    {{ $member->status === 'active' ? 'bg-emerald-500/20 text-emerald-100 ring-emerald-300/40'
-                        : 'bg-orange-500/20 text-orange-100 ring-orange-300/40' }}">
+                    {{ $member->status === 'active' ? 'bg-emerald-400/25 text-white ring-emerald-200/40'
+                        : 'bg-amber-400/25 text-white ring-amber-200/40' }}">
                     {{ ucfirst($member->status) }}
                 </span>
             </div>
@@ -45,54 +45,54 @@
     @if($member)
     <div class="grid grid-cols-1 gap-4 sm:grid-cols-2 lg:grid-cols-3">
 
-        <div class="rounded-xl bg-white dark:bg-gray-800 ring-1 ring-gray-200 dark:ring-gray-700 p-5 shadow-sm">
-            <p class="text-xs font-semibold uppercase tracking-wide text-gray-500 dark:text-gray-400 mb-1">Member Number</p>
-            <p class="text-xl font-bold text-gray-900 dark:text-white font-mono">{{ $member->member_number }}</p>
+        <div class="rounded-xl bg-gradient-to-br from-indigo-100 via-sky-50 to-white dark:from-indigo-950/60 dark:via-sky-950/40 dark:to-slate-900 ring-1 ring-indigo-200/80 dark:ring-indigo-600/40 p-5 shadow-md">
+            <p class="text-xs font-semibold uppercase tracking-wide text-slate-600 dark:text-slate-300 mb-1">Member Number</p>
+            <p class="text-xl font-bold text-slate-900 dark:text-white font-mono">{{ $member->member_number }}</p>
         </div>
 
-        <div class="rounded-xl bg-white dark:bg-gray-800 ring-1 ring-gray-200 dark:ring-gray-700 p-5 shadow-sm">
-            <p class="text-xs font-semibold uppercase tracking-wide text-gray-500 dark:text-gray-400 mb-1">Member Since</p>
-            <p class="text-xl font-bold text-gray-900 dark:text-white">
+        <div class="rounded-xl bg-gradient-to-br from-sky-100 via-white to-indigo-50 dark:from-slate-800 dark:via-sky-950/35 dark:to-indigo-950/30 ring-1 ring-sky-200/80 dark:ring-sky-600/40 p-5 shadow-md">
+            <p class="text-xs font-semibold uppercase tracking-wide text-slate-600 dark:text-slate-300 mb-1">Member Since</p>
+            <p class="text-xl font-bold text-slate-900 dark:text-white">
                 {{ $member->joined_at ? $member->joined_at->format('d M Y') : '—' }}
             </p>
             @if($member->joined_at)
-            <p class="text-xs text-gray-400 mt-0.5">{{ $member->joined_at->diffForHumans() }}</p>
+            <p class="text-xs text-slate-500 dark:text-slate-400 mt-0.5">{{ $member->joined_at->diffForHumans() }}</p>
             @endif
         </div>
 
-        <div class="rounded-xl bg-white dark:bg-gray-800 ring-1 ring-gray-200 dark:ring-gray-700 p-5 shadow-sm">
-            <p class="text-xs font-semibold uppercase tracking-wide text-gray-500 dark:text-gray-400 mb-1">Monthly Contribution</p>
-            <p class="text-xl font-bold text-primary-600 dark:text-primary-400">SAR {{ number_format($member->monthly_contribution_amount) }}</p>
-            <p class="text-xs text-gray-400 mt-0.5">per cycle</p>
+        <div class="rounded-xl bg-gradient-to-br from-primary-100/90 via-white to-sky-50 dark:from-primary-950/50 dark:via-slate-900 dark:to-sky-950/30 ring-1 ring-primary-200/80 dark:ring-primary-700/40 p-5 shadow-md">
+            <p class="text-xs font-semibold uppercase tracking-wide text-slate-600 dark:text-slate-300 mb-1">Monthly Contribution</p>
+            <p class="text-xl font-bold text-primary-700 dark:text-primary-300">SAR {{ number_format($member->monthly_contribution_amount) }}</p>
+            <p class="text-xs text-slate-500 dark:text-slate-400 mt-0.5">per cycle</p>
         </div>
 
         @php
             $cashBalance = (float) ($member->cashAccount()?->balance ?? 0);
             $fundBalance = (float) ($member->fundAccount()?->balance ?? 0);
         @endphp
-        <div class="rounded-xl bg-white dark:bg-gray-800 ring-1 ring-gray-200 dark:ring-gray-700 p-5 shadow-sm">
-            <p class="text-xs font-semibold uppercase tracking-wide text-gray-500 dark:text-gray-400 mb-1">Cash Balance</p>
+        <div class="rounded-xl bg-gradient-to-br from-emerald-100/80 via-white to-sky-50 dark:from-emerald-950/40 dark:via-slate-900 dark:to-sky-950/25 ring-1 ring-emerald-200/80 dark:ring-emerald-700/35 p-5 shadow-md">
+            <p class="text-xs font-semibold uppercase tracking-wide text-slate-600 dark:text-slate-300 mb-1">Cash Balance</p>
             <p class="text-xl font-bold {{ $cashBalance >= 0 ? 'text-emerald-600 dark:text-emerald-400' : 'text-red-600 dark:text-red-400' }}">
                 SAR {{ number_format($cashBalance, 2) }}
             </p>
         </div>
 
-        <div class="rounded-xl bg-white dark:bg-gray-800 ring-1 ring-gray-200 dark:ring-gray-700 p-5 shadow-sm">
-            <p class="text-xs font-semibold uppercase tracking-wide text-gray-500 dark:text-gray-400 mb-1">Fund Balance</p>
-            <p class="text-xl font-bold text-indigo-600 dark:text-indigo-400">SAR {{ number_format($fundBalance, 2) }}</p>
+        <div class="rounded-xl bg-gradient-to-br from-indigo-100/80 via-white to-violet-50 dark:from-indigo-950/45 dark:via-slate-900 dark:to-violet-950/25 ring-1 ring-indigo-200/80 dark:ring-indigo-600/40 p-5 shadow-md">
+            <p class="text-xs font-semibold uppercase tracking-wide text-slate-600 dark:text-slate-300 mb-1">Fund Balance</p>
+            <p class="text-xl font-bold text-indigo-700 dark:text-indigo-300">SAR {{ number_format($fundBalance, 2) }}</p>
         </div>
 
-        <div class="rounded-xl bg-white dark:bg-gray-800 ring-1 ring-gray-200 dark:ring-gray-700 p-5 shadow-sm">
-            <p class="text-xs font-semibold uppercase tracking-wide text-gray-500 dark:text-gray-400 mb-1">Compliance</p>
+        <div class="rounded-xl bg-gradient-to-br from-amber-100/70 via-white to-slate-50 dark:from-amber-950/35 dark:via-slate-900 dark:to-slate-950/40 ring-1 ring-amber-200/70 dark:ring-amber-700/30 p-5 shadow-md">
+            <p class="text-xs font-semibold uppercase tracking-wide text-slate-600 dark:text-slate-300 mb-1">Compliance</p>
             @php
                 $lateCount = $member->late_contributions_count ?? 0;
             @endphp
             @if($lateCount === 0)
             <p class="text-xl font-bold text-emerald-600 dark:text-emerald-400">Good standing</p>
-            <p class="text-xs text-gray-400 mt-0.5">No late contributions</p>
+            <p class="text-xs text-slate-500 dark:text-slate-400 mt-0.5">No late contributions</p>
             @else
             <p class="text-xl font-bold text-amber-600 dark:text-amber-400">{{ $lateCount }} late</p>
-            <p class="text-xs text-gray-400 mt-0.5">contributions marked late</p>
+            <p class="text-xs text-slate-500 dark:text-slate-400 mt-0.5">contributions marked late</p>
             @endif
         </div>
     </div>
@@ -122,12 +122,13 @@
         $compliancePct = $totalContrib > 0 ? (int) round($onTime / $totalContrib * 100) : 100;
         $scoreColor    = $compliancePct >= 90 ? 'emerald' : ($compliancePct >= 70 ? 'amber' : 'red');
     @endphp
-    <div class="rounded-xl bg-white dark:bg-gray-800 ring-1 ring-gray-200 dark:ring-gray-700 shadow-sm overflow-hidden">
-        <div class="px-5 py-4 border-b border-gray-100 dark:border-gray-700">
-            <h3 class="text-sm font-semibold text-gray-900 dark:text-white">Compliance & Standing History</h3>
+    <div class="rounded-xl bg-gradient-to-br from-slate-50 via-white to-sky-50 dark:from-gray-900 dark:via-slate-900 dark:to-sky-950/25 ring-1 ring-slate-200/90 dark:ring-slate-600/40 shadow-md overflow-hidden">
+        <div class="px-5 py-4 border-b border-slate-200/80 dark:border-slate-600/50 bg-white/40 dark:bg-white/5">
+            <h3 class="text-sm font-semibold text-slate-900 dark:text-white">Compliance & Standing History</h3>
         </div>
         <div class="p-5">
-            <table class="w-full text-sm">
+            <div class="overflow-x-auto">
+            <table class="w-full min-w-[34rem] text-sm">
                 <tbody class="divide-y divide-gray-100 dark:divide-gray-700">
                     <tr class="py-2">
                         <td class="py-3 text-gray-500 dark:text-gray-400 w-48">Compliance Score</td>
@@ -182,13 +183,14 @@
                     </tr>
                 </tbody>
             </table>
+            </div>
         </div>
     </div>
     @endif
 
     {{-- ── Account security ────────────────────────────────────────────────── --}}
-    <div class="rounded-xl bg-white dark:bg-gray-800 ring-1 ring-gray-200 dark:ring-gray-700 p-5 shadow-sm">
-        <h3 class="text-sm font-semibold text-gray-900 dark:text-white mb-3">Account Security</h3>
+    <div class="rounded-xl bg-gradient-to-br from-slate-100/90 via-white to-sky-50 dark:from-slate-800 dark:via-gray-900 dark:to-sky-950/20 ring-1 ring-slate-200/80 dark:ring-slate-600/40 p-5 shadow-md">
+        <h3 class="text-sm font-semibold text-slate-900 dark:text-white mb-3">Account Security</h3>
         <dl class="grid gap-3 text-sm sm:grid-cols-2">
             <div>
                 <dt class="text-gray-500 dark:text-gray-400">Email address</dt>

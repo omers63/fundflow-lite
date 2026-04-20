@@ -134,6 +134,7 @@ class MyMemberRequestsTableWidget extends TableWidget
                     ->formatStateUsing(fn (string $state): string => MemberRequest::typeLabel($state)),
                 TextColumn::make('details_display')
                     ->label('Details')
+                    ->visibleFrom('md')
                     ->getStateUsing(fn (MemberRequest $record): string => $record->describePayload())
                     ->wrap(),
                 TextColumn::make('status')
@@ -147,6 +148,7 @@ class MyMemberRequestsTableWidget extends TableWidget
                     }),
                 TextColumn::make('admin_note')
                     ->label('Admin note')
+                    ->visibleFrom('lg')
                     ->placeholder('—')
                     ->toggleable(isToggledHiddenByDefault: true),
                 TextColumn::make('created_at')

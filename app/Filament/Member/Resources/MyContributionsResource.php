@@ -5,6 +5,7 @@ namespace App\Filament\Member\Resources;
 use App\Filament\Member\Resources\MyContributionsResource\Pages;
 use App\Models\Contribution;
 use Filament\Actions\Action;
+use Filament\Actions\ActionGroup;
 use Filament\Forms;
 use Filament\Resources\Resource;
 use Filament\Tables;
@@ -28,25 +29,29 @@ class MyContributionsResource extends Resource
     public static function table(Table $table): Table
     {
         return $table
-            ->query(fn() => Contribution::whereHas('member', fn($q) => $q->where('user_id', auth()->id())))
+            ->query(fn () => Contribution::whereHas('member', fn ($q) => $q->where('user_id', auth()->id())))
             ->columns([
                 Tables\Columns\TextColumn::make('amount')
                     ->money('SAR')
                     ->weight('bold'),
                 Tables\Columns\TextColumn::make('month')
-                    ->formatStateUsing(fn($state) => date('F', mktime(0, 0, 0, $state, 1))),
+                    ->formatStateUsing(fn ($state) => date('F', mktime(0, 0, 0, $state, 1))),
                 Tables\Columns\TextColumn::make('year'),
                 Tables\Columns\TextColumn::make('payment_method')
                     ->label('Source')
+                    ->visibleFrom('md')
                     ->badge()
-                    ->formatStateUsing(fn(?string $state): string => Contribution::paymentMethodLabel($state)),
+                    ->formatStateUsing(fn (?string $state): string => Contribution::paymentMethodLabel($state)),
                 Tables\Columns\TextColumn::make('reference_number')
+                    ->visibleFrom('lg')
                     ->placeholder('-'),
                 Tables\Columns\TextColumn::make('paid_at')
+                    ->visibleFrom('sm')
                     ->dateTime('d M Y')
                     ->sortable(),
                 Tables\Columns\IconColumn::make('is_late')
                     ->label('Late')
+                    ->visibleFrom('sm')
                     ->boolean()
                     ->trueIcon('heroicon-o-exclamation-triangle')
                     ->falseIcon('heroicon-o-check-circle')
@@ -55,22 +60,27 @@ class MyContributionsResource extends Resource
             ])
             ->defaultSort('paid_at', 'desc')
             ->recordActions([
-                Action::make('download_receipt')
-                    ->label('Receipt')
-                    ->icon('heroicon-o-arrow-down-tray')
-                    ->color('gray')
-                    ->url(fn(Contribution $record): string => route('member.contribution.receipt', $record))
-                    ->openUrlInNewTab(),
+                ActionGroup::make([
+                    Action::make('download_receipt')
+                        ->label('Receipt')
+                        ->icon('heroicon-o-arrow-down-tray')
+                        ->color('gray')
+                        ->url(fn (Contribution $record): string => route('member.contribution.receipt', $record))
+                        ->openUrlInNewTab(),
+                ])
+                    ->icon('heroicon-m-ellipsis-vertical')
+                    ->label('')
+                    ->button(),
             ])
             ->filters([
                 Tables\Filters\SelectFilter::make('month')
-                    ->options(array_combine(range(1, 12), array_map(fn($m) => date('F', mktime(0, 0, 0, $m, 1)), range(1, 12)))),
+                    ->options(array_combine(range(1, 12), array_map(fn ($m) => date('F', mktime(0, 0, 0, $m, 1)), range(1, 12)))),
                 Tables\Filters\Filter::make('year')
                     ->schema([Forms\Components\TextInput::make('year')->numeric()->default(now()->year)])
-                    ->query(fn($query, $data) => ($data['year'] ?? null) ? $query->where('year', $data['year']) : $query),
+                    ->query(fn ($query, $data) => ($data['year'] ?? null) ? $query->where('year', $data['year']) : $query),
                 Tables\Filters\SelectFilter::make('payment_method')
                     ->label('Source')
-                    ->options(fn(): array => Contribution::paymentMethodOptions()),
+                    ->options(fn (): array => Contribution::paymentMethodOptions()),
                 Tables\Filters\TernaryFilter::make('is_late')
                     ->label('Late payment')
                     ->trueLabel('Late only')
@@ -83,8 +93,8 @@ class MyContributionsResource extends Resource
                     ->columns(2)
                     ->query(function ($query, array $data) {
                         return $query
-                            ->when($data['paid_from'] ?? null, fn($q) => $q->whereDate('paid_at', '>=', $data['paid_from']))
-                            ->when($data['paid_until'] ?? null, fn($q) => $q->whereDate('paid_at', '<=', $data['paid_until']));
+                            ->when($data['paid_from'] ?? null, fn ($q) => $q->whereDate('paid_at', '>=', $data['paid_from']))
+                            ->when($data['paid_until'] ?? null, fn ($q) => $q->whereDate('paid_at', '<=', $data['paid_until']));
                     }),
                 Tables\Filters\Filter::make('amount')
                     ->schema([
@@ -94,8 +104,8 @@ class MyContributionsResource extends Resource
                     ->columns(2)
                     ->query(function ($query, array $data) {
                         return $query
-                            ->when(filled($data['amount_min'] ?? null), fn($q) => $q->where('amount', '>=', $data['amount_min']))
-                            ->when(filled($data['amount_max'] ?? null), fn($q) => $q->where('amount', '<=', $data['amount_max']));
+                            ->when(filled($data['amount_min'] ?? null), fn ($q) => $q->where('amount', '>=', $data['amount_min']))
+                            ->when(filled($data['amount_max'] ?? null), fn ($q) => $q->where('amount', '<=', $data['amount_max']));
                     }),
             ]);
     }

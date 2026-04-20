@@ -5,11 +5,11 @@ namespace App\Filament\Member\Resources;
 use App\Filament\Member\Resources\MyStatementsResource\Pages;
 use App\Models\MonthlyStatement;
 use Filament\Actions\Action;
+use Filament\Actions\ActionGroup;
 use Filament\Forms;
 use Filament\Resources\Resource;
 use Filament\Tables;
 use Filament\Tables\Table;
-use Illuminate\Database\Eloquent\Builder;
 
 class MyStatementsResource extends Resource
 {
@@ -35,12 +35,15 @@ class MyStatementsResource extends Resource
                     ->sortable(),
                 Tables\Columns\TextColumn::make('opening_balance')
                     ->label('Opening')
+                    ->visibleFrom('md')
                     ->money('SAR'),
                 Tables\Columns\TextColumn::make('total_contributions')
                     ->label('Contributions')
+                    ->visibleFrom('lg')
                     ->money('SAR'),
                 Tables\Columns\TextColumn::make('total_repayments')
                     ->label('Repayments')
+                    ->visibleFrom('lg')
                     ->money('SAR'),
                 Tables\Columns\TextColumn::make('closing_balance')
                     ->label('Closing Balance')
@@ -48,6 +51,7 @@ class MyStatementsResource extends Resource
                     ->weight('bold'),
                 Tables\Columns\TextColumn::make('generated_at')
                     ->dateTime('d M Y')
+                    ->visibleFrom('sm')
                     ->label('Generated'),
             ])
             ->defaultSort('period', 'desc')
@@ -59,11 +63,11 @@ class MyStatementsResource extends Resource
                     ->label('Year')
                     ->options(
                         collect(range((int) now()->year, (int) now()->year - 15))
-                            ->mapWithKeys(fn($y) => [(string) $y => (string) $y])
+                            ->mapWithKeys(fn ($y) => [(string) $y => (string) $y])
                             ->all()
                     )
-                    ->query(fn($query, array $data) => filled($data['value'] ?? null)
-                        ? $query->where('period', 'like', $data['value'] . '-%')
+                    ->query(fn ($query, array $data) => filled($data['value'] ?? null)
+                        ? $query->where('period', 'like', $data['value'].'-%')
                         : $query
                     ),
                 Tables\Filters\Filter::make('closing_balance')
@@ -79,12 +83,17 @@ class MyStatementsResource extends Resource
                     }),
             ])
             ->recordActions([
-                Action::make('download')
-                    ->label('Download PDF')
-                    ->icon('heroicon-o-arrow-down-tray')
-                    ->color('gray')
-                    ->url(fn (MonthlyStatement $record) => route('member.statement.pdf', $record))
-                    ->openUrlInNewTab(),
+                ActionGroup::make([
+                    Action::make('download')
+                        ->label('Download PDF')
+                        ->icon('heroicon-o-arrow-down-tray')
+                        ->color('gray')
+                        ->url(fn (MonthlyStatement $record) => route('member.statement.pdf', $record))
+                        ->openUrlInNewTab(),
+                ])
+                    ->icon('heroicon-m-ellipsis-vertical')
+                    ->label('')
+                    ->button(),
             ]);
     }
 

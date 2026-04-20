@@ -6,6 +6,7 @@ use App\Models\DirectMessage;
 use App\Models\Member;
 use App\Models\User;
 use Filament\Actions\Action;
+use Filament\Actions\ActionGroup;
 use Filament\Forms;
 use Filament\Notifications\Notification;
 use Filament\Resources\RelationManagers\RelationManager;
@@ -197,61 +198,63 @@ class MessagesRelationManager extends RelationManager
                     ->falseLabel('Unread'),
             ])
             ->recordActions([
-                Action::make('reply')
-                    ->label('Reply')
-                    ->icon('heroicon-o-paper-airplane')
-                    ->color('primary')
-                    ->schema([
-                        Forms\Components\Textarea::make('body')
-                            ->label('Reply')
-                            ->required()
-                            ->rows(4)
-                            ->maxLength(3000),
-                        Forms\Components\FileUpload::make('attachments')
-                            ->label('Attachments')
-                            ->multiple()
-                            ->disk('public')
-                            ->directory('direct-messages')
-                            ->openable()
-                            ->downloadable()
-                            ->maxFiles(5),
-                    ])
-                    ->action(function (DirectMessage $record, array $data): void {
-                        $member = $this->getOwnerRecord();
-                        $toUserId = (int) $member->user_id;
-                        $attachments = is_array($data['attachments'] ?? null)
-                            ? array_values(array_filter($data['attachments'], fn ($file): bool => filled($file)))
-                            : [];
+                ActionGroup::make([
+                    Action::make('reply')
+                        ->label('Reply')
+                        ->icon('heroicon-o-paper-airplane')
+                        ->color('primary')
+                        ->schema([
+                            Forms\Components\Textarea::make('body')
+                                ->label('Reply')
+                                ->required()
+                                ->rows(4)
+                                ->maxLength(3000),
+                            Forms\Components\FileUpload::make('attachments')
+                                ->label('Attachments')
+                                ->multiple()
+                                ->disk('public')
+                                ->directory('direct-messages')
+                                ->openable()
+                                ->downloadable()
+                                ->maxFiles(5),
+                        ])
+                        ->action(function (DirectMessage $record, array $data): void {
+                            $member = $this->getOwnerRecord();
+                            $toUserId = (int) $member->user_id;
+                            $attachments = is_array($data['attachments'] ?? null)
+                                ? array_values(array_filter($data['attachments'], fn ($file): bool => filled($file)))
+                                : [];
 
-                        DirectMessage::create([
-                            'from_user_id' => auth()->id(),
-                            'to_user_id' => $toUserId,
-                            'parent_id' => $record->parent_id ?: $record->id,
-                            'subject' => $record->subject,
-                            'body' => $data['body'],
-                            'attachments' => $attachments,
-                        ]);
+                            DirectMessage::create([
+                                'from_user_id' => auth()->id(),
+                                'to_user_id' => $toUserId,
+                                'parent_id' => $record->parent_id ?: $record->id,
+                                'subject' => $record->subject,
+                                'body' => $data['body'],
+                                'attachments' => $attachments,
+                            ]);
 
-                        $recipient = User::find($toUserId);
-                        if ($recipient) {
+                            $recipient = User::find($toUserId);
+                            if ($recipient) {
+                                Notification::make()
+                                    ->title('Reply: '.($record->subject ?: 'Message'))
+                                    ->body(auth()->user()->name.': '.mb_strimwidth($data['body'], 0, 100, '...'))
+                                    ->icon('heroicon-o-chat-bubble-left-right')
+                                    ->iconColor('info')
+                                    ->actions([
+                                        Action::make('view')
+                                            ->label('View Inbox')
+                                            ->url(route('filament.member.pages.my-inbox-page')),
+                                    ])
+                                    ->sendToDatabase($recipient);
+                            }
+
                             Notification::make()
-                                ->title('Reply: '.($record->subject ?: 'Message'))
-                                ->body(auth()->user()->name.': '.mb_strimwidth($data['body'], 0, 100, '...'))
-                                ->icon('heroicon-o-chat-bubble-left-right')
-                                ->iconColor('info')
-                                ->actions([
-                                    Action::make('view')
-                                        ->label('View Inbox')
-                                        ->url(route('filament.member.pages.my-inbox-page')),
-                                ])
-                                ->sendToDatabase($recipient);
-                        }
-
-                        Notification::make()
-                            ->title('Reply sent')
-                            ->success()
-                            ->send();
-                    }),
+                                ->title('Reply sent')
+                                ->success()
+                                ->send();
+                        }),
+                ]),
             ])
             ->emptyStateHeading('No direct messages')
             ->emptyStateDescription('No messages have been exchanged with this member yet.');
