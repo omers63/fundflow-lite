@@ -21,7 +21,7 @@ class TransactionsRelationManager extends RelationManager
 {
     protected static string $relationship = 'transactions';
 
-    protected static ?string $title = 'Imported Transactions';
+    protected static ?string $title = null;
 
     public static function getTitle(\Illuminate\Database\Eloquent\Model $ownerRecord, string $pageClass): string
     {

@@ -36,7 +36,7 @@ class AdminPanelProvider extends PanelProvider
             ->login()
             ->sidebarCollapsibleOnDesktop()
             ->sidebarFullyCollapsibleOnDesktop()
-            ->brandName(__('app.brand.admin'))
+            ->brandName(fn (): string => app()->getLocale() === 'ar' ? 'فندفلو — لوحة الإدارة' : __('app.brand.admin'))
             ->databaseNotifications()
             ->databaseNotificationsPolling('30s')
             ->colors([

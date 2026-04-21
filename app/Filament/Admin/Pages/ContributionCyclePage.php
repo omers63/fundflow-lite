@@ -44,6 +44,11 @@ class ContributionCyclePage extends Page implements HasTable
         return __('Contribution Cycles');
     }
 
+    public function getTitle(): string
+    {
+        return __('Contribution Cycles');
+    }
+
     public static function getNavigationGroup(): ?string
     {
         return 'finance';

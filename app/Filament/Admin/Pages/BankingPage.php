@@ -32,6 +32,11 @@ class BankingPage extends Page
         return 'finance';
     }
 
+    public static function getNavigationLabel(): string
+    {
+        return __('Banking');
+    }
+
     /**
      * @return array<int, string>|string
      */

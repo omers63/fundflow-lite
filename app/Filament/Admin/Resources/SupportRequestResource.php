@@ -37,6 +37,16 @@ class SupportRequestResource extends Resource
         return __('Support');
     }
 
+    public static function getModelLabel(): string
+    {
+        return __('Support Request');
+    }
+
+    public static function getPluralModelLabel(): string
+    {
+        return __('Support Requests');
+    }
+
     public static function getNavigationGroup(): ?string
     {
         return 'membership';

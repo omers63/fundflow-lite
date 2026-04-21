@@ -21,7 +21,7 @@ class MyMemberRequestsTableWidget extends TableWidget
 {
     protected static bool $isDiscovered = true;
 
-    protected static ?string $heading = 'Your requests';
+    protected static ?string $heading = null;
 
     protected int|string|array $columnSpan = 'full';
 
@@ -143,6 +143,7 @@ class MyMemberRequestsTableWidget extends TableWidget
                     ->getStateUsing(fn (MemberRequest $record): string => $record->describePayload())
                     ->wrap(),
                 TextColumn::make('status')
+                    ->label(__('Status'))
                     ->badge()
                     ->formatStateUsing(fn (string $state): string => match ($state) {
                         MemberRequest::STATUS_PENDING => __('Pending'),

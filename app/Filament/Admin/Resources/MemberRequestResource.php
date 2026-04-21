@@ -32,15 +32,25 @@ class MemberRequestResource extends Resource
 
     protected static ?string $navigationLabel = 'Requests';
 
-    protected static ?string $modelLabel = 'Member request';
+    protected static ?string $modelLabel = null;
 
-    protected static ?string $pluralModelLabel = 'Member requests';
+    protected static ?string $pluralModelLabel = null;
 
     protected static ?int $navigationSort = 5;
 
     public static function getNavigationLabel(): string
     {
         return __('Requests');
+    }
+
+    public static function getModelLabel(): string
+    {
+        return __('Member Request');
+    }
+
+    public static function getPluralModelLabel(): string
+    {
+        return __('Member Requests');
     }
 
     public static function getNavigationGroup(): ?string
@@ -94,6 +104,7 @@ class MemberRequestResource extends Resource
                     ->wrap()
                     ->limit(80),
                 Tables\Columns\TextColumn::make('status')
+                    ->label(__('Status'))
                     ->badge()
                     ->color(fn (string $state): string => match ($state) {
                         MemberRequest::STATUS_PENDING => 'warning',

@@ -6,17 +6,17 @@
     <div class="flex items-center justify-between px-6 py-4 border-b border-gray-100 dark:border-gray-700 bg-gray-50 dark:bg-gray-800/80">
         <div class="flex items-center gap-2">
             <x-heroicon-o-funnel class="w-5 h-5 text-primary-500" />
-            <h3 class="text-base font-semibold text-gray-900 dark:text-white">Membership Pipeline</h3>
+            <h3 class="text-base font-semibold text-gray-900 dark:text-white">{{ __('Membership Pipeline') }}</h3>
         </div>
         <div class="flex items-center gap-2 text-xs text-gray-500 dark:text-gray-400">
             @if($data['apps_this_month'] > 0)
             <span class="inline-flex items-center gap-1 rounded-full bg-indigo-100 dark:bg-indigo-900 px-2.5 py-1 text-xs font-medium text-indigo-700 dark:text-indigo-300">
-                +{{ $data['apps_this_month'] }} app{{ $data['apps_this_month'] > 1 ? 's' : '' }} this month
+                {{ __('+:count applications this month', ['count' => $data['apps_this_month']]) }}
             </span>
             @endif
             @if($data['new_this_month'] > 0)
             <span class="inline-flex items-center gap-1 rounded-full bg-emerald-100 dark:bg-emerald-900 px-2.5 py-1 text-xs font-medium text-emerald-700 dark:text-emerald-300">
-                +{{ $data['new_this_month'] }} member{{ $data['new_this_month'] > 1 ? 's' : '' }} joined
+                {{ __('+:count members joined', ['count' => $data['new_this_month']]) }}
             </span>
             @endif
         </div>
@@ -31,9 +31,9 @@
                 <x-heroicon-o-clipboard-document-list class="w-6 h-6 text-amber-600 dark:text-amber-400" />
             </div>
             <span class="text-2xl font-bold text-amber-600 dark:text-amber-400">{{ $data['pending_apps'] }}</span>
-            <span class="mt-1 text-xs font-medium text-gray-500 dark:text-gray-400">Pending Review</span>
+            <span class="mt-1 text-xs font-medium text-gray-500 dark:text-gray-400">{{ __('Pending Review') }}</span>
             @if($data['pending_apps'] > 0)
-            <span class="mt-2 text-xs text-amber-600 dark:text-amber-400 opacity-0 group-hover:opacity-100 transition-opacity">Review now →</span>
+            <span class="mt-2 text-xs text-amber-600 dark:text-amber-400 opacity-0 group-hover:opacity-100 transition-opacity">{{ __('Review now →') }}</span>
             @endif
         </a>
 
@@ -48,7 +48,7 @@
                 <x-heroicon-o-check-circle class="w-6 h-6 text-indigo-600 dark:text-indigo-400" />
             </div>
             <span class="text-2xl font-bold text-indigo-600 dark:text-indigo-400">{{ $data['approved_apps'] }}</span>
-            <span class="mt-1 text-xs font-medium text-gray-500 dark:text-gray-400">Approved / Pending Activation</span>
+            <span class="mt-1 text-xs font-medium text-gray-500 dark:text-gray-400">{{ __('Approved / Pending Activation') }}</span>
         </a>
 
         {{-- Arrow divider (hidden on mobile) --}}
@@ -62,9 +62,9 @@
                 <x-heroicon-o-users class="w-6 h-6 text-emerald-600 dark:text-emerald-400" />
             </div>
             <span class="text-2xl font-bold text-emerald-600 dark:text-emerald-400">{{ $data['active_members'] }}</span>
-            <span class="mt-1 text-xs font-medium text-gray-500 dark:text-gray-400">Active Members</span>
+            <span class="mt-1 text-xs font-medium text-gray-500 dark:text-gray-400">{{ __('Active Members') }}</span>
             @if($data['new_this_month'] > 0)
-            <span class="mt-2 text-xs text-emerald-500 dark:text-emerald-400">+{{ $data['new_this_month'] }} this month</span>
+            <span class="mt-2 text-xs text-emerald-500 dark:text-emerald-400">{{ __('+:count this month', ['count' => $data['new_this_month']]) }}</span>
             @endif
         </a>
 
@@ -76,19 +76,19 @@
         @if($data['delinquent'] > 0)
         <a href="{{ $data['members_url'] }}" class="inline-flex items-center gap-1.5 rounded-full bg-red-100 dark:bg-red-900/40 px-3 py-1 text-xs font-medium text-red-700 dark:text-red-300 hover:bg-red-200 dark:hover:bg-red-800 transition-colors">
             <x-heroicon-o-exclamation-triangle class="w-3.5 h-3.5" />
-            {{ $data['delinquent'] }} delinquent member{{ $data['delinquent'] > 1 ? 's' : '' }}
+            {{ __(':count delinquent members', ['count' => $data['delinquent']]) }}
         </a>
         @endif
         @if($data['suspended'] > 0)
         <a href="{{ $data['members_url'] }}" class="inline-flex items-center gap-1.5 rounded-full bg-gray-100 dark:bg-gray-700 px-3 py-1 text-xs font-medium text-gray-600 dark:text-gray-300 hover:bg-gray-200 dark:hover:bg-gray-600 transition-colors">
             <x-heroicon-o-no-symbol class="w-3.5 h-3.5" />
-            {{ $data['suspended'] }} suspended
+            {{ __(':count suspended', ['count' => $data['suspended']]) }}
         </a>
         @endif
         @if($data['terminated'] > 0)
         <a href="{{ $data['members_url'] }}" class="inline-flex items-center gap-1.5 rounded-full bg-zinc-100 dark:bg-zinc-800 px-3 py-1 text-xs font-medium text-zinc-600 dark:text-zinc-300 hover:bg-zinc-200 dark:hover:bg-zinc-700 transition-colors">
             <x-heroicon-o-x-circle class="w-3.5 h-3.5" />
-            {{ $data['terminated'] }} terminated
+            {{ __(':count terminated', ['count' => $data['terminated']]) }}
         </a>
         @endif
     </div>

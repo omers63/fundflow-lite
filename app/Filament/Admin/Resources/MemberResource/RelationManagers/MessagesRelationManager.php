@@ -19,7 +19,7 @@ class MessagesRelationManager extends RelationManager
 {
     protected static string $relationship = 'directMessages';
 
-    protected static ?string $title = 'Messages';
+    protected static ?string $title = null;
 
     public static function getTitle(\Illuminate\Database\Eloquent\Model $ownerRecord, string $pageClass): string
     {

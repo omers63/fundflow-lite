@@ -25,7 +25,7 @@ class ContributionsRelationManager extends RelationManager
 
     protected static string $relationship = 'contributions';
 
-    protected static ?string $title = 'Contributions';
+    protected static ?string $title = null;
 
     public static function getTitle(\Illuminate\Database\Eloquent\Model $ownerRecord, string $pageClass): string
     {

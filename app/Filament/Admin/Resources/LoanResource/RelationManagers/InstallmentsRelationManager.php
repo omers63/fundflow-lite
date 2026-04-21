@@ -20,7 +20,7 @@ class InstallmentsRelationManager extends RelationManager
 {
     protected static string $relationship = 'installments';
 
-    protected static ?string $title = 'Installments';
+    protected static ?string $title = null;
 
     public static function getTitle(\Illuminate\Database\Eloquent\Model $ownerRecord, string $pageClass): string
     {

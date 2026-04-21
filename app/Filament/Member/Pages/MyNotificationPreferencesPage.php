@@ -140,7 +140,14 @@ class MyNotificationPreferencesPage extends Page
     #[Computed]
     public function categories(): array
     {
-        return NotificationPreferenceService::CATEGORIES;
+        return collect(NotificationPreferenceService::CATEGORIES)
+            ->map(function (array $meta): array {
+                $meta['label'] = __($meta['label']);
+                $meta['description'] = __($meta['description']);
+
+                return $meta;
+            })
+            ->all();
     }
 
     public function isEnabled(string $type, string $channel): bool

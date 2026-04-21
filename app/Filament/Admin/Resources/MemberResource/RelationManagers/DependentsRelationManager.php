@@ -24,7 +24,7 @@ class DependentsRelationManager extends RelationManager
 
     protected static string $relationship = 'dependents';
 
-    protected static ?string $title = 'Dependents';
+    protected static ?string $title = null;
 
     public static function getTitle(\Illuminate\Database\Eloquent\Model $ownerRecord, string $pageClass): string
     {

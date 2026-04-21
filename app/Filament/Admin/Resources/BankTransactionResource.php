@@ -50,6 +50,11 @@ class BankTransactionResource extends Resource
         return false;
     }
 
+    public static function getNavigationLabel(): string
+    {
+        return __('Bank Transactions');
+    }
+
     public static function getNavigationGroup(): ?string
     {
         return 'finance';

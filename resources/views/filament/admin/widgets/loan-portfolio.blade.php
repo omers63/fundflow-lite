@@ -10,16 +10,16 @@
     <div class="flex items-center justify-between px-5 py-4 border-b border-gray-100 dark:border-gray-700 bg-gray-50 dark:bg-gray-800/80">
         <div class="flex items-center gap-2">
             <x-heroicon-o-chart-pie class="w-5 h-5 text-primary-500" />
-            <h3 class="text-sm font-semibold text-gray-900 dark:text-white">Loan Portfolio</h3>
+            <h3 class="text-sm font-semibold text-gray-900 dark:text-white">{{ __('Loan Portfolio') }}</h3>
         </div>
-        <span class="text-xs text-gray-400">{{ $d['total_all'] }} total loans</span>
+        <span class="text-xs text-gray-400">{{ __(':count total loans', ['count' => $d['total_all']]) }}</span>
     </div>
 
     <div class="flex flex-col gap-4 p-5 flex-1">
 
         {{-- Summary: total amount --}}
         <div class="rounded-xl bg-indigo-50 dark:bg-indigo-900/20 ring-1 ring-indigo-100 dark:ring-indigo-800 px-4 py-3 text-center">
-            <p class="text-xs font-medium text-indigo-500 dark:text-indigo-400 uppercase tracking-wide">Total Loan Value</p>
+            <p class="text-xs font-medium text-indigo-500 dark:text-indigo-400 uppercase tracking-wide">{{ __('Total Loan Value') }}</p>
             <p class="mt-0.5 text-xl font-bold text-indigo-700 dark:text-indigo-300">﷼ {{ number_format($d['total_amt'], 0) }}</p>
         </div>
 
