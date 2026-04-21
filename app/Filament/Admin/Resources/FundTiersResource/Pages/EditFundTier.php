@@ -8,4 +8,9 @@ use Filament\Resources\Pages\EditRecord;
 class EditFundTier extends EditRecord
 {
     protected static string $resource = FundTiersResource::class;
+
+    public function getTitle(): string
+    {
+        return __('Edit Fund Tier');
+    }
 }

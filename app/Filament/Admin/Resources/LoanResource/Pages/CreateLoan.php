@@ -41,7 +41,7 @@ class CreateLoan extends CreateRecord
             if ($member) {
                 if (!$eligibility->isEligible($member)) {
                     Notification::make()
-                        ->title('Loan request is not allowed')
+                        ->title(__('Loan request is not allowed'))
                         ->body($eligibility->getIneligibilityReason($member))
                         ->danger()
                         ->send();
@@ -53,11 +53,13 @@ class CreateLoan extends CreateRecord
                 if ($amount > $max) {
                     $fundBal = (float) ($member->fundAccount()?->balance ?? 0);
                     Notification::make()
-                        ->title('Amount Exceeds Maximum')
+                        ->title(__('Amount Exceeds Maximum'))
                         ->body(
-                            'Requested SAR ' . number_format($amount)
-                            . ' exceeds the maximum of SAR ' . number_format($max)
-                            . ' (2× fund balance of SAR ' . number_format($fundBal) . ').'
+                            __('Requested SAR :requested exceeds the maximum of SAR :max (2x fund balance of SAR :fund).', [
+                                'requested' => number_format($amount),
+                                'max' => number_format($max),
+                                'fund' => number_format($fundBal),
+                            ])
                         )
                         ->danger()
                         ->send();

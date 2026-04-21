@@ -85,7 +85,7 @@ class CreateBankTransaction extends CreateRecord
                             $set('loan_id', null);
                             $set('loan_disbursement_id', null);
                         })
-                        ->placeholder('—')
+                        ->placeholder(__('—'))
                         ->helperText(__('Optional. You can link or post to a member later from the transaction view.')),
                     Forms\Components\Select::make('loan_id')
                         ->label(__('Loan (optional)'))
@@ -95,7 +95,7 @@ class CreateBankTransaction extends CreateRecord
                         ->live()
                         ->afterStateUpdated(fn ($set) => $set('loan_disbursement_id', null))
                         ->visible(fn (Get $get) => $get('transaction_type') === 'debit')
-                        ->placeholder('—')
+                        ->placeholder(__('—'))
                         ->helperText(__('Optional. Member loan summary. Requires at least one disbursement on file.')),
                     Forms\Components\Select::make('loan_disbursement_id')
                         ->label(__('Loan disbursement payout (optional)'))
@@ -115,7 +115,7 @@ class CreateBankTransaction extends CreateRecord
                         ->searchable()
                         ->preload()
                         ->visible(fn (Get $get) => $get('transaction_type') === 'debit' && filled($get('loan_id')))
-                        ->placeholder('—')
+                        ->placeholder(__('—'))
                         ->helperText(__('Optional. Pick the specific disbursement record when linking a debit.')),
                 ])->columns(2)->columnSpanFull(),
         ]);

@@ -27,7 +27,7 @@ class AdminInboxPage extends Page implements HasTable
 
     protected string $view = 'filament.admin.pages.admin-inbox';
 
-    protected static ?string $navigationLabel = 'Messages';
+    protected static ?string $navigationLabel = null;
 
     protected static string|\BackedEnum|null $navigationIcon = 'heroicon-o-chat-bubble-left-right';
 

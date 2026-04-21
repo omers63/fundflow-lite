@@ -63,7 +63,7 @@ class BankingStatsWidget extends Widget
             $smsCount = SmsTransaction::whereYear('created_at', $d->year)
                 ->whereMonth('created_at', $d->month)->count();
             $trend[] = [
-                'label' => $d->format('M'),
+                'label' => $d->locale(app()->getLocale())->translatedFormat('M'),
                 'bank' => $bankCount,
                 'sms' => $smsCount,
                 'total' => $bankCount + $smsCount,
@@ -82,7 +82,7 @@ class BankingStatsWidget extends Widget
                 'imported' => $s->imported_count,
                 'duplicates' => $s->duplicate_count,
                 'errors' => $s->error_count,
-                'date' => Carbon::parse($s->created_at)->diffForHumans(),
+                'date' => Carbon::parse($s->created_at)->locale(app()->getLocale())->diffForHumans(),
             ])->toArray();
 
         return [

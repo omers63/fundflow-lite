@@ -89,7 +89,7 @@
                     <p class="text-xs font-semibold uppercase tracking-wide text-gray-500 dark:text-gray-400">{{ __('Imports (mo.)') }}</p>
                 </div>
                 <p class="text-2xl font-bold text-gray-900 dark:text-white">{{ $d['bank_sessions_month'] + $d['sms_sessions_month'] }}</p>
-                <p class="mt-0.5 text-xs text-gray-400">{{ now()->format('F Y') }}</p>
+                <p class="mt-0.5 text-xs text-gray-400">{{ now()->locale(app()->getLocale())->translatedFormat('F Y') }}</p>
             </div>
         </div>
 
@@ -152,7 +152,7 @@
                     </div>
                     <div class="text-right flex-shrink-0 space-y-0.5">
                         <span class="inline-flex items-center px-2 py-0.5 rounded text-xs font-medium {{ $sc }}">
-                            {{ str_replace('_', ' ', $session['status']) }}
+                            {{ __(ucfirst(str_replace('_', ' ', $session['status']))) }}
                         </span>
                         <p class="text-xs text-gray-400">{{ __(':imported imported · :dupes dupes', ['imported' => $session['imported'], 'dupes' => $session['duplicates']]) }}</p>
                     </div>

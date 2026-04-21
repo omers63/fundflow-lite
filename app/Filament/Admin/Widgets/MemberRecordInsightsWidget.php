@@ -175,19 +175,19 @@ class MemberRecordInsightsWidget extends Widget
             'hasRecord' => true,
             'member_number' => $member->member_number,
             'status' => $member->status,
-            'joined_at' => $member->joined_at?->format('d M Y') ?? '—',
+            'joined_at' => $member->joined_at?->locale(app()->getLocale())->translatedFormat('d M Y') ?? '—',
             'months_active' => $monthsActive,
             'monthly_contrib' => (int) $member->monthly_contribution_amount,
             'compliance_rate' => $complianceRate,
             'is_loan_eligible_age' => $isLoanEligibleAge,
-            'loan_eligible_date' => $loanEligibleDate?->format('d M Y') ?? '—',
+            'loan_eligible_date' => $loanEligibleDate?->locale(app()->getLocale())->translatedFormat('d M Y') ?? '—',
 
             'name' => $user?->name ?? '—',
             'email' => $user?->email ?? '—',
             'phone' => $user?->phone ?? $app?->mobile_phone ?? '—',
 
             'gender' => $app?->gender ?? null,
-            'dob' => $app?->date_of_birth?->format('d M Y') ?? null,
+            'dob' => $app?->date_of_birth?->locale(app()->getLocale())->translatedFormat('d M Y') ?? null,
             'national_id' => $app?->national_id ?? null,
             'city' => $app?->city ?? null,
             'occupation' => $app?->occupation ?? null,
@@ -230,7 +230,7 @@ class MemberRecordInsightsWidget extends Widget
             $underpaid = $paid && (float) $row->amount < (float) $monthlyContrib;
 
             return [
-                'label' => $m->format('M y'),
+                'label' => $m->locale(app()->getLocale())->translatedFormat('M y'),
                 'amount' => $row ? (float) $row->amount : 0.0,
                 'paid' => $paid,
                 'late' => $paid && (bool) $row->is_late,
@@ -249,11 +249,11 @@ class MemberRecordInsightsWidget extends Widget
             ->get()
             ->map(fn($i) => [
                 'loan_id' => $i->loan_id,
-                'due_date' => $i->due_date instanceof Carbon ? $i->due_date->format('d M Y') : $i->due_date,
+                'due_date' => $i->due_date instanceof Carbon ? $i->due_date->locale(app()->getLocale())->translatedFormat('d M Y') : $i->due_date,
                 'amount' => number_format((float) $i->amount, 2),
                 'status' => $i->status,
                 'is_late' => (bool) ($i->is_late ?? false),
-                'paid_at' => $i->paid_at ? Carbon::parse($i->paid_at)->format('d M Y') : null,
+                'paid_at' => $i->paid_at ? Carbon::parse($i->paid_at)->locale(app()->getLocale())->translatedFormat('d M Y') : null,
             ]);
 
         $loans = Loan::where('member_id', $member->id)
@@ -265,9 +265,9 @@ class MemberRecordInsightsWidget extends Widget
                     'id' => $l->id,
                     'amount' => number_format((float) ($l->amount_approved ?? $l->amount_requested), 2),
                     'status' => $l->status,
-                    'applied_at' => $l->applied_at ? Carbon::parse($l->applied_at)->format('d M Y') : '—',
-                    'disbursed_at' => $l->disbursed_at ? Carbon::parse($l->disbursed_at)->format('d M Y') : null,
-                    'fully_paid_at' => $l->fully_paid_at ? Carbon::parse($l->fully_paid_at)->format('d M Y') : null,
+                    'applied_at' => $l->applied_at ? Carbon::parse($l->applied_at)->locale(app()->getLocale())->translatedFormat('d M Y') : '—',
+                    'disbursed_at' => $l->disbursed_at ? Carbon::parse($l->disbursed_at)->locale(app()->getLocale())->translatedFormat('d M Y') : null,
+                    'fully_paid_at' => $l->fully_paid_at ? Carbon::parse($l->fully_paid_at)->locale(app()->getLocale())->translatedFormat('d M Y') : null,
                     'installment_count' => (int) ($l->installments_count ?? 0),
                 ];
             });

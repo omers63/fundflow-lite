@@ -50,7 +50,7 @@ class MonthlyStatementNotification extends Notification
         $brand     = Setting::get('statement.brand_name', 'FundFlow');
         $tagline   = Setting::get('statement.tagline', 'Member Fund Management');
         $closing   = number_format((float) $statement->closing_balance, 2);
-        $disclaimer = Setting::get('statement.footer_disclaimer', 'This is a computer-generated statement.');
+        $disclaimer = Setting::statementFooterDisclaimer();
 
         $subject = "{$brand} — Monthly Statement: {$period}";
 

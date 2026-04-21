@@ -41,7 +41,7 @@ class BankTransactionResource extends Resource
 
     protected static string|\BackedEnum|null $navigationIcon = 'heroicon-o-arrows-right-left';
 
-    protected static ?string $navigationLabel = 'Bank Transactions';
+    protected static ?string $navigationLabel = null;
 
     protected static ?int $navigationSort = 12;
 
@@ -74,7 +74,7 @@ class BankTransactionResource extends Resource
 
     public static function getNavigationBadgeTooltip(): ?string
     {
-        return 'Flagged duplicates';
+        return __('Flagged duplicates');
     }
 
     public static function form(Schema $schema): Schema
@@ -83,23 +83,23 @@ class BankTransactionResource extends Resource
             Section::make()
                 ->columnSpanFull()
                 ->schema([
-                    Forms\Components\TextInput::make('bank.name')->label('Bank')->disabled(),
+                    Forms\Components\TextInput::make('bank.name')->label(__('Bank'))->disabled(),
                     Forms\Components\TextInput::make('transaction_date')->disabled(),
                     Forms\Components\TextInput::make('amount')->disabled(),
                     Forms\Components\TextInput::make('transaction_type')->disabled(),
-                    Forms\Components\TextInput::make('reference')->placeholder('—')->disabled(),
-                    Forms\Components\TextInput::make('member.user.name')->label('Posted to Member')->placeholder('Not yet posted')->disabled(),
+                    Forms\Components\TextInput::make('reference')->placeholder(__('—'))->disabled(),
+                    Forms\Components\TextInput::make('member.user.name')->label(__('Posted to Member'))->placeholder(__('Not yet posted'))->disabled(),
                     Forms\Components\TextInput::make('loan_id')
-                        ->label('Linked Loan')
+                        ->label(__('Linked Loan'))
                         ->formatStateUsing(fn ($state) => $state ? "#{$state}" : '—')
                         ->disabled(),
                     Forms\Components\TextInput::make('loan_disbursement_id')
-                        ->label('Linked disbursement')
+                        ->label(__('Linked disbursement'))
                         ->formatStateUsing(fn ($state) => $state ? "#{$state}" : '—')
                         ->disabled(),
                     Forms\Components\Textarea::make('description')->disabled()->columnSpanFull(),
                     Forms\Components\KeyValue::make('raw_data')
-                        ->label('Raw CSV Data')
+                        ->label(__('Raw CSV Data'))
                         ->disabled()
                         ->columnSpanFull(),
                 ])->columns(2),
@@ -116,42 +116,43 @@ class BankTransactionResource extends Resource
         return $table
             ->striped()
             ->columns([
-                Tables\Columns\TextColumn::make('bank.name')->label('Bank')->searchable()->sortable()
+                Tables\Columns\TextColumn::make('bank.name')->label(__('Bank'))->searchable()->sortable()
                     ->toggleable(),
                 Tables\Columns\TextColumn::make('transaction_date')
-                    ->label('Date')->date('d M Y')->sortable()
+                    ->label(__('Date'))->date('d M Y')->sortable()
                     ->toggleable(),
                 Tables\Columns\TextColumn::make('amount')
+                    ->label(__('Amount'))
                     ->money('SAR')
                     ->sortable()
                     ->color(fn (BankTransaction $record) => $record->transaction_type === 'credit' ? 'success' : 'danger')
                     ->toggleable(),
                 Tables\Columns\BadgeColumn::make('transaction_type')
-                    ->label('Type')
+                    ->label(__('Type'))
                     ->colors(['success' => 'credit', 'danger' => 'debit'])
                     ->toggleable(),
-                Tables\Columns\TextColumn::make('reference')->placeholder('—')->searchable()
+                Tables\Columns\TextColumn::make('reference')->label(__('Reference'))->placeholder(__('—'))->searchable()
                     ->toggleable(),
-                Tables\Columns\TextColumn::make('description')->limit(40)->placeholder('—')->searchable()
+                Tables\Columns\TextColumn::make('description')->label(__('Description'))->limit(40)->placeholder(__('—'))->searchable()
                     ->toggleable(),
                 Tables\Columns\TextColumn::make('member.user.name')
-                    ->label('Member')
-                    ->placeholder('—')
+                    ->label(__('Member'))
+                    ->placeholder(__('—'))
                     ->searchable()
                     ->toggleable(),
                 Tables\Columns\TextColumn::make('loan_id')
-                    ->label('Loan')
+                    ->label(__('Loan'))
                     ->formatStateUsing(fn ($state) => $state ? "#{$state}" : '—')
                     ->sortable()
                     ->searchable()
                     ->toggleable(),
                 Tables\Columns\TextColumn::make('loan_disbursement_id')
-                    ->label('Disb.')
+                    ->label(__('Disb.'))
                     ->formatStateUsing(fn ($state) => $state ? "#{$state}" : '—')
                     ->sortable()
                     ->toggleable(isToggledHiddenByDefault: true),
                 Tables\Columns\IconColumn::make('posted_at')
-                    ->label('Posted')
+                    ->label(__('Posted'))
                     ->boolean()
                     ->getStateUsing(fn (BankTransaction $r) => $r->posted_at !== null)
                     ->trueIcon('heroicon-o-check-badge')
@@ -160,7 +161,7 @@ class BankTransactionResource extends Resource
                     ->falseColor('gray')
                     ->toggleable(),
                 Tables\Columns\IconColumn::make('is_duplicate')
-                    ->label('Dup.')
+                    ->label(__('Dup.'))
                     ->boolean()
                     ->trueColor('warning')
                     ->falseColor('success')
@@ -173,45 +174,45 @@ class BankTransactionResource extends Resource
             ->defaultSort('transaction_date', 'desc')
             ->filters([
                 Tables\Filters\SelectFilter::make('bank_id')
-                    ->label('Bank')
+                    ->label(__('Bank'))
                     ->options(Bank::active()->pluck('name', 'id')),
                 Tables\Filters\SelectFilter::make('import_session_id')
-                    ->label('Import Session')
+                    ->label(__('Import Session'))
                     ->options(
                         BankImportSession::with('bank')->latest()->get()
                             ->mapWithKeys(fn ($s) => [$s->id => "{$s->bank->name} — {$s->filename} ({$s->created_at->format('d M Y')})"])
                     ),
                 Tables\Filters\SelectFilter::make('transaction_type')
-                    ->options(['credit' => 'Credit', 'debit' => 'Debit']),
+                    ->options(['credit' => __('Credit'), 'debit' => __('Debit')]),
                 Tables\Filters\TernaryFilter::make('is_duplicate')
-                    ->label('Duplicates')
-                    ->trueLabel('Duplicates only')
-                    ->falseLabel('Non-duplicates only')
-                    ->placeholder('All'),
+                    ->label(__('Duplicates'))
+                    ->trueLabel(__('Duplicates only'))
+                    ->falseLabel(__('Non-duplicates only'))
+                    ->placeholder(__('All')),
                 Tables\Filters\TernaryFilter::make('posted')
-                    ->label('Posting Status')
-                    ->trueLabel('Posted only')
-                    ->falseLabel('Unposted only')
-                    ->placeholder('All')
+                    ->label(__('Posting Status'))
+                    ->trueLabel(__('Posted only'))
+                    ->falseLabel(__('Unposted only'))
+                    ->placeholder(__('All'))
                     ->queries(
                         true: fn ($q) => $q->whereNotNull('posted_at'),
                         false: fn ($q) => $q->whereNull('posted_at'),
                     ),
                 Tables\Filters\Filter::make('date_range')
                     ->schema([
-                        Forms\Components\DatePicker::make('date_from')->label('From'),
-                        Forms\Components\DatePicker::make('date_to')->label('To'),
+                        Forms\Components\DatePicker::make('date_from')->label(__('From')),
+                        Forms\Components\DatePicker::make('date_to')->label(__('To')),
                     ])
                     ->query(fn ($query, $data) => $query
                         ->when($data['date_from'], fn ($q, $v) => $q->whereDate('transaction_date', '>=', $v))
                         ->when($data['date_to'], fn ($q, $v) => $q->whereDate('transaction_date', '<=', $v)))
                     ->columns(2),
                 Tables\Filters\SelectFilter::make('member_id')
-                    ->label('Member')
+                    ->label(__('Member'))
                     ->searchable()
                     ->options($memberOptions),
                 Tables\Filters\SelectFilter::make('loan_id')
-                    ->label('Loan')
+                    ->label(__('Loan'))
                     ->searchable()
                     ->options(
                         Loan::query()
@@ -222,8 +223,8 @@ class BankTransactionResource extends Resource
                     ),
                 Tables\Filters\Filter::make('amount')
                     ->schema([
-                        Forms\Components\TextInput::make('amount_min')->label('Min amount (SAR)')->numeric(),
-                        Forms\Components\TextInput::make('amount_max')->label('Max amount (SAR)')->numeric(),
+                        Forms\Components\TextInput::make('amount_min')->label(__('Min amount (SAR)'))->numeric(),
+                        Forms\Components\TextInput::make('amount_max')->label(__('Max amount (SAR)'))->numeric(),
                     ])
                     ->columns(2)
                     ->query(function ($query, array $data) {
@@ -237,13 +238,13 @@ class BankTransactionResource extends Resource
                 ActionGroup::make([
                     ViewAction::make(),
                     Action::make('post_to_cash')
-                        ->label('Post to Cash')
+                        ->label(__('Post to Cash'))
                         ->icon('heroicon-o-arrow-right-circle')
                         ->color('primary')
                         ->visible(fn (BankTransaction $r) => ! $r->isPosted())
                         ->schema(fn (BankTransaction $record) => [
                             Forms\Components\Select::make('member_id')
-                                ->label($record->transaction_type === 'debit' ? 'Member' : 'Member (optional)')
+                                ->label($record->transaction_type === 'debit' ? __('Member') : __('Member (optional)'))
                                 ->options($memberOptions)
                                 ->searchable()
                                 ->required($record->transaction_type === 'debit')
@@ -253,10 +254,10 @@ class BankTransactionResource extends Resource
                                     $set('loan_disbursement_id', null);
                                 })
                                 ->helperText($record->transaction_type === 'debit'
-                                    ? 'Required for debit reconciliation.'
-                                    : 'Optional. Leave empty to post only to master cash account.'),
+                                    ? __('Required for debit reconciliation.')
+                                    : __('Optional. Leave empty to post only to master cash account.')),
                             Forms\Components\Select::make('loan_id')
-                                ->label('Loan')
+                                ->label(__('Loan'))
                                 ->options(fn (Get $get) => Loan::query()
                                     ->where('member_id', $get('member_id'))
                                     ->whereHas('disbursements')
@@ -277,9 +278,9 @@ class BankTransactionResource extends Resource
                                 ->afterStateUpdated(fn ($set) => $set('loan_disbursement_id', null))
                                 ->visible($record->transaction_type === 'debit')
                                 ->required($record->transaction_type === 'debit')
-                                ->helperText('Member loan summary. Choose the loan this bank debit reconciles to.'),
+                                ->helperText(__('Member loan summary. Choose the loan this bank debit reconciles to.')),
                             Forms\Components\Select::make('loan_disbursement_id')
-                                ->label('Loan disbursement payout')
+                                ->label(__('Loan disbursement payout'))
                                 ->options(fn (Get $get) => LoanDisbursement::query()
                                     ->where('loan_id', $get('loan_id'))
                                     ->orderByDesc('disbursed_at')
@@ -297,7 +298,7 @@ class BankTransactionResource extends Resource
                                 ->preload()
                                 ->visible($record->transaction_type === 'debit')
                                 ->required($record->transaction_type === 'debit')
-                                ->helperText('The specific partial or full disbursement record this transaction matches.'),
+                                ->helperText(__('The specific partial or full disbursement record this transaction matches.')),
                         ])
                         ->action(function (BankTransaction $record, array $data) {
                             $member = ! empty($data['member_id']) ? Member::findOrFail($data['member_id']) : null;
@@ -305,32 +306,32 @@ class BankTransactionResource extends Resource
                                 ? LoanDisbursement::query()->findOrFail($data['loan_disbursement_id'])
                                 : null;
                             if ($disbursement && ! empty($data['loan_id']) && (int) $disbursement->loan_id !== (int) $data['loan_id']) {
-                                throw new \InvalidArgumentException('Selected disbursement does not belong to the selected loan.');
+                                throw new \InvalidArgumentException(__('Selected disbursement does not belong to the selected loan.'));
                             }
                             app(AccountingService::class)->postBankTransactionToCashWithOptionalMember($record, $member, $disbursement);
 
                             Notification::make()
-                                ->title('Posted to Cash Account')
+                                ->title(__('Posted to Cash Account'))
                                 ->body($member
-                                    ? "Transaction posted for {$member->user->name}."
-                                    : 'Transaction posted to master cash account.')
+                                    ? __('Transaction posted for :name.', ['name' => $member->user->name])
+                                    : __('Transaction posted to master cash account.'))
                                 ->success()
                                 ->send();
                         }),
                     Action::make('post_to_member')
-                        ->label('Post To Member')
+                        ->label(__('Post To Member'))
                         ->icon('heroicon-o-user-plus')
                         ->color('success')
                         ->visible(fn (BankTransaction $r) => blank($r->member_id))
                         ->schema(fn (BankTransaction $record) => [
                             Forms\Components\Select::make('member_id')
-                                ->label('Member')
+                                ->label(__('Member'))
                                 ->options($memberOptions)
                                 ->searchable()
                                 ->required()
-                                ->helperText('If not yet posted, this action posts to cash first, then posts/mirrors to the selected member cash account.'),
+                                ->helperText(__('If not yet posted, this action posts to cash first, then posts/mirrors to the selected member cash account.')),
                             Forms\Components\Select::make('loan_id')
-                                ->label('Loan')
+                                ->label(__('Loan'))
                                 ->options(fn (Get $get) => Loan::query()
                                     ->where('member_id', $get('member_id'))
                                     ->whereHas('disbursements')
@@ -351,9 +352,9 @@ class BankTransactionResource extends Resource
                                 ->afterStateUpdated(fn ($set) => $set('loan_disbursement_id', null))
                                 ->visible(fn () => ! $record->isPosted() && $record->transaction_type === 'debit')
                                 ->required(fn () => ! $record->isPosted() && $record->transaction_type === 'debit')
-                                ->helperText('Required only for debit transactions that are not yet posted.'),
+                                ->helperText(__('Required only for debit transactions that are not yet posted.')),
                             Forms\Components\Select::make('loan_disbursement_id')
-                                ->label('Loan disbursement payout')
+                                ->label(__('Loan disbursement payout'))
                                 ->options(fn (Get $get) => LoanDisbursement::query()
                                     ->where('loan_id', $get('loan_id'))
                                     ->orderByDesc('disbursed_at')
@@ -371,7 +372,7 @@ class BankTransactionResource extends Resource
                                 ->preload()
                                 ->visible(fn () => ! $record->isPosted() && $record->transaction_type === 'debit')
                                 ->required(fn () => ! $record->isPosted() && $record->transaction_type === 'debit')
-                                ->helperText('Required only for debit transactions that are not yet posted.'),
+                                ->helperText(__('Required only for debit transactions that are not yet posted.')),
                         ])
                         ->action(function (BankTransaction $record, array $data) {
                             $member = Member::findOrFail($data['member_id']);
@@ -382,20 +383,20 @@ class BankTransactionResource extends Resource
 
                                 if ($record->transaction_type === 'debit') {
                                     if (empty($data['loan_id']) || empty($data['loan_disbursement_id'])) {
-                                        throw new \InvalidArgumentException('Loan and disbursement are required for debit postings.');
+                                        throw new \InvalidArgumentException(__('Loan and disbursement are required for debit postings.'));
                                     }
 
                                     $disbursement = LoanDisbursement::query()->findOrFail($data['loan_disbursement_id']);
                                     if ((int) $disbursement->loan_id !== (int) $data['loan_id']) {
-                                        throw new \InvalidArgumentException('Selected disbursement does not belong to the selected loan.');
+                                        throw new \InvalidArgumentException(__('Selected disbursement does not belong to the selected loan.'));
                                     }
                                 }
 
                                 $service->postBankTransactionToCashWithOptionalMember($record, $member, $disbursement);
 
                                 Notification::make()
-                                    ->title('Posted To Member')
-                                    ->body("Transaction posted to cash and assigned to {$member->user->name}.")
+                                    ->title(__('Posted To Member'))
+                                    ->body(__('Transaction posted to cash and assigned to :name.', ['name' => $member->user->name]))
                                     ->success()
                                     ->send();
 
@@ -403,25 +404,25 @@ class BankTransactionResource extends Resource
                             }
 
                             if ($record->transaction_type !== 'credit') {
-                                throw new \InvalidArgumentException('Only posted credit transactions can be mirrored to a member.');
+                                throw new \InvalidArgumentException(__('Only posted credit transactions can be mirrored to a member.'));
                             }
 
                             $service->mirrorBankCreditToMemberCash($record, $member);
 
                             Notification::make()
-                                ->title('Posted to Member')
-                                ->body("Existing cash posting mirrored to {$member->user->name}.")
+                                ->title(__('Posted to Member'))
+                                ->body(__('Existing cash posting mirrored to :name.', ['name' => $member->user->name]))
                                 ->success()
                                 ->send();
                         }),
                     Action::make('post_to_loan')
-                        ->label('Post To Loan')
+                        ->label(__('Post To Loan'))
                         ->icon('heroicon-o-banknotes')
                         ->color('warning')
                         ->visible(fn (BankTransaction $r) => $r->transaction_type === 'debit' && blank($r->loan_disbursement_id))
                         ->schema([
                             Forms\Components\Select::make('loan_id')
-                                ->label('Loan')
+                                ->label(__('Loan'))
                                 ->options(fn () => Loan::query()
                                     ->with('member.user')
                                     ->where('status', 'approved')
@@ -439,7 +440,7 @@ class BankTransactionResource extends Resource
                                     ]))
                                 ->searchable()
                                 ->required()
-                                ->helperText('Posts this debit amount as a loan disbursement on the selected approved loan.'),
+                                ->helperText(__('Posts this debit amount as a loan disbursement on the selected approved loan.')),
                         ])
                         ->action(function (BankTransaction $record, array $data) {
                             $loan = Loan::query()
@@ -447,12 +448,12 @@ class BankTransactionResource extends Resource
                                 ->findOrFail($data['loan_id']);
 
                             if ($loan->status !== 'approved') {
-                                throw new \InvalidArgumentException('Only approved loans can receive a new disbursement.');
+                                throw new \InvalidArgumentException(__('Only approved loans can receive a new disbursement.'));
                             }
 
                             $amount = (float) $record->amount;
                             if ($amount <= 0) {
-                                throw new \InvalidArgumentException('Debit amount must be greater than zero.');
+                                throw new \InvalidArgumentException(__('Debit amount must be greater than zero.'));
                             }
 
                             $remaining = (float) $loan->remainingToDisburse();
@@ -541,7 +542,7 @@ class BankTransactionResource extends Resource
                             $loan->refresh();
 
                             Notification::make()
-                                ->title('Posted To Loan')
+                                ->title(__('Posted To Loan'))
                                 ->body(
                                     'Debit mapped to Loan #' . $loan->id
                                     . ' as disbursement #' . $disbursement->id
@@ -551,7 +552,7 @@ class BankTransactionResource extends Resource
                                 ->send();
                         }),
                     DeleteAction::make()
-                        ->modalDescription('Soft-deletes this import row. If it was posted to cash, the matching master and member cash ledger lines are reversed first.')
+                        ->modalDescription(__('Soft-deletes this import row. If it was posted to cash, the matching master and member cash ledger lines are reversed first.'))
                         ->using(function (BankTransaction $record) {
                             app(AccountingService::class)->safeDeleteBankTransaction($record);
 
@@ -564,7 +565,7 @@ class BankTransactionResource extends Resource
             ->toolbarActions([
                 BulkActionGroup::make([
                     DeleteBulkAction::make()
-                        ->modalDescription('Deletes selected rows; posted transactions are reversed from the ledger first.')
+                        ->modalDescription(__('Deletes selected rows; posted transactions are reversed from the ledger first.'))
                         ->using(function (DeleteBulkAction $action, $records) {
                             $accounting = app(AccountingService::class);
                             foreach ($records as $record) {
@@ -579,15 +580,15 @@ class BankTransactionResource extends Resource
                     RestoreBulkAction::make(),
                     ForceDeleteBulkAction::make(),
                     BulkAction::make('bulk_post_to_cash')
-                        ->label('Post Selected')
+                        ->label(__('Post Selected'))
                         ->icon('heroicon-o-arrow-right-circle')
                         ->color('primary')
                         ->schema([
                             Forms\Components\Select::make('member_id')
-                                ->label('Member (optional)')
+                                ->label(__('Member (optional)'))
                                 ->options($memberOptions)
                                 ->searchable()
-                                ->helperText('Optional: mirror to a member’s Cash Account. Leave empty to post credits to the master Cash Account only. Debits are skipped when no member is selected (use the row Post to Cash action for debits).'),
+                                ->helperText(__('Optional: mirror to a member’s Cash Account. Leave empty to post credits to the master Cash Account only. Debits are skipped when no member is selected (use the row Post to Cash action for debits).')),
                         ])
                         ->action(function (Collection $records, array $data) {
                             $member = filled($data['member_id'] ?? null)
@@ -622,16 +623,19 @@ class BankTransactionResource extends Resource
                                 }
                             }
 
-                            $body = "Posted: {$posted} | Already posted (skipped): {$skippedPosted}";
+                            $body = __('Posted: :posted | Already posted (skipped): :skipped', [
+                                'posted' => $posted,
+                                'skipped' => $skippedPosted,
+                            ]);
                             if ($skippedDebitNoMember > 0) {
-                                $body .= " | Debits skipped (choose a member): {$skippedDebitNoMember}";
+                                $body .= ' ' . __('| Debits skipped (choose a member): :count', ['count' => $skippedDebitNoMember]);
                             }
                             if ($failed > 0) {
-                                $body .= " | Failed: {$failed} (see logs)";
+                                $body .= ' ' . __('| Failed: :count (see logs)', ['count' => $failed]);
                             }
 
                             $notification = Notification::make()
-                                ->title('Bulk Post Complete')
+                                ->title(__('Bulk Post Complete'))
                                 ->body($body);
 
                             if ($failed > 0) {

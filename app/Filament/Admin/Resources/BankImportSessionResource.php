@@ -36,7 +36,7 @@ class BankImportSessionResource extends Resource
 
     protected static string|\BackedEnum|null $navigationIcon = 'heroicon-o-arrow-up-tray';
 
-    protected static ?string $navigationLabel = 'Import History';
+    protected static ?string $navigationLabel = null;
 
     protected static ?int $navigationSort = 13;
 
@@ -81,9 +81,10 @@ class BankImportSessionResource extends Resource
             ->selectable()
             ->columns([
                 Tables\Columns\TextColumn::make('bank.name')->label(__('Bank'))->searchable()->sortable(),
-                Tables\Columns\TextColumn::make('filename')->searchable()->limit(40),
+                Tables\Columns\TextColumn::make('filename')->label(__('Filename'))->searchable()->limit(40),
                 Tables\Columns\TextColumn::make('template.name')->label(__('Template'))->limit(30),
                 Tables\Columns\TextColumn::make('status')
+                    ->label(__('Status'))
                     ->badge()
                     ->color(fn (string $state) => match ($state) {
                         'completed' => 'success',

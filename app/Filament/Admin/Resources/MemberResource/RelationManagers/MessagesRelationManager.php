@@ -4,6 +4,7 @@ namespace App\Filament\Admin\Resources\MemberResource\RelationManagers;
 
 use App\Models\DirectMessage;
 use App\Models\Member;
+use Carbon\Carbon;
 use App\Models\User;
 use Filament\Actions\Action;
 use Filament\Actions\ActionGroup;
@@ -147,7 +148,9 @@ class MessagesRelationManager extends RelationManager
             ->columns([
                 Tables\Columns\TextColumn::make('created_at')
                     ->label(__('Sent'))
-                    ->dateTime('d M Y H:i')
+                    ->formatStateUsing(
+                        fn ($state): string => $state ? Carbon::parse($state)->locale(app()->getLocale())->translatedFormat('d M Y H:i') : __('—')
+                    )
                     ->sortable(),
                 Tables\Columns\TextColumn::make('direction')
                     ->label(__('Direction'))
@@ -170,11 +173,11 @@ class MessagesRelationManager extends RelationManager
                     ->searchable(),
                 Tables\Columns\TextColumn::make('sender.name')
                     ->label(__('From'))
-                    ->placeholder('-')
+                    ->placeholder(__('—'))
                     ->searchable(),
                 Tables\Columns\TextColumn::make('recipient.name')
                     ->label(__('To'))
-                    ->placeholder('-')
+                    ->placeholder(__('—'))
                     ->searchable(),
                 Tables\Columns\TextColumn::make('read_at')
                     ->label(__('Read'))

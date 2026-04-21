@@ -29,7 +29,7 @@ class ContributionTrendWidget extends Widget
 
         for ($i = 11; $i >= 0; $i--) {
             $date = Carbon::now()->subMonths($i)->startOfMonth();
-            $months[] = ['month' => (int) $date->month, 'year' => (int) $date->year, 'label' => $date->format('M Y')];
+            $months[] = ['month' => (int) $date->month, 'year' => (int) $date->year, 'label' => $date->locale(app()->getLocale())->translatedFormat('M Y')];
         }
 
         $startDate = Carbon::now()->subMonths(11)->startOfMonth();
@@ -57,7 +57,7 @@ class ContributionTrendWidget extends Widget
             ? $total12m / max(1, count(array_filter($totals)))
             : 0;
         $bestMonth = max($totals);
-        $bestLabel = $bestMonth > 0 ? $labels[array_search($bestMonth, $totals)] : 'N/A';
+        $bestLabel = $bestMonth > 0 ? $labels[array_search($bestMonth, $totals)] : __('N/A');
         $lastTotal = end($totals) ?: 0;
         $prevTotal = count($totals) >= 2 ? $totals[count($totals) - 2] : 0;
         $trend = $prevTotal > 0 ? round(($lastTotal - $prevTotal) / $prevTotal * 100) : 0;
@@ -66,7 +66,7 @@ class ContributionTrendWidget extends Widget
             'chart' => [
                 'datasets' => [
                     [
-                        'label' => 'Total Contributions (SAR)',
+                        'label' => __('Total Contributions (SAR)'),
                         'data' => $totals,
                         'backgroundColor' => 'rgba(16,185,129,0.7)',
                         'borderColor' => 'rgba(16,185,129,1)',
@@ -76,7 +76,7 @@ class ContributionTrendWidget extends Widget
                         'order' => 1,
                     ],
                     [
-                        'label' => 'Members Who Contributed',
+                        'label' => __('Members Who Contributed'),
                         'data' => $memberCounts,
                         'type' => 'line',
                         'borderColor' => 'rgba(99,102,241,1)',
@@ -95,8 +95,8 @@ class ContributionTrendWidget extends Widget
                 'responsive' => true,
                 'maintainAspectRatio' => false,
                 'scales' => [
-                    'y' => ['position' => 'left', 'title' => ['display' => true, 'text' => 'SAR'], 'beginAtZero' => true],
-                    'y1' => ['position' => 'right', 'title' => ['display' => true, 'text' => 'Members'], 'grid' => ['drawOnChartArea' => false], 'beginAtZero' => true],
+                    'y' => ['position' => 'left', 'title' => ['display' => true, 'text' => __('SAR')], 'beginAtZero' => true],
+                    'y1' => ['position' => 'right', 'title' => ['display' => true, 'text' => __('Members')], 'grid' => ['drawOnChartArea' => false], 'beginAtZero' => true],
                 ],
                 'plugins' => [
                     'legend' => ['position' => 'top'],

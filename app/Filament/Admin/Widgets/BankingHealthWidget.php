@@ -70,7 +70,7 @@ class BankingHealthWidget extends Widget
                 ->count();
 
             return [
-                'label' => $day->format('D'),
+                'label' => $day->locale(app()->getLocale())->translatedFormat('D'),
                 'count' => $bank + $sms,
             ];
         })->toArray();

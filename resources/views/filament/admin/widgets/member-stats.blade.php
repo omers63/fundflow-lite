@@ -86,7 +86,7 @@
                     <p class="text-xs font-semibold uppercase tracking-wide text-gray-500 dark:text-gray-400">{{ __('New This Month') }}</p>
                 </div>
                 <p class="text-2xl font-bold text-gray-900 dark:text-white">{{ $d['new_this_month'] }}</p>
-                <p class="mt-0.5 text-xs text-gray-400">{{ now()->format('F Y') }}</p>
+                <p class="mt-0.5 text-xs text-gray-400">{{ now()->locale(app()->getLocale())->translatedFormat('F Y') }}</p>
             </div>
         </div>
 

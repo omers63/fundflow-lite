@@ -46,7 +46,7 @@ class MembershipApplicationResource extends Resource
 
     protected static string|\BackedEnum|null $navigationIcon = 'heroicon-o-clipboard-document-check';
 
-    protected static ?string $navigationLabel = 'Applications';
+    protected static ?string $navigationLabel = null;
 
     protected static ?int $navigationSort = 1;
 

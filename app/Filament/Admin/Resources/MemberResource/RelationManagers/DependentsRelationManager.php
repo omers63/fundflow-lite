@@ -60,6 +60,8 @@ class DependentsRelationManager extends RelationManager
                     ->money('SAR')
                     ->toggleable(),
                 Tables\Columns\TextColumn::make('status')->badge()
+                    ->label(__('Status'))
+                    ->formatStateUsing(fn (?string $state): string => $state ? __(ucfirst(str_replace('_', ' ', $state))) : __('—'))
                     ->color(fn (string $state) => match ($state) {
                         'active' => 'success',
                         'suspended' => 'warning',
@@ -194,7 +196,7 @@ class DependentsRelationManager extends RelationManager
                                 $parent = e($c->parent?->user?->name ?? __('—'));
                                 $by = e($c->changedBy?->name ?? __('System'));
                                 $note = $c->note ? '<br><span class="text-gray-400 text-xs">'.e($c->note).'</span>' : '';
-                                $date = $c->created_at->format('d M Y H:i');
+                                $date = $c->created_at->locale(app()->getLocale())->translatedFormat('d M Y H:i');
 
                                 $rows .= "
                                 <tr class=\"border-b border-gray-100 dark:border-gray-700\">

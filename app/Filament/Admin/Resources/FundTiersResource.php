@@ -26,11 +26,25 @@ class FundTiersResource extends Resource
 
     protected static string|\BackedEnum|null $navigationIcon = 'heroicon-o-squares-2x2';
 
-    protected static ?string $navigationLabel = 'Fund Tiers';
+    protected static ?string $navigationLabel = null;
+
+    protected static ?string $modelLabel = null;
+
+    protected static ?string $pluralModelLabel = null;
 
     protected static ?int $navigationSort = 3;
 
     public static function getNavigationLabel(): string
+    {
+        return __('Fund Tiers');
+    }
+
+    public static function getModelLabel(): string
+    {
+        return __('Fund Tier');
+    }
+
+    public static function getPluralModelLabel(): string
     {
         return __('Fund Tiers');
     }

@@ -71,8 +71,14 @@ class ContributionCycleService
         $start = $this->cycleStartAt($month, $year);
         $dueEnd = $this->cycleDueEndAt($month, $year);
 
-        return $start->format('j M Y') . ' – ' . $dueEnd->format('j M Y')
-            . ' (due end of ' . $dueEnd->format('j M Y') . ')';
+        $startLabel = $start->copy()->locale(app()->getLocale())->translatedFormat('j M Y');
+        $dueLabel = $dueEnd->copy()->locale(app()->getLocale())->translatedFormat('j M Y');
+
+        return __(':start - :due (due end of :due_end)', [
+            'start' => $startLabel,
+            'due' => $dueLabel,
+            'due_end' => $dueLabel,
+        ]);
     }
 
     // =========================================================================

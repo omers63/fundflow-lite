@@ -71,10 +71,10 @@ class BankResource extends Resource
     {
         return $table
             ->columns([
-                Tables\Columns\TextColumn::make('name')->searchable()->sortable(),
-                Tables\Columns\TextColumn::make('code')->badge()->sortable(),
-                Tables\Columns\TextColumn::make('swift_code')->label(__('SWIFT'))->placeholder('—'),
-                Tables\Columns\TextColumn::make('account_number')->placeholder('—'),
+                Tables\Columns\TextColumn::make('name')->label(__('Name'))->searchable()->sortable(),
+                Tables\Columns\TextColumn::make('code')->label(__('Code'))->badge()->sortable(),
+                Tables\Columns\TextColumn::make('swift_code')->label(__('SWIFT'))->placeholder(__('—')),
+                Tables\Columns\TextColumn::make('account_number')->label(__('Account Number'))->placeholder(__('—')),
                 Tables\Columns\IconColumn::make('is_active')->label(__('Active'))->boolean(),
                 Tables\Columns\TextColumn::make('import_templates_count')
                     ->label(__('Templates'))

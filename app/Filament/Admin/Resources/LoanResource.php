@@ -60,6 +60,12 @@ class LoanResource extends Resource
 {
     protected static ?string $model = Loan::class;
 
+    protected static ?string $navigationLabel = null;
+
+    protected static ?string $modelLabel = null;
+
+    protected static ?string $pluralModelLabel = null;
+
     protected static string|\BackedEnum|null $navigationIcon = 'heroicon-o-document-currency-dollar';
 
     protected static ?int $navigationSort = 3;
@@ -67,6 +73,21 @@ class LoanResource extends Resource
     public static function getNavigationGroup(): ?string
     {
         return 'finance';
+    }
+
+    public static function getNavigationLabel(): string
+    {
+        return __('Loans');
+    }
+
+    public static function getModelLabel(): string
+    {
+        return __('Loan');
+    }
+
+    public static function getPluralModelLabel(): string
+    {
+        return __('Loans');
     }
 
     public static function getNavigationBadge(): ?string
@@ -88,17 +109,17 @@ class LoanResource extends Resource
         return $schema->schema([
             Section::make('Loan Request')->schema([
                 Forms\Components\Select::make('member_id')
-                    ->label('Member')
+                    ->label(__('Member'))
                     ->options(fn() => Member::active()->with('user')->get()
                         ->mapWithKeys(fn($m) => [$m->id => "{$m->member_number} – {$m->user->name}"]))
                     ->searchable()->required()->live(),
 
                 Forms\Components\Placeholder::make('member_eligibility')
-                    ->label('Member Eligibility')
+                    ->label(__('Member Eligibility'))
                     ->content(function ($get) {
                         $memberId = $get('member_id');
                         if (!$memberId) {
-                            return '— Select a member to see their eligibility status.';
+                            return __('— Select a member to see their eligibility status.');
                         }
                         $member = Member::with('accounts')->find($memberId);
                         if (!$member) {
@@ -107,16 +128,17 @@ class LoanResource extends Resource
                         $svc = app(LoanEligibilityService::class);
                         $ctx = $svc->context($member);
                         if ($ctx['eligible']) {
-                            return '✅ Eligible '
-                                . '| Fund balance: SAR ' . number_format($ctx['fund_balance'], 2)
-                                . ' | Max loan: SAR ' . number_format($ctx['max_loan_amount']);
+                            return __('Eligible | Fund balance: SAR :fund | Max loan: SAR :max', [
+                                'fund' => number_format($ctx['fund_balance'], 2),
+                                'max' => number_format($ctx['max_loan_amount']),
+                            ]);
                         }
 
-                        return '⚠ Not eligible: ' . $ctx['reason'];
+                        return __('Not eligible: :reason', ['reason' => $ctx['reason']]);
                     }),
 
                 Forms\Components\TextInput::make('amount_requested')
-                    ->label('Requested Amount (SAR)')
+                    ->label(__('Requested Amount (SAR)'))
                     ->numeric()->prefix('SAR')->required()
                     ->minValue(1000)
                     ->maxValue(function ($get) {
@@ -133,7 +155,7 @@ class LoanResource extends Resource
                     ->helperText(function ($get) {
                         $memberId = $get('member_id');
                         if (!$memberId) {
-                            return 'Select a member first to see the maximum loan amount.';
+                            return __('Select a member first to see the maximum loan amount.');
                         }
                         $member = Member::with('accounts')->find($memberId);
                         if (!$member) {
@@ -141,30 +163,33 @@ class LoanResource extends Resource
                         }
                         $max = app(LoanEligibilityService::class)->maxLoanAmount($member);
                         $fundBal = (float) ($member->fundAccount()?->balance ?? 0);
-                        return 'Max: SAR ' . number_format($max) . ' (2× fund balance of SAR ' . number_format($fundBal) . ')';
+                        return __('Max: SAR :max (2x fund balance of SAR :fund)', [
+                            'max' => number_format($max),
+                            'fund' => number_format($fundBal),
+                        ]);
                     }),
                 Forms\Components\DatePicker::make('applied_at')
-                    ->label('Request Date')
+                    ->label(__('Request Date'))
                     ->default(now()->toDateString())
                     ->required(),
                 Forms\Components\Toggle::make('is_emergency')
-                    ->label('Emergency Loan')
-                    ->helperText('Assigns this loan to the Emergency fund tier upon approval.')
+                    ->label(__('Emergency Loan'))
+                    ->helperText(__('Assigns this loan to the Emergency fund tier upon approval.'))
                     ->default(false),
                 Forms\Components\Textarea::make('purpose')->required()->columnSpanFull(),
             ])->columns(2),
 
             Section::make('Guarantor & Witnesses')->schema([
                 Forms\Components\Select::make('guarantor_member_id')
-                    ->label('Guarantor Member')
+                    ->label(__('Guarantor Member'))
                     ->options(fn() => Member::active()->with('user')->get()
                         ->mapWithKeys(fn($m) => [$m->id => "{$m->member_number} – {$m->user->name}"]))
                     ->searchable()->nullable()
-                    ->helperText('Must be an active member with income.'),
-                Forms\Components\TextInput::make('witness1_name')->label('Witness 1 — Name')->maxLength(255),
-                Forms\Components\TextInput::make('witness1_phone')->label('Witness 1 — Phone')->tel()->maxLength(50),
-                Forms\Components\TextInput::make('witness2_name')->label('Witness 2 — Name')->maxLength(255),
-                Forms\Components\TextInput::make('witness2_phone')->label('Witness 2 — Phone')->tel()->maxLength(50),
+                    ->helperText(__('Must be an active member with income.')),
+                Forms\Components\TextInput::make('witness1_name')->label(__('Witness 1 — Name'))->maxLength(255),
+                Forms\Components\TextInput::make('witness1_phone')->label(__('Witness 1 — Phone'))->tel()->maxLength(50),
+                Forms\Components\TextInput::make('witness2_name')->label(__('Witness 2 — Name'))->maxLength(255),
+                Forms\Components\TextInput::make('witness2_phone')->label(__('Witness 2 — Phone'))->tel()->maxLength(50),
             ])->columns(2),
         ]);
     }
@@ -181,28 +206,29 @@ class LoanResource extends Resource
         $balance = (float) $r->member->cash_balance;
         $principal = $r->remaining_amount;
 
-        return 'Principal remaining (installments): SAR ' . number_format($principal, 2)
-            . '. Cash required now (including any late fees): SAR ' . number_format($required, 2)
-            . '. Member cash balance: SAR ' . number_format($balance, 2)
-            . '. All remaining installments will be debited from cash and marked paid.';
+        return __('Principal remaining (installments): SAR :principal. Cash required now (including any late fees): SAR :required. Member cash balance: SAR :balance. All remaining installments will be debited from cash and marked paid.', [
+            'principal' => number_format($principal, 2),
+            'required' => number_format($required, 2),
+            'balance' => number_format($balance, 2),
+        ]);
     }
 
     public static function earlySettleLoanAction(?Closure $afterSuccess = null): Action
     {
         return Action::make('early_settle')
-            ->label('Early Settle')
+            ->label(__('Early Settle'))
             ->icon('heroicon-o-check-badge')
             ->color('info')
             ->visible(fn(Loan $r) => $r->status === 'active')
             ->requiresConfirmation()
-            ->modalHeading('Confirm Early Settlement')
+            ->modalHeading(__('Confirm Early Settlement'))
             ->modalDescription(fn(Loan $r) => static::earlySettleLoanModalDescription($r))
             ->action(function (Loan $record, Component $livewire) use ($afterSuccess) {
                 try {
                     app(LoanEarlySettlementService::class)->earlySettle($record);
                 } catch (\InvalidArgumentException | \RuntimeException $e) {
                     Notification::make()
-                        ->title('Early settlement failed')
+                        ->title(__('Early settlement failed'))
                         ->body($e->getMessage())
                         ->danger()
                         ->send();
@@ -210,7 +236,7 @@ class LoanResource extends Resource
                     return;
                 }
 
-                Notification::make()->title('Loan Early Settled')->success()->send();
+                Notification::make()->title(__('Loan Early Settled'))->success()->send();
                 static::dispatchLoanListHeaderWidgetsRefresh($livewire);
                 if ($afterSuccess) {
                     $afterSuccess($record, $livewire);
@@ -225,7 +251,7 @@ class LoanResource extends Resource
     public static function approveLoanAction(): Action
     {
         return Action::make('approve')
-            ->label('Approve')
+            ->label(__('Approve'))
             ->icon('heroicon-o-check-circle')
             ->color('success')
             ->visible(fn(Loan $r) => $r->status === 'pending')
@@ -235,23 +261,23 @@ class LoanResource extends Resource
             ])
             ->schema(fn(Loan $record) => [
                 Forms\Components\TextInput::make('amount_approved')
-                    ->label('Approved Amount (SAR)')
+                    ->label(__('Approved Amount (SAR)'))
                     ->numeric()->prefix('SAR')->required()
                     ->live()
                     ->helperText(
-                        'Loan tier and fund tier are auto-assigned from the requested amount (SAR '
-                        . number_format((float) $record->amount_requested)
-                        . '). Adjust this figure only for the disbursed amount.'
+                        __('Loan tier and fund tier are auto-assigned from the requested amount (SAR :amount). Adjust this figure only for the disbursed amount.', [
+                            'amount' => number_format((float) $record->amount_requested),
+                        ])
                     ),
 
                 Forms\Components\Toggle::make('is_emergency')
-                    ->label('Emergency Loan')
+                    ->label(__('Emergency Loan'))
                     ->live()
-                    ->helperText('Emergency loans bypass the standard loan-tier queue and are assigned to the Emergency fund tier.')
+                    ->helperText(__('Emergency loans bypass the standard loan-tier queue and are assigned to the Emergency fund tier.'))
                     ->default(false),
 
                 Forms\Components\Placeholder::make('repayment_preview')
-                    ->label('Loan Schedule & Tier Assignment')
+                    ->label(__('Loan Schedule & Tier Assignment'))
                     ->content(function ($get) use ($record) {
                         $requestedAmount = (float) $record->amount_requested;
                         $previewApproved = (float) ($get('amount_approved') ?? $requestedAmount);
@@ -264,8 +290,7 @@ class LoanResource extends Resource
                         if (!$loanTier) {
                             return new HtmlString(
                                 '<div class="rounded-lg border border-red-200 bg-red-50 px-4 py-3 text-sm text-red-700 dark:border-red-500/30 dark:bg-red-500/10 dark:text-red-400">'
-                                . '⚠ No loan tier covers SAR ' . e(number_format($previewApproved))
-                                . '. Adjust Loan Tiers in Settings before approving.'
+                                . e(__('No loan tier covers SAR :amount. Adjust Loan Tiers in Settings before approving.', ['amount' => number_format($previewApproved)]))
                                 . '</div>'
                             );
                         }
@@ -281,16 +306,16 @@ class LoanResource extends Resource
                             : FundTier::forLoanTier($loanTier->id);
                         $fundTierLabel = $fundTier
                             ? $fundTier->label . ' (SAR ' . number_format((float) $fundTier->available_amount, 2) . ' uncommitted)'
-                            : '⚠ No matching fund tier';
+                            : __('No matching fund tier');
 
                         $declaredPool = $fundTier ? (float) $fundTier->allocated_amount : 0.0;
                         $declaredRow = $fundTier
                             ? '<tr class="border-b border-gray-100 last:border-0 dark:border-white/10">'
-                            . '<td class="py-2.5 pl-3 pr-3 text-gray-500 dark:text-gray-400">' . e('Fund tier declared pool') . '</td>'
+                            . '<td class="py-2.5 pl-3 pr-3 text-gray-500 dark:text-gray-400">' . e(__('Fund tier declared pool')) . '</td>'
                             . '<td class="py-2.5 pr-3 text-right tabular-nums font-semibold text-gray-950 dark:text-white">SAR '
                             . e(number_format($declaredPool, 2))
                             . ' <span class="block text-xs font-normal text-gray-500 dark:text-gray-400">('
-                            . e((string) $fundTier->percentage) . '% of master fund)</span></td></tr>'
+                            . e(__('(:percentage% of master fund)', ['percentage' => (string) $fundTier->percentage])) . '</span></td></tr>'
                             : '';
 
                         $row = fn(string $label, string $value, bool $highlight = false): string =>
@@ -303,29 +328,29 @@ class LoanResource extends Resource
 
                         $masterClass = $masterFundBal < $previewApproved ? 'text-amber-600 dark:text-amber-400 font-semibold' : 'text-gray-700 dark:text-gray-300';
                         $masterRow = '<tr class="border-b border-gray-100 last:border-0 dark:border-white/10">'
-                            . '<td class="py-2.5 pl-3 pr-3 text-gray-500 dark:text-gray-400">' . e('Master fund balance (cash ledger)') . '</td>'
+                            . '<td class="py-2.5 pl-3 pr-3 text-gray-500 dark:text-gray-400">' . e(__('Master fund balance (cash ledger)')) . '</td>'
                             . '<td class="py-2.5 pr-3 text-right tabular-nums ' . $masterClass . '">SAR ' . e(number_format($masterFundBal, 2)) . '</td>'
                             . '</tr>';
 
                         $loanTierValue = $loanTier->label
                             . ' (SAR ' . number_format((float) $loanTier->min_amount)
                             . ' – SAR ' . number_format((float) $loanTier->max_amount) . ')';
-                        $rows = $row('Loan tier (from approved amount in form)', $loanTierValue)
-                            . $row('Fund tier', $fundTierLabel)
+                        $rows = $row(__('Loan tier (from approved amount in form)'), $loanTierValue)
+                            . $row(__('Fund tier'), $fundTierLabel)
                             . $declaredRow
                             . $masterRow
-                            . $row('Member fund balance', 'SAR ' . number_format($fundBal, 2))
-                            . $row('Member portion', 'SAR ' . number_format($memberPortion, 2))
-                            . $row('Fund (master) portion', 'SAR ' . number_format($masterPortion, 2))
-                            . $row('Settlement top-up (' . ($threshold * 100) . '%)', 'SAR ' . number_format($settleAmt, 2))
-                            . $row('Monthly installment', 'SAR ' . number_format($minInstall, 2))
-                            . $row('Repayment period', $count . ' months', true);
+                            . $row(__('Member fund balance'), 'SAR ' . number_format($fundBal, 2))
+                            . $row(__('Member portion'), 'SAR ' . number_format($memberPortion, 2))
+                            . $row(__('Fund (master) portion'), 'SAR ' . number_format($masterPortion, 2))
+                            . $row(__('Settlement top-up (:pct%)', ['pct' => $threshold * 100]), 'SAR ' . number_format($settleAmt, 2))
+                            . $row(__('Monthly installment'), 'SAR ' . number_format($minInstall, 2))
+                            . $row(__('Repayment period'), __(':count months', ['count' => $count]), true);
 
                         $table = '<div class="overflow-x-auto rounded-lg border border-gray-200 bg-white dark:border-white/10 dark:bg-gray-900/40">'
                             . '<table class="w-full min-w-[20rem] text-sm">'
                             . '<thead><tr class="border-b border-gray-200 bg-gray-50 dark:border-white/10 dark:bg-white/5">'
-                            . '<th scope="col" class="py-2.5 pl-3 pr-3 text-left text-xs font-semibold uppercase tracking-wide text-gray-500 dark:text-gray-400">Field</th>'
-                            . '<th scope="col" class="py-2.5 pr-3 text-right text-xs font-semibold uppercase tracking-wide text-gray-500 dark:text-gray-400">Value</th>'
+                            . '<th scope="col" class="py-2.5 pl-3 pr-3 text-left text-xs font-semibold uppercase tracking-wide text-gray-500 dark:text-gray-400">' . e(__('Field')) . '</th>'
+                            . '<th scope="col" class="py-2.5 pr-3 text-right text-xs font-semibold uppercase tracking-wide text-gray-500 dark:text-gray-400">' . e(__('Value')) . '</th>'
                             . '</tr></thead>'
                             . '<tbody>' . $rows . '</tbody>'
                             . '</table></div>';
@@ -333,19 +358,21 @@ class LoanResource extends Resource
                         $warnHtml = '';
                         if ($fundTier && $declaredPool + 0.01 < $previewApproved) {
                             $warnHtml = '<div class="rounded-lg border border-amber-200 bg-amber-50 px-4 py-3 text-sm text-amber-700 dark:border-amber-500/30 dark:bg-amber-500/10 dark:text-amber-400">'
-                                . '⚠ Approved amount (SAR ' . e(number_format($previewApproved, 2)) . ') is above this fund tier’s declared pool (SAR '
-                                . e(number_format($declaredPool, 2)) . '). Disbursements will be capped to that pool; use a lower approved amount or adjust fund tiers.'
+                                . e(__('Approved amount (SAR :approved) is above this fund tier declared pool (SAR :pool). Disbursements will be capped to that pool; use a lower approved amount or adjust fund tiers.', [
+                                    'approved' => number_format($previewApproved, 2),
+                                    'pool' => number_format($declaredPool, 2),
+                                ]))
                                 . '</div>';
                         } elseif ($masterFundBal + 0.01 < $previewApproved) {
                             $warnHtml = '<div class="rounded-lg border border-amber-200 bg-amber-50 px-4 py-3 text-sm text-amber-700 dark:border-amber-500/30 dark:bg-amber-500/10 dark:text-amber-400">'
-                                . 'ℹ Master fund cash (SAR ' . e(number_format($masterFundBal, 2)) . ') is below the approved amount. '
-                                . 'Disbursement size is capped by the <strong>fund tier declared pool</strong>, not this balance; the ledger still must have enough cash when you post each disbursement.'
+                                . e(__('Master fund cash (SAR :cash) is below the approved amount. Disbursement size is capped by the fund tier declared pool, not this balance; the ledger still must have enough cash when you post each disbursement.', [
+                                    'cash' => number_format($masterFundBal, 2),
+                                ]))
                                 . '</div>';
                         }
 
                         $note = '<p class="text-xs leading-relaxed text-gray-500 dark:text-gray-400">'
-                            . 'Tier assignment is based on the <span class="font-medium text-gray-700 dark:text-gray-300">requested amount</span>. '
-                            . 'Repayment period is re-computed at disbursement using the then-current fund balance.'
+                            . e(__('Tier assignment is based on the requested amount. Repayment period is re-computed at disbursement using the then-current fund balance.'))
                             . '</p>';
 
                         return new HtmlString('<div class="space-y-3">' . $warnHtml . $table . $note . '</div>');
@@ -362,8 +389,10 @@ class LoanResource extends Resource
 
                 if (!$loanTier) {
                     Notification::make()
-                        ->title('Cannot Approve')
-                        ->body('No loan tier covers SAR ' . number_format($amount) . '. Adjust Loan Tiers or the approved amount.')
+                        ->title(__('Cannot Approve'))
+                        ->body(__('No loan tier covers SAR :amount. Adjust Loan Tiers or the approved amount.', [
+                            'amount' => number_format($amount),
+                        ]))
                         ->danger()->send();
 
                     return;
@@ -375,8 +404,8 @@ class LoanResource extends Resource
 
                 if (!$fundTier) {
                     Notification::make()
-                        ->title('Cannot Approve')
-                        ->body('No active fund tier found for this loan. Configure Fund Tiers in Settings.')
+                        ->title(__('Cannot Approve'))
+                        ->body(__('No active fund tier found for this loan. Configure Fund Tiers in Settings.'))
                         ->danger()->send();
 
                     return;
@@ -403,8 +432,8 @@ class LoanResource extends Resource
                 $record->refresh();
 
                 $tierInfo = $isEmergency
-                    ? 'Emergency fund tier'
-                    : "{$fundTier->label} (queue position #{$record->queue_position})";
+                    ? __('Emergency fund tier')
+                    : __(':tier (queue position #:position)', ['tier' => $fundTier->label, 'position' => $record->queue_position]);
 
                 try {
                     $record->member->user->notify(new LoanApprovedNotification(
@@ -416,8 +445,8 @@ class LoanResource extends Resource
                 }
 
                 Notification::make()
-                    ->title('Loan Approved')
-                    ->body("Assigned to {$tierInfo}. Repayment: {$count} months × SAR " . number_format($minInstall) . '/month.')
+                    ->title(__('Loan Approved'))
+                    ->body(__('Assigned to :tier. Repayment: :count months x SAR :amount/month.', ['tier' => $tierInfo, 'count' => $count, 'amount' => number_format($minInstall)]))
                     ->success()->send();
 
                 static::dispatchLoanListHeaderWidgetsRefresh($livewire);
@@ -432,12 +461,12 @@ class LoanResource extends Resource
     public static function rejectLoanAction(): Action
     {
         return Action::make('reject')
-            ->label('Reject')
+            ->label(__('Reject'))
             ->icon('heroicon-o-x-circle')
             ->color('danger')
             ->visible(fn(Loan $r) => $r->status === 'pending')
             ->schema([
-                Forms\Components\Textarea::make('rejection_reason')->label('Rejection Reason')->required(),
+                Forms\Components\Textarea::make('rejection_reason')->label(__('Rejection Reason'))->required(),
             ])
             ->action(function (Loan $record, array $data, Component $livewire) {
                 $record->update(['status' => 'rejected', 'rejection_reason' => $data['rejection_reason']]);
@@ -445,7 +474,7 @@ class LoanResource extends Resource
                     $record->member->user->notify(new MembershipRejectedNotification($data['rejection_reason']));
                 } catch (\Throwable) {
                 }
-                Notification::make()->title('Loan Rejected')->warning()->send();
+                Notification::make()->title(__('Loan Rejected'))->warning()->send();
                 static::dispatchLoanListHeaderWidgetsRefresh($livewire);
 
                 if ($livewire instanceof EditRecord) {
@@ -458,7 +487,7 @@ class LoanResource extends Resource
     public static function disburseLoanAction(): Action
     {
         return Action::make('disburse')
-            ->label(fn(Loan $r) => $r->isFullyDisbursed() ? 'Disbursed' : 'Disburse')
+            ->label(fn(Loan $r) => $r->isFullyDisbursed() ? __('Disbursed') : __('Disburse'))
             ->icon('heroicon-o-banknotes')
             ->color('primary')
             ->visible(fn(Loan $r) => $r->status === 'approved')
@@ -469,8 +498,12 @@ class LoanResource extends Resource
                 $approved = (float) $r->amount_approved;
                 $disbursed = (float) $r->amount_disbursed;
                 $portion = $r->disbursements()->count() + 1;
-                return "Disburse Loan #{$r->id} — SAR " . number_format($remaining, 2)
-                    . ' remaining (portion #' . $portion . ' of SAR ' . number_format($approved, 2) . ')';
+                return __('Disburse Loan #:id - SAR :remaining remaining (portion #:portion of SAR :approved)', [
+                    'id' => $r->id,
+                    'remaining' => number_format($remaining, 2),
+                    'portion' => $portion,
+                    'approved' => number_format($approved, 2),
+                ]);
             })
             ->schema(function (Loan $r) {
                 $remaining = $r->remainingToDisburse();
@@ -488,50 +521,46 @@ class LoanResource extends Resource
                 $infoHtml = '<div class="overflow-x-auto rounded-lg border border-gray-200 bg-white dark:border-white/10 dark:bg-gray-900/40">'
                     . '<table class="w-full text-sm">'
                     . '<tbody>'
-                    . '<tr class="border-b border-gray-100 dark:border-white/10"><td class="py-2 pl-3 pr-3 text-gray-500 dark:text-gray-400">Approved amount</td><td class="py-2 pr-3 text-right tabular-nums text-gray-700 dark:text-gray-300">SAR ' . number_format((float) $r->amount_approved, 2) . '</td></tr>'
-                    . '<tr class="border-b border-gray-100 dark:border-white/10"><td class="py-2 pl-3 pr-3 text-gray-500 dark:text-gray-400">Already disbursed</td><td class="py-2 pr-3 text-right tabular-nums text-gray-700 dark:text-gray-300">SAR ' . number_format((float) $r->amount_disbursed, 2) . '</td></tr>'
-                    . '<tr class="border-b border-gray-100 dark:border-white/10"><td class="py-2 pl-3 pr-3 text-gray-500 dark:text-gray-400">Remaining to disburse</td><td class="py-2 pr-3 text-right tabular-nums font-semibold text-gray-950 dark:text-white">SAR ' . number_format($remaining, 2) . '</td></tr>'
-                    . '<tr class="border-b border-gray-100 dark:border-white/10"><td class="py-2 pl-3 pr-3 text-gray-500 dark:text-gray-400">Fund tier declared pool</td><td class="py-2 pr-3 text-right tabular-nums font-semibold text-gray-950 dark:text-white">SAR ' . number_format($declaredPool, 2) . ' <span class="block text-xs font-normal text-gray-500 dark:text-gray-400">(' . e($tierPct) . '% of master)</span></td></tr>'
-                    . '<tr class="border-b border-gray-100 dark:border-white/10"><td class="py-2 pl-3 pr-3 text-gray-500 dark:text-gray-400">Master fund balance (ledger)</td><td class="py-2 pr-3 text-right tabular-nums ' . ($masterBal < $remaining ? 'text-amber-600 dark:text-amber-400 font-semibold' : 'text-gray-700 dark:text-gray-300') . '">SAR ' . number_format($masterBal, 2) . '</td></tr>'
-                    . '<tr><td class="py-2 pl-3 pr-3 text-gray-500 dark:text-gray-400">Est. repayment period</td><td class="py-2 pr-3 text-right tabular-nums text-gray-700 dark:text-gray-300">' . $count . ' months</td></tr>'
+                    . '<tr class="border-b border-gray-100 dark:border-white/10"><td class="py-2 pl-3 pr-3 text-gray-500 dark:text-gray-400">' . e(__('Approved amount')) . '</td><td class="py-2 pr-3 text-right tabular-nums text-gray-700 dark:text-gray-300">SAR ' . number_format((float) $r->amount_approved, 2) . '</td></tr>'
+                    . '<tr class="border-b border-gray-100 dark:border-white/10"><td class="py-2 pl-3 pr-3 text-gray-500 dark:text-gray-400">' . e(__('Already disbursed')) . '</td><td class="py-2 pr-3 text-right tabular-nums text-gray-700 dark:text-gray-300">SAR ' . number_format((float) $r->amount_disbursed, 2) . '</td></tr>'
+                    . '<tr class="border-b border-gray-100 dark:border-white/10"><td class="py-2 pl-3 pr-3 text-gray-500 dark:text-gray-400">' . e(__('Remaining to disburse')) . '</td><td class="py-2 pr-3 text-right tabular-nums font-semibold text-gray-950 dark:text-white">SAR ' . number_format($remaining, 2) . '</td></tr>'
+                    . '<tr class="border-b border-gray-100 dark:border-white/10"><td class="py-2 pl-3 pr-3 text-gray-500 dark:text-gray-400">' . e(__('Fund tier declared pool')) . '</td><td class="py-2 pr-3 text-right tabular-nums font-semibold text-gray-950 dark:text-white">SAR ' . number_format($declaredPool, 2) . ' <span class="block text-xs font-normal text-gray-500 dark:text-gray-400">' . e(__('(:pct% of master)', ['pct' => $tierPct])) . '</span></td></tr>'
+                    . '<tr class="border-b border-gray-100 dark:border-white/10"><td class="py-2 pl-3 pr-3 text-gray-500 dark:text-gray-400">' . e(__('Master fund balance (ledger)')) . '</td><td class="py-2 pr-3 text-right tabular-nums ' . ($masterBal < $remaining ? 'text-amber-600 dark:text-amber-400 font-semibold' : 'text-gray-700 dark:text-gray-300') . '">SAR ' . number_format($masterBal, 2) . '</td></tr>'
+                    . '<tr><td class="py-2 pl-3 pr-3 text-gray-500 dark:text-gray-400">' . e(__('Est. repayment period')) . '</td><td class="py-2 pr-3 text-right tabular-nums text-gray-700 dark:text-gray-300">' . __(':count months', ['count' => $count]) . '</td></tr>'
                     . '</tbody></table></div>';
 
                 $warnHtml = '';
                 if ($remaining <= 0.01) {
                     $warnHtml = '<div class="rounded-lg border border-red-200 bg-red-50 px-4 py-3 text-sm text-red-700 dark:border-red-500/30 dark:bg-red-500/10 dark:text-red-400">⚠ '
-                        . 'Nothing remains to be disbursed on this loan.'
+                        . e(__('Nothing remains to be disbursed on this loan.'))
                         . '</div>';
                 } elseif ($masterMax <= 0.01) {
                     $warnHtml = '<div class="rounded-lg border border-red-200 bg-red-50 px-4 py-3 text-sm text-red-700 dark:border-red-500/30 dark:bg-red-500/10 dark:text-red-400">⚠ '
-                        . 'Master fund ledger balance (SAR ' . number_format($masterBal, 2) . ') is not enough to post a disbursement against remaining approved principal.'
+                        . e(__('Master fund ledger balance (SAR :balance) is not enough to post a disbursement against remaining approved principal.', ['balance' => number_format($masterBal, 2)]))
                         . '</div>';
                 } elseif ($fundTier && $declaredPool <= 0.01 && $masterMax > 0.01) {
                     $warnHtml = '<div class="rounded-lg border border-amber-200 bg-amber-50 px-4 py-3 text-sm text-amber-700 dark:border-amber-500/30 dark:bg-amber-500/10 dark:text-amber-400">⚠ '
-                        . 'This fund tier’s declared pool is SAR 0. Check <strong>Force</strong> below to disburse up to SAR '
-                        . number_format($masterMax, 2) . ' (lesser of remaining approved and master ledger balance).'
+                        . e(__('This fund tier declared pool is SAR 0. Check Force below to disburse up to SAR :max (lesser of remaining approved and master ledger balance).', ['max' => number_format($masterMax, 2)]))
                         . '</div>';
                 } elseif ($declaredPool + 0.01 < $remaining && $policyMax > 0.01) {
                     $warnHtml = '<div class="rounded-lg border border-amber-200 bg-amber-50 px-4 py-3 text-sm text-amber-700 dark:border-amber-500/30 dark:bg-amber-500/10 dark:text-amber-400">⚠ '
-                        . 'Per policy, each disbursement is capped at the fund tier’s declared pool (SAR ' . number_format($declaredPool, 2)
-                        . ') even though SAR ' . number_format($remaining, 2) . ' remains on the loan. Repayment starts only after full disbursement.'
-                        . ' Check <strong>Force</strong> to allow up to SAR ' . number_format($masterMax, 2)
-                        . ' for this posting (lesser of remaining approved and master ledger balance).'
+                        . e(__('Per policy, each disbursement is capped at the fund tier declared pool (SAR :pool) even though SAR :remaining remains on the loan. Repayment starts only after full disbursement. Check Force to allow up to SAR :max for this posting (lesser of remaining approved and master ledger balance).', ['pool' => number_format($declaredPool, 2), 'remaining' => number_format($remaining, 2), 'max' => number_format($masterMax, 2)]))
                         . '</div>';
                 }
                 if ($policyMax > 0.01 && $masterBal + 0.01 < $policyMax) {
                     $warnHtml .= '<div class="rounded-lg border border-amber-200 bg-amber-50 px-4 py-3 text-sm text-amber-700 dark:border-amber-500/30 dark:bg-amber-500/10 dark:text-amber-400">ℹ '
-                        . 'Master fund cash (SAR ' . number_format($masterBal, 2) . ') is below the tier declared pool cap; without <strong>Force</strong> you can still enter up to the pool, but posting will fail until the ledger has enough balance. With <strong>Force</strong>, the maximum follows master cash (SAR ' . number_format($masterMax, 2) . ').'
+                        . e(__('Master fund cash (SAR :cash) is below the tier declared pool cap; without Force you can still enter up to the pool, but posting will fail until the ledger has enough balance. With Force, the maximum follows master cash (SAR :max).', ['cash' => number_format($masterBal, 2), 'max' => number_format($masterMax, 2)]))
                         . '</div>';
                 }
 
                 return [
                     Forms\Components\Placeholder::make('disburse_info')
-                        ->label('')
+                        ->label(__(''))
                         ->content(new \Illuminate\Support\HtmlString('<div class="space-y-3">' . $infoHtml . $warnHtml . '</div>'))
                         ->columnSpanFull(),
                     Forms\Components\Checkbox::make('force')
-                        ->label('Force')
-                        ->helperText('Override the per-disbursement cap from the fund tier’s declared pool. The amount is still limited by remaining approved principal and master fund ledger balance.')
+                        ->label(__('Force'))
+                        ->helperText(__('Override the per-disbursement cap from the fund tier’s declared pool. The amount is still limited by remaining approved principal and master fund ledger balance.'))
                         ->visible($fundTier !== null && $declaredPool + 0.01 < $remaining)
                         ->live()
                         ->afterStateUpdated(function ($state, $set) use ($remaining, $masterBal, $policyMax) {
@@ -543,7 +572,7 @@ class LoanResource extends Resource
                         })
                         ->columnSpanFull(),
                     Forms\Components\TextInput::make('amount')
-                        ->label('Amount to disburse (SAR)')
+                        ->label(__('Amount to disburse (SAR)'))
                         ->numeric()
                         ->minValue(0.01)
                         ->maxValue(fn (Get $get) => $get('force') ? $masterMax : ($policyMax > 0.01 ? $policyMax : 0.01))
@@ -551,16 +580,16 @@ class LoanResource extends Resource
                         ->suffix('SAR')
                         ->helperText(function (Get $get) use ($masterBal, $policyMax, $masterMax) {
                             if ($get('force')) {
-                                return 'Max: SAR ' . number_format($masterMax, 2) . ' (lesser of remaining approved and master fund ledger balance).';
+                                return __('Max: SAR :max (lesser of remaining approved and master fund ledger balance).', ['max' => number_format($masterMax, 2)]);
                             }
 
-                            return 'Max: SAR ' . number_format($policyMax, 2) . ' (lesser of remaining approved and fund tier declared pool). Master ledger SAR ' . number_format($masterBal, 2) . ' is enforced on submit.';
+                            return __('Max: SAR :max (lesser of remaining approved and fund tier declared pool). Master ledger SAR :ledger is enforced on submit.', ['max' => number_format($policyMax, 2), 'ledger' => number_format($masterBal, 2)]);
                         })
                         ->disabled(fn (Get $get) => $remaining <= 0.01 || $masterMax <= 0.01 || (!$get('force') && $policyMax < 0.01))
                         ->required(fn (Get $get) => !($remaining <= 0.01 || $masterMax <= 0.01 || (!$get('force') && $policyMax < 0.01)))
                         ->columnSpanFull(),
                     Forms\Components\Textarea::make('notes')
-                        ->label('Notes (optional)')
+                        ->label(__('Notes (optional)'))
                         ->nullable()
                         ->rows(2)
                         ->columnSpanFull(),
@@ -576,30 +605,30 @@ class LoanResource extends Resource
                 $declaredCap = $fundTier ? max(0.0, (float) $fundTier->allocated_amount) : $remaining;
                 $masterBal = (float) (Account::masterFund()?->balance ?? 0);
                 if ($amount <= 0) {
-                    Notification::make()->title('Enter a disbursement amount')->danger()->send();
+                    Notification::make()->title(__('Enter a disbursement amount'))->danger()->send();
                     return;
                 }
 
                 if ($amount > $remaining + 0.01) {
                     Notification::make()
-                        ->title('Amount exceeds remaining to disburse')
-                        ->body('Remaining: SAR ' . number_format($remaining, 2))
+                        ->title(__('Amount exceeds remaining to disburse'))
+                        ->body(__('Remaining: SAR :amount', ['amount' => number_format($remaining, 2)]))
                         ->danger()->send();
                     return;
                 }
 
                 if (!$force && $amount > $declaredCap + 0.01) {
                     Notification::make()
-                        ->title('Amount exceeds fund tier declared pool')
-                        ->body('Declared pool: SAR ' . number_format($declaredCap, 2) . '. Check Force to override this cap, within master fund balance.')
+                        ->title(__('Amount exceeds fund tier declared pool'))
+                        ->body(__('Declared pool: SAR :pool. Check Force to override this cap, within master fund balance.', ['pool' => number_format($declaredCap, 2)]))
                         ->danger()->send();
                     return;
                 }
 
                 if ($amount > $masterBal + 0.01) {
                     Notification::make()
-                        ->title('Amount exceeds master fund balance')
-                        ->body('Available on master ledger: SAR ' . number_format($masterBal, 2))
+                        ->title(__('Amount exceeds master fund balance'))
+                        ->body(__('Available on master ledger: SAR :amount', ['amount' => number_format($masterBal, 2)]))
                         ->danger()->send();
                     return;
                 }
@@ -623,7 +652,7 @@ class LoanResource extends Resource
                     app(AccountingService::class)->postPartialLoanDisbursement($record, $amount, $disbursement);
                 } catch (\Throwable $e) {
                     $disbursement->delete();
-                    Notification::make()->title('Disbursement failed')->body($e->getMessage())->danger()->send();
+                    Notification::make()->title(__('Disbursement failed'))->body($e->getMessage())->danger()->send();
                     return;
                 }
 
@@ -679,8 +708,8 @@ class LoanResource extends Resource
                     }
 
                     Notification::make()
-                        ->title('Loan Fully Disbursed')
-                        ->body("{$count} installments of SAR " . number_format($minInstall) . '/month. First repayment: ' . ($exemption['first_repayment_month'] . '/' . $exemption['first_repayment_year']))
+                        ->title(__('Loan Fully Disbursed'))
+                        ->body(__(':count installments of SAR :amount/month. First repayment: :period', ['count' => $count, 'amount' => number_format($minInstall), 'period' => ($exemption['first_repayment_month'] . '/' . $exemption['first_repayment_year'])]))
                         ->success()->send();
                 } else {
                     // Partial disbursement — loan stays approved, notify member
@@ -694,8 +723,8 @@ class LoanResource extends Resource
                     }
 
                     Notification::make()
-                        ->title('Partial Disbursement Recorded')
-                        ->body('SAR ' . number_format($amount, 2) . ' disbursed. Remaining: SAR ' . number_format($record->remainingToDisburse(), 2) . '. Repayment will start after full disbursement.')
+                        ->title(__('Partial Disbursement Recorded'))
+                        ->body(__('SAR :amount disbursed. Remaining: SAR :remaining. Repayment will start after full disbursement.', ['amount' => number_format($amount, 2), 'remaining' => number_format($record->remainingToDisburse(), 2)]))
                         ->info()->send();
                 }
 
@@ -713,24 +742,24 @@ class LoanResource extends Resource
     {
         return $table
             ->columns([
-                Tables\Columns\TextColumn::make('queue_position')->label('Q#')->sortable()->placeholder('—')->toggleable(),
+                Tables\Columns\TextColumn::make('queue_position')->label(__('Q#'))->sortable()->placeholder(__('—'))->toggleable(),
                 Tables\Columns\IconColumn::make('is_emergency')
-                    ->label('Emg.')
+                    ->label(__('Emg.'))
                     ->boolean()
                     ->trueIcon('heroicon-o-bolt')
                     ->falseIcon(null)
                     ->trueColor('danger')
-                    ->tooltip(fn(Loan $r) => $r->is_emergency ? 'Emergency Loan' : null)
+                    ->tooltip(fn(Loan $r) => $r->is_emergency ? __('Emergency Loan') : null)
                     ->toggleable(),
-                Tables\Columns\TextColumn::make('loanTier.label')->label('Tier')->placeholder('—')->toggleable(),
-                Tables\Columns\TextColumn::make('member.member_number')->label('Member #')->searchable()->sortable()->toggleable(),
-                Tables\Columns\TextColumn::make('member.user.name')->label('Member')->searchable()->toggleable(),
-                Tables\Columns\TextColumn::make('amount_requested')->label('Requested')->money('SAR')->toggleable(),
-                Tables\Columns\TextColumn::make('amount_approved')->label('Approved')->money('SAR')->placeholder('—')->toggleable(),
+                Tables\Columns\TextColumn::make('loanTier.label')->label(__('Tier'))->placeholder(__('—'))->toggleable(),
+                Tables\Columns\TextColumn::make('member.member_number')->label(__('Member #'))->searchable()->sortable()->toggleable(),
+                Tables\Columns\TextColumn::make('member.user.name')->label(__('Member'))->searchable()->toggleable(),
+                Tables\Columns\TextColumn::make('amount_requested')->label(__('Requested'))->money('SAR')->toggleable(),
+                Tables\Columns\TextColumn::make('amount_approved')->label(__('Approved'))->money('SAR')->placeholder(__('—'))->toggleable(),
                 Tables\Columns\TextColumn::make('installments_count')
-                    ->label('Months')
+                    ->label(__('Months'))
                     ->description(fn(Loan $r) => $r->loanTier
-                        ? 'SAR ' . number_format($r->loanTier->min_monthly_installment) . '/mo'
+                        ? __('SAR :amount/mo', ['amount' => number_format($r->loanTier->min_monthly_installment)])
                         : null)
                     ->toggleable(),
                 Tables\Columns\TextColumn::make('status')->badge()
@@ -745,7 +774,7 @@ class LoanResource extends Resource
                         default => 'gray',
                     })
                     ->toggleable(),
-                Tables\Columns\TextColumn::make('late_repayment_count')->label('Late #')
+                Tables\Columns\TextColumn::make('late_repayment_count')->label(__('Late #'))
                     ->badge()->color(fn($state) => $state > 0 ? 'warning' : 'success')
                     ->toggleable(),
                 Tables\Columns\TextColumn::make('applied_at')->dateTime('d M Y')->sortable()->toggleable(),
@@ -762,29 +791,29 @@ class LoanResource extends Resource
                     'rejected' => 'Rejected',
                     'cancelled' => 'Cancelled',
                 ]),
-                Tables\Filters\SelectFilter::make('loan_tier_id')->label('Tier')
+                Tables\Filters\SelectFilter::make('loan_tier_id')->label(__('Tier'))
                     ->options(LoanTier::pluck('label', 'id')),
-                Tables\Filters\SelectFilter::make('fund_tier_id')->label('Fund tier')
+                Tables\Filters\SelectFilter::make('fund_tier_id')->label(__('Fund tier'))
                     ->options(FundTier::query()->orderBy('label')->pluck('label', 'id')),
                 Tables\Filters\SelectFilter::make('member_id')
-                    ->label('Member')
+                    ->label(__('Member'))
                     ->searchable()
                     ->options(fn() => Member::with('user')->orderBy('member_number')->get()
                         ->mapWithKeys(fn(Member $m) => [$m->id => "{$m->member_number} – {$m->user->name}"])),
                 Tables\Filters\TernaryFilter::make('is_emergency')
-                    ->label('Emergency'),
+                    ->label(__('Emergency')),
                 Tables\Filters\TernaryFilter::make('disbursed')
-                    ->label('Disbursed')
-                    ->trueLabel('Disbursed')
-                    ->falseLabel('Not disbursed')
+                    ->label(__('Disbursed'))
+                    ->trueLabel(__('Disbursed'))
+                    ->falseLabel(__('Not disbursed'))
                     ->queries(
                         true: fn($q) => $q->whereNotNull('disbursed_at'),
                         false: fn($q) => $q->whereNull('disbursed_at'),
                     ),
                 Tables\Filters\Filter::make('applied_at')
                     ->schema([
-                        Forms\Components\DatePicker::make('from')->label('Applied from'),
-                        Forms\Components\DatePicker::make('until')->label('Applied until'),
+                        Forms\Components\DatePicker::make('from')->label(__('Applied from')),
+                        Forms\Components\DatePicker::make('until')->label(__('Applied until')),
                     ])
                     ->columns(2)
                     ->query(function ($query, array $data) {
@@ -794,8 +823,8 @@ class LoanResource extends Resource
                     }),
                 Tables\Filters\Filter::make('amount_approved')
                     ->schema([
-                        Forms\Components\TextInput::make('min')->label('Min approved (SAR)')->numeric(),
-                        Forms\Components\TextInput::make('max')->label('Max approved (SAR)')->numeric(),
+                        Forms\Components\TextInput::make('min')->label(__('Min approved (SAR)'))->numeric(),
+                        Forms\Components\TextInput::make('max')->label(__('Max approved (SAR)'))->numeric(),
                     ])
                     ->columns(2)
                     ->query(function ($query, array $data) {
@@ -874,7 +903,7 @@ class LoanResource extends Resource
                     ->modalWidth('2xl')
                     ->schema([
                         Forms\Components\FileUpload::make('csv_file')
-                            ->label('CSV file')
+                            ->label(__('CSV file'))
                             ->disk('local')
                             ->directory('loan-imports')
                             ->acceptedFileTypes(['text/csv', 'text/plain', 'application/csv', 'application/vnd.ms-excel'])
@@ -966,12 +995,12 @@ class LoanResource extends Resource
 
                     // ── CANCEL ──
                     Action::make('cancel')
-                        ->label('Cancel')
+                        ->label(__('Cancel'))
                         ->icon('heroicon-o-trash')
                         ->color('gray')
                         ->visible(fn(Loan $r) => in_array($r->status, ['pending', 'approved']))
                         ->schema([
-                            Forms\Components\Textarea::make('cancellation_reason')->label('Cancellation Reason')->nullable(),
+                            Forms\Components\Textarea::make('cancellation_reason')->label(__('Cancellation Reason'))->nullable(),
                         ])
                         ->action(function (Loan $record, array $data, Component $livewire) {
                             $fundTierId = $record->fund_tier_id;
@@ -983,7 +1012,7 @@ class LoanResource extends Resource
                             if ($fundTierId !== null) {
                                 LoanQueueOrderingService::resequenceFundTier((int) $fundTierId);
                             }
-                            Notification::make()->title('Loan Cancelled')->send();
+                            Notification::make()->title(__('Loan Cancelled'))->send();
                             static::dispatchLoanListHeaderWidgetsRefresh($livewire);
                         }),
 
@@ -1048,7 +1077,7 @@ class LoanResource extends Resource
                     ->icon('heroicon-o-banknotes')
                     ->schema([
                         TextEntry::make('borrower')
-                            ->label('Member')
+                            ->label(__('Member'))
                             ->state(fn(Loan $record): ?string => $record->member
                                 ? "{$record->member->member_number} – {$record->member->user->name}"
                                 : null)
@@ -1063,7 +1092,7 @@ class LoanResource extends Resource
                             ->color('primary')
                             ->weight(FontWeight::Medium),
                         TextEntry::make('member_eligibility')
-                            ->label('Member eligibility')
+                            ->label(__('Member eligibility'))
                             ->state(function (Loan $record): string {
                                 $member = $record->member;
                                 if ($member === null) {
@@ -1071,12 +1100,13 @@ class LoanResource extends Resource
                                 }
                                 $ctx = app(LoanEligibilityService::class)->context($member);
                                 if ($ctx['eligible']) {
-                                    return '✅ Eligible '
-                                        . '| Fund balance: SAR ' . number_format($ctx['fund_balance'], 2)
-                                        . ' | Max loan: SAR ' . number_format($ctx['max_loan_amount']);
+                                    return __('Eligible | Fund balance: SAR :fund | Max loan: SAR :max', [
+                                        'fund' => number_format($ctx['fund_balance'], 2),
+                                        'max' => number_format($ctx['max_loan_amount']),
+                                    ]);
                                 }
 
-                                return '⚠ Not eligible: ' . $ctx['reason'];
+                                return __('Not eligible: :reason', ['reason' => $ctx['reason']]);
                             })
                             ->columnSpanFull(),
                         TextEntry::make('status')
@@ -1092,17 +1122,17 @@ class LoanResource extends Resource
                                 default => 'gray',
                             }),
                         TextEntry::make('amount_requested')
-                            ->label('Requested amount')
+                            ->label(__('Requested amount'))
                             ->money('SAR'),
                         TextEntry::make('amount_approved')
-                            ->label('Approved amount')
+                            ->label(__('Approved amount'))
                             ->money('SAR')
-                            ->placeholder('—'),
+                            ->placeholder(__('—')),
                         TextEntry::make('installments_count')
-                            ->label('Installments (months)'),
+                            ->label(__('Installments (months)')),
                         TextEntry::make('is_emergency')
-                            ->label('Emergency loan')
-                            ->formatStateUsing(fn(?bool $state): string => $state ? 'Yes' : 'No'),
+                            ->label(__('Emergency loan'))
+                            ->formatStateUsing(fn(?bool $state): string => $state ? __('Yes') : __('No')),
                         TextEntry::make('purpose')
                             ->columnSpanFull(),
                     ])->columns(2),
@@ -1110,38 +1140,38 @@ class LoanResource extends Resource
                     ->icon('heroicon-o-calendar-days')
                     ->schema([
                         TextEntry::make('loanTier.label')
-                            ->label('Loan tier')
-                            ->placeholder('—'),
+                            ->label(__('Loan tier'))
+                            ->placeholder(__('—')),
                         TextEntry::make('fundTier.label')
-                            ->label('Fund tier')
-                            ->placeholder('—'),
+                            ->label(__('Fund tier'))
+                            ->placeholder(__('—')),
                         TextEntry::make('queue_position')
-                            ->label('Queue #')
-                            ->placeholder('—'),
+                            ->label(__('Queue #'))
+                            ->placeholder(__('—')),
                         TextEntry::make('applied_at')
                             ->dateTime('d M Y H:i'),
                         TextEntry::make('approved_at')
                             ->dateTime('d M Y H:i')
-                            ->placeholder('—'),
+                            ->placeholder(__('—')),
                         TextEntry::make('disbursed_at')
                             ->dateTime('d M Y H:i')
-                            ->placeholder('—'),
+                            ->placeholder(__('—')),
                         TextEntry::make('due_date')
                             ->date('d M Y')
-                            ->placeholder('—'),
+                            ->placeholder(__('—')),
                         TextEntry::make('settled_at')
                             ->dateTime('d M Y H:i')
-                            ->placeholder('—'),
+                            ->placeholder(__('—')),
                         TextEntry::make('member_portion')
-                            ->label('Member portion')
+                            ->label(__('Member portion'))
                             ->money('SAR')
-                            ->placeholder('—'),
+                            ->placeholder(__('—')),
                         TextEntry::make('master_portion')
-                            ->label('Master / fund portion')
+                            ->label(__('Master / fund portion'))
                             ->money('SAR')
-                            ->placeholder('—'),
+                            ->placeholder(__('—')),
                         TextEntry::make('repaid_to_master')
-                            ->label('Repaid (master track)')
+                            ->label(__('Repaid (master track)'))
                             ->money('SAR'),
                     ])->columns(2)
                     ->collapsible(),
@@ -1149,7 +1179,7 @@ class LoanResource extends Resource
                     ->icon('heroicon-o-user-group')
                     ->schema([
                         TextEntry::make('guarantor_display')
-                            ->label('Guarantor')
+                            ->label(__('Guarantor'))
                             ->state(fn(Loan $record): ?string => $record->guarantor
                                 ? "{$record->guarantor->member_number} – {$record->guarantor->user->name}"
                                 : null)
@@ -1163,20 +1193,20 @@ class LoanResource extends Resource
                             })
                             ->color('primary')
                             ->weight(FontWeight::Medium)
-                            ->placeholder('—'),
+                            ->placeholder(__('—')),
                         TextEntry::make('witness1_name')
-                            ->label('Witness 1 — name')
-                            ->placeholder('—'),
+                            ->label(__('Witness 1 — name'))
+                            ->placeholder(__('—')),
                         TextEntry::make('witness1_phone')
-                            ->label('Witness 1 — phone')
-                            ->placeholder('—')
+                            ->label(__('Witness 1 — phone'))
+                            ->placeholder(__('—'))
                             ->formatStateUsing(fn (?string $state): \Illuminate\Support\HtmlString => PhoneDisplay::toHtml($state)),
                         TextEntry::make('witness2_name')
-                            ->label('Witness 2 — name')
-                            ->placeholder('—'),
+                            ->label(__('Witness 2 — name'))
+                            ->placeholder(__('—')),
                         TextEntry::make('witness2_phone')
-                            ->label('Witness 2 — phone')
-                            ->placeholder('—')
+                            ->label(__('Witness 2 — phone'))
+                            ->placeholder(__('—'))
                             ->formatStateUsing(fn (?string $state): \Illuminate\Support\HtmlString => PhoneDisplay::toHtml($state)),
                     ])->columns(2),
             ]);

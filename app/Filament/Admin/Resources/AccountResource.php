@@ -23,7 +23,7 @@ class AccountResource extends Resource
 
     protected static string|\BackedEnum|null $navigationIcon = 'heroicon-o-wallet';
 
-    protected static ?string $navigationLabel = 'Accounts';
+    protected static ?string $navigationLabel = null;
 
     protected static ?int $navigationSort = 1;
 
@@ -58,19 +58,19 @@ class AccountResource extends Resource
                     ->toggleable(),
                 Tables\Columns\TextColumn::make('member.user.name')
                     ->label(__('Member'))
-                    ->placeholder('—')
+                    ->placeholder(__('—'))
                     ->searchable()
                     ->sortable()
                     ->toggleable(),
                 Tables\Columns\TextColumn::make('member.member_number')
                     ->label(__('Member #'))
-                    ->placeholder('—')
+                    ->placeholder(__('—'))
                     ->searchable()
                     ->sortable()
                     ->toggleable(),
                 Tables\Columns\TextColumn::make('loan_id')
                     ->label(__('Loan #'))
-                    ->placeholder('—')
+                    ->placeholder(__('—'))
                     ->toggleable(),
                 Tables\Columns\TextColumn::make('balance')
                     ->label(__('Balance (SAR)'))

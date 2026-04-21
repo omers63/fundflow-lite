@@ -29,7 +29,7 @@ class BankTransactionsTableWidget extends TableWidget
             ->recordUrl(fn(BankTransaction $record): string => BankTransactionResource::getUrl('view', ['record' => $record]))
             ->headerActions([
                 CreateAction::make()
-                    ->label('New transaction')
+                    ->label(__('New transaction'))
                     ->icon('heroicon-o-plus-circle')
                     ->url(BankTransactionResource::getUrl('create')),
             ]);

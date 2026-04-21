@@ -20,6 +20,11 @@ class ListMembers extends ListRecords
 {
     protected static string $resource = MemberResource::class;
 
+    public function getTitle(): string
+    {
+        return __('Members');
+    }
+
     protected function getHeaderActions(): array
     {
         return [
@@ -72,9 +77,9 @@ class ListMembers extends ListRecords
                 ->modalDescription(new HtmlString(
                     '<div class="space-y-3 text-sm">' .
                         '<div class="rounded-lg border border-blue-200 bg-blue-50/80 p-3 text-xs dark:border-blue-500/30 dark:bg-blue-500/10">' .
-                            '<p class="font-semibold text-blue-900 dark:text-blue-200 mb-1">Need a starter file?</p>' .
+                            '<p class="font-semibold text-blue-900 dark:text-blue-200 mb-1">' . e(__('Need a starter file?')) . '</p>' .
                             '<p class="text-blue-900/90 dark:text-blue-100/90">' .
-                                'Download a ready sample with 20 varied rows (including optional fields): ' .
+                                e(__('Download a ready sample with 20 varied rows (including optional fields): ')) .
                                 '<a href="' . route('downloads.member-import-sample') . '" class="font-semibold text-blue-700 underline hover:text-blue-600 dark:text-blue-300 dark:hover:text-blue-200">members-import-sample-20.csv</a>' .
                             '</p>' .
                         '</div>' .
@@ -82,32 +87,32 @@ class ListMembers extends ListRecords
                             '<table class="w-full text-xs">' .
                                 '<tbody class="divide-y divide-gray-100 dark:divide-gray-800">' .
                                     '<tr>' .
-                                        '<td class="px-3 py-2 font-semibold text-gray-700 dark:text-gray-200 w-44 bg-gray-50 dark:bg-gray-900/30">CSV format</td>' .
-                                        '<td class="px-3 py-2 text-gray-600 dark:text-gray-300">First row must be headers.</td>' .
+                                        '<td class="px-3 py-2 font-semibold text-gray-700 dark:text-gray-200 w-44 bg-gray-50 dark:bg-gray-900/30">' . e(__('CSV format')) . '</td>' .
+                                        '<td class="px-3 py-2 text-gray-600 dark:text-gray-300">' . e(__('First row must be headers.')) . '</td>' .
                                     '</tr>' .
                                     '<tr>' .
-                                        '<td class="px-3 py-2 font-semibold text-gray-700 dark:text-gray-200 bg-gray-50 dark:bg-gray-900/30">Required fields</td>' .
-                                        '<td class="px-3 py-2 text-gray-600 dark:text-gray-300"><code>email</code> (always), <code>name</code> (required for new members only).</td>' .
+                                        '<td class="px-3 py-2 font-semibold text-gray-700 dark:text-gray-200 bg-gray-50 dark:bg-gray-900/30">' . e(__('Required fields')) . '</td>' .
+                                        '<td class="px-3 py-2 text-gray-600 dark:text-gray-300">' . e(__('email (always), name (required for new members only).')) . '</td>' .
                                     '</tr>' .
                                     '<tr>' .
-                                        '<td class="px-3 py-2 font-semibold text-gray-700 dark:text-gray-200 bg-gray-50 dark:bg-gray-900/30">Optional fields</td>' .
-                                        '<td class="px-3 py-2 text-gray-600 dark:text-gray-300"><code>password</code>, <code>phone</code>, <code>joined_at</code>, <code>status</code>, <code>monthly_contribution_amount</code>, <code>parent_member_number</code>, <code>cash_balance</code>, <code>fund_balance</code>.</td>' .
+                                        '<td class="px-3 py-2 font-semibold text-gray-700 dark:text-gray-200 bg-gray-50 dark:bg-gray-900/30">' . e(__('Optional fields')) . '</td>' .
+                                        '<td class="px-3 py-2 text-gray-600 dark:text-gray-300">' . e(__('password, phone, joined_at, status, monthly_contribution_amount, parent_member_number, cash_balance, fund_balance.')) . '</td>' .
                                     '</tr>' .
                                     '<tr>' .
-                                        '<td class="px-3 py-2 font-semibold text-gray-700 dark:text-gray-200 bg-gray-50 dark:bg-gray-900/30">Balance rules</td>' .
-                                        '<td class="px-3 py-2 text-gray-600 dark:text-gray-300"><code>cash_balance</code> must be >= 0. <code>fund_balance</code> may be negative (paired debit on master + member fund).</td>' .
+                                        '<td class="px-3 py-2 font-semibold text-gray-700 dark:text-gray-200 bg-gray-50 dark:bg-gray-900/30">' . e(__('Balance rules')) . '</td>' .
+                                        '<td class="px-3 py-2 text-gray-600 dark:text-gray-300">' . e(__('cash_balance must be >= 0. fund_balance may be negative (paired debit on master + member fund).')) . '</td>' .
                                     '</tr>' .
                                     '<tr>' .
-                                        '<td class="px-3 py-2 font-semibold text-gray-700 dark:text-gray-200 bg-gray-50 dark:bg-gray-900/30">Existing email</td>' .
-                                        '<td class="px-3 py-2 text-gray-600 dark:text-gray-300">If user already has a member, only cash/fund adjustments are applied; other columns are ignored. Requires <code>Update:Member</code>. If no member record exists, import fails for that row.</td>' .
+                                        '<td class="px-3 py-2 font-semibold text-gray-700 dark:text-gray-200 bg-gray-50 dark:bg-gray-900/30">' . e(__('Existing email')) . '</td>' .
+                                        '<td class="px-3 py-2 text-gray-600 dark:text-gray-300">' . e(__('If user already has a member, only cash/fund adjustments are applied; other columns are ignored. Requires Update:Member. If no member record exists, import fails for that row.')) . '</td>' .
                                     '</tr>' .
                                     '<tr>' .
-                                        '<td class="px-3 py-2 font-semibold text-gray-700 dark:text-gray-200 bg-gray-50 dark:bg-gray-900/30">New member</td>' .
-                                        '<td class="px-3 py-2 text-gray-600 dark:text-gray-300">Requires <code>Create:Member</code>. Place parent rows before dependents.</td>' .
+                                        '<td class="px-3 py-2 font-semibold text-gray-700 dark:text-gray-200 bg-gray-50 dark:bg-gray-900/30">' . e(__('New member')) . '</td>' .
+                                        '<td class="px-3 py-2 text-gray-600 dark:text-gray-300">' . e(__('Requires Create:Member. Place parent rows before dependents.')) . '</td>' .
                                     '</tr>' .
                                     '<tr>' .
-                                        '<td class="px-3 py-2 font-semibold text-gray-700 dark:text-gray-200 bg-gray-50 dark:bg-gray-900/30">Allowed values</td>' .
-                                        '<td class="px-3 py-2 text-gray-600 dark:text-gray-300"><code>status</code>: active, suspended, delinquent, terminated. <code>monthly_contribution_amount</code>: 500 to 3000 in steps of 500.</td>' .
+                                        '<td class="px-3 py-2 font-semibold text-gray-700 dark:text-gray-200 bg-gray-50 dark:bg-gray-900/30">' . e(__('Allowed values')) . '</td>' .
+                                        '<td class="px-3 py-2 text-gray-600 dark:text-gray-300">' . e(__('status: active, suspended, delinquent, terminated. monthly_contribution_amount: 500 to 3000 in steps of 500.')) . '</td>' .
                                     '</tr>' .
                                 '</tbody>' .
                             '</table>' .
@@ -140,12 +145,17 @@ class ListMembers extends ListRecords
                         Storage::disk('local')->delete($relative);
                     }
 
-                    $body = "Created: {$result['created']} · Updated (balances): {$result['updated']} · Skipped: {$result['skipped']} · Failed: {$result['failed']}";
+                    $body = __('Created: :created · Updated (balances): :updated · Skipped: :skipped · Failed: :failed', [
+                        'created' => $result['created'],
+                        'updated' => $result['updated'],
+                        'skipped' => $result['skipped'],
+                        'failed' => $result['failed'],
+                    ]);
 
                     if ($result['errors'] !== []) {
                         $preview = implode("\n", array_slice($result['errors'], 0, 8));
                         if (count($result['errors']) > 8) {
-                            $preview .= "\n… and " . (count($result['errors']) - 8) . ' more';
+                            $preview .= "\n" . __('... and :count more', ['count' => count($result['errors']) - 8]);
                         }
                         $body .= "\n\n" . $preview;
                     }

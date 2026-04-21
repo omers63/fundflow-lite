@@ -41,6 +41,12 @@ class ContributionResource extends Resource
 {
     protected static ?string $model = Contribution::class;
 
+    protected static ?string $navigationLabel = null;
+
+    protected static ?string $modelLabel = null;
+
+    protected static ?string $pluralModelLabel = null;
+
     protected static string|\BackedEnum|null $navigationIcon = 'heroicon-o-banknotes';
 
     protected static ?int $navigationSort = 2;
@@ -50,11 +56,26 @@ class ContributionResource extends Resource
         return 'finance';
     }
 
+    public static function getNavigationLabel(): string
+    {
+        return __('Contributions');
+    }
+
+    public static function getModelLabel(): string
+    {
+        return __('Contribution');
+    }
+
+    public static function getPluralModelLabel(): string
+    {
+        return __('Contributions');
+    }
+
     public static function form(Schema $schema): Schema
     {
         return $schema->schema([
             Forms\Components\Select::make('member_id')
-                ->label('Member')
+                ->label(__('Member'))
                 ->options(fn () => Member::with('user')
                     ->get()
                     ->pluck('user.name', 'id')
@@ -113,21 +134,21 @@ class ContributionResource extends Resource
                     };
                 }),
             Forms\Components\DateTimePicker::make('paid_at')
-                ->label('Payment Date')
+                ->label(__('Payment Date'))
                 ->default(now()),
             Forms\Components\Checkbox::make('is_late')
-                ->label('Late payment')
-                ->helperText('Override whether this contribution counts as late for compliance. The automatic flag from contribution runs can be corrected here.')
+                ->label(__('Late payment'))
+                ->helperText(__('Override whether this contribution counts as late for compliance. The automatic flag from contribution runs can be corrected here.'))
                 ->default(false),
             Forms\Components\TextInput::make('late_fee_amount')
-                ->label('Late fee (SAR)')
+                ->label(__('Late fee (SAR)'))
                 ->numeric()
                 ->prefix('SAR')
                 ->nullable()
                 ->visible(fn (Get $get): bool => (bool) $get('is_late'))
-                ->helperText('Credited to master cash only (not master fund). Leave empty to use the configured default when saving.'),
+                ->helperText(__('Credited to master cash only (not master fund). Leave empty to use the configured default when saving.')),
             Forms\Components\TextInput::make('reference_number')
-                ->label('Reference #')
+                ->label(__('Reference #'))
                 ->nullable(),
             Forms\Components\Textarea::make('notes')
                 ->rows(2)
@@ -141,7 +162,7 @@ class ContributionResource extends Resource
             ->striped()
             ->headerActions([
                 Action::make('exportCsv')
-                    ->label('Export Contributions')
+                    ->label(__('Export Contributions'))
                     ->icon('heroicon-o-arrow-down-tray')
                     ->color('primary')
                     ->action(function () {
@@ -187,7 +208,7 @@ class ContributionResource extends Resource
                             '<div class="rounded-lg border border-blue-200 bg-blue-50/80 p-3 text-xs dark:border-blue-500/30 dark:bg-blue-500/10">' .
                                 '<p class="font-semibold text-blue-900 dark:text-blue-200 mb-1">' . e(__('app.ui.need_starter_file')) . '</p>' .
                                 '<p class="text-blue-900/90 dark:text-blue-100/90">' .
-                                    'Download a ready sample with common formats (numeric and month-name values): ' .
+                                    e(__('Download a ready sample with common formats (numeric and month-name values): ')) .
                                     '<a href="' . route('downloads.contribution-import-sample') . '" class="font-semibold text-blue-700 underline hover:text-blue-600 dark:text-blue-300 dark:hover:text-blue-200">contributions-import-sample-15.csv</a>' .
                                 '</p>' .
                             '</div>' .
@@ -203,24 +224,24 @@ class ContributionResource extends Resource
                                             '<td class="px-3 py-2 text-gray-600 dark:text-gray-300">' . e(__('app.contribution.import.member_identifier_help')) . '</td>' .
                                         '</tr>' .
                                         '<tr>' .
-                                            '<td class="px-3 py-2 font-semibold text-gray-700 dark:text-gray-200 bg-gray-50 dark:bg-gray-900/30">Required fields</td>' .
-                                            '<td class="px-3 py-2 text-gray-600 dark:text-gray-300"><code>month</code>, <code>year</code>, <code>amount</code>.</td>' .
+                                            '<td class="px-3 py-2 font-semibold text-gray-700 dark:text-gray-200 bg-gray-50 dark:bg-gray-900/30">' . e(__('Required fields')) . '</td>' .
+                                            '<td class="px-3 py-2 text-gray-600 dark:text-gray-300">' . e(__('month, year, amount.')) . '</td>' .
                                         '</tr>' .
                                         '<tr>' .
-                                            '<td class="px-3 py-2 font-semibold text-gray-700 dark:text-gray-200 bg-gray-50 dark:bg-gray-900/30">Month value</td>' .
-                                            '<td class="px-3 py-2 text-gray-600 dark:text-gray-300">Use <code>1-12</code> or a month name (e.g. <code>January</code>).</td>' .
+                                            '<td class="px-3 py-2 font-semibold text-gray-700 dark:text-gray-200 bg-gray-50 dark:bg-gray-900/30">' . e(__('Month value')) . '</td>' .
+                                            '<td class="px-3 py-2 text-gray-600 dark:text-gray-300">' . e(__('Use 1-12 or a month name (e.g. January).')) . '</td>' .
                                         '</tr>' .
                                         '<tr>' .
-                                            '<td class="px-3 py-2 font-semibold text-gray-700 dark:text-gray-200 bg-gray-50 dark:bg-gray-900/30">Optional fields</td>' .
-                                            '<td class="px-3 py-2 text-gray-600 dark:text-gray-300"><code>paid_at</code>, <code>reference_number</code>, <code>notes</code>, <code>is_late</code>, <code>late_fee_amount</code>, <code>payment_method</code>.</td>' .
+                                            '<td class="px-3 py-2 font-semibold text-gray-700 dark:text-gray-200 bg-gray-50 dark:bg-gray-900/30">' . e(__('Optional fields')) . '</td>' .
+                                            '<td class="px-3 py-2 text-gray-600 dark:text-gray-300">' . e(__('paid_at, reference_number, notes, is_late, late_fee_amount, payment_method.')) . '</td>' .
                                         '</tr>' .
                                         '<tr>' .
-                                            '<td class="px-3 py-2 font-semibold text-gray-700 dark:text-gray-200 bg-gray-50 dark:bg-gray-900/30">Late values</td>' .
-                                            '<td class="px-3 py-2 text-gray-600 dark:text-gray-300"><code>is_late</code> accepts <code>0/1</code> or <code>yes/no</code>. If late and fee is blank, system default is applied.</td>' .
+                                            '<td class="px-3 py-2 font-semibold text-gray-700 dark:text-gray-200 bg-gray-50 dark:bg-gray-900/30">' . e(__('Late values')) . '</td>' .
+                                            '<td class="px-3 py-2 text-gray-600 dark:text-gray-300">' . e(__('is_late accepts 0/1 or yes/no. If late and fee is blank, system default is applied.')) . '</td>' .
                                         '</tr>' .
                                         '<tr>' .
-                                            '<td class="px-3 py-2 font-semibold text-gray-700 dark:text-gray-200 bg-gray-50 dark:bg-gray-900/30">Payment method</td>' .
-                                            '<td class="px-3 py-2 text-gray-600 dark:text-gray-300">Allowed: <code>' . e(implode('</code>, <code>', array_keys(Contribution::paymentMethodOptions()))) . '</code>. Leave blank for admin entry.</td>' .
+                                            '<td class="px-3 py-2 font-semibold text-gray-700 dark:text-gray-200 bg-gray-50 dark:bg-gray-900/30">' . e(__('Payment method')) . '</td>' .
+                                            '<td class="px-3 py-2 text-gray-600 dark:text-gray-300">' . e(__('Allowed: :methods. Leave blank for admin entry.', ['methods' => implode(', ', array_keys(Contribution::paymentMethodOptions()))])) . '</td>' .
                                         '</tr>' .
                                     '</tbody>' .
                                 '</table>' .
@@ -230,7 +251,7 @@ class ContributionResource extends Resource
                     ->modalWidth('2xl')
                     ->schema([
                         Forms\Components\FileUpload::make('csv_file')
-                            ->label('CSV file')
+                            ->label(__('CSV file'))
                             ->disk('local')
                             ->directory('contribution-imports')
                             ->acceptedFileTypes(['text/csv', 'text/plain', 'application/csv', 'application/vnd.ms-excel'])
@@ -246,7 +267,11 @@ class ContributionResource extends Resource
                             Storage::disk('local')->delete($relative);
                         }
 
-                        $body = "Created: {$result['created']} · Skipped: {$result['skipped']} · Failed: {$result['failed']}";
+                        $body = __('Created: :created · Skipped: :skipped · Failed: :failed', [
+                            'created' => $result['created'],
+                            'skipped' => $result['skipped'],
+                            'failed' => $result['failed'],
+                        ]);
 
                         if ($result['errors'] !== []) {
                             $preview = implode("\n", array_slice($result['errors'], 0, 8));
@@ -296,12 +321,12 @@ class ContributionResource extends Resource
             ])
             ->columns([
                 Tables\Columns\TextColumn::make('member.member_number')
-                    ->label('Member #')
+                    ->label(__('Member #'))
                     ->searchable()
                     ->sortable()
                     ->toggleable(),
                 Tables\Columns\TextColumn::make('member.user.name')
-                    ->label('Member Name')
+                    ->label(__('Member Name'))
                     ->searchable()
                     ->toggleable(),
                 Tables\Columns\TextColumn::make('amount')
@@ -315,7 +340,7 @@ class ContributionResource extends Resource
                     ->sortable()
                     ->toggleable(),
                 Tables\Columns\TextColumn::make('payment_method')
-                    ->label('Source')
+                    ->label(__('Source'))
                     ->badge()
                     ->formatStateUsing(fn (?string $state): string => Contribution::paymentMethodLabel($state))
                     ->toggleable(),
@@ -324,7 +349,7 @@ class ContributionResource extends Resource
                     ->sortable()
                     ->toggleable(),
                 Tables\Columns\IconColumn::make('is_late')
-                    ->label('Late?')
+                    ->label(__('Late?'))
                     ->boolean()
                     ->trueIcon('heroicon-o-exclamation-triangle')
                     ->falseIcon('heroicon-o-check-circle')
@@ -332,34 +357,42 @@ class ContributionResource extends Resource
                     ->falseColor('success')
                     ->toggleable(),
                 Tables\Columns\TextColumn::make('late_fee_amount')
-                    ->label('Late fee')
+                    ->label(__('Late fee'))
                     ->money('SAR')
-                    ->placeholder('—')
+                    ->placeholder(__('—'))
                     ->toggleable(isToggledHiddenByDefault: true),
             ])
             ->defaultSort('paid_at', 'desc')
             ->filters([
                 Tables\Filters\SelectFilter::make('member_id')
-                    ->label('Member')
+                    ->label(__('Member'))
                     ->searchable()
                     ->options(fn () => Member::with('user')->orderBy('member_number')->get()
                         ->mapWithKeys(fn (Member $m) => [$m->id => "{$m->member_number} – {$m->user->name}"])),
                 Tables\Filters\SelectFilter::make('month')
-                    ->options(array_combine(range(1, 12), array_map(fn ($m) => date('F', mktime(0, 0, 0, $m, 1)), range(1, 12)))),
+                    ->options(array_combine(
+                        range(1, 12),
+                        array_map(
+                            fn ($m) => \Carbon\Carbon::create(null, $m, 1)
+                                ->locale(app()->getLocale())
+                                ->translatedFormat('F'),
+                            range(1, 12)
+                        )
+                    )),
                 Tables\Filters\Filter::make('year')
                     ->schema([Forms\Components\TextInput::make('year')->numeric()->default(now()->year)])
                     ->query(fn ($query, $data) => $data['year'] ? $query->where('year', $data['year']) : $query),
                 Tables\Filters\SelectFilter::make('payment_method')
-                    ->label('Source')
+                    ->label(__('Source'))
                     ->options(fn (): array => Contribution::paymentMethodOptions()),
                 Tables\Filters\TernaryFilter::make('is_late')
-                    ->label('Late payment')
-                    ->trueLabel('Late only')
-                    ->falseLabel('On-time only'),
+                    ->label(__('Late payment'))
+                    ->trueLabel(__('Late only'))
+                    ->falseLabel(__('On-time only')),
                 Tables\Filters\Filter::make('paid_at')
                     ->schema([
-                        Forms\Components\DatePicker::make('paid_from')->label('Paid from'),
-                        Forms\Components\DatePicker::make('paid_until')->label('Paid until'),
+                        Forms\Components\DatePicker::make('paid_from')->label(__('Paid from')),
+                        Forms\Components\DatePicker::make('paid_until')->label(__('Paid until')),
                     ])
                     ->columns(2)
                     ->query(function ($query, array $data) {
@@ -369,8 +402,8 @@ class ContributionResource extends Resource
                     }),
                 Tables\Filters\Filter::make('amount')
                     ->schema([
-                        Forms\Components\TextInput::make('amount_min')->label('Min amount (SAR)')->numeric(),
-                        Forms\Components\TextInput::make('amount_max')->label('Max amount (SAR)')->numeric(),
+                        Forms\Components\TextInput::make('amount_min')->label(__('Min amount (SAR)'))->numeric(),
+                        Forms\Components\TextInput::make('amount_max')->label(__('Max amount (SAR)'))->numeric(),
                     ])
                     ->columns(2)
                     ->query(function ($query, array $data) {
@@ -390,7 +423,7 @@ class ContributionResource extends Resource
                             static::dispatchContributionStatsRefresh($livewire);
                         }),
                     DeleteAction::make()
-                        ->modalDescription('Soft-deletes this contribution and reverses its fund ledger postings (master + member fund). Restoring re-posts the contribution to the ledger.'),
+                        ->modalDescription(__('Soft-deletes this contribution and reverses its fund ledger postings (master + member fund). Restoring re-posts the contribution to the ledger.')),
                     RestoreAction::make(),
                     ForceDeleteAction::make(),
                 ]),

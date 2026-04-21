@@ -69,11 +69,11 @@ class CreateMembershipApplication extends CreateRecord
                                         ->default('new'),
                                     Forms\Components\Select::make('gender')
                                         ->options(MembershipApplication::genderOptions())
-                                        ->placeholder('—'),
+                                        ->placeholder(__('—')),
                                     Forms\Components\Select::make('marital_status')
                                         ->label(__('Marital status'))
                                         ->options(MembershipApplication::maritalStatusOptions())
-                                        ->placeholder('—'),
+                                        ->placeholder(__('—')),
                                     Forms\Components\DatePicker::make('membership_date')
                                         ->label(__('Membership date'))
                                         ->native(false),

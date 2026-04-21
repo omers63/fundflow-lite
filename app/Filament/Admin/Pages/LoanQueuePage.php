@@ -18,7 +18,7 @@ class LoanQueuePage extends Page
 
     protected static bool $shouldRegisterNavigation = false;
 
-    protected static ?string $navigationLabel = 'Loan Queue';
+    protected static ?string $navigationLabel = null;
 
     protected static string|\BackedEnum|null $navigationIcon = 'heroicon-o-queue-list';
 

@@ -29,7 +29,7 @@ class SmsImportSessionResource extends Resource
 
     protected static string|\BackedEnum|null $navigationIcon = 'heroicon-o-inbox-stack';
 
-    protected static ?string $navigationLabel = 'SMS Import History';
+    protected static ?string $navigationLabel = null;
 
     protected static ?int $navigationSort = 23;
 
@@ -68,10 +68,11 @@ class SmsImportSessionResource extends Resource
     {
         return $table
             ->columns([
-                Tables\Columns\TextColumn::make('bank.name')->label(__('Bank'))->placeholder('—')->sortable(),
-                Tables\Columns\TextColumn::make('filename')->searchable()->limit(40),
+                Tables\Columns\TextColumn::make('bank.name')->label(__('Bank'))->placeholder(__('—'))->sortable(),
+                Tables\Columns\TextColumn::make('filename')->label(__('Filename'))->searchable()->limit(40),
                 Tables\Columns\TextColumn::make('template.name')->label(__('Template'))->limit(30),
                 Tables\Columns\TextColumn::make('status')
+                    ->label(__('Status'))
                     ->badge()
                     ->color(fn (string $state) => match ($state) {
                         'completed' => 'success',

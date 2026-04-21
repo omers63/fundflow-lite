@@ -23,7 +23,7 @@ class ViewLoan extends ViewRecord
             EditAction::make(),
             DeleteAction::make()
                 ->modalDescription(
-                    'Reverses all ledger postings for this loan (disbursement, repayments, and any cash or guarantor lines tied to its installments), deletes installments and the loan account, then removes the loan. This cannot be undone.'
+                    __('Reverses all ledger postings for this loan (disbursement, repayments, and any cash or guarantor lines tied to its installments), deletes installments and the loan account, then removes the loan. This cannot be undone.')
                 )
                 ->using(function (Loan $record) {
                     app(AccountingService::class)->safeDeleteLoan($record);

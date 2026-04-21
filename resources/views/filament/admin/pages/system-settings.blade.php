@@ -392,8 +392,8 @@
                                 $colors['badge_off'] => !$on,
                             ])>{{ $on ? __('Enabled') : __('Disabled') }}</span>
                         </div>
-                        <p class="text-sm font-bold text-gray-900 dark:text-white leading-tight">{{ $meta['label'] }}</p>
-                        <p class="text-xs text-gray-500 dark:text-gray-400 mt-1 leading-snug">{{ $meta['desc'] }}</p>
+                        <p class="text-sm font-bold text-gray-900 dark:text-white leading-tight">{{ __($meta['label']) }}</p>
+                        <p class="text-xs text-gray-500 dark:text-gray-400 mt-1 leading-snug">{{ __($meta['desc']) }}</p>
                     </div>
                 </div>
                 @endforeach
@@ -446,9 +446,9 @@
                                 <td class="py-2.5 pr-4">
                                     <div class="flex items-center gap-2">
                                         <x-dynamic-component :component="$cat['icon']" class="w-4 h-4 text-gray-400" />
-                                        <span class="font-medium text-gray-800 dark:text-gray-200">{{ $cat['label'] }}</span>
+                                        <span class="font-medium text-gray-800 dark:text-gray-200">{{ __($cat['label']) }}</span>
                                     </div>
-                                    <p class="text-xs text-gray-400 dark:text-gray-500 mt-0.5">{{ $cat['description'] }}</p>
+                                    <p class="text-xs text-gray-400 dark:text-gray-500 mt-0.5">{{ __($cat['description']) }}</p>
                                 </td>
                                 @foreach(array_keys($chLabels) as $chKey)
                                 @php

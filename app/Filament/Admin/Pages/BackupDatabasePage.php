@@ -20,6 +20,16 @@ class BackupDatabasePage extends Page
         return 'system';
     }
 
+    public static function getNavigationLabel(): string
+    {
+        return __('Database backups');
+    }
+
+    public function getTitle(): string
+    {
+        return __('Database backups');
+    }
+
     public function mount(): void
     {
         $this->redirect(SystemMaintenancePage::getUrl());

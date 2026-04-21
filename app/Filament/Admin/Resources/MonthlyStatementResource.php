@@ -29,7 +29,7 @@ class MonthlyStatementResource extends Resource
 
     protected static string|\BackedEnum|null $navigationIcon = 'heroicon-o-document-chart-bar';
 
-    protected static ?string $navigationLabel = 'Statements';
+    protected static ?string $navigationLabel = null;
 
     protected static ?int $navigationSort = 5;
 
@@ -123,7 +123,7 @@ class MonthlyStatementResource extends Resource
                     ->options(fn () => Member::with('user')->orderBy('member_number')->get()
                         ->mapWithKeys(fn (Member $m) => [$m->id => "{$m->member_number} — {$m->user->name}"])),
                 Tables\Filters\Filter::make('period')
-                    ->schema([Forms\Components\TextInput::make('period')->placeholder('YYYY-MM')])
+                    ->schema([Forms\Components\TextInput::make('period')->placeholder(__('YYYY-MM'))])
                     ->query(fn ($query, $data) => $data['period'] ? $query->where('period', $data['period']) : $query),
                 Tables\Filters\SelectFilter::make('period_year')
                     ->label(__('app.field.year'))
@@ -206,14 +206,20 @@ class MonthlyStatementResource extends Resource
                                 return;
                             }
                             $stmt = $svc->generateForMember($member, $period, $notify);
-                            Notification::make()->title("Statement #{$stmt->id} generated for {$member->member_number}.")->success()->send();
+                            Notification::make()
+                                ->title(__('Statement #:id generated for :member.', ['id' => $stmt->id, 'member' => $member->member_number]))
+                                ->success()
+                                ->send();
 
                             return;
                         }
 
                         $count = $svc->generateForAllMembers($period, $notify);
                         Notification::make()
-                            ->title("Generated {$count} statements for {$period}.".($notify ? ' Notifications sent.' : ''))
+                            ->title(
+                                __('Generated :count statements for :period.', ['count' => $count, 'period' => $period])
+                                . ($notify ? ' ' . __('Notifications sent.') : '')
+                            )
                             ->success()
                             ->send();
                     }),
@@ -234,11 +240,14 @@ class MonthlyStatementResource extends Resource
                         ->icon('heroicon-o-envelope')
                         ->color('info')
                         ->requiresConfirmation()
-                        ->modalHeading(fn (MonthlyStatement $r) => "Send statement to {$r->member->user->name}")
-                        ->modalDescription(fn (MonthlyStatement $r) => "This will email the statement PDF for {$r->period_formatted} to {$r->member->user->email}.")
+                        ->modalHeading(fn (MonthlyStatement $r) => __('Send statement to :name', ['name' => $r->member->user->name]))
+                        ->modalDescription(fn (MonthlyStatement $r) => __('This will email the statement PDF for :period to :email.', ['period' => $r->period_formatted, 'email' => $r->member->user->email]))
                         ->action(function (MonthlyStatement $record) {
                             app(MonthlyStatementService::class)->sendNotification($record);
-                            Notification::make()->title("Statement sent to {$record->member->user->name}")->success()->send();
+                            Notification::make()
+                                ->title(__('Statement sent to :name', ['name' => $record->member->user->name]))
+                                ->success()
+                                ->send();
                         }),
 
                     // ── Regenerate ────────────────────────────────────────────
@@ -247,14 +256,17 @@ class MonthlyStatementResource extends Resource
                         ->icon('heroicon-o-arrow-path')
                         ->color('warning')
                         ->requiresConfirmation()
-                        ->modalDescription('This will recalculate all financial figures for this statement. Existing data will be overwritten.')
+                        ->modalDescription(__('This will recalculate all financial figures for this statement. Existing data will be overwritten.'))
                         ->action(function (MonthlyStatement $record) {
                             $stmt = app(MonthlyStatementService::class)->generateForMember(
                                 $record->member,
                                 $record->period,
                                 false,
                             );
-                            Notification::make()->title("Statement #{$stmt->id} regenerated for {$record->period}.")->success()->send();
+                            Notification::make()
+                                ->title(__('Statement #:id regenerated for :period.', ['id' => $stmt->id, 'period' => $record->period]))
+                                ->success()
+                                ->send();
                         }),
 
                     EditAction::make(),

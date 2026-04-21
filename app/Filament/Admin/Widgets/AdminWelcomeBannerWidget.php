@@ -27,9 +27,9 @@ class AdminWelcomeBannerWidget extends Widget
         $now = now();
 
         $greeting = match (true) {
-            $now->hour < 12 => 'Good morning',
-            $now->hour < 17 => 'Good afternoon',
-            default => 'Good evening',
+            $now->hour < 12 => __('Good morning'),
+            $now->hour < 17 => __('Good afternoon'),
+            default => __('Good evening'),
         };
 
         $masterFund = (float) (Account::masterFund()?->balance ?? 0);
@@ -48,8 +48,8 @@ class AdminWelcomeBannerWidget extends Widget
 
         return [
             'greeting' => $greeting,
-            'name' => $user?->name ?? 'Admin',
-            'date' => $now->format('l, F j Y'),
+            'name' => $user?->name ?? __('Admin'),
+            'date' => $now->locale(app()->getLocale())->translatedFormat('l, F j Y'),
             'masterFund' => $masterFund,
             'masterCash' => $masterCash,
             'activeLoans' => $activeLoans,

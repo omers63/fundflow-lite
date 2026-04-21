@@ -30,7 +30,7 @@ class MemberRequestResource extends Resource
 
     protected static string|\BackedEnum|null $navigationIcon = 'heroicon-o-clipboard-document-list';
 
-    protected static ?string $navigationLabel = 'Requests';
+    protected static ?string $navigationLabel = null;
 
     protected static ?string $modelLabel = null;
 
@@ -119,11 +119,11 @@ class MemberRequestResource extends Resource
                     ->sortable(),
                 Tables\Columns\TextColumn::make('reviewedBy.name')
                     ->label(__('Reviewed by'))
-                    ->placeholder('—')
+                    ->placeholder(__('—'))
                     ->toggleable(isToggledHiddenByDefault: true),
                 Tables\Columns\TextColumn::make('reviewed_at')
                     ->dateTime('d M Y H:i')
-                    ->placeholder('—')
+                    ->placeholder(__('—'))
                     ->toggleable(isToggledHiddenByDefault: true),
             ])
             ->filters([

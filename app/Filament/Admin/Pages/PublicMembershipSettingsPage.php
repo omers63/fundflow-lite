@@ -16,7 +16,7 @@ class PublicMembershipSettingsPage extends Page
 
     protected static bool $shouldRegisterNavigation = false;
 
-    protected static ?string $navigationLabel = 'Public membership';
+    protected static ?string $navigationLabel = null;
 
     protected static string|\BackedEnum|null $navigationIcon = 'heroicon-o-globe-alt';
 

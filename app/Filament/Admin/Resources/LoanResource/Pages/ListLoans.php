@@ -12,6 +12,11 @@ class ListLoans extends ListRecords
 {
     protected static string $resource = LoanResource::class;
 
+    public function getTitle(): string
+    {
+        return __('Loans');
+    }
+
     protected function getHeaderWidgets(): array
     {
         return [LoanStatsWidget::class];

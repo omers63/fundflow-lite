@@ -22,7 +22,7 @@ class NotificationLogResource extends Resource
 
     protected static string|\BackedEnum|null $navigationIcon = 'heroicon-o-bell-alert';
 
-    protected static ?string $navigationLabel = 'Notification Logs';
+    protected static ?string $navigationLabel = null;
 
     protected static ?int $navigationSort = 5;
 
@@ -56,12 +56,12 @@ class NotificationLogResource extends Resource
                 Tables\Columns\TextColumn::make('user.name')
                     ->label(__('Recipient'))
                     ->searchable()
-                    ->placeholder('—')
+                    ->placeholder(__('—'))
                     ->sortable(),
                 Tables\Columns\TextColumn::make('user.email')
                     ->label(__('Email'))
                     ->searchable()
-                    ->placeholder('—')
+                    ->placeholder(__('—'))
                     ->toggleable(isToggledHiddenByDefault: true),
                 Tables\Columns\BadgeColumn::make('channel')
                     ->label(__('Channel'))
@@ -139,8 +139,8 @@ class NotificationLogResource extends Resource
     {
         return $schema->components([
             Section::make(__('Recipient'))->schema([
-                TextEntry::make('user.name')->label(__('Name'))->placeholder('—'),
-                TextEntry::make('user.email')->label(__('Email'))->placeholder('—'),
+                TextEntry::make('user.name')->label(__('Name'))->placeholder(__('—')),
+                TextEntry::make('user.email')->label(__('Email'))->placeholder(__('—')),
                 TextEntry::make('channel')
                     ->label(__('Channel'))
                     ->badge()
@@ -166,7 +166,7 @@ class NotificationLogResource extends Resource
                         'skipped' => 'gray',
                         default => 'gray',
                     }),
-                TextEntry::make('sent_at')->label(__('Sent At'))->dateTime('d M Y H:i')->placeholder('—'),
+                TextEntry::make('sent_at')->label(__('Sent At'))->dateTime('d M Y H:i')->placeholder(__('—')),
             ])->columns(3),
 
             Section::make(__('Content'))->schema([

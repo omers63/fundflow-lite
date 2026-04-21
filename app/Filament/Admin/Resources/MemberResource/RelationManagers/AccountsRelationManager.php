@@ -50,12 +50,13 @@ class AccountsRelationManager extends RelationManager
                 $this->repaymentCycleHeaderAction(),
             ])
             ->columns([
-                Tables\Columns\TextColumn::make('name')->toggleable(),
+                Tables\Columns\TextColumn::make('name')->label(__('Name'))->toggleable(),
                 Tables\Columns\BadgeColumn::make('type')
-                    ->formatStateUsing(fn(Account $r) => $r->type_label)
+                    ->label(__('Type'))
+                    ->formatStateUsing(fn(Account $r) => __($r->type_label))
                     ->color(fn(Account $r) => $r->type_color)
                     ->toggleable(),
-                Tables\Columns\TextColumn::make('loan_id')->label(__('Loan #'))->placeholder('—')->toggleable(),
+                Tables\Columns\TextColumn::make('loan_id')->label(__('Loan #'))->placeholder(__('—'))->toggleable(),
                 Tables\Columns\TextColumn::make('balance')
                     ->label(__('Balance (SAR)'))
                     ->money('SAR')

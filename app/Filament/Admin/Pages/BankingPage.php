@@ -9,7 +9,7 @@ class BankingPage extends Page
 {
     protected string $view = 'filament.admin.pages.banking';
 
-    protected static ?string $navigationLabel = 'Banking';
+    protected static ?string $navigationLabel = null;
 
     protected static string|\BackedEnum|null $navigationIcon = 'heroicon-o-building-library';
 
@@ -75,11 +75,11 @@ class BankingPage extends Page
 
     public function getTitle(): string
     {
-        return 'Banking';
+        return __('Banking');
     }
 
     public function getSubheading(): ?string
     {
-        return 'Manage banks, CSV and SMS imports, transactions, and import history.';
+        return __('Manage banks, CSV and SMS imports, transactions, and import history.');
     }
 }

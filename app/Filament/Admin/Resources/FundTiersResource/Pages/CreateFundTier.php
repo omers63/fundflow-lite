@@ -8,4 +8,9 @@ use Filament\Resources\Pages\CreateRecord;
 class CreateFundTier extends CreateRecord
 {
     protected static string $resource = FundTiersResource::class;
+
+    public function getTitle(): string
+    {
+        return __('Add Fund Tier');
+    }
 }

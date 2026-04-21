@@ -76,7 +76,7 @@ class TransactionsRelationManager extends RelationManager
                 ->options(fn () => Member::query()->with('user')->orderBy('member_number')->get()
                     ->mapWithKeys(fn (Member $m) => [$m->id => "{$m->member_number} – {$m->user->name}"]))
                 ->searchable()
-                ->placeholder('—')
+                ->placeholder(__('—'))
                 ->visible(fn () => $account->member_id === null),
         ]);
     }
@@ -126,11 +126,11 @@ class TransactionsRelationManager extends RelationManager
                     ->toggleable(),
                 Tables\Columns\TextColumn::make('description')
                     ->limit(60)
-                    ->placeholder('—')
+                    ->placeholder(__('—'))
                     ->toggleable(),
                 Tables\Columns\TextColumn::make('member.user.name')
                     ->label(__('Member'))
-                    ->placeholder('—')
+                    ->placeholder(__('—'))
                     ->searchable()
                     ->toggleable(),
                 Tables\Columns\TextColumn::make('source_type')
@@ -139,7 +139,7 @@ class TransactionsRelationManager extends RelationManager
                     ->toggleable(),
                 Tables\Columns\TextColumn::make('postedBy.name')
                     ->label(__('Posted By'))
-                    ->placeholder('—')
+                    ->placeholder(__('—'))
                     ->toggleable(),
             ])
             ->filters([
@@ -398,7 +398,7 @@ class TransactionsRelationManager extends RelationManager
                 ->options(fn () => Member::query()->with('user')->orderBy('member_number')->get()
                     ->mapWithKeys(fn (Member $m) => [$m->id => "{$m->member_number} – {$m->user->name}"]))
                 ->searchable()
-                ->placeholder('—')
+                ->placeholder(__('—'))
                 ->visible(fn () => $account->member_id === null),
         ];
     }

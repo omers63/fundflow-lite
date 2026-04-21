@@ -29,7 +29,7 @@ class BankImportTemplatesTableWidget extends TableWidget
             ->recordUrl(fn(BankImportTemplate $record): string => BankImportTemplateResource::getUrl('edit', ['record' => $record]))
             ->headerActions([
                 CreateAction::make()
-                    ->label('New CSV template')
+                    ->label(__('New CSV template'))
                     ->icon('heroicon-o-table-cells')
                     ->url(BankImportTemplateResource::getUrl('create')),
             ]);

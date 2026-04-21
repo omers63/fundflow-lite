@@ -16,7 +16,7 @@
         'brand'             => $brandName,
         'tagline'           => 'Member Fund Management',
         'accent_color'      => '#059669',
-        'footer_disclaimer' => 'This is a computer-generated statement. Confidential.',
+        'footer_disclaimer' => __('This is a computer-generated statement. Confidential — for the named member only.'),
         'signature_line'    => app()->getLocale() === 'ar' ? 'إدارة فندفلو' : 'FundFlow Administration',
         'include_txns'      => true,
         'include_loan'      => true,

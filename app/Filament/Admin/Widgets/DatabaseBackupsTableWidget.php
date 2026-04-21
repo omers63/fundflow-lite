@@ -33,8 +33,11 @@ class DatabaseBackupsTableWidget extends TableWidget
         return $table
             ->heading(__('Existing Backups'))
             ->description(__('Backup files stored in storage/app/backups/. You can download or delete individual backups.'))
+            ->emptyStateHeading(__('No database backups'))
+            ->emptyStateDescription(__('No backup files have been saved on the server yet.'))
             ->columns([
                 Tables\Columns\TextColumn::make('filename')
+                    ->label(__('Filename'))
                     ->searchable()
                     ->copyable()
                     ->weight('medium'),

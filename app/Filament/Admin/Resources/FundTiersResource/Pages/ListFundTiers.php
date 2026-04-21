@@ -10,6 +10,11 @@ class ListFundTiers extends ListRecords
 {
     protected static string $resource = FundTiersResource::class;
 
+    public function getTitle(): string
+    {
+        return __('Fund Tiers');
+    }
+
     protected function getHeaderActions(): array
     {
         return [CreateAction::make()];

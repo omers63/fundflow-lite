@@ -8,6 +8,7 @@ use App\Filament\Admin\Resources\UserResource\Pages\CreateUser;
 use App\Filament\Admin\Resources\UserResource\Pages\EditUser;
 use App\Filament\Admin\Resources\UserResource\Pages\ListUsers;
 use App\Models\User;
+use Carbon\Carbon;
 use Filament\Actions\ActionGroup;
 use Filament\Actions\BulkActionGroup;
 use Filament\Actions\DeleteAction;
@@ -32,11 +33,11 @@ class UserResource extends Resource
 
     protected static string|\BackedEnum|null $navigationIcon = 'heroicon-o-users';
 
-    protected static ?string $navigationLabel = 'System Users';
+    protected static ?string $navigationLabel = null;
 
-    protected static ?string $modelLabel = 'User';
+    protected static ?string $modelLabel = null;
 
-    protected static ?string $pluralModelLabel = 'Users';
+    protected static ?string $pluralModelLabel = null;
 
     protected static ?int $navigationSort = 0;
 
@@ -175,6 +176,12 @@ class UserResource extends Resource
                         default => 'gray',
                     }),
                 Tables\Columns\TextColumn::make('status')
+                    ->formatStateUsing(fn (string $state): string => match ($state) {
+                        'approved' => __('Approved'),
+                        'pending' => __('Pending'),
+                        'rejected' => __('Rejected'),
+                        default => $state,
+                    })
                     ->badge()
                     ->color(fn (string $state): string => match ($state) {
                         'approved' => 'success',
@@ -199,13 +206,17 @@ class UserResource extends Resource
                     })
                     ->wrap(),
                 Tables\Columns\TextColumn::make('created_at')
-                    ->dateTime('d M Y H:i')
+                    ->formatStateUsing(
+                        fn ($state): string => $state ? Carbon::parse($state)->locale(app()->getLocale())->translatedFormat('d M Y H:i') : __('—')
+                    )
                     ->sortable()
                     ->toggleable(isToggledHiddenByDefault: true),
                 Tables\Columns\TextColumn::make('deleted_at')
                     ->label(__('Deleted'))
-                    ->dateTime('d M Y H:i')
-                    ->placeholder('—')
+                    ->formatStateUsing(
+                        fn ($state): string => $state ? Carbon::parse($state)->locale(app()->getLocale())->translatedFormat('d M Y H:i') : __('—')
+                    )
+                    ->placeholder(__('—'))
                     ->sortable()
                     ->toggleable(isToggledHiddenByDefault: true),
             ])

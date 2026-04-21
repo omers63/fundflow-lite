@@ -65,12 +65,12 @@ class MemberProfileWidget extends Widget
             'hasRecord' => true,
             'member_number' => $member->member_number,
             'status' => $member->status,
-            'joined_at' => $member->joined_at?->format('d M Y') ?? '—',
+            'joined_at' => $member->joined_at?->locale(app()->getLocale())->translatedFormat('d M Y') ?? '—',
             'months_active' => $monthsActive,
             'monthly_contrib' => (int) $member->monthly_contribution_amount,
             'compliance_rate' => $complianceRate,
             'is_loan_eligible_age' => $isLoanEligibleAge,
-            'loan_eligible_date' => $loanEligibleDate?->format('d M Y') ?? '—',
+            'loan_eligible_date' => $loanEligibleDate?->locale(app()->getLocale())->translatedFormat('d M Y') ?? '—',
 
             // User
             'name' => $user?->name ?? '—',
@@ -79,7 +79,7 @@ class MemberProfileWidget extends Widget
 
             // Application personal
             'gender' => $app?->gender ?? null,
-            'dob' => $app?->date_of_birth?->format('d M Y') ?? null,
+            'dob' => $app?->date_of_birth?->locale(app()->getLocale())->translatedFormat('d M Y') ?? null,
             'national_id' => $app?->national_id ?? null,
             'city' => $app?->city ?? null,
             'occupation' => $app?->occupation ?? null,

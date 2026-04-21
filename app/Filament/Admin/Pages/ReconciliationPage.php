@@ -23,7 +23,7 @@ class ReconciliationPage extends Page
 
     protected static ?string $slug = 'reconciliation';
 
-    protected static ?string $navigationLabel = 'Reconciliation';
+    protected static ?string $navigationLabel = null;
 
     protected static string|\BackedEnum|null $navigationIcon = 'heroicon-o-scale';
 

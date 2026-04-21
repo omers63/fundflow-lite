@@ -16,7 +16,7 @@ class SystemMaintenancePage extends Page
 {
     protected string $view = 'filament.admin.pages.system-maintenance';
 
-    protected static ?string $navigationLabel = 'System Maintenance';
+    protected static ?string $navigationLabel = null;
 
     protected static string|\BackedEnum|null $navigationIcon = 'heroicon-o-wrench-screwdriver';
 

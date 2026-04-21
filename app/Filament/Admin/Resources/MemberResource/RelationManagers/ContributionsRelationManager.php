@@ -6,6 +6,7 @@ use App\Filament\Admin\Resources\ContributionResource;
 use App\Filament\Admin\Resources\MemberResource;
 use App\Filament\Admin\Resources\MemberResource\Concerns\InteractsWithMemberCycleHeaderActions;
 use App\Models\Contribution;
+use Carbon\Carbon;
 use Filament\Actions\ActionGroup;
 use Filament\Actions\BulkActionGroup;
 use Filament\Actions\DeleteAction;
@@ -55,18 +56,24 @@ class ContributionsRelationManager extends RelationManager
                 $this->contributeCycleHeaderAction(),
             ])
             ->columns([
-                Tables\Columns\TextColumn::make('year')->sortable()->toggleable(),
+                Tables\Columns\TextColumn::make('year')->label(__('Year'))->sortable()->toggleable(),
                 Tables\Columns\TextColumn::make('month')
-                    ->formatStateUsing(fn ($state) => date('F', mktime(0, 0, 0, $state, 1)))
+                    ->label(__('Month'))
+                    ->formatStateUsing(
+                        fn ($state) => Carbon::create(null, (int) $state, 1)->locale(app()->getLocale())->translatedFormat('F')
+                    )
                     ->toggleable(),
-                Tables\Columns\TextColumn::make('amount')->money('SAR')->toggleable(),
+                Tables\Columns\TextColumn::make('amount')->label(__('Amount'))->money('SAR')->toggleable(),
                 Tables\Columns\BadgeColumn::make('payment_method')
                     ->label(__('Source'))
                     ->formatStateUsing(fn (?string $state): string => Contribution::paymentMethodLabel($state))
                     ->toggleable(),
-                Tables\Columns\TextColumn::make('reference_number')->placeholder('—')->toggleable(),
+                Tables\Columns\TextColumn::make('reference_number')->label(__('Reference number'))->placeholder(__('—'))->toggleable(),
                 Tables\Columns\TextColumn::make('paid_at')->label(__('Paid On'))
-                    ->dateTime('d M Y')->sortable()
+                    ->formatStateUsing(
+                        fn ($state): string => $state ? Carbon::parse($state)->locale(app()->getLocale())->translatedFormat('d M Y') : __('—')
+                    )
+                    ->sortable()
                     ->toggleable(),
                 Tables\Columns\IconColumn::make('is_late')
                     ->label(__('Late'))
@@ -80,7 +87,13 @@ class ContributionsRelationManager extends RelationManager
             ->defaultSort('paid_at', 'desc')
             ->filters([
                 Tables\Filters\SelectFilter::make('month')
-                    ->options(array_combine(range(1, 12), array_map(fn ($m) => date('F', mktime(0, 0, 0, $m, 1)), range(1, 12)))),
+                    ->options(array_combine(
+                        range(1, 12),
+                        array_map(
+                            fn ($m) => Carbon::create(null, $m, 1)->locale(app()->getLocale())->translatedFormat('F'),
+                            range(1, 12)
+                        )
+                    )),
                 Tables\Filters\Filter::make('year')
                     ->schema([Forms\Components\TextInput::make('year')->numeric()->default(now()->year)])
                     ->query(fn ($query, $data) => ($data['year'] ?? null) ? $query->where('year', $data['year']) : $query),

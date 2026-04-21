@@ -10,6 +10,11 @@ class ListLoanTiers extends ListRecords
 {
     protected static string $resource = LoanTiersResource::class;
 
+    public function getTitle(): string
+    {
+        return __('Loan Tiers');
+    }
+
     protected function getHeaderActions(): array
     {
         return [CreateAction::make()];

@@ -46,7 +46,7 @@ class AdminPanelProvider extends PanelProvider
             ->plugins([
                 FilamentShieldPlugin::make()
                     ->navigationGroup('system')
-                    ->navigationLabel(__('app.nav.system_roles'))
+                    ->navigationLabel(fn (): string => __('app.nav.system_roles'))
                     ->navigationSort(1)
                     ->gridColumns([
                         'default' => 1,

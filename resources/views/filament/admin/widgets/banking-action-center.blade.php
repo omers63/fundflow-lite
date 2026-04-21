@@ -1,5 +1,6 @@
 @php
     $d = $this->getData();
+    $locale = app()->getLocale();
 @endphp
 
 <div class="grid grid-cols-1 gap-4 xl:grid-cols-2">
@@ -41,7 +42,7 @@
                 <div class="flex items-center justify-between rounded-xl bg-gray-50 px-3 py-2 dark:bg-white/5">
                     <div class="min-w-0">
                         <p class="truncate text-sm font-medium text-gray-800 dark:text-gray-100">
-                            {{ $tx->bank?->name ?? __('Bank') }} · {{ $tx->transaction_date?->format('d M Y') ?? '—' }}
+                            {{ $tx->bank?->name ?? __('Bank') }} · {{ $tx->transaction_date?->locale($locale)->translatedFormat('d M Y') ?? __('—') }}
                         </p>
                         <p class="truncate text-xs text-gray-500 dark:text-gray-400">
                             {{ $tx->reference ?: ($tx->description ?: __('No reference')) }}
@@ -68,13 +69,13 @@
                         {{ __('SAR :amount', ['amount' => number_format((float) $tx->amount, 2)]) }}
                     </p>
                     <p class="mt-1 text-xs text-gray-500 dark:text-gray-400">
-                        {{ $tx->posted_at?->format('d M Y H:i') ?? '—' }}
+                        {{ $tx->posted_at?->locale($locale)->translatedFormat('d M Y H:i') ?? __('—') }}
                     </p>
                     <p class="mt-1 text-xs text-gray-600 dark:text-gray-300">
-                        {{ $tx->member?->user?->name ?? '—' }} · Loan #{{ $tx->loan_id ?? '—' }}
+                        {{ $tx->member?->user?->name ?? __('—') }} · {{ __('Loan #:id', ['id' => $tx->loan_id ?? __('—')]) }}
                     </p>
                     <p class="text-xs text-gray-500 dark:text-gray-400">
-                        {{ __('Disbursement #:id', ['id' => $tx->loan_disbursement_id ?? '—']) }}
+                        {{ __('Disbursement #:id', ['id' => $tx->loan_disbursement_id ?? __('—')]) }}
                     </p>
                 </div>
             @empty

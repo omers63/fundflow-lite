@@ -30,7 +30,7 @@ class LoanRepaymentTrendWidget extends Widget
             $date = Carbon::now()->subMonths($i)->startOfMonth();
             $m = (int) $date->month;
             $y = (int) $date->year;
-            $labels[] = $date->format('M Y');
+            $labels[] = $date->locale(app()->getLocale())->translatedFormat('M Y');
 
             $paid = LoanInstallment::whereYear('due_date', $y)
                 ->whereMonth('due_date', $m)
@@ -61,9 +61,9 @@ class LoanRepaymentTrendWidget extends Widget
         return [
             'chart' => [
                 'datasets' => [
-                    ['label' => 'On-time (SAR)', 'data' => $onTime, 'backgroundColor' => 'rgba(16,185,129,0.8)', 'stack' => 'r'],
-                    ['label' => 'Late (SAR)', 'data' => $late, 'backgroundColor' => 'rgba(251,191,36,0.8)', 'stack' => 'r'],
-                    ['label' => 'Overdue (SAR)', 'data' => $overdue, 'backgroundColor' => 'rgba(239,68,68,0.8)', 'stack' => 'r'],
+                    ['label' => __('On-time (SAR)'), 'data' => $onTime, 'backgroundColor' => 'rgba(16,185,129,0.8)', 'stack' => 'r'],
+                    ['label' => __('Late (SAR)'), 'data' => $late, 'backgroundColor' => 'rgba(251,191,36,0.8)', 'stack' => 'r'],
+                    ['label' => __('Overdue (SAR)'), 'data' => $overdue, 'backgroundColor' => 'rgba(239,68,68,0.8)', 'stack' => 'r'],
                 ],
                 'labels' => $labels,
             ],
@@ -72,7 +72,7 @@ class LoanRepaymentTrendWidget extends Widget
                 'maintainAspectRatio' => false,
                 'scales' => [
                     'x' => ['stacked' => true],
-                    'y' => ['stacked' => true, 'title' => ['display' => true, 'text' => 'SAR'], 'beginAtZero' => true],
+                    'y' => ['stacked' => true, 'title' => ['display' => true, 'text' => __('SAR')], 'beginAtZero' => true],
                 ],
                 'plugins' => [
                     'legend' => ['position' => 'top'],

@@ -12,6 +12,11 @@ class ListContributions extends ListRecords
 {
     protected static string $resource = ContributionResource::class;
 
+    public function getTitle(): string
+    {
+        return __('Contributions');
+    }
+
     protected function getHeaderWidgets(): array
     {
         return [ContributionStatsWidget::class];

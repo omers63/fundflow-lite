@@ -64,6 +64,8 @@ class LoansRelationManager extends RelationManager
                 Tables\Columns\TextColumn::make('amount_approved')->label(__('Approved'))->money('SAR')->placeholder(__('—'))->toggleable(),
                 Tables\Columns\TextColumn::make('installments_count')->label(__('Months'))->toggleable(),
                 Tables\Columns\BadgeColumn::make('status')
+                    ->label(__('Status'))
+                    ->formatStateUsing(fn (?string $state): string => $state ? __(ucfirst(str_replace('_', ' ', $state))) : __('—'))
                     ->colors([
                         'warning' => 'pending',
                         'info' => 'approved',

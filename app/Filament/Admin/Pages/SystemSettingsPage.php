@@ -17,7 +17,7 @@ class SystemSettingsPage extends Page
 {
     protected string $view = 'filament.admin.pages.system-settings';
 
-    protected static ?string $navigationLabel = 'System Settings';
+    protected static ?string $navigationLabel = null;
 
     protected static string|\BackedEnum|null $navigationIcon = 'heroicon-o-cog-6-tooth';
 

@@ -206,7 +206,13 @@ class Setting extends Model
 
     public static function statementFooterDisclaimer(): string
     {
-        return (string) static::get('statement.footer_disclaimer', 'This is a computer-generated statement. Confidential.');
+        $disclaimer = (string) static::get('statement.footer_disclaimer', 'This is a computer-generated statement. Confidential — for the named member only.');
+
+        if (app()->getLocale() === 'ar') {
+            return __($disclaimer);
+        }
+
+        return $disclaimer;
     }
 
     public static function statementSignatureLine(): string

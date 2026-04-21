@@ -5,6 +5,7 @@ namespace App\Filament\Admin\Resources\LoanResource\RelationManagers;
 use App\Filament\Admin\Resources\LoanResource;
 use App\Models\Loan;
 use App\Models\LoanInstallment;
+use Carbon\Carbon;
 use Filament\Actions\Action;
 use Filament\Actions\ActionGroup;
 use Filament\Forms;
@@ -54,7 +55,9 @@ class InstallmentsRelationManager extends RelationManager
                     ->sortable(),
                 Tables\Columns\TextColumn::make('due_date')
                     ->label(__('Due Date'))
-                    ->date('d M Y')
+                    ->formatStateUsing(
+                        fn ($state): string => $state ? Carbon::parse($state)->locale(app()->getLocale())->translatedFormat('d M Y') : __('—')
+                    )
                     ->sortable(),
                 Tables\Columns\TextColumn::make('amount')
                     ->money('SAR'),
@@ -66,8 +69,10 @@ class InstallmentsRelationManager extends RelationManager
                     ]),
                 Tables\Columns\TextColumn::make('paid_at')
                     ->label(__('Paid On'))
-                    ->dateTime('d M Y H:i')
-                    ->placeholder('—'),
+                    ->formatStateUsing(
+                        fn ($state): string => $state ? Carbon::parse($state)->locale(app()->getLocale())->translatedFormat('d M Y H:i') : __('—')
+                    )
+                    ->placeholder(__('—')),
                 Tables\Columns\IconColumn::make('is_late')
                     ->label(__('Late'))
                     ->boolean()
@@ -75,7 +80,7 @@ class InstallmentsRelationManager extends RelationManager
                 Tables\Columns\TextColumn::make('late_fee_amount')
                     ->label(__('Late fee'))
                     ->money('SAR')
-                    ->placeholder('—')
+                    ->placeholder(__('—'))
                     ->toggleable(isToggledHiddenByDefault: true),
             ])
             ->headerActions([

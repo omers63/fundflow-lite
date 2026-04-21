@@ -36,7 +36,7 @@ class SmsTransactionResource extends Resource
 
     protected static string|\BackedEnum|null $navigationIcon = 'heroicon-o-device-phone-mobile';
 
-    protected static ?string $navigationLabel = 'SMS Transactions';
+    protected static ?string $navigationLabel = null;
 
     protected static ?int $navigationSort = 22;
 
@@ -80,7 +80,7 @@ class SmsTransactionResource extends Resource
                 Forms\Components\TextInput::make('transaction_date')->disabled(),
                 Forms\Components\TextInput::make('amount')->disabled(),
                 Forms\Components\TextInput::make('transaction_type')->disabled(),
-                Forms\Components\TextInput::make('reference')->placeholder('—')->disabled(),
+                Forms\Components\TextInput::make('reference')->placeholder(__('—'))->disabled(),
                 Forms\Components\TextInput::make('member.user.name')
                     ->label(__('Auto-matched / Posted Member'))
                     ->placeholder(__('Not matched'))
@@ -97,7 +97,7 @@ class SmsTransactionResource extends Resource
 
             Section::make(__('Raw CSV Row'))->schema([
                 Forms\Components\KeyValue::make('raw_data')
-                    ->label('')
+                    ->label(__(''))
                     ->disabled()
                     ->columnSpanFull(),
             ]),
@@ -114,20 +114,21 @@ class SmsTransactionResource extends Resource
         return $table
             ->columns([
                 Tables\Columns\TextColumn::make('bank.name')->label(__('Bank'))
-                    ->placeholder('—')->searchable()->sortable(),
+                    ->placeholder(__('—'))->searchable()->sortable(),
                 Tables\Columns\TextColumn::make('transaction_date')
                     ->label(__('Date'))->date('d M Y')->sortable(),
                 Tables\Columns\TextColumn::make('amount')
+                    ->label(__('Amount'))
                     ->money('SAR')
                     ->sortable()
                     ->color(fn (SmsTransaction $record) => $record->transaction_type === 'credit' ? 'success' : 'danger'),
                 Tables\Columns\BadgeColumn::make('transaction_type')
                     ->label(__('Type'))
                     ->colors(['success' => 'credit', 'danger' => 'debit']),
-                Tables\Columns\TextColumn::make('reference')->placeholder('—')->searchable(),
+                Tables\Columns\TextColumn::make('reference')->label(__('Reference'))->placeholder(__('—'))->searchable(),
                 Tables\Columns\TextColumn::make('member.user.name')
                     ->label(__('Member'))
-                    ->placeholder('—')
+                    ->placeholder(__('—'))
                     ->searchable(),
                 Tables\Columns\TextColumn::make('raw_sms')
                     ->label(__('SMS'))
@@ -256,7 +257,7 @@ class SmsTransactionResource extends Resource
             ->toolbarActions([
                 BulkActionGroup::make([
                     DeleteBulkAction::make()
-                        ->modalDescription('Deletes selected rows; posted transactions are reversed from the ledger first.')
+                        ->modalDescription(__('Deletes selected rows; posted transactions are reversed from the ledger first.'))
                         ->using(function (DeleteBulkAction $action, $records) {
                             $accounting = app(AccountingService::class);
                             foreach ($records as $record) {

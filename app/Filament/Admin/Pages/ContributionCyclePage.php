@@ -15,6 +15,7 @@ use Filament\Tables\Columns\TextColumn;
 use Filament\Tables\Concerns\InteractsWithTable;
 use Filament\Tables\Contracts\HasTable;
 use Filament\Tables\Table;
+use Carbon\Carbon;
 use Illuminate\Database\Eloquent\Builder;
 
 class ContributionCyclePage extends Page implements HasTable
@@ -33,7 +34,7 @@ class ContributionCyclePage extends Page implements HasTable
         $this->resetTable();
     }
 
-    protected static ?string $navigationLabel = 'Contribution Cycles';
+    protected static ?string $navigationLabel = null;
 
     protected static string|\BackedEnum|null $navigationIcon = 'heroicon-o-arrow-path-rounded-square';
 
@@ -260,7 +261,11 @@ class ContributionCyclePage extends Page implements HasTable
                     ->color(fn (string $state) => $state === __('Late') ? 'warning' : 'success'),
                 TextColumn::make('contribution_date')
                     ->label(__('Recorded At'))
-                    ->dateTime('d M Y, H:i')
+                    ->formatStateUsing(
+                        fn ($state): string => $state
+                            ? Carbon::parse($state)->locale(app()->getLocale())->translatedFormat('d M Y, H:i')
+                            : __('—')
+                    )
                     ->sortable(),
             ]);
     }
@@ -276,7 +281,10 @@ class ContributionCyclePage extends Page implements HasTable
                 ->label(__('Month'))
                 ->options(array_combine(
                     range(1, 12),
-                    array_map(fn ($m) => date('F', mktime(0, 0, 0, $m, 1)), range(1, 12))
+                    array_map(
+                        fn ($m) => Carbon::create(null, $m, 1)->locale(app()->getLocale())->translatedFormat('F'),
+                        range(1, 12)
+                    )
                 ))
                 ->required(),
             Forms\Components\TextInput::make('year')
@@ -302,6 +310,8 @@ class ContributionCyclePage extends Page implements HasTable
 
     private function periodLbl(int $month, int $year): string
     {
-        return date('F', mktime(0, 0, 0, $month, 1)).' '.$year;
+        return Carbon::create($year, $month, 1)
+            ->locale(app()->getLocale())
+            ->translatedFormat('F Y');
     }
 }

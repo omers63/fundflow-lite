@@ -8,7 +8,7 @@
             <x-heroicon-o-chart-bar-square class="w-5 h-5 text-primary-500" />
             <h3 class="text-base font-semibold text-gray-900 dark:text-white">{{ __('Fund Overview') }}</h3>
         </div>
-        <span class="text-xs text-gray-400 dark:text-gray-500">{{ now()->format('F Y') }}</span>
+        <span class="text-xs text-gray-400 dark:text-gray-500">{{ now()->locale(app()->getLocale())->translatedFormat('F Y') }}</span>
     </div>
 
     {{-- KPI cards: 2 rows × 4 cols --}}

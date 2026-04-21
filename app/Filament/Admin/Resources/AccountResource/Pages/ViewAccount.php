@@ -97,13 +97,13 @@ class ViewAccount extends ViewRecord
                         ->color(fn() => $record->is_active ? 'success' : 'danger'),
                     TextEntry::make('member.user.name')
                         ->label(__('Member Name'))
-                        ->placeholder('—'),
+                        ->placeholder(__('—')),
                     TextEntry::make('member.member_number')
                         ->label(__('Member Number'))
-                        ->placeholder('—'),
+                        ->placeholder(__('—')),
                     TextEntry::make('loan_id')
                         ->label(__('Loan #'))
-                        ->placeholder('—'),
+                        ->placeholder(__('—')),
                     TextEntry::make('balance')
                         ->label(__('Current Balance (SAR)'))
                         ->money('SAR')

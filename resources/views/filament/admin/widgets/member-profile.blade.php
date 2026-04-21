@@ -22,7 +22,7 @@
                     {{ $d['status'] === 'active' ? 'bg-emerald-500/20 text-emerald-300 ring-1 ring-emerald-500/30'
                        : ($d['status'] === 'delinquent' ? 'bg-red-500/20 text-red-300 ring-1 ring-red-500/30'
                        : 'bg-amber-500/20 text-amber-300 ring-1 ring-amber-500/30') }}">
-                    {{ ucfirst($d['status']) }}
+                    {{ __(ucfirst(str_replace('_', ' ', $d['status']))) }}
                 </span>
                 @if($d['is_loan_eligible_age'])
                 <span class="inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-semibold bg-blue-500/20 text-blue-300 ring-1 ring-blue-500/30">
@@ -111,7 +111,7 @@
                 @if($d['gender'])
                 <div class="flex items-start gap-2">
                     <dt class="text-xs text-gray-400 dark:text-gray-500 w-20 flex-shrink-0 pt-0.5">{{ __('Gender') }}</dt>
-                    <dd class="text-sm text-gray-900 dark:text-gray-100 font-medium">{{ ucfirst($d['gender']) }}</dd>
+                    <dd class="text-sm text-gray-900 dark:text-gray-100 font-medium">{{ __(ucfirst($d['gender'])) }}</dd>
                 </div>
                 @endif
             </dl>

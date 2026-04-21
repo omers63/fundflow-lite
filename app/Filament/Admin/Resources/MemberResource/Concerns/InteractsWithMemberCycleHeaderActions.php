@@ -35,16 +35,16 @@ trait InteractsWithMemberCycleHeaderActions
     protected function allocateCycleHeaderAction(): Action
     {
         return Action::make('allocate_dependent_cash')
-            ->label('Allocate')
+            ->label(__('Allocate'))
             ->icon('heroicon-o-arrow-right-circle')
             ->color('warning')
             ->authorize(
                 fn(): bool => auth()->user()?->can('update', $this->cycleMember()) ?? false
             )
             ->visible(fn(): bool => $this->shouldShowAllocateHeaderAction())
-            ->modalHeading(fn(): string => 'Allocate to dependents')
+            ->modalHeading(fn(): string => __('Allocate to dependents'))
             ->modalDescription(
-                'Choose the calendar month you are funding dependent cash for (arrears). Preview updates when you change the cycle.'
+                __('Choose the calendar month you are funding dependent cash for (arrears). Preview updates when you change the cycle.')
             )
             ->modalWidth('lg')
             ->schema(fn(): array => $this->allocateCycleFormSchema())
@@ -59,7 +59,7 @@ trait InteractsWithMemberCycleHeaderActions
 
         return [
             Forms\Components\Select::make('cycle')
-                ->label('Allocation cycle')
+                ->label(__('Allocation cycle'))
                 ->options(fn(): array => $svc->allocationCycleSelectOptionsForParent($member))
                 ->required()
                 ->live()
@@ -70,7 +70,7 @@ trait InteractsWithMemberCycleHeaderActions
                 ->content(function (Get $get) use ($member) {
                     $key = $get('cycle');
                     if ($key === null || $key === '') {
-                        return new HtmlString('<p class="text-sm text-gray-500 dark:text-gray-400">Select a cycle to preview.</p>');
+                        return new HtmlString('<p class="text-sm text-gray-500 dark:text-gray-400">'.e(__('Select a cycle to preview.')).'</p>');
                     }
 
                     try {
@@ -96,7 +96,7 @@ trait InteractsWithMemberCycleHeaderActions
     protected function contributeCycleHeaderAction(): Action
     {
         return Action::make('contribute_open_period')
-            ->label('Contribute')
+            ->label(__('Contribute'))
             ->icon('heroicon-o-banknotes')
             ->color('success')
             ->authorize(
@@ -104,9 +104,9 @@ trait InteractsWithMemberCycleHeaderActions
             )
             ->visible(fn(): bool => $this->shouldShowContributeHeaderAction())
             ->disabled(fn(): bool => $this->isContributeDisabledForInsufficientCash())
-            ->modalHeading(fn(): string => 'Apply contribution')
+            ->modalHeading(fn(): string => __('Apply contribution'))
             ->modalDescription(
-                'Select the calendar month this contribution is for (arrears). The member\'s cash account is debited and fund accounts are credited the same amount.'
+                __('Select the calendar month this contribution is for (arrears). The member\'s cash account is debited and fund accounts are credited the same amount.')
             )
             ->modalWidth('md')
             ->schema(fn(): array => $this->contributeCycleFormSchema())
@@ -121,7 +121,7 @@ trait InteractsWithMemberCycleHeaderActions
 
         return [
             Forms\Components\Select::make('cycle')
-                ->label('Contribution cycle')
+                ->label(__('Contribution cycle'))
                 ->options(fn(): array => $svc->contributionCycleSelectOptionsForMember($member))
                 ->required()
                 ->live()
@@ -145,7 +145,7 @@ trait InteractsWithMemberCycleHeaderActions
     protected function repaymentCycleHeaderAction(): Action
     {
         return Action::make('repayment_open_period')
-            ->label('Repayment')
+            ->label(__('Repayment'))
             ->icon('heroicon-o-receipt-percent')
             ->color('primary')
             ->authorize(
@@ -157,7 +157,7 @@ trait InteractsWithMemberCycleHeaderActions
             ))
             ->requiresConfirmation()
             ->modalHeading(
-                fn(): string => 'Apply loan repayment – ' . app(ContributionCycleService::class)->currentOpenPeriodLabel()
+                fn(): string => __('Apply loan repayment - :period', ['period' => app(ContributionCycleService::class)->currentOpenPeriodLabel()])
             )
             ->modalDescription(
                 fn(): string => app(LoanRepaymentService::class)->openPeriodRepaymentModalDescription(
@@ -212,7 +212,7 @@ trait InteractsWithMemberCycleHeaderActions
 
         if (!is_string($key) || $key === '') {
             Notification::make()
-                ->title('Select an allocation cycle')
+                ->title(__('Select an allocation cycle'))
                 ->danger()
                 ->send();
 
@@ -223,7 +223,7 @@ trait InteractsWithMemberCycleHeaderActions
             [$month, $year] = $svc->parseContributionCycleKey($key);
         } catch (\InvalidArgumentException) {
             Notification::make()
-                ->title('Invalid allocation cycle')
+                ->title(__('Invalid allocation cycle'))
                 ->danger()
                 ->send();
 
@@ -236,13 +236,13 @@ trait InteractsWithMemberCycleHeaderActions
 
         if ($result['transfers'] > 0) {
             Notification::make()
-                ->title('Allocation completed')
+                ->title(__('Allocation completed'))
                 ->body($body)
                 ->success()
                 ->send();
         } else {
             Notification::make()
-                ->title('Allocation')
+                ->title(__('Allocation'))
                 ->body($body)
                 ->warning()
                 ->send();
@@ -259,7 +259,7 @@ trait InteractsWithMemberCycleHeaderActions
 
         if (!is_string($key) || $key === '') {
             Notification::make()
-                ->title('Select a contribution cycle')
+                ->title(__('Select a contribution cycle'))
                 ->danger()
                 ->send();
 
@@ -270,7 +270,7 @@ trait InteractsWithMemberCycleHeaderActions
             [$month, $year] = $svc->parseContributionCycleKey($key);
         } catch (\InvalidArgumentException) {
             Notification::make()
-                ->title('Invalid contribution cycle')
+                ->title(__('Invalid contribution cycle'))
                 ->danger()
                 ->send();
 
@@ -282,8 +282,8 @@ trait InteractsWithMemberCycleHeaderActions
 
         if ($outcome === 'applied') {
             Notification::make()
-                ->title('Contribution applied')
-                ->body('SAR ' . number_format((float) $member->monthly_contribution_amount, 2) . " posted for {$period}.")
+                ->title(__('Contribution applied'))
+                ->body(__('SAR :amount posted for :period.', ['amount' => number_format((float) $member->monthly_contribution_amount, 2), 'period' => $period]))
                 ->success()
                 ->send();
 
@@ -294,8 +294,8 @@ trait InteractsWithMemberCycleHeaderActions
 
         if ($outcome === 'insufficient') {
             Notification::make()
-                ->title('Insufficient cash balance')
-                ->body('Cash balance is below the required monthly amount. Fund the cash account first.')
+                ->title(__('Insufficient cash balance'))
+                ->body(__('Cash balance is below the required monthly amount. Fund the cash account first.'))
                 ->danger()
                 ->send();
 
@@ -303,12 +303,12 @@ trait InteractsWithMemberCycleHeaderActions
         }
 
         Notification::make()
-            ->title('Could not apply contribution')
+            ->title(__('Could not apply contribution'))
             ->body(match ($outcome) {
                 'already_contributed' => Contribution::duplicateCycleMessage($month, $year),
-                'exempt' => 'This member is exempt from contributions while they have an approved or active loan.',
-                'skipped' => 'This contribution could not be applied.',
-                default => "Status: {$outcome}",
+                'exempt' => __('This member is exempt from contributions while they have an approved or active loan.'),
+                'skipped' => __('This contribution could not be applied.'),
+                default => __('Status: :status', ['status' => $outcome]),
             })
             ->warning()
             ->send();
@@ -323,8 +323,8 @@ trait InteractsWithMemberCycleHeaderActions
 
         if ($outcome === 'applied') {
             Notification::make()
-                ->title('Repayment applied')
-                ->body("Loan installment posted for {$period}.")
+                ->title(__('Repayment applied'))
+                ->body(__('Loan installment posted for :period.', ['period' => $period]))
                 ->success()
                 ->send();
 
@@ -335,8 +335,8 @@ trait InteractsWithMemberCycleHeaderActions
 
         if ($outcome === 'insufficient') {
             Notification::make()
-                ->title('Insufficient cash balance')
-                ->body('Cash balance is below the installment amount.')
+                ->title(__('Insufficient cash balance'))
+                ->body(__('Cash balance is below the installment amount.'))
                 ->danger()
                 ->send();
 
@@ -344,10 +344,10 @@ trait InteractsWithMemberCycleHeaderActions
         }
 
         Notification::make()
-            ->title('Could not apply repayment')
+            ->title(__('Could not apply repayment'))
             ->body(match ($outcome) {
-                'skipped' => 'No unpaid installment for this period or no active loan.',
-                default => "Status: {$outcome}",
+                'skipped' => __('No unpaid installment for this period or no active loan.'),
+                default => __('Status: :status', ['status' => $outcome]),
             })
             ->warning()
             ->send();

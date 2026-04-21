@@ -127,8 +127,8 @@ class QuickPostWidget extends Widget
             $this->resultError = false;
 
             Notification::make()
-                ->title('Workflow completed')
-                ->body(count($result['steps']) . ' steps processed successfully.')
+                ->title(__('Workflow completed'))
+                ->body(__('Processed :count steps successfully.', ['count' => count($result['steps'])]))
                 ->success()
                 ->send();
         } catch (\Throwable $e) {

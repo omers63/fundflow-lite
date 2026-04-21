@@ -53,9 +53,9 @@ class TransactionsRelationManager extends RelationManager
                 Tables\Columns\BadgeColumn::make('transaction_type')->label(__('Type'))
                     ->colors(['success' => 'credit', 'danger' => 'debit'])
                     ->toggleable(),
-                Tables\Columns\TextColumn::make('reference')->placeholder('—')
+                Tables\Columns\TextColumn::make('reference')->placeholder(__('—'))
                     ->toggleable(),
-                Tables\Columns\TextColumn::make('description')->limit(40)->placeholder('—')
+                Tables\Columns\TextColumn::make('description')->limit(40)->placeholder(__('—'))
                     ->toggleable(),
                 Tables\Columns\TextColumn::make('member.user.name')->label(__('Member'))->placeholder(__('—'))
                     ->toggleable(),

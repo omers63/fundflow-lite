@@ -24,7 +24,7 @@ class SupportRequestResource extends Resource
 
     protected static string|\BackedEnum|null $navigationIcon = 'heroicon-o-chat-bubble-left-right';
 
-    protected static ?string $navigationLabel = 'Support';
+    protected static ?string $navigationLabel = null;
 
     protected static ?string $modelLabel = 'Support request';
 
@@ -74,7 +74,7 @@ class SupportRequestResource extends Resource
                     ->sortable(),
                 Tables\Columns\TextColumn::make('member.member_number')
                     ->label(__('Member #'))
-                    ->placeholder('—')
+                    ->placeholder(__('—'))
                     ->sortable(),
                 Tables\Columns\TextColumn::make('user.name')
                     ->label(__('Submitted by'))
