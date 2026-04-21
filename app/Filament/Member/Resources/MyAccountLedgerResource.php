@@ -26,9 +26,19 @@ class MyAccountLedgerResource extends Resource
         return __('My Ledger');
     }
 
+    public static function getModelLabel(): string
+    {
+        return __('Transaction');
+    }
+
+    public static function getPluralModelLabel(): string
+    {
+        return __('My Ledger');
+    }
+
     public static function getNavigationGroup(): ?string
     {
-        return __('app.nav.group.my_finance');
+        return 'my_finance';
     }
 
     public static function table(Table $table): Table
@@ -66,7 +76,11 @@ class MyAccountLedgerResource extends Resource
                 Tables\Columns\TextColumn::make('entry_type')
                     ->label(__('Type'))
                     ->badge()
-                    ->formatStateUsing(fn (string $state) => ucfirst($state))
+                    ->formatStateUsing(fn (string $state) => match ($state) {
+                        'credit' => __('Credit (In)'),
+                        'debit' => __('Debit (Out)'),
+                        default => __(ucfirst($state)),
+                    })
                     ->color(fn (string $state) => $state === 'credit' ? 'success' : 'danger'),
                 Tables\Columns\TextColumn::make('amount')
                     ->label(__('Amount (SAR)'))
@@ -109,8 +123,8 @@ class MyAccountLedgerResource extends Resource
                     }),
                 Tables\Filters\Filter::make('amount')
                     ->schema([
-                        Forms\Components\TextInput::make('amount_min')->label('Min (SAR)')->numeric(),
-                        Forms\Components\TextInput::make('amount_max')->label('Max (SAR)')->numeric(),
+                        Forms\Components\TextInput::make('amount_min')->label(__('Min (SAR)'))->numeric(),
+                        Forms\Components\TextInput::make('amount_max')->label(__('Max (SAR)'))->numeric(),
                     ])
                     ->columns(2)
                     ->query(function ($query, array $data) {

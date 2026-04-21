@@ -15,7 +15,7 @@ class PurgeDatabasePage extends Page
 
     public static function getNavigationGroup(): ?string
     {
-        return __('app.nav.group.system');
+        return 'system';
     }
 
     public function mount(): void

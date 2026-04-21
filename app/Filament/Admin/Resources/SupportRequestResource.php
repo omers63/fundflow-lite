@@ -39,7 +39,7 @@ class SupportRequestResource extends Resource
 
     public static function getNavigationGroup(): ?string
     {
-        return __('app.nav.group.membership');
+        return 'membership';
     }
 
     public static function form(Schema $schema): Schema
@@ -90,7 +90,7 @@ class SupportRequestResource extends Resource
             ])
             ->filters([
                 Tables\Filters\SelectFilter::make('category')
-                    ->options(SupportRequest::CATEGORY_LABELS),
+                    ->options(SupportRequest::categoryOptions()),
             ])
             ->defaultSort('created_at', 'desc')
             ->recordActions([

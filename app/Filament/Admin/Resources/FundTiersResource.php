@@ -42,7 +42,7 @@ class FundTiersResource extends Resource
 
     public static function getNavigationGroup(): ?string
     {
-        return __('app.nav.group.settings');
+        return 'settings';
     }
 
     public static function form(Schema $schema): Schema

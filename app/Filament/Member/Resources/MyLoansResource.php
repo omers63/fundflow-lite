@@ -37,9 +37,19 @@ class MyLoansResource extends Resource
         return __('My Loans');
     }
 
+    public static function getModelLabel(): string
+    {
+        return __('Loan');
+    }
+
+    public static function getPluralModelLabel(): string
+    {
+        return __('My Loans');
+    }
+
     public static function getNavigationGroup(): ?string
     {
-        return __('app.nav.group.loans');
+        return 'loans';
     }
 
     public static function form(Schema $schema): Schema
@@ -71,17 +81,31 @@ class MyLoansResource extends Resource
                     ->trueIcon('heroicon-o-bolt')
                     ->falseIcon(null)
                     ->trueColor('danger'),
-                Tables\Columns\TextColumn::make('loanTier.label')->label(__('Tier'))->placeholder('—')->visibleFrom('sm'),
-                Tables\Columns\TextColumn::make('queue_position')->label(__('Q#'))->placeholder('—')->visibleFrom('lg'),
+                Tables\Columns\TextColumn::make('loanTier.label')->label(__('Tier'))->placeholder(__('—'))->visibleFrom('sm'),
+                Tables\Columns\TextColumn::make('queue_position')->label(__('Q#'))->placeholder(__('—'))->visibleFrom('lg'),
                 Tables\Columns\TextColumn::make('amount_requested')->label(__('Requested'))->money('SAR'),
-                Tables\Columns\TextColumn::make('amount_approved')->label(__('Approved'))->money('SAR')->placeholder('—')->visibleFrom('sm'),
+                Tables\Columns\TextColumn::make('amount_approved')->label(__('Approved'))->money('SAR')->placeholder(__('—'))->visibleFrom('sm'),
                 Tables\Columns\TextColumn::make('installments_count')
                     ->label(__('Months'))
                     ->visibleFrom('md')
                     ->description(fn (Loan $r) => $r->loanTier
-                        ? 'SAR '.number_format($r->loanTier->min_monthly_installment).'/mo'
+                        ? __(':currency :amount/mo', [
+                            'currency' => __('SAR'),
+                            'amount' => number_format($r->loanTier->min_monthly_installment),
+                        ])
                         : null),
                 Tables\Columns\TextColumn::make('status')->badge()
+                    ->label(__('app.field.status'))
+                    ->formatStateUsing(fn (string $state): string => match ($state) {
+                        'pending' => __('Pending'),
+                        'approved' => __('Approved'),
+                        'active' => __('Active'),
+                        'completed' => __('Completed'),
+                        'early_settled' => __('Early Settled'),
+                        'rejected' => __('Rejected'),
+                        'cancelled' => __('Cancelled'),
+                        default => __(ucfirst(str_replace('_', ' ', $state))),
+                    })
                     ->color(fn (string $state) => match ($state) {
                         'pending' => 'warning',
                         'approved' => 'info',
@@ -94,7 +118,17 @@ class MyLoansResource extends Resource
                     ->label(__('Late #'))
                     ->visibleFrom('md')
                     ->badge()->color(fn ($state) => $state > 0 ? 'warning' : 'success'),
-                Tables\Columns\TextColumn::make('applied_at')->dateTime('d M Y')->sortable()->visibleFrom('lg'),
+                Tables\Columns\TextColumn::make('applied_at')
+                    ->label(__('app.field.applied_at'))
+                    ->formatStateUsing(function ($state): string {
+                        if ($state instanceof \Carbon\CarbonInterface) {
+                            return $state->locale(app()->getLocale())->translatedFormat('d M Y H:i');
+                        }
+
+                        return $state ? \Illuminate\Support\Carbon::parse($state)->locale(app()->getLocale())->translatedFormat('d M Y H:i') : '';
+                    })
+                    ->sortable()
+                    ->visibleFrom('lg'),
             ])
             ->defaultSort('applied_at', 'desc')
             ->filters([
@@ -208,19 +242,28 @@ class MyLoansResource extends Resource
                                     }
 
                                     return __('Eligible to apply')
-                                        .' | '.__('Fund balance').': SAR '.number_format($eligCtx['fund_balance'], 2)
-                                        .' | '.__('Max loan').': SAR '.number_format($maxAmt);
+                                        .' | '.__('Fund balance: :currency :amount', [
+                                            'currency' => __('SAR'),
+                                            'amount' => number_format($eligCtx['fund_balance'], 2),
+                                        ])
+                                        .' | '.__('Max loan: :currency :amount', [
+                                            'currency' => __('SAR'),
+                                            'amount' => number_format($maxAmt),
+                                        ]);
                                 })
                                 ->columnSpanFull(),
 
                             Forms\Components\TextInput::make('amount_requested')
                                 ->label(__('Loan Amount (SAR)'))
-                                ->numeric()->prefix('SAR')->required()
+                                ->numeric()->prefix(__('SAR'))->required()
                                 ->minValue(1000)
                                 ->maxValue($maxAmt > 0 ? $maxAmt : 300000)
                                 ->helperText(
                                     $maxAmt > 0
-                                    ? __('Maximum').': SAR '.number_format($maxAmt).' (2× '.__('your fund balance').')'
+                                    ? __('Maximum: :currency :amount (2× your fund balance)', [
+                                        'currency' => __('SAR'),
+                                        'amount' => number_format($maxAmt),
+                                    ])
                                     : __('Maximum could not be determined')
                                 ),
 
@@ -246,14 +289,21 @@ class MyLoansResource extends Resource
                                             (float) $tier->min_monthly_installment,
                                             $threshold
                                         );
-                                        $lines[] = "{$tier->label}: SAR ".number_format($sampleAmt)
-                                            ." → {$count} months × SAR "
-                                            .number_format($tier->min_monthly_installment).'/mo';
+                                        $lines[] = __(':tier — :currency :sample → :count months × :currency :installment/mo', [
+                                            'tier' => $tier->label,
+                                            'currency' => __('SAR'),
+                                            'sample' => number_format($sampleAmt),
+                                            'count' => $count,
+                                            'installment' => number_format($tier->min_monthly_installment),
+                                        ]);
                                     }
 
                                     return empty($lines)
                                         ? __('Repayment period is computed automatically at approval.')
-                                        : __('For your fund balance of SAR')." ".number_format($fundBal).":\n"
+                                        : __('For your fund balance of :currency :amount:', [
+                                            'currency' => __('SAR'),
+                                            'amount' => number_format($fundBal),
+                                        ])."\n"
                                         .implode("\n", $lines)
                                         ."\n\n".__('Final period confirmed at approval.');
                                 })
@@ -317,8 +367,11 @@ class MyLoansResource extends Resource
                         if ($amount > $maxAmt) {
                             Notification::make()
                                 ->title(__('Amount Exceeds Maximum'))
-                                ->body(__('Maximum loan amount is SAR')." ".number_format($maxAmt)
-                                    .' (2× '.__('your fund balance')." ".number_format($maxAmt / 2).').')
+                                ->body(__('Maximum loan amount is :currency :amount (2× your fund balance :half).', [
+                                    'currency' => __('SAR'),
+                                    'amount' => number_format($maxAmt),
+                                    'half' => number_format($maxAmt / 2),
+                                ]))
                                 ->danger()
                                 ->send();
 

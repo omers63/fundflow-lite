@@ -17,7 +17,10 @@ class ListMyDependents extends ListRecords
 {
     protected static string $resource = MyDependentsResource::class;
 
-    protected static ?string $title = 'My Dependents';
+    public function getTitle(): string
+    {
+        return __('My Dependents');
+    }
 
     public function content(Schema $schema): Schema
     {

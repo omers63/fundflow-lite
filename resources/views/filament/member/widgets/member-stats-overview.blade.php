@@ -96,7 +96,7 @@
                 </p>
                 <p class="text-xs font-medium text-gray-500 dark:text-gray-400">{{ __('Active Loan') }}</p>
                 @if($d['next_installment'])
-                <p class="mt-1 text-xs text-gray-400">{{ __('Next: :currency :amount due :date', ['currency' => __('SAR'), 'amount' => number_format($d['next_installment']->amount, 0), 'date' => $d['next_installment']->due_date->translatedFormat('d M')]) }}</p>
+                <p class="mt-1 text-xs text-gray-400">{{ __('Next: :currency :amount due :date', ['currency' => __('SAR'), 'amount' => number_format($d['next_installment']->amount, 0), 'date' => $d['next_installment']->due_date->locale(app()->getLocale())->translatedFormat('d M')]) }}</p>
                 @endif
                 @else
                 <p class="text-lg font-bold text-gray-400">{{ __('None') }}</p>

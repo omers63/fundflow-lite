@@ -73,7 +73,7 @@
                 <td class="label">Member Since</td>
                 <td class="value">{{ $member->joined_at?->format('d F Y') ?? '—' }}</td>
                 <td class="label">Phone</td>
-                <td class="value">{{ $member->user->phone ?? '—' }}</td>
+                <td class="value" dir="ltr" style="unicode-bidi:isolate;">{{ \App\Support\PhoneDisplay::plain($member->user->phone ?? null) }}</td>
             </tr>
             <tr>
                 <td class="label">Monthly Contribution</td>

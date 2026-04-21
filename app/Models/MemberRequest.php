@@ -62,11 +62,11 @@ class MemberRequest extends Model
     public static function typeLabel(string $type): string
     {
         return match ($type) {
-            self::TYPE_ADD_DEPENDENT => 'Add dependent',
-            self::TYPE_REMOVE_DEPENDENT => 'Remove dependent',
-            self::TYPE_OWN_ALLOCATION => 'My contribution allocation',
-            self::TYPE_DEPENDENT_ALLOCATION => 'Dependent allocation',
-            self::TYPE_REQUEST_INDEPENDENCE => 'Become independent',
+            self::TYPE_ADD_DEPENDENT => __('Add dependent'),
+            self::TYPE_REMOVE_DEPENDENT => __('Remove dependent'),
+            self::TYPE_OWN_ALLOCATION => __('My contribution allocation'),
+            self::TYPE_DEPENDENT_ALLOCATION => __('Dependent allocation'),
+            self::TYPE_REQUEST_INDEPENDENCE => __('Become independent'),
             default => $type,
         };
     }
@@ -83,7 +83,7 @@ class MemberRequest extends Model
             $path = $prefix === '' ? (string) $key : $prefix.'.'.$key;
             if (is_array($value)) {
                 if ($value === []) {
-                    $lines[] = $path.': (empty)';
+                    $lines[] = $path.': '.__('(empty)');
 
                     continue;
                 }
@@ -102,7 +102,7 @@ class MemberRequest extends Model
             return '';
         }
         if (is_bool($value)) {
-            return $value ? 'yes' : 'no';
+            return $value ? __('yes') : __('no');
         }
 
         return trim((string) $value);
@@ -112,7 +112,7 @@ class MemberRequest extends Model
     {
         $payload = $this->payload ?? [];
         if ($payload === []) {
-            return '—';
+            return __('—');
         }
 
         return implode("\n", $this->flattenPayloadLines($payload));
@@ -123,15 +123,17 @@ class MemberRequest extends Model
         $p = $this->payload ?? [];
 
         return match ($this->type) {
-            self::TYPE_ADD_DEPENDENT => Str::limit(trim((string) ($p['details'] ?? '')), 120) ?: '—',
+            self::TYPE_ADD_DEPENDENT => Str::limit(trim((string) ($p['details'] ?? '')), 120) ?: __('—'),
             self::TYPE_REMOVE_DEPENDENT => $this->formatDependentLabel($p['dependent_member_id'] ?? null),
             self::TYPE_OWN_ALLOCATION => isset($p['requested_amount'])
-                ? 'SAR '.number_format((int) $p['requested_amount'])
-                : '—',
+                ? __('SAR').' '.number_format((int) $p['requested_amount'])
+                : __('—'),
             self::TYPE_DEPENDENT_ALLOCATION => $this->formatDependentLabel($p['dependent_member_id'] ?? null)
-                .(isset($p['requested_amount']) ? ' → SAR '.number_format((int) $p['requested_amount']) : ''),
-            self::TYPE_REQUEST_INDEPENDENCE => 'Unlink from parent sponsor',
-            default => '—',
+                .(isset($p['requested_amount'])
+                    ? ' → '.__('SAR').' '.number_format((int) $p['requested_amount'])
+                    : ''),
+            self::TYPE_REQUEST_INDEPENDENCE => __('Unlink from parent sponsor'),
+            default => __('—'),
         };
     }
 
@@ -139,12 +141,12 @@ class MemberRequest extends Model
     {
         $id = (int) $memberId;
         if ($id <= 0) {
-            return '—';
+            return __('—');
         }
         $m = Member::query()->with('user')->find($id);
 
         return $m
-            ? ($m->user?->name ?? 'Member').' (#'.($m->member_number ?? $id).')'
-            : 'Member #'.$id;
+            ? ($m->user?->name ?? __('Member')).' (#'.($m->member_number ?? $id).')'
+            : __('Member #:id', ['id' => $id]);
     }
 }

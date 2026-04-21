@@ -8,4 +8,9 @@ use Filament\Resources\Pages\ListRecords;
 class ListMyStatements extends ListRecords
 {
     protected static string $resource = MyStatementsResource::class;
+
+    public function getTitle(): string
+    {
+        return __('My Statements');
+    }
 }

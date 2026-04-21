@@ -11,6 +11,7 @@ use App\Notifications\MembershipApprovedNotification;
 use App\Notifications\MembershipRejectedNotification;
 use App\Services\AccountingService;
 use App\Services\MemberNumberService;
+use App\Support\PhoneDisplay;
 use Filament\Actions\Action;
 use Filament\Actions\ActionGroup;
 use Filament\Actions\BulkAction;
@@ -56,7 +57,7 @@ class MembershipApplicationResource extends Resource
 
     public static function getNavigationGroup(): ?string
     {
-        return __('app.nav.group.membership');
+        return 'membership';
     }
 
     public static function getNavigationBadge(): ?string
@@ -268,7 +269,8 @@ class MembershipApplicationResource extends Resource
                     ->label(__('Email'))
                     ->searchable(),
                 Tables\Columns\TextColumn::make('mobile_phone')
-                    ->label(__('Mobile')),
+                    ->label(__('Mobile'))
+                    ->formatStateUsing(fn (?string $state): \Illuminate\Support\HtmlString => PhoneDisplay::toHtml($state)),
                 Tables\Columns\TextColumn::make('application_type')
                     ->label(__('Type'))
                     ->formatStateUsing(function (?string $state): string {

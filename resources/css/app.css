@@ -11,28 +11,4 @@
         'Segoe UI Symbol', 'Noto Color Emoji';
 }
 
-input[type='tel'],
-.phone-ltr {
-    unicode-bidi: isolate;
-}
-
-input[type='tel'] {
-    direction: ltr;
-    text-align: right;
-}
-
-.phone-ltr {
-    direction: rtl;
-    text-align: right;
-    display: block;
-    width: 100%;
-    unicode-bidi: isolate;
-}
-
-.phone-ltr .phone-digits {
-    direction: ltr;
-    unicode-bidi: isolate-override;
-    display: inline-block;
-    text-align: left;
-    white-space: nowrap;
-}
+@import './phone-display.css';

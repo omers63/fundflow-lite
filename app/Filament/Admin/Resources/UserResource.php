@@ -47,7 +47,7 @@ class UserResource extends Resource
 
     public static function getNavigationGroup(): ?string
     {
-        return __('app.nav.group.system');
+        return 'system';
     }
 
     public static function getEloquentQuery(): Builder

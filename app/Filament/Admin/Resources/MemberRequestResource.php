@@ -45,7 +45,7 @@ class MemberRequestResource extends Resource
 
     public static function getNavigationGroup(): ?string
     {
-        return __('app.nav.group.membership');
+        return 'membership';
     }
 
     public static function getNavigationBadge(): ?string

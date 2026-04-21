@@ -4,6 +4,7 @@ namespace App\Filament\Member\Resources;
 
 use App\Filament\Member\Resources\MyContributionsResource\Pages;
 use App\Models\Contribution;
+use Illuminate\Support\Carbon;
 use Filament\Actions\Action;
 use Filament\Actions\ActionGroup;
 use Filament\Forms;
@@ -26,9 +27,19 @@ class MyContributionsResource extends Resource
         return __('My Contributions');
     }
 
+    public static function getModelLabel(): string
+    {
+        return __('Contribution');
+    }
+
+    public static function getPluralModelLabel(): string
+    {
+        return __('My Contributions');
+    }
+
     public static function getNavigationGroup(): ?string
     {
-        return __('app.nav.group.my_finance');
+        return 'my_finance';
     }
 
     public static function table(Table $table): Table
@@ -37,22 +48,32 @@ class MyContributionsResource extends Resource
             ->query(fn () => Contribution::whereHas('member', fn ($q) => $q->where('user_id', auth()->id())))
             ->columns([
                 Tables\Columns\TextColumn::make('amount')
+                    ->label(__('app.field.amount'))
                     ->money('SAR')
                     ->weight('bold'),
                 Tables\Columns\TextColumn::make('month')
-                    ->formatStateUsing(fn ($state) => date('F', mktime(0, 0, 0, $state, 1))),
-                Tables\Columns\TextColumn::make('year'),
+                    ->label(__('app.field.month'))
+                    ->formatStateUsing(function ($state, Contribution $record): string {
+                        return Carbon::createFromDate((int) $record->year, (int) $state, 1)
+                            ->locale(app()->getLocale())
+                            ->translatedFormat('F');
+                    }),
+                Tables\Columns\TextColumn::make('year')->label(__('Year')),
                 Tables\Columns\TextColumn::make('payment_method')
                     ->label(__('Source'))
                     ->visibleFrom('md')
                     ->badge()
                     ->formatStateUsing(fn (?string $state): string => Contribution::paymentMethodLabel($state)),
                 Tables\Columns\TextColumn::make('reference_number')
+                    ->label(__('app.field.reference_number'))
                     ->visibleFrom('lg')
-                    ->placeholder('-'),
+                    ->placeholder(__('—')),
                 Tables\Columns\TextColumn::make('paid_at')
+                    ->label(__('app.field.paid_at'))
                     ->visibleFrom('sm')
-                    ->dateTime('d M Y')
+                    ->formatStateUsing(fn ($state) => $state instanceof \Carbon\CarbonInterface
+                        ? $state->locale(app()->getLocale())->translatedFormat('d M Y')
+                        : '')
                     ->sortable(),
                 Tables\Columns\IconColumn::make('is_late')
                     ->label(__('Late'))
@@ -79,7 +100,11 @@ class MyContributionsResource extends Resource
             ])
             ->filters([
                 Tables\Filters\SelectFilter::make('month')
-                    ->options(array_combine(range(1, 12), array_map(fn ($m) => date('F', mktime(0, 0, 0, $m, 1)), range(1, 12)))),
+                    ->options(collect(range(1, 12))->mapWithKeys(fn (int $m): array => [
+                        $m => Carbon::createFromDate((int) now()->year, $m, 1)
+                            ->locale(app()->getLocale())
+                            ->translatedFormat('F'),
+                    ])->all()),
                 Tables\Filters\Filter::make('year')
                     ->schema([Forms\Components\TextInput::make('year')->numeric()->default(now()->year)])
                     ->query(fn ($query, $data) => ($data['year'] ?? null) ? $query->where('year', $data['year']) : $query),

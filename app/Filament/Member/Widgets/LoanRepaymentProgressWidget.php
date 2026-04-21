@@ -95,7 +95,7 @@ class LoanRepaymentProgressWidget extends Widget
     {
         $member = auth()->user()?->member;
         if ($member === null) {
-            Notification::make()->title('Member record not found')->danger()->send();
+            Notification::make()->title(__('Member record not found'))->danger()->send();
 
             return;
         }
@@ -107,7 +107,7 @@ class LoanRepaymentProgressWidget extends Widget
             ->first();
 
         if ($loan === null) {
-            Notification::make()->title('Active loan not found')->danger()->send();
+            Notification::make()->title(__('Active loan not found'))->danger()->send();
 
             return;
         }
@@ -116,7 +116,7 @@ class LoanRepaymentProgressWidget extends Widget
             app(LoanEarlySettlementService::class)->earlySettle($loan);
         } catch (\InvalidArgumentException | \RuntimeException $e) {
             Notification::make()
-                ->title('Could not pay off early')
+                ->title(__('Could not pay off early'))
                 ->body($e->getMessage())
                 ->danger()
                 ->send();
@@ -125,8 +125,8 @@ class LoanRepaymentProgressWidget extends Widget
         }
 
         Notification::make()
-            ->title('Loan paid off')
-            ->body('Your loan is closed. You may apply for a new loan when you meet eligibility rules.')
+            ->title(__('Loan paid off'))
+            ->body(__('Your loan is closed. You may apply for a new loan when you meet eligibility rules.'))
             ->success()
             ->send();
     }

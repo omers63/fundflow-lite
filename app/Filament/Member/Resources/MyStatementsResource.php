@@ -26,9 +26,19 @@ class MyStatementsResource extends Resource
         return __('My Statements');
     }
 
+    public static function getModelLabel(): string
+    {
+        return __('app.resource.statement');
+    }
+
+    public static function getPluralModelLabel(): string
+    {
+        return __('My Statements');
+    }
+
     public static function getNavigationGroup(): ?string
     {
-        return __('app.nav.group.my_finance');
+        return 'my_finance';
     }
 
     public static function table(Table $table): Table
@@ -37,6 +47,7 @@ class MyStatementsResource extends Resource
             ->query(fn () => MonthlyStatement::whereHas('member', fn ($q) => $q->where('user_id', auth()->id())))
             ->columns([
                 Tables\Columns\TextColumn::make('period')
+                    ->label(__('app.field.period'))
                     ->sortable(),
                 Tables\Columns\TextColumn::make('opening_balance')
                     ->label(__('Opening'))
@@ -55,9 +66,11 @@ class MyStatementsResource extends Resource
                     ->money('SAR')
                     ->weight('bold'),
                 Tables\Columns\TextColumn::make('generated_at')
-                    ->dateTime('d M Y')
-                    ->visibleFrom('sm')
-                    ->label(__('Generated')),
+                    ->label(__('Generated'))
+                    ->formatStateUsing(fn ($state) => $state instanceof \Carbon\CarbonInterface
+                        ? $state->locale(app()->getLocale())->translatedFormat('d M Y')
+                        : '')
+                    ->visibleFrom('sm'),
             ])
             ->defaultSort('period', 'desc')
             ->filters([

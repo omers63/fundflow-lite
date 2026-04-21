@@ -29,7 +29,7 @@ class MyContributionSettingsPage extends Page
 
     public static function getNavigationGroup(): ?string
     {
-        return __('app.nav.group.settings');
+        return 'settings';
     }
 
     public function mount(): void

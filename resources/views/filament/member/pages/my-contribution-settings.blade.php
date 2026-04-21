@@ -77,7 +77,7 @@
                 <span class="text-amber-600 dark:text-amber-400">{{ __('Pending') }}</span>
             @endif
         </p>
-        <p class="mt-0.5 text-xs text-gray-400 pl-2">{{ now()->format('F Y') }}</p>
+        <p class="mt-0.5 text-xs text-gray-400 pl-2">{{ now()->locale(app()->getLocale())->translatedFormat('F Y') }}</p>
     </div>
 
     <div class="relative overflow-hidden rounded-xl bg-white dark:bg-gray-800 p-5 ring-1 ring-gray-200 dark:ring-gray-700 shadow-sm">

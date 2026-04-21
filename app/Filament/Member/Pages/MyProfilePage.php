@@ -27,7 +27,7 @@ class MyProfilePage extends Page
 
     public static function getNavigationGroup(): ?string
     {
-        return __('app.nav.group.account');
+        return 'account';
     }
 
     public function getTitle(): string

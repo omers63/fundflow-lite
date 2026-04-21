@@ -27,7 +27,7 @@ class SupportPage extends Page
 
     public static function getNavigationGroup(): ?string
     {
-        return __('app.nav.group.settings');
+        return 'settings';
     }
 
     public function getTitle(): string
@@ -48,7 +48,7 @@ class SupportPage extends Page
                 ->schema([
                     Forms\Components\Select::make('category')
                         ->label(__('app.member.category'))
-                        ->options(SupportRequest::CATEGORY_LABELS)
+                        ->options(SupportRequest::categoryOptions())
                         ->required()
                         ->native(false),
                     Forms\Components\TextInput::make('subject')
@@ -78,7 +78,12 @@ class SupportPage extends Page
                         ? "{$user->name} (#{$member->member_number})"
                         : $user->name;
 
-                    $body = "Request #{$supportRequest->id}\nFrom: {$memberInfo}\nCategory: {$categoryLabel}\n\n{$data['message']}";
+                    $body = __('Request #:id from :from', [
+                        'id' => $supportRequest->id,
+                        'from' => $memberInfo,
+                    ])
+                        ."\n".__('Category: :category', ['category' => $categoryLabel])
+                        ."\n\n".$data['message'];
 
                     // Notify all admin users (in addition to permanent storage above).
                     User::where('role', 'admin')->each(function (User $admin) use ($data, $body, $supportRequest) {

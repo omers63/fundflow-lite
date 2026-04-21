@@ -3,6 +3,7 @@
     /** @var \App\Models\Loan $record */
     $loan = $this->getRecord();
     $loan->loadMissing(['loanTier', 'fundTier', 'guarantor.user', 'disbursements', 'installments']);
+    $locale = app()->getLocale();
 
     // ── Timeline steps ──────────────────────────────────────────────────────
     $steps = [
@@ -103,7 +104,7 @@
                 </p>
                 @if($step['timestamp'])
                 <p class="text-xs text-gray-400 dark:text-gray-500 text-center mt-0.5">
-                    {{ \Carbon\Carbon::parse($step['timestamp'])->format('d M Y') }}
+                    {{ \Carbon\Carbon::parse($step['timestamp'])->locale($locale)->translatedFormat('d M Y') }}
                 </p>
                 @endif
             </div>
@@ -122,20 +123,20 @@
         <div class="rounded-xl bg-white dark:bg-gray-800 ring-1 ring-gray-200 dark:ring-gray-700 p-5 shadow-sm">
             <p class="text-xs font-semibold uppercase tracking-wide text-gray-500 dark:text-gray-400 mb-1">{{ __('Approved') }}</p>
             <p class="text-xl font-bold text-primary-600 dark:text-primary-400">
-                {{ $loan->amount_approved ? __('SAR') . ' ' . number_format($loan->amount_approved, 0) : '—' }}
+                {{ $loan->amount_approved ? __('SAR') . ' ' . number_format($loan->amount_approved, 0) : __('—') }}
             </p>
         </div>
 
         <div class="rounded-xl bg-white dark:bg-gray-800 ring-1 ring-gray-200 dark:ring-gray-700 p-5 shadow-sm">
             <p class="text-xs font-semibold uppercase tracking-wide text-gray-500 dark:text-gray-400 mb-1">{{ __('Disbursed') }}</p>
             <p class="text-xl font-bold text-emerald-600 dark:text-emerald-400">
-                {{ $loan->amount_disbursed ? __('SAR') . ' ' . number_format($loan->amount_disbursed, 0) : '—' }}
+                {{ $loan->amount_disbursed ? __('SAR') . ' ' . number_format($loan->amount_disbursed, 0) : __('—') }}
             </p>
         </div>
 
         <div class="rounded-xl bg-white dark:bg-gray-800 ring-1 ring-gray-200 dark:ring-gray-700 p-5 shadow-sm">
             <p class="text-xs font-semibold uppercase tracking-wide text-gray-500 dark:text-gray-400 mb-1">{{ __('Loan Tier') }}</p>
-            <p class="text-xl font-bold text-gray-900 dark:text-white">{{ $loan->loanTier?->label ?? '—' }}</p>
+            <p class="text-xl font-bold text-gray-900 dark:text-white">{{ $loan->loanTier?->label ?? __('—') }}</p>
             @if($loan->is_emergency)
             <span class="inline-flex items-center mt-1 rounded-full bg-red-100 dark:bg-red-900/40 px-2 py-0.5 text-xs font-semibold text-red-700 dark:text-red-300">
                 {{ __('Emergency') }}
@@ -204,7 +205,7 @@
                         {{ $inst->status === 'overdue' ? 'bg-red-50/30 dark:bg-red-900/5' : '' }}">
                         <td class="px-5 py-3 text-gray-700 dark:text-gray-300">#{{ $inst->installment_number }}</td>
                         <td class="px-5 py-3 text-gray-700 dark:text-gray-300">
-                            {{ $inst->due_date ? \Carbon\Carbon::parse($inst->due_date)->format('d M Y') : '—' }}
+                            {{ $inst->due_date ? \Carbon\Carbon::parse($inst->due_date)->locale($locale)->translatedFormat('d M Y') : __('—') }}
                         </td>
                         <td class="px-5 py-3 text-right font-medium text-gray-900 dark:text-white">
                             {{ __('SAR') }} {{ number_format((float)$inst->amount, 0) }}
@@ -215,7 +216,7 @@
                                 {{ __('SAR') }} {{ number_format((float)$inst->late_fee_amount, 2) }}
                             </span>
                             @else
-                            <span class="text-gray-400">—</span>
+                            <span class="text-gray-400">{{ __('—') }}</span>
                             @endif
                         </td>
                         <td class="px-5 py-3">
@@ -223,11 +224,11 @@
                                 {{ $inst->status === 'paid'    ? 'bg-emerald-100 text-emerald-700 dark:bg-emerald-900/40 dark:text-emerald-300' :
                                    ($inst->status === 'overdue' ? 'bg-red-100 text-red-700 dark:bg-red-900/40 dark:text-red-300' :
                                    'bg-gray-100 text-gray-600 dark:bg-gray-700 dark:text-gray-300') }}">
-                                {{ __(ucfirst($inst->status)) }}
+                                {{ __(ucfirst(str_replace('_', ' ', $inst->status))) }}
                             </span>
                         </td>
                         <td class="px-5 py-3 text-gray-500 dark:text-gray-400">
-                            {{ $inst->paid_at ? \Carbon\Carbon::parse($inst->paid_at)->format('d M Y') : '—' }}
+                            {{ $inst->paid_at ? \Carbon\Carbon::parse($inst->paid_at)->locale($locale)->translatedFormat('d M Y') : __('—') }}
                         </td>
                     </tr>
                     @endforeach
@@ -244,13 +245,13 @@
             <div>
                 <dt class="text-gray-500 dark:text-gray-400">{{ __('Applied on') }}</dt>
                 <dd class="font-medium text-gray-900 dark:text-white">
-                    {{ $loan->applied_at ? $loan->applied_at->format('d M Y') : '—' }}
+                    {{ $loan->applied_at ? $loan->applied_at->locale($locale)->translatedFormat('d M Y') : __('—') }}
                 </dd>
             </div>
             @if($loan->guarantor)
             <div>
                 <dt class="text-gray-500 dark:text-gray-400">{{ __('Guarantor') }}</dt>
-                <dd class="font-medium text-gray-900 dark:text-white">{{ $loan->guarantor->user?->name ?? '—' }}</dd>
+                <dd class="font-medium text-gray-900 dark:text-white">{{ $loan->guarantor->user?->name ?? __('—') }}</dd>
             </div>
             @endif
             @if($loan->purpose)

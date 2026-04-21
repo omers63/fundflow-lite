@@ -144,6 +144,13 @@ class MyMemberRequestsTableWidget extends TableWidget
                     ->wrap(),
                 TextColumn::make('status')
                     ->badge()
+                    ->formatStateUsing(fn (string $state): string => match ($state) {
+                        MemberRequest::STATUS_PENDING => __('Pending'),
+                        MemberRequest::STATUS_APPROVED => __('Approved'),
+                        MemberRequest::STATUS_REJECTED => __('Rejected'),
+                        MemberRequest::STATUS_CANCELLED => __('Cancelled'),
+                        default => __(ucfirst(str_replace('_', ' ', $state))),
+                    })
                     ->color(fn (string $state): string => match ($state) {
                         MemberRequest::STATUS_PENDING => 'warning',
                         MemberRequest::STATUS_APPROVED => 'success',
@@ -154,11 +161,13 @@ class MyMemberRequestsTableWidget extends TableWidget
                 TextColumn::make('admin_note')
                     ->label(__('Admin note'))
                     ->visibleFrom('lg')
-                    ->placeholder('—')
+                    ->placeholder(__('—'))
                     ->toggleable(isToggledHiddenByDefault: true),
                 TextColumn::make('created_at')
                     ->label(__('Submitted'))
-                    ->dateTime('d M Y H:i')
+                    ->formatStateUsing(fn ($state): string => $state
+                        ? \Illuminate\Support\Carbon::parse($state)->locale(app()->getLocale())->translatedFormat('d M Y H:i')
+                        : '')
                     ->sortable(),
             ])
             ->defaultSort('created_at', 'desc');

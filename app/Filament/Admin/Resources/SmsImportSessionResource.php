@@ -45,7 +45,7 @@ class SmsImportSessionResource extends Resource
 
     public static function getNavigationGroup(): ?string
     {
-        return __('app.nav.group.finance');
+        return 'finance';
     }
 
     public static function form(Schema $schema): Schema

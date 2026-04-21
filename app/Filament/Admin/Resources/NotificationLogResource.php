@@ -33,7 +33,7 @@ class NotificationLogResource extends Resource
 
     public static function getNavigationGroup(): ?string
     {
-        return __('app.nav.group.system');
+        return 'system';
     }
 
     public static function getNavigationBadge(): ?string

@@ -95,10 +95,12 @@ class ContributionCycleService
         return now()->greaterThan($this->deadline($month, $year));
     }
 
-    /** Human-readable period label: "June 2026" */
+    /** Human-readable period label (localized month name). */
     public function periodLabel(int $month, int $year): string
     {
-        return date('F', mktime(0, 0, 0, $month, 1)) . ' ' . $year;
+        return Carbon::create($year, $month, 1)
+            ->locale(app()->getLocale())
+            ->translatedFormat('F Y');
     }
 
     /**

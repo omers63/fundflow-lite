@@ -33,9 +33,19 @@ class MyDependentsResource extends Resource
         return __('My Dependents');
     }
 
+    public static function getModelLabel(): string
+    {
+        return __('app.resource.member');
+    }
+
+    public static function getPluralModelLabel(): string
+    {
+        return __('My Dependents');
+    }
+
     public static function getNavigationGroup(): ?string
     {
-        return __('app.nav.group.account');
+        return 'account';
     }
 
     public static function shouldRegisterNavigation(): bool
@@ -91,12 +101,19 @@ class MyDependentsResource extends Resource
 
                         return "{$dir} {$last->deltaLabel()} · {$last->created_at->diffForHumans()}";
                     })
-                    ->placeholder('Never changed')
                     ->placeholder(__('Never changed'))
                     ->color(fn (Member $record): ?string => null),
                 Tables\Columns\TextColumn::make('status')
+                    ->label(__('app.field.status'))
                     ->badge()
                     ->visibleFrom('sm')
+                    ->formatStateUsing(fn (string $state): string => match ($state) {
+                        'active' => __('Active'),
+                        'suspended' => __('Suspended'),
+                        'delinquent' => __('Delinquent'),
+                        'terminated' => __('Terminated'),
+                        default => __(ucfirst(str_replace('_', ' ', $state))),
+                    })
                     ->color(fn (string $state) => match ($state) {
                         'active' => 'success',
                         'suspended' => 'warning',
@@ -113,7 +130,7 @@ class MyDependentsResource extends Resource
             ->filters([
                 Tables\Filters\SelectFilter::make('status')
                     ->options([
-                        'active' => 'Active',
+                        'active' => __('Active'),
                         'suspended' => __('Suspended'),
                         'delinquent' => __('Delinquent'),
                         'terminated' => __('Terminated'),
@@ -130,7 +147,7 @@ class MyDependentsResource extends Resource
                     ->color('primary')
                     ->modalHeading(__('Update dependent allocations'))
                     ->modalDescription(new HtmlString(
-                        '<p class="text-sm text-gray-600 dark:text-gray-400">Changed amounts are applied immediately and administrators are notified automatically.</p>'
+                        '<p class="text-sm text-gray-600 dark:text-gray-400">'.e(__('Changed amounts are applied immediately and administrators are notified automatically.')).'</p>'
                     ))
                     ->modalWidth('xl')
                     ->schema(function () use ($parentMember): array {
@@ -153,7 +170,11 @@ class MyDependentsResource extends Resource
                                 ->options(Member::contributionAmountOptions())
                                 ->default($dep->monthly_contribution_amount)
                                 ->required()
-                                ->helperText(fn () => 'Current: SAR '.number_format($dep->monthly_contribution_amount).' · Cash: SAR '.number_format($dep->cash_balance, 2));
+                                ->helperText(fn () => __('Current allocation: :currency :alloc · Cash: :currency :cash', [
+                                    'currency' => __('SAR'),
+                                    'alloc' => number_format($dep->monthly_contribution_amount),
+                                    'cash' => number_format($dep->cash_balance, 2),
+                                ]));
                         }
 
                         $fields[] = Forms\Components\TextInput::make('note')
@@ -215,7 +236,11 @@ class MyDependentsResource extends Resource
                                 ->options(Member::contributionAmountOptions())
                                 ->required()
                                 ->helperText(fn (?Member $record) => $record
-                                    ? 'Current: SAR '.number_format($record->monthly_contribution_amount).' · Cash balance: SAR '.number_format($record->cash_balance, 2)
+                                    ? __('Current allocation: :currency :alloc · Cash balance: :currency :cash', [
+                                        'currency' => __('SAR'),
+                                        'alloc' => number_format($record->monthly_contribution_amount),
+                                        'cash' => number_format($record->cash_balance, 2),
+                                    ])
                                     : ''),
                             Forms\Components\TextInput::make('note')
                                 ->label(__('Note / Reason (optional)'))
@@ -259,7 +284,7 @@ class MyDependentsResource extends Resource
 
                             Notification::make()
                                 ->title(__('Allocation updated'))
-                                ->body($record->user?->name.' allocation was updated successfully.')
+                                ->body(__('Allocation was updated successfully for :name.', ['name' => $record->user?->name ?? __('Member')]))
                                 ->success()
                                 ->send();
                         }),
@@ -276,15 +301,19 @@ class MyDependentsResource extends Resource
                                 Forms\Components\Placeholder::make('balances')
                                     ->label(__('Balances'))
                                     ->content(
-                                        'Your cash: SAR '.number_format($parent?->cash_balance ?? 0, 2).
-                                        " | {$record->user->name}'s cash: SAR ".number_format($record->cash_balance, 2)
+                                        __('Your cash: :currency :parent · :name cash: :currency :dependent', [
+                                            'currency' => __('SAR'),
+                                            'parent' => number_format($parent?->cash_balance ?? 0, 2),
+                                            'name' => $record->user->name,
+                                            'dependent' => number_format($record->cash_balance, 2),
+                                        ])
                                     ),
                                 Forms\Components\TextInput::make('amount')
                                     ->label(__('Amount to Transfer (SAR)'))
                                     ->numeric()
                                     ->minValue(1)
                                     ->required()
-                                    ->prefix('SAR'),
+                                    ->prefix(__('SAR')),
                                 Forms\Components\TextInput::make('note')
                                     ->label(__('Note (optional)'))
                                     ->maxLength(200),
@@ -306,7 +335,11 @@ class MyDependentsResource extends Resource
                                 );
                                 Notification::make()
                                     ->title(__('Transfer Successful'))
-                                    ->body('SAR '.number_format($data['amount'], 2)." transferred to {$record->user->name}'s cash account.")
+                                    ->body(__(':currency :amount transferred to :name cash account.', [
+                                        'currency' => __('SAR'),
+                                        'amount' => number_format((float) $data['amount'], 2),
+                                        'name' => $record->user->name,
+                                    ]))
                                     ->success()
                                     ->send();
                             } catch (\Throwable $e) {
@@ -319,7 +352,7 @@ class MyDependentsResource extends Resource
                         ->label(__('History'))
                         ->icon('heroicon-o-clock')
                         ->color('gray')
-                        ->modalHeading(fn (Member $record) => "Allocation History — {$record->user->name}")
+                        ->modalHeading(fn (Member $record) => __('Allocation History — :name', ['name' => $record->user?->name ?? '']))
                         ->modalContent(function (Member $record): HtmlString {
                             $changes = DependentAllocationChange::where('dependent_member_id', $record->id)
                                 ->with('changedBy')
@@ -337,16 +370,16 @@ class MyDependentsResource extends Resource
                                     ? '<span class="text-emerald-600 font-bold">↑</span>'
                                     : '<span class="text-amber-600 font-bold">↓</span>';
                                 $delta = $c->isIncrease()
-                                    ? '<span class="text-emerald-600">+SAR '.number_format(abs($c->delta())).'</span>'
-                                    : '<span class="text-amber-600">−SAR '.number_format(abs($c->delta())).'</span>';
+                                    ? '<span class="text-emerald-600">+'.e(__('SAR')).' '.number_format(abs($c->delta())).'</span>'
+                                    : '<span class="text-amber-600">−'.e(__('SAR')).' '.number_format(abs($c->delta())).'</span>';
                                 $by = e($c->changedBy?->name ?? __('System'));
                                 $note = $c->note ? '<br><span class="text-gray-400 text-xs">'.e($c->note).'</span>' : '';
-                                $date = $c->created_at->format('d M Y H:i');
+                                $date = $c->created_at->locale(app()->getLocale())->translatedFormat('d M Y H:i');
 
                                 $rows .= "
                                 <tr class=\"border-b border-gray-100 dark:border-gray-700\">
                                     <td class=\"py-2 px-3 text-xs text-gray-500\">{$date}</td>
-                                    <td class=\"py-2 px-3 text-sm\">{$dir} SAR {$c->old_amount} → SAR {$c->new_amount}</td>
+                                    <td class=\"py-2 px-3 text-sm\">{$dir} ".e(__('SAR'))." {$c->old_amount} → ".e(__('SAR'))." {$c->new_amount}</td>
                                     <td class=\"py-2 px-3 text-sm\">{$delta}</td>
                                     <td class=\"py-2 px-3 text-sm\">{$by}{$note}</td>
                                 </tr>";

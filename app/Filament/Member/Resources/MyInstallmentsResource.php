@@ -30,9 +30,19 @@ class MyInstallmentsResource extends Resource
         return __('My Installments');
     }
 
+    public static function getModelLabel(): string
+    {
+        return __('Installment');
+    }
+
+    public static function getPluralModelLabel(): string
+    {
+        return __('My Installments');
+    }
+
     public static function getNavigationGroup(): ?string
     {
-        return __('app.nav.group.loans');
+        return 'loans';
     }
 
     public static function getNavigationBadge(): ?string
@@ -73,13 +83,24 @@ class MyInstallmentsResource extends Resource
                     ->visibleFrom('md')
                     ->label(__('#')),
                 Tables\Columns\TextColumn::make('amount')
+                    ->label(__('app.field.amount'))
                     ->money('SAR')
                     ->weight('bold'),
                 Tables\Columns\TextColumn::make('due_date')
-                    ->date('d M Y')
+                    ->label(__('app.field.due_date'))
+                    ->formatStateUsing(fn ($state) => $state instanceof \Carbon\CarbonInterface
+                        ? $state->locale(app()->getLocale())->translatedFormat('d M Y')
+                        : '')
                     ->sortable(),
                 Tables\Columns\TextColumn::make('status')
+                    ->label(__('app.field.status'))
                     ->badge()
+                    ->formatStateUsing(fn (string $state): string => match ($state) {
+                        'pending' => __('Pending'),
+                        'paid' => __('Paid'),
+                        'overdue' => __('Overdue'),
+                        default => __(ucfirst($state)),
+                    })
                     ->color(fn (string $state) => match ($state) {
                         'pending' => 'warning',
                         'paid' => 'success',
@@ -87,9 +108,12 @@ class MyInstallmentsResource extends Resource
                         default => 'gray',
                     }),
                 Tables\Columns\TextColumn::make('paid_at')
+                    ->label(__('app.field.paid_at'))
                     ->visibleFrom('md')
-                    ->dateTime('d M Y')
-                    ->placeholder('—'),
+                    ->formatStateUsing(fn ($state) => $state instanceof \Carbon\CarbonInterface
+                        ? $state->locale(app()->getLocale())->translatedFormat('d M Y')
+                        : '')
+                    ->placeholder(__('—')),
             ])
             ->defaultSort('due_date', 'asc')
             ->recordActions([
@@ -148,7 +172,7 @@ class MyInstallmentsResource extends Resource
                         }
 
                         return Loan::query()->where('member_id', $member->id)->orderByDesc('id')->get()
-                            ->mapWithKeys(fn (Loan $l) => [$l->id => 'Loan #'.$l->id]);
+                            ->mapWithKeys(fn (Loan $l) => [$l->id => __('Loan #:id', ['id' => $l->id])]);
                     }),
                 Tables\Filters\SelectFilter::make('status')
                     ->options([

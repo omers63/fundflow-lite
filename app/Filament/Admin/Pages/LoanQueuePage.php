@@ -31,7 +31,7 @@ class LoanQueuePage extends Page
 
     public static function getNavigationGroup(): ?string
     {
-        return __('app.nav.group.finance');
+        return 'finance';
     }
 
     public function getTitle(): string

@@ -132,7 +132,7 @@
                     <h4 class="text-white font-semibold text-sm mb-4">{{ __('Contact') }}</h4>
                     <ul class="space-y-2 text-sm text-slate-400">
                         <li>admin@fundflow.sa</li>
-                        <li class="phone-ltr"><bdi dir="ltr" class="phone-digits">+966 50 000 0000</bdi></li>
+                        <li><x-phone-display value="{{ '+966500000000' }}" /></li>
                     </ul>
                 </div>
             </div>

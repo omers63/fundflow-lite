@@ -77,7 +77,7 @@
                 @if($item['next_installment'])
                 <p class="mt-2.5 text-xs font-medium text-primary-600 dark:text-primary-400">
                     {{ __('Next: SAR :amount', ['amount' => number_format($item['next_installment']->amount, 2)]) }}
-                    &bull; {{ $item['next_installment']->due_date->format('d M Y') }}
+                    &bull; {{ $item['next_installment']->due_date->locale(app()->getLocale())->translatedFormat('d M Y') }}
                 </p>
                 @else
                 <p class="mt-2.5 text-xs text-gray-400">{{ __('No pending installments') }}</p>
@@ -138,7 +138,7 @@
             <x-heroicon-o-exclamation-triangle class="w-4 h-4 text-amber-500 flex-shrink-0" />
             <p class="text-xs text-amber-700 dark:text-amber-300">
                 <strong>{{ $loan->late_repayment_count }}</strong> {{ $loan->late_repayment_count > 1 ? __('late repayments') : __('late repayment') }}
-                — {{ __('SAR') }} {{ number_format($loan->late_repayment_amount, 2) }} total
+                — {{ __('SAR') }} {{ number_format($loan->late_repayment_amount, 2) }} {{ __('total') }}
             </p>
         </div>
         @endif
@@ -159,7 +159,7 @@
             <button
                 type="button"
                 wire:click="settleEarly({{ $loan->id }})"
-                wire:confirm="Debit your cash account for the full payoff amount and close this loan?"
+                wire:confirm="{{ __('Debit your cash account for the full payoff amount and close this loan?') }}"
                 class="inline-flex items-center justify-center gap-2 rounded-lg bg-emerald-600 px-4 py-2 text-sm font-semibold text-white shadow-sm hover:bg-emerald-500 focus:outline-none focus:ring-2 focus:ring-emerald-500 focus:ring-offset-2 dark:focus:ring-offset-gray-900"
             >
                 <x-heroicon-o-check-badge class="w-4 h-4" />

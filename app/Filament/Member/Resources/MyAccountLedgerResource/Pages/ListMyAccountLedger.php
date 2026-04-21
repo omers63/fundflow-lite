@@ -9,8 +9,13 @@ class ListMyAccountLedger extends ListRecords
 {
     protected static string $resource = MyAccountLedgerResource::class;
 
+    public function getTitle(): string
+    {
+        return __('My Ledger');
+    }
+
     public function getSubheading(): ?string
     {
-        return 'Full history of all credits and debits on your cash and fund accounts.';
+        return __('Full history of all credits and debits on your cash and fund accounts.');
     }
 }

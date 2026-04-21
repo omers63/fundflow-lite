@@ -11,6 +11,6 @@ class ListMyGuaranteedLoans extends ListRecords
 
     public function getTitle(): string
     {
-        return 'Loans I Guarantee';
+        return __('Loans I Guarantee');
     }
 }

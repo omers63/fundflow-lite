@@ -5,7 +5,7 @@
             <div class="mb-3 flex {{ $isMine ? 'justify-end' : 'justify-start' }}">
                 <div class="max-w-[85%]">
                     <p class="mb-1 text-[11px] text-gray-500 {{ $isMine ? 'text-right' : '' }}">
-                        {{ $msg->sender?->name ?? __('Unknown') }} · {{ $msg->created_at->format('d M Y H:i') }}
+                        {{ $msg->sender?->name ?? __('Unknown') }} · {{ $msg->created_at->locale(app()->getLocale())->translatedFormat('d M Y H:i') }}
                     </p>
                     <div class="rounded-xl px-3 py-2 text-sm whitespace-pre-wrap {{ $isMine ? 'bg-primary-600 text-white rounded-tr-none' : 'bg-white dark:bg-gray-800 text-gray-800 dark:text-gray-100 rounded-tl-none border border-gray-200 dark:border-gray-700' }}">
                         {{ $msg->body }}
@@ -34,6 +34,6 @@
         @endforelse
     </div>
     <p class="text-xs text-gray-500 dark:text-gray-400">
-        {{ __('Type your new message below and click "Send Message".') }}
+        {{ __('Type your new message below and click :action.', ['action' => __('Send Message')]) }}
     </p>
 </div>

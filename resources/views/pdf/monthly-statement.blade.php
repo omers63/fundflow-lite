@@ -253,7 +253,7 @@
                     <tr><td class="lbl">Full Name</td><td class="val">{{ $m['name'] ?? $statement->member->user->name }}</td></tr>
                     <tr><td class="lbl">Member No.</td><td class="val">{{ $m['member_number'] ?? $statement->member->member_number }}</td></tr>
                     <tr><td class="lbl">Email</td><td class="val">{{ $m['email'] ?? $statement->member->user->email }}</td></tr>
-                    <tr><td class="lbl">Phone</td><td class="val">{{ $m['phone'] ?? ($statement->member->user->phone ?? '—') }}</td></tr>
+                    <tr><td class="lbl">Phone</td><td class="val" dir="ltr" style="unicode-bidi:isolate;">{{ \App\Support\PhoneDisplay::plain($m['phone'] ?? $statement->member->user->phone ?? null) }}</td></tr>
                     <tr><td class="lbl">Member Since</td><td class="val">{{ isset($m['joined_at']) ? \Carbon\Carbon::parse($m['joined_at'])->format('d M Y') : ($statement->member->joined_at?->format('d M Y') ?? '—') }}</td></tr>
                 </table>
             </div>

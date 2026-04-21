@@ -23,16 +23,19 @@ class SupportRequest extends Model
 
     public const CATEGORY_OTHER = 'other';
 
-    /** @var array<string, string> */
-    public const CATEGORY_LABELS = [
-        self::CATEGORY_GENERAL_INQUIRY => 'General Inquiry',
-        self::CATEGORY_CASH_DEPOSIT => 'Cash Deposit Request',
-        self::CATEGORY_LOAN_INQUIRY => 'Loan Inquiry',
-        self::CATEGORY_CONTRIBUTION_QUERY => 'Contribution Query',
-        self::CATEGORY_BALANCE_QUERY => 'Balance / Account Query',
-        self::CATEGORY_COMPLAINT => 'Complaint',
-        self::CATEGORY_OTHER => 'Other',
-    ];
+    /** @return array<string, string> category value => localized label */
+    public static function categoryOptions(): array
+    {
+        return [
+            self::CATEGORY_GENERAL_INQUIRY => __('General Inquiry'),
+            self::CATEGORY_CASH_DEPOSIT => __('Cash Deposit Request'),
+            self::CATEGORY_LOAN_INQUIRY => __('Loan Inquiry'),
+            self::CATEGORY_CONTRIBUTION_QUERY => __('Contribution Query'),
+            self::CATEGORY_BALANCE_QUERY => __('Balance / Account Query'),
+            self::CATEGORY_COMPLAINT => __('Complaint'),
+            self::CATEGORY_OTHER => __('Other'),
+        ];
+    }
 
     protected $fillable = [
         'user_id',
@@ -54,6 +57,6 @@ class SupportRequest extends Model
 
     public static function categoryLabel(string $category): string
     {
-        return self::CATEGORY_LABELS[$category] ?? $category;
+        return self::categoryOptions()[$category] ?? $category;
     }
 }

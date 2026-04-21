@@ -37,7 +37,7 @@ class LoanRepaymentService
 
     public function periodLabel(int $month, int $year): string
     {
-        return date('F', mktime(0, 0, 0, $month, 1)) . ' ' . $year;
+        return app(ContributionCycleService::class)->periodLabel($month, $year);
     }
 
     // =========================================================================
@@ -249,18 +249,19 @@ class LoanRepaymentService
         }
 
         $total = $amount + $lateFee;
-        $extra = $lateFee > 0.00001
-            ? ' Master and member funds are credited the installment principal only; a late fee of SAR '
-                . number_format($lateFee, 2) . ' is credited to master cash only.'
-            : ' Fund postings match the repayment run.';
+        $period = app(ContributionCycleService::class)->currentOpenPeriodLabel();
+        $base = __('Debits SAR :total from the member cash account (balance: SAR :balance) for loan repayment in :period.', [
+            'total' => number_format($total, 2),
+            'balance' => number_format((float) $member->cash_balance, 2),
+            'period' => $period,
+        ]);
+        $note = $lateFee > 0.00001
+            ? __('Master and member funds are credited the installment principal only; a late fee of SAR :fee is credited to master cash only.', [
+                'fee' => number_format($lateFee, 2),
+            ])
+            : __('Fund postings match the repayment run.');
 
-        return sprintf(
-            'Debits SAR %s from the member cash account (balance: SAR %s) for loan repayment in %s.%s',
-            number_format($total, 2),
-            number_format((float) $member->cash_balance, 2),
-            app(ContributionCycleService::class)->currentOpenPeriodLabel(),
-            $extra,
-        );
+        return $base.' '.$note;
     }
 
     /**
@@ -326,7 +327,9 @@ class LoanRepaymentService
                 'total_amount' => (float) $r->total_amount,
                 'paid_count' => (int) $r->paid_count,
                 'late_count' => (int) $r->late_count,
-                'deadline' => $this->deadline((int) $r->month, (int) $r->year)->format('d M Y'),
+                'deadline' => $this->deadline((int) $r->month, (int) $r->year)
+                    ->locale(app()->getLocale())
+                    ->translatedFormat('d M Y'),
             ]);
     }
 }

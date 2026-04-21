@@ -45,7 +45,7 @@ class AdminPanelProvider extends PanelProvider
             ])
             ->plugins([
                 FilamentShieldPlugin::make()
-                    ->navigationGroup(__('app.nav.group.system'))
+                    ->navigationGroup('system')
                     ->navigationLabel(__('app.nav.system_roles'))
                     ->navigationSort(1)
                     ->gridColumns([
@@ -64,11 +64,11 @@ class AdminPanelProvider extends PanelProvider
                     ]),
             ])
             ->navigationGroups([
-                NavigationGroup::make(__('app.nav.group.membership')),
-                NavigationGroup::make(__('app.nav.group.finance')),
-                NavigationGroup::make(__('app.nav.group.settings'))
+                'membership' => NavigationGroup::make()->label(fn (): string => __('app.nav.group.membership')),
+                'finance' => NavigationGroup::make()->label(fn (): string => __('app.nav.group.finance')),
+                'settings' => NavigationGroup::make()->label(fn (): string => __('app.nav.group.settings'))
                     ->collapsed(),
-                NavigationGroup::make(__('app.nav.group.system'))
+                'system' => NavigationGroup::make()->label(fn (): string => __('app.nav.group.system'))
                     ->collapsed(),
             ])
             ->viteTheme('resources/css/filament/admin/theme.css')

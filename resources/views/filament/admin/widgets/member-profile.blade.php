@@ -80,7 +80,7 @@
                     <dt class="text-xs text-gray-400 dark:text-gray-500 w-20 flex-shrink-0 pt-0.5">{{ __('Phone') }}</dt>
                     <dd class="text-sm text-gray-900 dark:text-gray-100 font-medium">
                         @if($d['phone'])
-                            <span class="phone-ltr"><span class="phone-digits">{{ $d['phone'] }}</span></span>
+                            <x-phone-display :value="$d['phone']" />
                         @else
                             —
                         @endif
@@ -162,7 +162,7 @@
                     <div class="flex items-start gap-2">
                         <dt class="text-xs text-gray-400 dark:text-gray-500 w-12 flex-shrink-0 pt-0.5">{{ __('Phone') }}</dt>
                         <dd class="text-sm text-gray-900 dark:text-gray-100 font-medium">
-                            <span class="phone-ltr"><span class="phone-digits">{{ $d['next_of_kin_phone'] }}</span></span>
+                            <x-phone-display :value="$d['next_of_kin_phone']" />
                         </dd>
                     </div>
                     @endif

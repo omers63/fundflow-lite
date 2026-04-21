@@ -25,9 +25,19 @@ class MyGuaranteedLoansResource extends Resource
         return __('Loans I Guarantee');
     }
 
+    public static function getModelLabel(): string
+    {
+        return __('app.resource.loan');
+    }
+
+    public static function getPluralModelLabel(): string
+    {
+        return __('Loans I Guarantee');
+    }
+
     public static function getNavigationGroup(): ?string
     {
-        return __('app.nav.group.loans');
+        return 'loans';
     }
 
     /** Only show in the sidebar if the member is actually a guarantor for at least one loan. */
@@ -83,21 +93,32 @@ class MyGuaranteedLoansResource extends Resource
                 Tables\Columns\TextColumn::make('member.member_number')
                     ->label(__('Member #'))
                     ->visibleFrom('md')
-                    ->placeholder('—'),
+                    ->placeholder(__('—')),
                 Tables\Columns\TextColumn::make('loanTier.label')
                     ->label(__('Tier'))
                     ->visibleFrom('sm')
-                    ->placeholder('—'),
+                    ->placeholder(__('—')),
                 Tables\Columns\TextColumn::make('amount_approved')
                     ->label(__('Approved'))
                     ->money('SAR')
-                    ->placeholder('—'),
+                    ->placeholder(__('—')),
                 Tables\Columns\TextColumn::make('installments_count')
                     ->label(__('Months'))
                     ->visibleFrom('lg')
-                    ->placeholder('—'),
+                    ->placeholder(__('—')),
                 Tables\Columns\TextColumn::make('status')
+                    ->label(__('app.field.status'))
                     ->badge()
+                    ->formatStateUsing(fn (string $state): string => match ($state) {
+                        'pending' => __('Pending'),
+                        'approved' => __('Approved'),
+                        'active' => __('Active'),
+                        'completed' => __('Completed'),
+                        'early_settled' => __('Early Settled'),
+                        'rejected' => __('Rejected'),
+                        'cancelled' => __('Cancelled'),
+                        default => __(ucfirst(str_replace('_', ' ', $state))),
+                    })
                     ->color(fn (string $state) => match ($state) {
                         'pending' => 'warning',
                         'approved' => 'info',
@@ -120,7 +141,9 @@ class MyGuaranteedLoansResource extends Resource
                 Tables\Columns\TextColumn::make('guarantor_liability_transferred_at')
                     ->label(__('Liability Transferred'))
                     ->visibleFrom('lg')
-                    ->dateTime('d M Y')
+                    ->formatStateUsing(fn ($state) => $state instanceof \Carbon\CarbonInterface
+                        ? $state->locale(app()->getLocale())->translatedFormat('d M Y')
+                        : '')
                     ->placeholder(__('Not transferred'))
                     ->color('danger'),
             ])

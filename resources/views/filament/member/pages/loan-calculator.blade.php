@@ -10,7 +10,7 @@
                 <p class="text-sm font-semibold text-primary-800 dark:text-primary-300">{{ __('Estimate your loan repayment') }}</p>
                 <p class="text-sm text-primary-700 dark:text-primary-400 mt-1">
                     {{ __('Enter an amount to see how many monthly installments you would need to repay it.') }}
-                    Calculations use your current fund balance ({{ __('SAR') }} {{ number_format($this->memberFundBalance, 2) }})
+                    {{ __('Calculations use your current fund balance (:currency :amount)', ['currency' => __('SAR'), 'amount' => number_format($this->memberFundBalance, 2)]) }}
                     {{ __('and the active loan tier settings.') }}
                     {{ __('The :percent% settlement threshold is included.', ['percent' => round($this->settlementPct * 100)]) }}
                 </p>

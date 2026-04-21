@@ -211,7 +211,7 @@ class Member extends Model
     {
         return array_combine(
             self::CONTRIBUTION_STEPS,
-            array_map(fn($v) => 'SAR ' . number_format($v), self::CONTRIBUTION_STEPS)
+            array_map(fn($v) => __('SAR').' '.number_format($v), self::CONTRIBUTION_STEPS)
         );
     }
 

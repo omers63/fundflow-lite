@@ -21,6 +21,7 @@ use App\Services\ContributionCycleService;
 use App\Services\LoanEligibilityService;
 use App\Services\LoanRepaymentService;
 use App\Services\MemberDeletionService;
+use App\Support\PhoneDisplay;
 use Filament\Actions\Action;
 use Filament\Actions\ActionGroup;
 use Filament\Actions\BulkAction;
@@ -58,7 +59,7 @@ class MemberResource extends Resource
 
     public static function getNavigationGroup(): ?string
     {
-        return __('app.nav.group.membership');
+        return 'membership';
     }
 
     public static function form(Schema $schema): Schema
@@ -284,6 +285,7 @@ class MemberResource extends Resource
                     }),
                 Tables\Columns\TextColumn::make('user.phone')
                     ->label('Phone')
+                    ->formatStateUsing(fn (?string $state): \Illuminate\Support\HtmlString => PhoneDisplay::toHtml($state))
                     ->searchable(),
                 Tables\Columns\TextColumn::make('user.email')
                     ->label('Email')

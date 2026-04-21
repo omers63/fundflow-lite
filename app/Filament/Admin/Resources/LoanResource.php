@@ -23,6 +23,7 @@ use App\Services\LoanImportService;
 use App\Services\LoanEarlySettlementService;
 use App\Services\LoanEligibilityService;
 use App\Services\LoanQueueOrderingService;
+use App\Support\PhoneDisplay;
 use Carbon\Carbon;
 use Closure;
 use Filament\Actions\Action;
@@ -65,7 +66,7 @@ class LoanResource extends Resource
 
     public static function getNavigationGroup(): ?string
     {
-        return __('app.nav.group.finance');
+        return 'finance';
     }
 
     public static function getNavigationBadge(): ?string
@@ -1168,13 +1169,15 @@ class LoanResource extends Resource
                             ->placeholder('—'),
                         TextEntry::make('witness1_phone')
                             ->label('Witness 1 — phone')
-                            ->placeholder('—'),
+                            ->placeholder('—')
+                            ->formatStateUsing(fn (?string $state): \Illuminate\Support\HtmlString => PhoneDisplay::toHtml($state)),
                         TextEntry::make('witness2_name')
                             ->label('Witness 2 — name')
                             ->placeholder('—'),
                         TextEntry::make('witness2_phone')
                             ->label('Witness 2 — phone')
-                            ->placeholder('—'),
+                            ->placeholder('—')
+                            ->formatStateUsing(fn (?string $state): \Illuminate\Support\HtmlString => PhoneDisplay::toHtml($state)),
                     ])->columns(2),
             ]);
     }

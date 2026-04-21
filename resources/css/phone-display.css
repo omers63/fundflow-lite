@@ -1,0 +1,19 @@
+/* E.164-style phones: keep +966 on the visual start (left) in RTL layouts */
+.phone-display-e164 {
+    direction: ltr;
+    unicode-bidi: isolate;
+    display: inline-flex;
+    align-items: baseline;
+    white-space: nowrap;
+    font-variant-numeric: tabular-nums;
+}
+
+.phone-display-e164 .phone-cc {
+    flex-shrink: 0;
+}
+
+input[type='tel'] {
+    direction: ltr;
+    text-align: left;
+    unicode-bidi: isolate;
+}

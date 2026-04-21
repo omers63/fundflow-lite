@@ -25,7 +25,7 @@ class LoanCalculatorPage extends Page
 
     public static function getNavigationGroup(): ?string
     {
-        return __('app.nav.group.loans');
+        return 'loans';
     }
 
     // =========================================================================

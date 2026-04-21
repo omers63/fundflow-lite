@@ -22,7 +22,7 @@
             </p>
             @if($d['isSuspended'])
             <p class="text-xs text-red-600 dark:text-red-400 mt-2 font-semibold">
-                {{ __('Account suspended on:') }} {{ $d['suspendedAt']?->format('d F Y') }}
+                {{ __('Account suspended on:') }} {{ $d['suspendedAt']?->locale(app()->getLocale())->translatedFormat('d F Y') }}
             </p>
             @endif
         </div>

@@ -17,12 +17,29 @@ class ViewMyLoan extends ViewRecord
 
     protected string $view = 'filament.member.pages.view-my-loan';
 
+    public static function loanStatusLabel(string $status): string
+    {
+        return match ($status) {
+            'pending' => __('Pending'),
+            'approved' => __('Approved'),
+            'active' => __('Active'),
+            'completed' => __('Completed'),
+            'early_settled' => __('Early Settled'),
+            'rejected' => __('Rejected'),
+            'cancelled' => __('Cancelled'),
+            default => __(ucfirst(str_replace('_', ' ', $status))),
+        };
+    }
+
     public function getTitle(): string
     {
         /** @var Loan $record */
         $record = $this->getRecord();
 
-        return 'Loan #' . $record->id . ' — ' . ucfirst(str_replace('_', ' ', $record->status));
+        return __('Loan #:id — :status', [
+            'id' => $record->id,
+            'status' => self::loanStatusLabel((string) $record->status),
+        ]);
     }
 
     protected function getHeaderActions(): array
@@ -31,7 +48,7 @@ class ViewMyLoan extends ViewRecord
         $record = $this->getRecord();
 
         $downloadSchedule = Action::make('download_schedule')
-            ->label('Download Schedule')
+            ->label(__('Download Schedule'))
             ->icon('heroicon-o-arrow-down-tray')
             ->color('gray')
             ->url(fn() => route('member.loan.schedule', $record))
@@ -48,35 +65,35 @@ class ViewMyLoan extends ViewRecord
 
         return [
             Action::make('pay_installment')
-                ->label('Pay Installment')
+                ->label(__('Pay Installment'))
                 ->icon('heroicon-o-credit-card')
                 ->color('primary')
                 ->visible($canPay)
                 ->disabled($insufficientCash)
                 ->requiresConfirmation()
-                ->modalHeading('Pay Your Loan Installment')
+                ->modalHeading(__('Pay Your Loan Installment'))
                 ->modalDescription($me ? $svc->openPeriodRepaymentModalDescription($me) : '')
-                ->modalSubmitActionLabel('Pay Now')
+                ->modalSubmitActionLabel(__('Pay Now'))
                 ->action(function () use ($record) {
                     $member = Member::where('user_id', auth()->id())->with(['user', 'accounts'])->first();
                     if (!$member || (int) $record->member_id !== (int) $member->id) {
-                        Notification::make()->title('Unauthorized')->danger()->send();
+                        Notification::make()->title(__('Unauthorized'))->danger()->send();
                         return;
                     }
                     $outcome = app(LoanRepaymentService::class)->applyOpenPeriodRepaymentForMember($member);
                     match ($outcome) {
-                        'applied' => Notification::make()->title('Installment Paid')->body('Your installment for this period has been paid.')->success()->send(),
-                        'insufficient' => Notification::make()->title('Insufficient Balance')->body('Not enough cash balance to cover this installment.')->danger()->send(),
-                        default => Notification::make()->title('Nothing to Pay')->body('No installment is due for the current period.')->warning()->send(),
+                        'applied' => Notification::make()->title(__('Installment Paid'))->body(__('Your installment for this period has been paid.'))->success()->send(),
+                        'insufficient' => Notification::make()->title(__('Insufficient Balance'))->body(__('Not enough cash balance to cover this installment.'))->danger()->send(),
+                        default => Notification::make()->title(__('Nothing to Pay'))->body(__('No installment is due for the current period.'))->warning()->send(),
                     };
                 }),
 
             Action::make('early_settle')
-                ->label('Pay Off Early')
+                ->label(__('Pay Off Early'))
                 ->icon('heroicon-o-check-badge')
                 ->color('success')
                 ->requiresConfirmation()
-                ->modalHeading('Pay off your loan early')
+                ->modalHeading(__('Pay off your loan early'))
                 ->modalDescription(function () use ($record) {
                     $svc = app(LoanEarlySettlementService::class);
                     $me = Member::where('user_id', auth()->id())->first();
@@ -84,15 +101,15 @@ class ViewMyLoan extends ViewRecord
                     $balance  = (float) ($me?->cash_balance ?? 0);
                     $principal = $record->remaining_amount;
 
-                    return 'Installments remaining (principal): SAR ' . number_format($principal, 2)
-                        . '. Total cash required (including late fees): SAR ' . number_format($required, 2)
-                        . '. Your cash balance: SAR ' . number_format($balance, 2)
-                        . '. The full amount will be debited from your cash account and the loan will close.';
+                    return __('Installments remaining (principal): SAR').' '.number_format($principal, 2)
+                        .'. '.__('Total cash required now (including any late fees): SAR').' '.number_format($required, 2)
+                        .'. '.__('Your cash balance: SAR').' '.number_format($balance, 2)
+                        .'. '.__('The full amount will be debited from your cash account and this loan will close.');
                 })
                 ->action(function () use ($record) {
                     $me = Member::where('user_id', auth()->id())->first();
                     if (!$me || (int) $record->member_id !== (int) $me->id) {
-                        Notification::make()->title('Unauthorized')->danger()->send();
+                        Notification::make()->title(__('Unauthorized'))->danger()->send();
 
                         return;
                     }
@@ -101,7 +118,7 @@ class ViewMyLoan extends ViewRecord
                         app(LoanEarlySettlementService::class)->earlySettle($record);
                     } catch (\InvalidArgumentException | \RuntimeException $e) {
                         Notification::make()
-                            ->title('Could not complete early payoff')
+                            ->title(__('Could not complete early payoff'))
                             ->body($e->getMessage())
                             ->danger()
                             ->send();
@@ -110,8 +127,8 @@ class ViewMyLoan extends ViewRecord
                     }
 
                     Notification::make()
-                        ->title('Loan paid off')
-                        ->body('Your loan is now closed.')
+                        ->title(__('Loan paid off'))
+                        ->body(__('Your loan is now closed.'))
                         ->success()
                         ->send();
 
