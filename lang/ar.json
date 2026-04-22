@@ -2282,5 +2282,7 @@
   "Examples: /SAR\\s*(?P<amount>[\\d,]+\\.?\\d*)/i  ·  /Amount:\\s*(?P<amount>[\\d.]+)/  ·  /(?P<amount>[\\d,]+\\.\\d{2})\\s*SAR/i": "أمثلة: /SAR\\s*(?P<amount>[\\d,]+\\.?\\d*)/i  ·  /Amount:\\s*(?P<amount>[\\d.]+)/  ·  /(?P<amount>[\\d,]+\\.\\d{2})\\s*SAR/i",
   "Example pattern: /on\\s+(?P<date>\\d{2}\\/\\d{2}\\/\\d{4})/i  →  format: d/m/Y": "مثال للنمط: /on\\s+(?P<date>\\d{2}\\/\\d{2}\\/\\d{4})/i  →  التنسيق: d/m/Y",
   "Examples: /[Rr]ef[:\\s]+(?P<reference>\\w+)/  ·  /TRN[:\\s]*(?P<reference>\\d+)/i": "أمثلة: /[Rr]ef[:\\s]+(?P<reference>\\w+)/  ·  /TRN[:\\s]*(?P<reference>\\d+)/i",
-  "Examples: /Account[:\\s]+(?P<member>\\d+)/i matches member by account/number · /Name[:\\s]+(?P<member>[A-Za-z\\s]+)/i matches by name": "أمثلة: /Account[:\\s]+(?P<member>\\d+)/i يطابق العضو حسب الحساب/الرقم · /Name[:\\s]+(?P<member>[A-Za-z\\s]+)/i يطابق حسب الاسم"
+  "Examples: /Account[:\\s]+(?P<member>\\d+)/i matches member by account/number · /Name[:\\s]+(?P<member>[A-Za-z\\s]+)/i matches by name": "أمثلة: /Account[:\\s]+(?P<member>\\d+)/i يطابق العضو حسب الحساب/الرقم · /Name[:\\s]+(?P<member>[A-Za-z\\s]+)/i يطابق حسب الاسم",
+  "Create Bank Import Template": "إنشاء قالب استيراد بنكي",
+  "Edit Bank Import Template": "تعديل قالب الاستيراد البنكي"
 }

@@ -10,6 +10,11 @@ class EditBankImportTemplate extends EditRecord
 {
     protected static string $resource = BankImportTemplateResource::class;
 
+    public function getTitle(): string
+    {
+        return __('Edit Bank Import Template');
+    }
+
     /**
      * @param  array<string, mixed>  $data
      * @return array<string, mixed>

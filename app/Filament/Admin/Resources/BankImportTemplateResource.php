@@ -27,6 +27,10 @@ class BankImportTemplateResource extends Resource
 {
     protected static ?string $model = BankImportTemplate::class;
 
+    protected static ?string $modelLabel = null;
+
+    protected static ?string $pluralModelLabel = null;
+
     protected static string|\BackedEnum|null $navigationIcon = 'heroicon-o-table-cells';
 
     protected static ?string $navigationLabel = null;
@@ -36,6 +40,16 @@ class BankImportTemplateResource extends Resource
     public static function getNavigationLabel(): string
     {
         return __('Import Templates');
+    }
+
+    public static function getModelLabel(): string
+    {
+        return __('Bank Import Template');
+    }
+
+    public static function getPluralModelLabel(): string
+    {
+        return __('Bank Import Templates');
     }
 
     public static function shouldRegisterNavigation(): bool

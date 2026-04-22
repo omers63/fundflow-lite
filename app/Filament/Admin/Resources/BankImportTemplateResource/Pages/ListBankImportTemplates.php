@@ -10,8 +10,16 @@ class ListBankImportTemplates extends ListRecords
 {
     protected static string $resource = BankImportTemplateResource::class;
 
+    public function getTitle(): string
+    {
+        return __('Bank Import Templates');
+    }
+
     protected function getHeaderActions(): array
     {
-        return [CreateAction::make()];
+        return [
+            CreateAction::make()
+                ->label(__('Create Bank Import Template')),
+        ];
     }
 }
