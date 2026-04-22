@@ -1102,6 +1102,122 @@ class AccountingService
     }
 
     // =========================================================================
+    // Accounting reversal (non-destructive counter-entry)
+    // =========================================================================
+
+    /**
+     * Post an equal-and-opposite counter-entry on the SAME account, leaving the original
+     * entry intact.  This is the audit-safe way to correct a posted ledger line — both the
+     * original and the reversal remain visible in the ledger history.
+     *
+     * The counter-entry's source is set to the original AccountTransaction so reversals
+     * are fully queryable via source_type / source_id.
+     */
+    public function createReversalEntry(
+        AccountTransaction $original,
+        string $reason,
+        ?\Illuminate\Support\Carbon $at = null,
+    ): AccountTransaction {
+        if ($original->trashed()) {
+            throw new \InvalidArgumentException('Cannot reverse a deleted (soft-deleted) entry. Restore it first.');
+        }
+
+        $trimmed = trim($reason);
+        if ($trimmed === '') {
+            throw new \InvalidArgumentException('A reason is required for a reversal entry.');
+        }
+
+        return DB::transaction(function () use ($original, $trimmed, $at) {
+            $account     = Account::query()->lockForUpdate()->findOrFail($original->account_id);
+            $counterType = $original->entry_type === 'credit' ? 'debit' : 'credit';
+            $description = 'Reversal of #' . $original->id . ': '
+                . ($original->description ?? '—')
+                . ' — ' . $trimmed;
+
+            // Use the authenticated user as the source model (same pattern as manual entries)
+            // but override the source columns after postEntry so they point at the original row.
+            $authUser = User::query()->findOrFail(auth()->id() ?? 1);
+            $entry = $this->postEntry(
+                $account,
+                (float) $original->amount,
+                $counterType,
+                $description,
+                $authUser,
+                $original->member_id,
+                $at ?? now(),
+            );
+
+            // Overwrite source to point at the original AccountTransaction so it is queryable.
+            $entry->update([
+                'source_type' => (new AccountTransaction)->getMorphClass(),
+                'source_id'   => $original->id,
+            ]);
+
+            return $entry->fresh();
+        });
+    }
+
+    /**
+     * Reverse ALL non-deleted ledger entries that share the same source record
+     * (source_type + source_id) as the given entry.
+     *
+     * Useful when a single business event (e.g. a Contribution posting) created
+     * multiple ledger lines across accounts and all legs need to be unwound.
+     *
+     * @return int  Number of counter-entries created.
+     */
+    public function createFullSourceReversal(
+        AccountTransaction $anyEntry,
+        string $reason,
+        ?\Illuminate\Support\Carbon $at = null,
+    ): int {
+        if (blank($anyEntry->source_type) || blank($anyEntry->source_id)) {
+            throw new \InvalidArgumentException('This entry has no source reference — use single-entry reversal instead.');
+        }
+
+        $siblings = AccountTransaction::query()
+            ->where('source_type', $anyEntry->source_type)
+            ->where('source_id', $anyEntry->source_id)
+            ->get();
+
+        if ($siblings->isEmpty()) {
+            throw new \InvalidArgumentException('No ledger entries found for this source.');
+        }
+
+        $count = 0;
+        DB::transaction(function () use ($siblings, $reason, $at, &$count) {
+            foreach ($siblings as $entry) {
+                if ($entry->trashed()) {
+                    continue;
+                }
+                $this->createReversalEntry($entry, $reason, $at);
+                $count++;
+            }
+        });
+
+        return $count;
+    }
+
+    /**
+     * True when at least one non-deleted reversal counter-entry already exists for this row.
+     */
+    public function hasExistingReversal(AccountTransaction $entry): bool
+    {
+        return AccountTransaction::query()
+            ->where('source_type', (new AccountTransaction)->getMorphClass())
+            ->where('source_id', $entry->id)
+            ->exists();
+    }
+
+    /**
+     * True when this entry itself is a reversal counter-entry (its source points to another AccountTransaction).
+     */
+    public function isReversalEntry(AccountTransaction $entry): bool
+    {
+        return $entry->source_type === (new AccountTransaction)->getMorphClass();
+    }
+
+    // =========================================================================
     // Split transaction (master cash only)
     // =========================================================================
 

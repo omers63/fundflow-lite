@@ -199,8 +199,20 @@ class TransactionsRelationManager extends RelationManager
                     ->color(fn (AccountTransaction $r) => $r->entry_type === 'credit' ? 'success' : 'danger')
                     ->toggleable(),
                 Tables\Columns\TextColumn::make('description')
-                    ->limit(60)
-                    ->placeholder(__('—'))
+                    ->formatStateUsing(function (AccountTransaction $record): string {
+                        $desc = $record->description ?? '—';
+                        $isReversal = $record->source_type === (new AccountTransaction)->getMorphClass();
+                        if ($isReversal) {
+                            $desc = '↩ ' . $desc;
+                        }
+
+                        return $desc;
+                    })
+                    ->limit(65)
+                    ->tooltip(fn (AccountTransaction $record): ?string => $record->description)
+                    ->color(fn (AccountTransaction $record): string =>
+                        $record->source_type === (new AccountTransaction)->getMorphClass() ? 'warning' : 'gray'
+                    )
                     ->toggleable(),
                 Tables\Columns\TextColumn::make('member.user.name')
                     ->label(__('Member'))
@@ -209,7 +221,11 @@ class TransactionsRelationManager extends RelationManager
                     ->toggleable(),
                 Tables\Columns\TextColumn::make('source_type')
                     ->label(__('Source'))
-                    ->formatStateUsing(fn ($state) => $state ? class_basename($state) : __('—'))
+                    ->formatStateUsing(fn (AccountTransaction $record): string =>
+                        $record->source_type === (new AccountTransaction)->getMorphClass()
+                            ? __('Reversal of #:id', ['id' => $record->source_id])
+                            : ($record->source_type ? class_basename($record->source_type) : __('—'))
+                    )
                     ->toggleable(),
                 Tables\Columns\TextColumn::make('postedBy.name')
                     ->label(__('Posted By'))
@@ -361,6 +377,112 @@ class TransactionsRelationManager extends RelationManager
                                 ->title(__('Transaction split into :count parts', ['count' => count($parts)]))
                                 ->success()
                                 ->send();
+
+                            $this->resetTable();
+                            $this->dispatchAccountWidgetsRefresh();
+                        }),
+                    // Reverse Entry — non-destructive counter-entry on any account
+                    Action::make('reverseEntry')
+                        ->label(__('Reverse Entry'))
+                        ->icon('heroicon-o-arrow-uturn-left')
+                        ->color('danger')
+                        ->modalHeading(__('Create Reversal Entry'))
+                        ->modalDescription(fn (AccountTransaction $record): HtmlString => new HtmlString(
+                            '<p class="text-sm text-gray-600 dark:text-gray-400 leading-relaxed">'
+                            . __('Posts an equal-and-opposite counter-entry on the same account, leaving the original intact. Both entries remain in the audit trail.')
+                            . '</p>'
+                            . '<div class="mt-2 rounded-lg bg-gray-50 dark:bg-white/5 border border-gray-200 dark:border-white/10 px-3 py-2 text-xs text-gray-600 dark:text-gray-300 space-y-0.5">'
+                            . '<div><span class="font-medium">' . __('Entry #:id', ['id' => $record->id]) . '</span> · '
+                            . ($record->entry_type === 'credit' ? '<span class="text-emerald-600">' . __('Credit') . '</span>' : '<span class="text-red-600">' . __('Debit') . '</span>')
+                            . ' · SAR ' . number_format((float) $record->amount, 2) . '</div>'
+                            . '<div class="text-gray-400 dark:text-gray-500 truncate">' . e($record->description ?? '—') . '</div>'
+                            . '</div>'
+                        ))
+                        ->modalSubmitActionLabel(__('Post Reversal'))
+                        ->visible(fn (AccountTransaction $record): bool => ! $record->trashed())
+                        ->authorize(fn (): bool => auth()->user()?->can('update', $this->getOwnerRecord()) ?? false)
+                        ->schema(fn (AccountTransaction $record): array => [
+                            // Warning when this entry is itself a reversal
+                            Forms\Components\Placeholder::make('already_reversal_warning')
+                                ->label('')
+                                ->content(new HtmlString(
+                                    '<div class="rounded-lg bg-amber-50 dark:bg-amber-950/30 border border-amber-200 dark:border-amber-800/50 px-3 py-2 text-xs text-amber-700 dark:text-amber-300">'
+                                    . '⚠ ' . __('This entry is itself a reversal. Reversing it again will create a new corrective entry.')
+                                    . '</div>'
+                                ))
+                                ->visible(fn (): bool => app(AccountingService::class)->isReversalEntry($record)),
+
+                            // Warning when a reversal already exists
+                            Forms\Components\Placeholder::make('existing_reversal_warning')
+                                ->label('')
+                                ->content(new HtmlString(
+                                    '<div class="rounded-lg bg-amber-50 dark:bg-amber-950/30 border border-amber-200 dark:border-amber-800/50 px-3 py-2 text-xs text-amber-700 dark:text-amber-300">'
+                                    . '⚠ ' . __('A reversal entry already exists for this row. You may still proceed to create an additional reversal.')
+                                    . '</div>'
+                                ))
+                                ->visible(fn (): bool => app(AccountingService::class)->hasExistingReversal($record)),
+
+                            Forms\Components\Textarea::make('reason')
+                                ->label(__('Reason for reversal'))
+                                ->required()
+                                ->rows(2)
+                                ->maxLength(500)
+                                ->helperText(__('Appears in the counter-entry description for audit purposes.')),
+
+                            Forms\Components\DateTimePicker::make('transacted_at')
+                                ->label(__('Reversal date'))
+                                ->default(now())
+                                ->required()
+                                ->seconds(false),
+
+                            Forms\Components\Toggle::make('reverse_all_related')
+                                ->label(__('Reverse all related entries (same source)'))
+                                ->helperText(fn (): string => filled($record->source_type) && $record->source_type !== (new AccountTransaction)->getMorphClass()
+                                    ? __('Also reverses all other ledger lines that share the same source (:source #:id) across all accounts.', [
+                                        'source' => class_basename($record->source_type),
+                                        'id'     => $record->source_id,
+                                    ])
+                                    : __('No siblings found — single-entry reversal only.')
+                                )
+                                ->visible(fn (): bool =>
+                                    filled($record->source_type)
+                                    && $record->source_type !== (new AccountTransaction)->getMorphClass()
+                                )
+                                ->default(false),
+                        ])
+                        ->action(function (AccountTransaction $record, array $data): void {
+                            $reason = (string) $data['reason'];
+                            $at     = \Illuminate\Support\Carbon::parse($data['transacted_at']);
+                            $svc    = app(AccountingService::class);
+                            $reverseAll = (bool) ($data['reverse_all_related'] ?? false);
+
+                            try {
+                                if ($reverseAll && filled($record->source_type) && $record->source_type !== (new AccountTransaction)->getMorphClass()) {
+                                    $count = $svc->createFullSourceReversal($record, $reason, $at);
+                                    Notification::make()
+                                        ->title(__('Reversed :count related entries', ['count' => $count]))
+                                        ->success()
+                                        ->send();
+                                } else {
+                                    $svc->createReversalEntry($record, $reason, $at);
+                                    Notification::make()
+                                        ->title(__('Reversal entry posted'))
+                                        ->body(__('Counter-entry for #:id created on :account', [
+                                            'id'      => $record->id,
+                                            'account' => $this->getOwnerRecord()->name,
+                                        ]))
+                                        ->success()
+                                        ->send();
+                                }
+                            } catch (\Throwable $e) {
+                                report($e);
+                                Notification::make()
+                                    ->title(__('Reversal failed'))
+                                    ->body($e->getMessage())
+                                    ->danger()
+                                    ->send();
+                                throw new Halt;
+                            }
 
                             $this->resetTable();
                             $this->dispatchAccountWidgetsRefresh();

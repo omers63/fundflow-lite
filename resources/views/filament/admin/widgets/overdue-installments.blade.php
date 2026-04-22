@@ -20,11 +20,11 @@
             </div>
             <div class="flex items-center gap-4 text-sm">
                 <span class="text-gray-500 dark:text-gray-400">
-                    {{ __('Principal:') }} <strong class="text-red-600 dark:text-red-400">﷼ {{ number_format($d['total_overdue_amount'], 0) }}</strong>
+                    {{ __('Principal:') }} <strong class="text-red-600 dark:text-red-400">SAR {{ number_format($d['total_overdue_amount'], 0) }}</strong>
                 </span>
                 @if($d['total_overdue_fees'] > 0)
                 <span class="text-gray-500 dark:text-gray-400">
-                    {{ __('Late fees:') }} <strong class="text-orange-600 dark:text-orange-400">﷼ {{ number_format($d['total_overdue_fees'], 0) }}</strong>
+                    {{ __('Late fees:') }} <strong class="text-orange-600 dark:text-orange-400">SAR {{ number_format($d['total_overdue_fees'], 0) }}</strong>
                 </span>
                 @endif
             </div>
@@ -64,11 +64,11 @@
                         <td class="px-5 py-3 text-gray-700 dark:text-gray-300">#{{ $item['installment_no'] }}</td>
                         <td class="px-5 py-3 text-gray-700 dark:text-gray-300">{{ $item['due_date'] }}</td>
                         <td class="px-5 py-3 text-right font-medium text-gray-900 dark:text-white">
-                            ﷼ {{ number_format($item['amount'], 0) }}
+                            SAR {{ number_format($item['amount'], 0) }}
                         </td>
                         <td class="px-5 py-3 text-right">
                             @if($item['late_fee'] > 0)
-                            <span class="font-medium text-orange-600 dark:text-orange-400">﷼ {{ number_format($item['late_fee'], 0) }}</span>
+                            <span class="font-medium text-orange-600 dark:text-orange-400">SAR {{ number_format($item['late_fee'], 0) }}</span>
                             @else
                             <span class="text-gray-400">—</span>
                             @endif

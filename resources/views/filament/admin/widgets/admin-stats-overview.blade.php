@@ -71,7 +71,7 @@
                 <span class="text-xs font-medium text-indigo-500 dark:text-indigo-400">{{ __('cumulative') }}</span>
             </div>
             <div>
-                <p class="text-2xl font-bold text-gray-900 dark:text-white">﷼ {{ number_format($d['total_fund'], 0) }}</p>
+                <p class="text-2xl font-bold text-gray-900 dark:text-white">SAR {{ number_format($d['total_fund'], 0) }}</p>
                 <p class="mt-0.5 text-xs font-medium text-gray-500 dark:text-gray-400">{{ __('Total Fund (Cumulative)') }}</p>
             </div>
             <div class="h-1 rounded-full bg-gray-100 dark:bg-gray-700">
@@ -88,7 +88,7 @@
                 <span class="text-xs font-medium text-violet-600 dark:text-violet-400">{{ __('this month') }}</span>
             </div>
             <div>
-                <p class="text-2xl font-bold text-gray-900 dark:text-white">﷼ {{ number_format($d['contrib_this_month'], 0) }}</p>
+                <p class="text-2xl font-bold text-gray-900 dark:text-white">SAR {{ number_format($d['contrib_this_month'], 0) }}</p>
                 <p class="mt-0.5 text-xs font-medium text-gray-500 dark:text-gray-400">{{ __('Contributions (Month)') }}</p>
             </div>
             <div class="h-1 rounded-full bg-gray-100 dark:bg-gray-700">
@@ -127,7 +127,7 @@
                     <x-heroicon-o-exclamation-circle class="w-5 h-5 {{ $d['overdue_count'] > 0 ? 'text-red-600 dark:text-red-400' : 'text-gray-400' }}" />
                 </div>
                 @if($d['overdue_amount'] > 0)
-                <span class="text-xs font-medium text-red-600 dark:text-red-400">﷼ {{ number_format($d['overdue_amount'], 0) }}</span>
+                <span class="text-xs font-medium text-red-600 dark:text-red-400">SAR {{ number_format($d['overdue_amount'], 0) }}</span>
                 @endif
             </div>
             <div>

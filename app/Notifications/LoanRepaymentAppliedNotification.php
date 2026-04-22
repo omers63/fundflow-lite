@@ -2,6 +2,7 @@
 
 namespace App\Notifications;
 
+use App\Notifications\Concerns\LocalizesCommunication;
 use App\Channels\TwilioWhatsAppChannel;
 use App\Models\Loan;
 use App\Models\LoanInstallment;
@@ -15,6 +16,7 @@ use NotificationChannels\Twilio\TwilioSmsMessage;
 class LoanRepaymentAppliedNotification extends Notification
 {
     use Queueable;
+    use LocalizesCommunication;
 
     public function __construct(
         public readonly Loan            $loan,
@@ -34,29 +36,37 @@ class LoanRepaymentAppliedNotification extends Notification
 
     private function shortBody(): string
     {
-        $late = $this->isLate ? ' (late)' : '';
-        return sprintf(
-            'Installment %d/%d (SAR %s) applied%s. Remaining: SAR %s. Cash balance: SAR %s.',
-            $this->installment->installment_number,
-            $this->loan->installments_count,
-            number_format((float) $this->installment->amount, 2),
-            $late,
-            number_format($this->loan->remaining_amount, 2),
-            number_format($this->cashBalance, 2)
+        return $this->tr(
+            'Installment :number/:count (SAR :amount) applied:late_suffix. Remaining: SAR :remaining. Cash balance: SAR :balance.',
+            'تم تطبيق القسط :number/:count (SAR :amount):late_suffix. المتبقي: SAR :remaining. الرصيد النقدي: SAR :balance.',
+            [
+                'number' => $this->installment->installment_number,
+                'count' => $this->loan->installments_count,
+                'amount' => number_format((float) $this->installment->amount, 2),
+                'late_suffix' => $this->isLate ? $this->tr(' (late)', ' (متأخر)') : '',
+                'remaining' => number_format($this->loan->remaining_amount, 2),
+                'balance' => number_format($this->cashBalance, 2),
+            ],
         );
     }
 
     public function toDatabase(mixed $notifiable): array
     {
-        return ['title' => "Loan Repayment Applied – Installment #{$this->installment->installment_number}", 'body' => $this->shortBody(), 'icon' => $this->isLate ? 'heroicon-o-exclamation-circle' : 'heroicon-o-check-circle', 'color' => $this->isLate ? 'warning' : 'success'];
+        return ['title' => $this->tr('Loan Repayment Applied – Installment #:number', 'تم تطبيق سداد القرض – القسط رقم :number', ['number' => $this->installment->installment_number]), 'body' => $this->shortBody(), 'icon' => $this->isLate ? 'heroicon-o-exclamation-circle' : 'heroicon-o-check-circle', 'color' => $this->isLate ? 'warning' : 'success'];
     }
 
     public function toMail(mixed $notifiable): MailMessage
     {
-        NotificationLog::create(['user_id' => $notifiable->id, 'channel' => 'mail', 'subject' => 'Loan Repayment Applied', 'body' => $this->shortBody(), 'status' => 'sent', 'sent_at' => now()]);
-        $mail = (new MailMessage)->subject("FundFlow — Loan Repayment Account Statement")->greeting("Dear {$notifiable->name},")->line("**Installment #{$this->installment->installment_number}** of **{$this->loan->installments_count}** has been applied.")->line("**Amount:** SAR " . number_format((float) $this->installment->amount, 2))->line("**Remaining Loan Balance:** SAR " . number_format($this->loan->remaining_amount, 2))->line("**Remaining Cash Balance:** SAR " . number_format($this->cashBalance, 2));
-        if ($this->isLate) { $mail->line("⚠️ This repayment was recorded as late."); }
-        return $mail->action('View My Loans', url('/member'));
+        NotificationLog::create(['user_id' => $notifiable->id, 'channel' => 'mail', 'subject' => $this->tr('Loan Repayment Applied', 'تم تطبيق سداد القرض'), 'body' => $this->shortBody(), 'status' => 'sent', 'sent_at' => now()]);
+        $mail = (new MailMessage)
+            ->subject($this->tr('FundFlow — Loan Repayment Account Statement', 'FundFlow — كشف حساب سداد القرض'))
+            ->greeting($this->tr('Dear :name,', 'عزيزي/عزيزتي :name،', ['name' => $notifiable->name]))
+            ->line($this->tr('**Installment #:number** of **:count** has been applied.', '**تم تطبيق القسط رقم :number** من **:count**.', ['number' => $this->installment->installment_number, 'count' => $this->loan->installments_count]))
+            ->line($this->tr('**Amount:** SAR :amount', '**المبلغ:** SAR :amount', ['amount' => number_format((float) $this->installment->amount, 2)]))
+            ->line($this->tr('**Remaining Loan Balance:** SAR :amount', '**الرصيد المتبقي للقرض:** SAR :amount', ['amount' => number_format($this->loan->remaining_amount, 2)]))
+            ->line($this->tr('**Remaining Cash Balance:** SAR :amount', '**الرصيد النقدي المتبقي:** SAR :amount', ['amount' => number_format($this->cashBalance, 2)]));
+        if ($this->isLate) { $mail->line($this->tr('⚠️ This repayment was recorded as late.', '⚠️ تم تسجيل هذا السداد كمتأخر.')); }
+        return $mail->action($this->tr('View My Loans', 'عرض قروضي'), url('/member'));
     }
 
     public function toTwilio(mixed $notifiable): TwilioSmsMessage
@@ -69,6 +79,10 @@ class LoanRepaymentAppliedNotification extends Notification
     public function toWhatsApp(mixed $notifiable): string
     {
         $icon = $this->isLate ? '⚠️' : '✅';
-        return "{$icon} *FundFlow – Loan Repayment Applied*\n\nDear {$notifiable->name},\n\n" . $this->shortBody() . "\n\n" . url('/member');
+        return $this->tr(
+            "{$icon} *FundFlow – Loan Repayment Applied*\n\nDear :name,\n\n:body\n\n:url",
+            "{$icon} *FundFlow – تم تطبيق سداد القرض*\n\nعزيزي/عزيزتي :name،\n\n:body\n\n:url",
+            ['name' => $notifiable->name, 'body' => $this->shortBody(), 'url' => url('/member')],
+        );
     }
 }

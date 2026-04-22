@@ -28,14 +28,14 @@
                 <span class="w-2.5 h-2.5 rounded-full bg-emerald-500"></span>
                 <p class="text-xs font-medium text-gray-500 dark:text-gray-400">{{ __('On-time Repaid') }}</p>
             </div>
-            <p class="text-lg font-bold text-emerald-600 dark:text-emerald-400">﷼ {{ number_format($s['total_on_time'], 0) }}</p>
+            <p class="text-lg font-bold text-emerald-600 dark:text-emerald-400">SAR {{ number_format($s['total_on_time'], 0) }}</p>
         </div>
         <div class="px-5 py-4">
             <div class="flex items-center gap-1.5 mb-1">
                 <span class="w-2.5 h-2.5 rounded-full bg-amber-400"></span>
                 <p class="text-xs font-medium text-gray-500 dark:text-gray-400">{{ __('Late Repaid') }}</p>
             </div>
-            <p class="text-lg font-bold text-amber-600 dark:text-amber-400">﷼ {{ number_format($s['total_late'], 0) }}</p>
+            <p class="text-lg font-bold text-amber-600 dark:text-amber-400">SAR {{ number_format($s['total_late'], 0) }}</p>
         </div>
         <div class="px-5 py-4">
             <div class="flex items-center gap-1.5 mb-1">
@@ -43,12 +43,12 @@
                 <p class="text-xs font-medium text-gray-500 dark:text-gray-400">{{ __('Still Overdue') }}</p>
             </div>
             <p class="text-lg font-bold {{ $s['total_overdue'] > 0 ? 'text-red-600 dark:text-red-400' : 'text-gray-400' }}">
-                ﷼ {{ number_format($s['total_overdue'], 0) }}
+                SAR {{ number_format($s['total_overdue'], 0) }}
             </p>
         </div>
         <div class="px-5 py-4">
             <p class="text-xs font-medium text-gray-500 dark:text-gray-400 mb-1">{{ __('Total Collected') }}</p>
-            <p class="text-lg font-bold text-gray-900 dark:text-white">﷼ {{ number_format($s['total_repaid'], 0) }}</p>
+            <p class="text-lg font-bold text-gray-900 dark:text-white">SAR {{ number_format($s['total_repaid'], 0) }}</p>
             @if($s['overdue_count'] > 0)
             <p class="text-xs text-red-500 dark:text-red-400">{{ __(':count installment(s) pending', ['count' => $s['overdue_count']]) }}</p>
             @else

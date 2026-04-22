@@ -12,7 +12,7 @@
             <p class="text-xs text-gray-400 dark:text-gray-500">{{ __('Late fees, membership fees, and annual subscriptions') }}</p>
         </div>
         <span class="ms-auto inline-flex items-center gap-1.5 rounded-full bg-violet-100 dark:bg-violet-900/40 px-2.5 py-1 text-xs font-semibold text-violet-700 dark:text-violet-300">
-            {{ __('This year') }}: ﷼ {{ number_format($d['late_fee_this_year'] + $d['membership_fee_this_year'] + $d['subscription_fee_this_year'], 0) }}
+            {{ __('This year') }}: SAR {{ number_format($d['late_fee_this_year'] + $d['membership_fee_this_year'] + $d['subscription_fee_this_year'], 0) }}
         </span>
     </div>
 
@@ -40,7 +40,7 @@
 
             {{-- All-time total --}}
             <p class="text-2xl font-bold text-gray-900 dark:text-white mb-1">
-                ﷼ {{ number_format($d['late_fee_all_time'], 2) }}
+                SAR {{ number_format($d['late_fee_all_time'], 2) }}
             </p>
             <p class="text-xs text-gray-400 dark:text-gray-500 mb-3">{{ __('All-time') }} · {{ $d['late_fee_count'] }} {{ __('late records') }}</p>
 
@@ -51,7 +51,7 @@
             <div class="space-y-1">
                 <div class="flex items-center justify-between text-xs text-gray-500 dark:text-gray-400">
                     <span>{{ __('This year') }}</span>
-                    <span class="font-semibold text-red-600 dark:text-red-400">﷼ {{ number_format($d['late_fee_this_year'], 2) }}</span>
+                    <span class="font-semibold text-red-600 dark:text-red-400">SAR {{ number_format($d['late_fee_this_year'], 2) }}</span>
                 </div>
                 <div class="h-2 rounded-full bg-gray-100 dark:bg-gray-700">
                     <div class="h-2 rounded-full bg-red-500 transition-all" style="width: {{ $latePct }}%"></div>
@@ -80,7 +80,7 @@
             </div>
 
             <p class="text-2xl font-bold text-gray-900 dark:text-white mb-1">
-                ﷼ {{ number_format($d['membership_fee_all_time'], 2) }}
+                SAR {{ number_format($d['membership_fee_all_time'], 2) }}
             </p>
             <p class="text-xs text-gray-400 dark:text-gray-500 mb-3">{{ __('All-time') }} · {{ $d['membership_fee_count'] }} {{ __('applications') }}</p>
 
@@ -90,7 +90,7 @@
             <div class="space-y-1">
                 <div class="flex items-center justify-between text-xs text-gray-500 dark:text-gray-400">
                     <span>{{ __('This year') }}</span>
-                    <span class="font-semibold text-sky-600 dark:text-sky-400">﷼ {{ number_format($d['membership_fee_this_year'], 2) }}</span>
+                    <span class="font-semibold text-sky-600 dark:text-sky-400">SAR {{ number_format($d['membership_fee_this_year'], 2) }}</span>
                 </div>
                 <div class="h-2 rounded-full bg-gray-100 dark:bg-gray-700">
                     <div class="h-2 rounded-full bg-sky-500 transition-all" style="width: {{ $memberPct }}%"></div>
@@ -120,7 +120,7 @@
 
             @if($d['subscription_fee_all_time'] > 0)
                 <p class="text-2xl font-bold text-gray-900 dark:text-white mb-1">
-                    ﷼ {{ number_format($d['subscription_fee_all_time'], 2) }}
+                    SAR {{ number_format($d['subscription_fee_all_time'], 2) }}
                 </p>
                 <p class="text-xs text-gray-400 dark:text-gray-500 mb-3">{{ __('All-time') }} · {{ $d['subscription_fee_count'] }} {{ __('charges') }}</p>
 
@@ -130,7 +130,7 @@
                 <div class="space-y-1">
                     <div class="flex items-center justify-between text-xs text-gray-500 dark:text-gray-400">
                         <span>{{ __('This year') }}</span>
-                        <span class="font-semibold text-emerald-600 dark:text-emerald-400">﷼ {{ number_format($d['subscription_fee_this_year'], 2) }}</span>
+                        <span class="font-semibold text-emerald-600 dark:text-emerald-400">SAR {{ number_format($d['subscription_fee_this_year'], 2) }}</span>
                     </div>
                     <div class="h-2 rounded-full bg-gray-100 dark:bg-gray-700">
                         <div class="h-2 rounded-full bg-emerald-500 transition-all" style="width: {{ $subPct }}%"></div>

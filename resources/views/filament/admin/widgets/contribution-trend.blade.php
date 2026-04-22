@@ -25,20 +25,20 @@
     <div class="grid grid-cols-2 sm:grid-cols-4 divide-x divide-y sm:divide-y-0 divide-gray-100 dark:divide-gray-700 border-b border-gray-100 dark:border-gray-700">
         <div class="px-5 py-4">
             <p class="text-xs font-medium text-gray-500 dark:text-gray-400">{{ __('12-Month Total') }}</p>
-            <p class="mt-1 text-lg font-bold text-gray-900 dark:text-white">﷼ {{ number_format($s['total_12m'], 0) }}</p>
+            <p class="mt-1 text-lg font-bold text-gray-900 dark:text-white">SAR {{ number_format($s['total_12m'], 0) }}</p>
         </div>
         <div class="px-5 py-4">
             <p class="text-xs font-medium text-gray-500 dark:text-gray-400">{{ __('Monthly Average') }}</p>
-            <p class="mt-1 text-lg font-bold text-gray-900 dark:text-white">﷼ {{ number_format($s['avg_monthly'], 0) }}</p>
+            <p class="mt-1 text-lg font-bold text-gray-900 dark:text-white">SAR {{ number_format($s['avg_monthly'], 0) }}</p>
         </div>
         <div class="px-5 py-4">
             <p class="text-xs font-medium text-gray-500 dark:text-gray-400">{{ __('Best Month') }}</p>
-            <p class="mt-1 text-lg font-bold text-emerald-600 dark:text-emerald-400">﷼ {{ number_format($s['best_month'], 0) }}</p>
+            <p class="mt-1 text-lg font-bold text-emerald-600 dark:text-emerald-400">SAR {{ number_format($s['best_month'], 0) }}</p>
             <p class="text-xs text-gray-400">{{ $s['best_label'] }}</p>
         </div>
         <div class="px-5 py-4">
             <p class="text-xs font-medium text-gray-500 dark:text-gray-400">{{ __('Last Month') }}</p>
-            <p class="mt-1 text-lg font-bold text-gray-900 dark:text-white">﷼ {{ number_format($s['last_total'], 0) }}</p>
+            <p class="mt-1 text-lg font-bold text-gray-900 dark:text-white">SAR {{ number_format($s['last_total'], 0) }}</p>
         </div>
     </div>
 

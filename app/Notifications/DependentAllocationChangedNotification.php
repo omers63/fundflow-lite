@@ -2,6 +2,7 @@
 
 namespace App\Notifications;
 
+use App\Notifications\Concerns\LocalizesCommunication;
 use App\Channels\TwilioWhatsAppChannel;
 use App\Models\DependentAllocationChange;
 use App\Models\NotificationLog;
@@ -21,6 +22,7 @@ use NotificationChannels\Twilio\TwilioSmsMessage;
 class DependentAllocationChangedNotification extends Notification
 {
     use Queueable;
+    use LocalizesCommunication;
 
     public function __construct(
         public readonly DependentAllocationChange $change,
@@ -48,8 +50,8 @@ class DependentAllocationChangedNotification extends Notification
     public function toDatabase(mixed $notifiable): array
     {
         $change    = $this->change;
-        $depName   = $change->dependent?->user?->name ?? 'Dependent';
-        $parentName= $change->parent?->user?->name ?? 'Parent';
+        $depName   = $change->dependent?->user?->name ?? $this->tr('Dependent', 'تابع');
+        $parentName= $change->parent?->user?->name ?? $this->tr('Parent', 'ولي الأمر');
         $oldFmt    = 'SAR ' . number_format($change->old_amount);
         $newFmt    = 'SAR ' . number_format($change->new_amount);
         $direction = $change->isIncrease() ? '↑' : '↓';
@@ -57,30 +59,30 @@ class DependentAllocationChangedNotification extends Notification
 
         return match ($this->role) {
             'dependent' => [
-                'title'   => "Monthly Allocation Updated {$direction}",
-                'body'    => "Your monthly contribution allocation has been changed from {$oldFmt} to {$newFmt}.",
+                'title'   => $this->tr("Monthly Allocation Updated {$direction}", "تم تحديث التخصيص الشهري {$direction}"),
+                'body'    => $this->tr('Your monthly contribution allocation has been changed from :old to :new.', 'تم تغيير تخصيص مساهمتك الشهرية من :old إلى :new.', ['old' => $oldFmt, 'new' => $newFmt]),
                 'icon'    => 'heroicon-o-adjustments-horizontal',
                 'color'   => $color,
                 'actions' => [
-                    ['label' => 'View Contribution Settings', 'url' => url('/member/my-contribution-settings-page')],
+                    ['label' => $this->tr('View Contribution Settings', 'عرض إعدادات المساهمة'), 'url' => url('/member/my-contribution-settings-page')],
                 ],
             ],
             'parent' => [
-                'title'   => "Allocation Updated — {$depName}",
-                'body'    => "You updated {$depName}'s monthly allocation from {$oldFmt} to {$newFmt}.",
+                'title'   => $this->tr('Allocation Updated — :name', 'تم تحديث التخصيص — :name', ['name' => $depName]),
+                'body'    => $this->tr('You updated :name\'s monthly allocation from :old to :new.', 'قمت بتحديث التخصيص الشهري لـ :name من :old إلى :new.', ['name' => $depName, 'old' => $oldFmt, 'new' => $newFmt]),
                 'icon'    => 'heroicon-o-check-circle',
                 'color'   => 'success',
                 'actions' => [
-                    ['label' => 'View Dependents', 'url' => url('/member/my-dependents')],
+                    ['label' => $this->tr('View Dependents', 'عرض التابعين'), 'url' => url('/member/my-dependents')],
                 ],
             ],
             default => [ // admin
-                'title'   => "Allocation Change: {$depName}",
-                'body'    => "Parent {$parentName} changed {$depName}'s monthly allocation from {$oldFmt} to {$newFmt}.",
+                'title'   => $this->tr('Allocation Change: :name', 'تغيير تخصيص: :name', ['name' => $depName]),
+                'body'    => $this->tr('Parent :parent changed :name\'s monthly allocation from :old to :new.', 'قام ولي الأمر :parent بتغيير التخصيص الشهري لـ :name من :old إلى :new.', ['parent' => $parentName, 'name' => $depName, 'old' => $oldFmt, 'new' => $newFmt]),
                 'icon'    => 'heroicon-o-bell-alert',
                 'color'   => 'info',
                 'actions' => [
-                    ['label' => 'View Members', 'url' => url('/admin/members')],
+                    ['label' => $this->tr('View Members', 'عرض الأعضاء'), 'url' => url('/admin/members')],
                 ],
             ],
         };
@@ -91,16 +93,16 @@ class DependentAllocationChangedNotification extends Notification
     public function toMail(mixed $notifiable): MailMessage
     {
         $change    = $this->change;
-        $depName   = $change->dependent?->user?->name ?? 'Dependent';
-        $parentName= $change->parent?->user?->name ?? 'Parent';
+        $depName   = $change->dependent?->user?->name ?? $this->tr('Dependent', 'تابع');
+        $parentName= $change->parent?->user?->name ?? $this->tr('Parent', 'ولي الأمر');
         $oldFmt    = 'SAR ' . number_format($change->old_amount);
         $newFmt    = 'SAR ' . number_format($change->new_amount);
         $changedAt = $change->created_at?->format('d F Y H:i') ?? now()->format('d F Y H:i');
         $changedBy = $change->changedBy?->name ?? $parentName;
 
         $subject = match ($this->role) {
-            'dependent' => 'FundFlow — Your Monthly Allocation Has Changed',
-            default     => "FundFlow — Allocation Updated for {$depName}",
+            'dependent' => $this->tr('FundFlow — Your Monthly Allocation Has Changed', 'FundFlow — تم تغيير تخصيصك الشهري'),
+            default     => $this->tr('FundFlow — Allocation Updated for :name', 'FundFlow — تم تحديث التخصيص لـ :name', ['name' => $depName]),
         };
 
         NotificationLog::create([
@@ -115,25 +117,25 @@ class DependentAllocationChangedNotification extends Notification
         return match ($this->role) {
             'dependent' => (new MailMessage)
                 ->subject($subject)
-                ->greeting("Dear {$notifiable->name},")
-                ->line("Your monthly contribution allocation has been updated by your parent member.")
-                ->line("**Previous amount:** {$oldFmt}")
-                ->line("**New amount:** {$newFmt}")
-                ->line("**Effective:** {$changedAt}")
-                ->when($change->note, fn($m) => $m->line("**Note:** {$change->note}"))
-                ->line("This change will be reflected in your next contribution cycle.")
-                ->action('View Contribution Settings', url('/member/my-contribution-settings-page')),
+                ->greeting($this->tr('Dear :name,', 'عزيزي/عزيزتي :name،', ['name' => $notifiable->name]))
+                ->line($this->tr('Your monthly contribution allocation has been updated by your parent member.', 'تم تحديث تخصيص مساهمتك الشهرية من قبل ولي الأمر.'))
+                ->line($this->tr('**Previous amount:** :amount', '**المبلغ السابق:** :amount', ['amount' => $oldFmt]))
+                ->line($this->tr('**New amount:** :amount', '**المبلغ الجديد:** :amount', ['amount' => $newFmt]))
+                ->line($this->tr('**Effective:** :date', '**يسري من:** :date', ['date' => $changedAt]))
+                ->when($change->note, fn($m) => $m->line($this->tr('**Note:** :note', '**ملاحظة:** :note', ['note' => $change->note])))
+                ->line($this->tr('This change will be reflected in your next contribution cycle.', 'سيظهر هذا التغيير في دورة المساهمة القادمة.'))
+                ->action($this->tr('View Contribution Settings', 'عرض إعدادات المساهمة'), url('/member/my-contribution-settings-page')),
 
             default => (new MailMessage)
                 ->subject($subject)
-                ->greeting("Dear {$notifiable->name},")
-                ->line("The monthly allocation for **{$depName}** has been updated.")
-                ->line("**Changed by:** {$changedBy}")
-                ->line("**Previous amount:** {$oldFmt}")
-                ->line("**New amount:** {$newFmt}")
-                ->line("**Changed at:** {$changedAt}")
-                ->when($change->note, fn($m) => $m->line("**Note:** {$change->note}"))
-                ->action('View Dependents', url('/member/my-dependents')),
+                ->greeting($this->tr('Dear :name,', 'عزيزي/عزيزتي :name،', ['name' => $notifiable->name]))
+                ->line($this->tr('The monthly allocation for **:name** has been updated.', 'تم تحديث التخصيص الشهري لـ **:name**.', ['name' => $depName]))
+                ->line($this->tr('**Changed by:** :name', '**تم التغيير بواسطة:** :name', ['name' => $changedBy]))
+                ->line($this->tr('**Previous amount:** :amount', '**المبلغ السابق:** :amount', ['amount' => $oldFmt]))
+                ->line($this->tr('**New amount:** :amount', '**المبلغ الجديد:** :amount', ['amount' => $newFmt]))
+                ->line($this->tr('**Changed at:** :date', '**وقت التغيير:** :date', ['date' => $changedAt]))
+                ->when($change->note, fn($m) => $m->line($this->tr('**Note:** :note', '**ملاحظة:** :note', ['note' => $change->note])))
+                ->action($this->tr('View Dependents', 'عرض التابعين'), url('/member/my-dependents')),
         };
     }
 
@@ -144,11 +146,11 @@ class DependentAllocationChangedNotification extends Notification
         $change  = $this->change;
         $oldFmt  = 'SAR ' . number_format($change->old_amount);
         $newFmt  = 'SAR ' . number_format($change->new_amount);
-        $depName = $change->dependent?->user?->name ?? 'Dependent';
+        $depName = $change->dependent?->user?->name ?? $this->tr('Dependent', 'تابع');
 
         $body = match ($this->role) {
-            'dependent' => "FundFlow: Your monthly allocation changed from {$oldFmt} to {$newFmt}. " . url('/member'),
-            default     => "FundFlow: Allocation for {$depName} updated: {$oldFmt} → {$newFmt}. " . url('/member'),
+            'dependent' => $this->tr('FundFlow: Your monthly allocation changed from :old to :new. :url', 'FundFlow: تم تغيير تخصيصك الشهري من :old إلى :new. :url', ['old' => $oldFmt, 'new' => $newFmt, 'url' => url('/member')]),
+            default     => $this->tr('FundFlow: Allocation for :name updated: :old → :new. :url', 'FundFlow: تم تحديث تخصيص :name: :old ← :new. :url', ['name' => $depName, 'old' => $oldFmt, 'new' => $newFmt, 'url' => url('/member')]),
         };
 
         NotificationLog::create([
@@ -170,12 +172,20 @@ class DependentAllocationChangedNotification extends Notification
         $change  = $this->change;
         $oldFmt  = 'SAR ' . number_format($change->old_amount);
         $newFmt  = 'SAR ' . number_format($change->new_amount);
-        $depName = $change->dependent?->user?->name ?? 'Dependent';
+        $depName = $change->dependent?->user?->name ?? $this->tr('Dependent', 'تابع');
         $arrow   = $change->isIncrease() ? '⬆️' : '⬇️';
 
         return match ($this->role) {
-            'dependent' => "{$arrow} *FundFlow — Allocation Updated*\n\nDear {$notifiable->name},\n\nYour monthly contribution allocation has been updated.\n\n*Previous:* {$oldFmt}\n*New:* {$newFmt}\n\n" . url('/member'),
-            default     => "{$arrow} *FundFlow — Allocation Change*\n\n*{$depName}*'s monthly allocation:\n\n*Previous:* {$oldFmt}\n*New:* {$newFmt}\n\n" . url('/member'),
+            'dependent' => $this->tr(
+                "{$arrow} *FundFlow — Allocation Updated*\n\nDear :name,\n\nYour monthly contribution allocation has been updated.\n\n*Previous:* :old\n*New:* :new\n\n:url",
+                "{$arrow} *FundFlow — تم تحديث التخصيص*\n\nعزيزي/عزيزتي :name،\n\nتم تحديث تخصيص مساهمتك الشهرية.\n\n*السابق:* :old\n*الجديد:* :new\n\n:url",
+                ['name' => $notifiable->name, 'old' => $oldFmt, 'new' => $newFmt, 'url' => url('/member')],
+            ),
+            default     => $this->tr(
+                "{$arrow} *FundFlow — Allocation Change*\n\n*:name*'s monthly allocation:\n\n*Previous:* :old\n*New:* :new\n\n:url",
+                "{$arrow} *FundFlow — تغيير تخصيص*\n\nالتخصيص الشهري لـ *:name*:\n\n*السابق:* :old\n*الجديد:* :new\n\n:url",
+                ['name' => $depName, 'old' => $oldFmt, 'new' => $newFmt, 'url' => url('/member')],
+            ),
         };
     }
 }

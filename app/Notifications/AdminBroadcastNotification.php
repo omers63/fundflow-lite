@@ -2,6 +2,7 @@
 
 namespace App\Notifications;
 
+use App\Notifications\Concerns\LocalizesCommunication;
 use App\Models\NotificationLog;
 use Illuminate\Bus\Queueable;
 use Illuminate\Notifications\Messages\MailMessage;
@@ -10,6 +11,7 @@ use Illuminate\Notifications\Notification;
 class AdminBroadcastNotification extends Notification
 {
     use Queueable;
+    use LocalizesCommunication;
 
     public function __construct(
         public readonly string $subject,
@@ -32,7 +34,7 @@ class AdminBroadcastNotification extends Notification
             'icon'    => 'heroicon-o-megaphone',
             'color'   => 'info',
             'actions' => [
-                ['label' => 'View Portal', 'url' => url('/member')],
+                ['label' => $this->tr('View Portal', 'عرض البوابة'), 'url' => url('/member')],
             ],
         ];
     }
@@ -40,15 +42,15 @@ class AdminBroadcastNotification extends Notification
     public function toMail(mixed $notifiable): MailMessage
     {
         $mail = (new MailMessage)
-            ->subject("FundFlow — {$this->subject}")
-            ->greeting("Dear {$notifiable->name},")
+            ->subject($this->tr('FundFlow — :subject', 'FundFlow — :subject', ['subject' => $this->subject]))
+            ->greeting($this->tr('Dear :name,', 'عزيزي/عزيزتي :name،', ['name' => $notifiable->name]))
             ->line($this->body)
-            ->action('View My Account', url('/member'));
+            ->action($this->tr('View My Account', 'عرض حسابي'), url('/member'));
 
         NotificationLog::create([
             'user_id' => $notifiable->id,
             'channel' => 'mail',
-            'subject' => "FundFlow — {$this->subject}",
+            'subject' => $this->tr('FundFlow — :subject', 'FundFlow — :subject', ['subject' => $this->subject]),
             'body'    => $this->body,
             'status'  => 'sent',
             'sent_at' => now(),

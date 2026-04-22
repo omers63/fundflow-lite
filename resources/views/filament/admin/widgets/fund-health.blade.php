@@ -39,7 +39,7 @@
                 </div>
                 <span class="text-xs font-semibold text-gray-500 dark:text-gray-400 uppercase tracking-wide">{{ __('Master Fund') }}</span>
             </div>
-            <p class="text-xl font-bold text-gray-900 dark:text-white">﷼ {{ number_format($d['master_fund'], 0) }}</p>
+            <p class="text-xl font-bold text-gray-900 dark:text-white">SAR {{ number_format($d['master_fund'], 0) }}</p>
             <div class="mt-2 h-1.5 rounded-full bg-gray-100 dark:bg-gray-700">
                 <div class="h-1.5 rounded-full bg-emerald-500 transition-all" style="width: {{ $d['fund_pct'] }}%"></div>
             </div>
@@ -54,7 +54,7 @@
                 </div>
                 <span class="text-xs font-semibold text-gray-500 dark:text-gray-400 uppercase tracking-wide">{{ __('Cash on Hand') }}</span>
             </div>
-            <p class="text-xl font-bold text-gray-900 dark:text-white">﷼ {{ number_format($d['master_cash'], 0) }}</p>
+            <p class="text-xl font-bold text-gray-900 dark:text-white">SAR {{ number_format($d['master_cash'], 0) }}</p>
             <div class="mt-2 h-1.5 rounded-full bg-gray-100 dark:bg-gray-700">
                 <div class="h-1.5 rounded-full bg-sky-500 transition-all" style="width: {{ $d['cash_pct'] }}%"></div>
             </div>
@@ -69,7 +69,7 @@
                 </div>
                 <span class="text-xs font-semibold text-gray-500 dark:text-gray-400 uppercase tracking-wide">{{ __('Loan Exposure') }}</span>
             </div>
-            <p class="text-xl font-bold text-gray-900 dark:text-white">﷼ {{ number_format($d['loan_exposure'], 0) }}</p>
+            <p class="text-xl font-bold text-gray-900 dark:text-white">SAR {{ number_format($d['loan_exposure'], 0) }}</p>
             <div class="mt-2 h-1.5 rounded-full bg-gray-100 dark:bg-gray-700">
                 <div class="h-1.5 rounded-full bg-amber-500 transition-all" style="width: {{ min(100, $d['exposure_pct']) }}%"></div>
             </div>
@@ -137,7 +137,7 @@
                 <x-heroicon-o-exclamation-triangle class="w-4 h-4 {{ $op['text'] }}" />
                 <span class="text-xs font-semibold text-gray-600 dark:text-gray-300">{{ __('Overdue Exposure') }}</span>
             </div>
-            <p class="text-2xl font-bold {{ $op['text'] }}">﷼ {{ number_format($d['overdue_amount'], 0) }}</p>
+            <p class="text-2xl font-bold {{ $op['text'] }}">SAR {{ number_format($d['overdue_amount'], 0) }}</p>
             <p class="text-xs text-gray-500 dark:text-gray-400 mt-0.5">{{ __(':count installments overdue', ['count' => $d['overdue_count']]) }}</p>
             <div class="mt-3 h-2 rounded-full bg-gray-200 dark:bg-gray-600">
                 @php

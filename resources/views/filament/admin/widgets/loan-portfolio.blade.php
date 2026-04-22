@@ -20,7 +20,7 @@
         {{-- Summary: total amount --}}
         <div class="rounded-xl bg-indigo-50 dark:bg-indigo-900/20 ring-1 ring-indigo-100 dark:ring-indigo-800 px-4 py-3 text-center">
             <p class="text-xs font-medium text-indigo-500 dark:text-indigo-400 uppercase tracking-wide">{{ __('Total Loan Value') }}</p>
-            <p class="mt-0.5 text-xl font-bold text-indigo-700 dark:text-indigo-300">﷼ {{ number_format($d['total_amt'], 0) }}</p>
+            <p class="mt-0.5 text-xl font-bold text-indigo-700 dark:text-indigo-300">SAR {{ number_format($d['total_amt'], 0) }}</p>
         </div>
 
         {{-- Doughnut chart --}}

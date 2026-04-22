@@ -2,6 +2,7 @@
 
 namespace App\Notifications;
 
+use App\Notifications\Concerns\LocalizesCommunication;
 use App\Channels\TwilioWhatsAppChannel;
 use App\Models\NotificationLog;
 use Illuminate\Bus\Queueable;
@@ -13,6 +14,7 @@ use NotificationChannels\Twilio\TwilioSmsMessage;
 class LoanApprovedNotification extends Notification
 {
     use Queueable;
+    use LocalizesCommunication;
 
     public function __construct(
         public readonly float $amount,
@@ -33,34 +35,38 @@ class LoanApprovedNotification extends Notification
     public function toDatabase(mixed $notifiable): array
     {
         return [
-            'title'   => 'Loan Approved',
-            'body'    => 'Your loan of ﷼' . number_format($this->amount, 2) . ' has been approved with ' . $this->installments . ' monthly installments.',
+            'title'   => $this->tr('Loan Approved', 'تم اعتماد القرض'),
+            'body'    => $this->tr(
+                'Your loan of SAR :amount has been approved with :installments monthly installments.',
+                'تمت الموافقة على قرضك بمبلغ SAR :amount مع :installments أقساط شهرية.',
+                ['amount' => number_format($this->amount, 2), 'installments' => $this->installments],
+            ),
             'icon'    => 'heroicon-o-check-circle',
             'color'   => 'success',
             'actions' => [
-                ['label' => 'View Loans', 'url' => url('/member')],
+                ['label' => $this->tr('View Loans', 'عرض القروض'), 'url' => url('/member')],
             ],
         ];
     }
 
     public function toMail(mixed $notifiable): MailMessage
     {
-        $amountFormatted = '﷼' . number_format($this->amount, 2);
+        $amountFormatted = 'SAR ' . number_format($this->amount, 2);
 
         $mail = (new MailMessage)
-            ->subject('FundFlow — Loan Approved!')
-            ->greeting("Dear {$notifiable->name},")
-            ->line("Your loan application for **{$amountFormatted}** has been approved.")
-            ->line("Repayment Details:")
-            ->line("• Amount: {$amountFormatted}")
-            ->line("• Installments: {$this->installments} monthly payments")
-            ->line("• Final due date: {$this->dueDate}")
-            ->action('View Loan Details', url('/member'));
+            ->subject($this->tr('FundFlow — Loan Approved!', 'FundFlow — تمت الموافقة على القرض!'))
+            ->greeting($this->tr('Dear :name,', 'عزيزي/عزيزتي :name،', ['name' => $notifiable->name]))
+            ->line($this->tr('Your loan application for **:amount** has been approved.', 'تمت الموافقة على طلب قرضك بمبلغ **:amount**.', ['amount' => $amountFormatted]))
+            ->line($this->tr('Repayment Details:', 'تفاصيل السداد:'))
+            ->line($this->tr('• Amount: :amount', '• المبلغ: :amount', ['amount' => $amountFormatted]))
+            ->line($this->tr('• Installments: :count monthly payments', '• الأقساط: :count دفعات شهرية', ['count' => $this->installments]))
+            ->line($this->tr('• Final due date: :date', '• تاريخ الاستحقاق النهائي: :date', ['date' => $this->dueDate]))
+            ->action($this->tr('View Loan Details', 'عرض تفاصيل القرض'), url('/member'));
 
         NotificationLog::create([
             'user_id' => $notifiable->id,
             'channel' => 'mail',
-            'subject' => 'FundFlow — Loan Approved!',
+            'subject' => $this->tr('FundFlow — Loan Approved!', 'FundFlow — تمت الموافقة على القرض!'),
             'body' => "Loan approved for {$notifiable->name}. Amount: {$amountFormatted}",
             'status' => 'sent',
             'sent_at' => now(),
@@ -71,7 +77,11 @@ class LoanApprovedNotification extends Notification
 
     public function toTwilio(mixed $notifiable): TwilioSmsMessage
     {
-        $body = "FundFlow: Loan approved for ﷼" . number_format($this->amount, 2) . " ({$this->installments} installments). Login to view details: " . url('/member');
+        $body = $this->tr(
+            'FundFlow: Loan approved for SAR :amount (:count installments). Login to view details: :url',
+            'FundFlow: تمت الموافقة على قرض بمبلغ SAR :amount (:count أقساط). سجّل الدخول لعرض التفاصيل: :url',
+            ['amount' => number_format($this->amount, 2), 'count' => $this->installments, 'url' => url('/member')],
+        );
 
         NotificationLog::create([
             'user_id' => $notifiable->id,
@@ -87,6 +97,10 @@ class LoanApprovedNotification extends Notification
 
     public function toWhatsApp(mixed $notifiable): string
     {
-        return "✅ *FundFlow Loan Approved*\n\nDear {$notifiable->name},\n\nYour loan of *﷼" . number_format($this->amount, 2) . "* has been approved.\n\n*Installments:* {$this->installments} monthly payments\n*Due Date:* {$this->dueDate}\n\nView details: " . url('/member');
+        return $this->tr(
+            "✅ *FundFlow Loan Approved*\n\nDear :name,\n\nYour loan of *SAR :amount* has been approved.\n\n*Installments:* :count monthly payments\n*Due Date:* :date\n\nView details: :url",
+            "✅ *تمت الموافقة على قرض FundFlow*\n\nعزيزي/عزيزتي :name،\n\nتمت الموافقة على قرضك بمبلغ *SAR :amount*.\n\n*الأقساط:* :count دفعات شهرية\n*تاريخ الاستحقاق:* :date\n\nعرض التفاصيل: :url",
+            ['name' => $notifiable->name, 'amount' => number_format($this->amount, 2), 'count' => $this->installments, 'date' => $this->dueDate, 'url' => url('/member')],
+        );
     }
 }

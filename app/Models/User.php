@@ -9,9 +9,10 @@ use Illuminate\Database\Eloquent\Relations\HasOne;
 use Illuminate\Database\Eloquent\SoftDeletes;
 use Illuminate\Foundation\Auth\User as Authenticatable;
 use Illuminate\Notifications\Notifiable;
+use Illuminate\Contracts\Translation\HasLocalePreference;
 use Spatie\Permission\Traits\HasRoles;
 
-class User extends Authenticatable implements FilamentUser
+class User extends Authenticatable implements FilamentUser, HasLocalePreference
 {
     use HasFactory, Notifiable, HasRoles, SoftDeletes;
 
@@ -98,5 +99,12 @@ class User extends Authenticatable implements FilamentUser
     public function routeNotificationForTwilio(): string
     {
         return $this->phone ?? '';
+    }
+
+    public function preferredLocale(): string
+    {
+        return in_array($this->preferred_locale, ['ar', 'en'], true)
+            ? $this->preferred_locale
+            : config('app.locale', 'en');
     }
 }

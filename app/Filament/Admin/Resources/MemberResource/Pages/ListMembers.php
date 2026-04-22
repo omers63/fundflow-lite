@@ -5,11 +5,14 @@ namespace App\Filament\Admin\Resources\MemberResource\Pages;
 use App\Filament\Admin\Resources\MemberResource;
 use App\Models\Account;
 use App\Models\Member;
+use App\Models\User;
 use App\Services\MemberImportService;
+use App\Support\WidgetVisibility;
 use App\Filament\Admin\Widgets\MemberStatsWidget;
 use Filament\Actions\Action;
 use Filament\Actions\CreateAction;
 use Filament\Forms;
+use Filament\Forms\Components\CheckboxList;
 use Filament\Notifications\Notification;
 use Filament\Resources\Pages\ListRecords;
 use Illuminate\Support\Facades\Storage;
@@ -18,6 +21,9 @@ use Livewire\Component;
 
 class ListMembers extends ListRecords
 {
+    private const PREF_PANEL = 'admin';
+    private const PREF_PAGE = 'members';
+
     protected static string $resource = MemberResource::class;
 
     public function getTitle(): string
@@ -28,6 +34,47 @@ class ListMembers extends ListRecords
     protected function getHeaderActions(): array
     {
         return [
+            Action::make('configureWidgets')
+                ->label('')
+                ->icon('heroicon-o-adjustments-horizontal')
+                ->tooltip(__('Customize widgets'))
+                ->form([
+                    CheckboxList::make('visible_widgets')
+                        ->label(__('Visible widgets'))
+                        ->options(WidgetVisibility::options($this->availableWidgets()))
+                        ->columns(1),
+                ])
+                ->fillForm(function (): array {
+                    /** @var User|null $user */
+                    $user = auth()->user();
+
+                    return [
+                        'visible_widgets' => $user instanceof User
+                            ? WidgetVisibility::selected($user, self::PREF_PANEL, self::PREF_PAGE, $this->availableWidgets())
+                            : $this->availableWidgets(),
+                    ];
+                })
+                ->action(function (array $data): void {
+                    /** @var User|null $user */
+                    $user = auth()->user();
+
+                    if (! $user instanceof User) {
+                        return;
+                    }
+
+                    WidgetVisibility::save(
+                        $user,
+                        self::PREF_PANEL,
+                        self::PREF_PAGE,
+                        $this->availableWidgets(),
+                        array_values($data['visible_widgets'] ?? []),
+                    );
+
+                    Notification::make()
+                        ->title(__('Widget preferences saved'))
+                        ->success()
+                        ->send();
+                }),
             Action::make('export_csv')
                 ->label(__('Export Members'))
                 ->icon('heroicon-o-arrow-down-tray')
@@ -179,7 +226,14 @@ class ListMembers extends ListRecords
 
     protected function getHeaderWidgets(): array
     {
-        return [MemberStatsWidget::class];
+        /** @var User|null $user */
+        $user = auth()->user();
+
+        if (! $user instanceof User) {
+            return $this->availableWidgets();
+        }
+
+        return WidgetVisibility::selected($user, self::PREF_PANEL, self::PREF_PAGE, $this->availableWidgets());
     }
 
     public function getHeaderWidgetsColumns(): int|array
@@ -190,5 +244,13 @@ class ListMembers extends ListRecords
     public function getSubheading(): ?string
     {
         return __('Manage all fund members — review statuses, contribution commitments, and loan activity.');
+    }
+
+    /**
+     * @return array<class-string>
+     */
+    private function availableWidgets(): array
+    {
+        return [MemberStatsWidget::class];
     }
 }

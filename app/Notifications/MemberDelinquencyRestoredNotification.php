@@ -2,12 +2,14 @@
 
 namespace App\Notifications;
 
+use App\Notifications\Concerns\LocalizesCommunication;
 use Illuminate\Bus\Queueable;
 use Illuminate\Notifications\Notification;
 
 class MemberDelinquencyRestoredNotification extends Notification
 {
     use Queueable;
+    use LocalizesCommunication;
 
     public function via(mixed $notifiable): array
     {
@@ -20,12 +22,12 @@ class MemberDelinquencyRestoredNotification extends Notification
     public function toDatabase(mixed $notifiable): array
     {
         return [
-            'title' => 'Membership restored',
-            'body' => 'Your membership is active again. Contribution and repayment obligations are back in your name under the usual rules.',
+            'title' => $this->tr('Membership restored', 'تمت إعادة تفعيل العضوية'),
+            'body' => $this->tr('Your membership is active again. Contribution and repayment obligations are back in your name under the usual rules.', 'أصبحت عضويتك نشطة مرة أخرى. عادت التزامات المساهمة والسداد باسمك وفق القواعد المعتادة.'),
             'icon' => 'heroicon-o-check-circle',
             'color' => 'success',
             'actions' => [
-                ['label' => 'Member portal', 'url' => url('/member')],
+                ['label' => $this->tr('Member portal', 'بوابة الأعضاء'), 'url' => url('/member')],
             ],
         ];
     }

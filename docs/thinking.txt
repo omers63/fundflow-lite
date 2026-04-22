@@ -4049,3 +4049,99 @@ A new full-width widget (FeesRevenueWidget) appears on the admin dashboard (sort
 Late Fees (red accent) — all-time total, this-year breakdown with progress bar
 Membership Fees (sky accent) — application fees posted to master cash
 Annual Subscription Fees (emerald accent) — or an empty-state prompt to configure the fee if none exist yet
+----------------------------------------------
+Everything is clean. Here's a summary of what was implemented:
+
+Reversal functionality
+When would you need it?
+Yes — there are several real-world cases:
+
+Wrong amount posted manually (credit/debit with typo)
+Contribution applied to wrong member or wrong period (the fund/cash entries need unwinding before a corrected posting)
+Subscription fee charged in error (duplicate year or wrong member)
+Refund posted in error (both the member cash debit and master cash debit need reversing)
+Split part mis-classified (e.g. labelled as "Contribution" but should have been "Late Fee")
+Bank import posted to wrong member's cash before reconciliation was corrected
+What was built
+AccountingService — three new methods:
+
+createReversalEntry(original, reason, at?) — posts a single equal-and-opposite counter-entry, leaving the original untouched. The counter-entry's source_type/source_id points back to the original row, making all reversals queryable.
+createFullSourceReversal(anyEntry, reason, at?) — when a business event (e.g. a Contribution) created entries across multiple accounts, reverses all of them atomically.
+hasExistingReversal(entry) / isReversalEntry(entry) — guards used to show warnings in the UI.
+TransactionsRelationManager — "Reverse Entry" row action:
+
+Available on every non-deleted entry on any account type (cash or fund, master or member)
+Modal shows the original entry's details (ID, type, amount, description) in a clear summary block
+Required reason field that appears verbatim in the counter-entry description
+Reversal date picker (defaults to now)
+Optional "Reverse all related entries" toggle — only shown when the entry has a source_type pointing to a business record (Contribution, Loan, etc.); hides automatically for reversal-of-reversal entries
+Inline warnings if the entry is itself already a reversal, or if a reversal already exists for it
+Visual indicator in the ledger table:
+
+Reversal entries are prefixed with ↩ in the Description column and rendered in amber/warning colour
+The Source column reads "Reversal of #123" instead of a raw model class name
+-----------------------------------
+Completed. Communications are now locale-aware across the full notification/email pipeline.
+
+What I changed:
+
+Added a shared localization helper trait at app/Notifications/Concerns/LocalizesCommunication.php.
+Updated User model to implement Laravel locale preference via HasLocalePreference in app/Models/User.php, so notifications use each user’s selected language automatically.
+Localized all 21 notification classes in app/Notifications for:
+in-app notification titles/bodies/actions
+email subjects/greetings/body/action labels
+SMS bodies
+WhatsApp bodies
+Kept your currency rule intact (SAR) and enforced English digits in localized communication text as well.
+Key files updated include:
+
+app/Notifications/MonthlyStatementNotification.php
+app/Notifications/MembershipApprovedNotification.php
+app/Notifications/MembershipRejectedNotification.php
+app/Notifications/LoanApprovedNotification.php
+app/Notifications/LoanDisbursedNotification.php
+app/Notifications/LoanRepaymentDueNotification.php
+app/Notifications/LoanRepaymentAppliedNotification.php
+app/Notifications/ContributionDueNotification.php
+app/Notifications/ContributionAppliedNotification.php
+app/Notifications/DependentAllocationChangedNotification.php
+and the remaining notification classes under app/Notifications.
+Validation:
+
+Ran PHP lint on all notification files + app/Models/User.php: no syntax errors.
+Ran linter diagnostics on edited paths: no lint errors.
+If you want, I can do one final live flow check next (trigger sample notifications in Arabic + English accounts and verify the actual delivered email/SMS/WhatsApp/in-app content end-to-end).
+
+-------------------------------------
+Implemented. You can now show/hide widgets with an icon-only header action and the choice is persisted per user.
+
+What I changed
+Added persistent storage:
+database/migrations/2026_04_22_000000_create_user_widget_preferences_table.php
+app/Models/UserWidgetPreference.php
+Added shared widget preference logic:
+app/Support/WidgetVisibility.php
+Wired icon-only configure action (heroicon-o-adjustments-horizontal) + modal checkbox list on:
+app/Filament/Admin/Pages/Dashboard.php
+app/Filament/Admin/Resources/MemberResource/Pages/ListMembers.php
+app/Filament/Member/Pages/Dashboard.php
+Added Arabic labels for new UI strings:
+lang/ar.json
+Added: Customize widgets, Visible widgets, Widget preferences saved
+Behavior
+Each user can choose visible widgets from the modal.
+Preferences are saved per:
+user
+panel (admin / member)
+page (dashboard / members)
+Admin dashboard choices and member dashboard choices are separate.
+Admin “Members” page widget visibility is also separately configurable.
+Validation done
+PHP syntax checks passed for all changed PHP files.
+lang/ar.json is valid JSON.
+No linter errors in changed files.
+One required step
+Run migration so persistence table exists:
+
+php artisan migrate
+-----------------------------------

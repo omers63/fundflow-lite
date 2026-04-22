@@ -2,6 +2,7 @@
 
 namespace App\Notifications;
 
+use App\Notifications\Concerns\LocalizesCommunication;
 use App\Channels\TwilioWhatsAppChannel;
 use App\Models\NotificationLog;
 use Carbon\Carbon;
@@ -14,6 +15,7 @@ use NotificationChannels\Twilio\TwilioSmsMessage;
 class ContributionDueNotification extends Notification
 {
     use Queueable;
+    use LocalizesCommunication;
 
     public function __construct(
         public readonly int    $month,
@@ -34,17 +36,23 @@ class ContributionDueNotification extends Notification
 
     private function periodLabel(): string
     {
-        return date('F', mktime(0, 0, 0, $this->month, 1)) . ' ' . $this->year;
+        return $this->tr(
+            date('F', mktime(0, 0, 0, $this->month, 1)) . ' ' . $this->year,
+            Carbon::create($this->year, $this->month, 1)->locale('ar')->translatedFormat('F Y'),
+        );
     }
 
     private function shortBody(): string
     {
-        return sprintf(
-            'Your contribution for %s (﷼%s) is due by %s. Current cash balance: ﷼%s.',
-            $this->periodLabel(),
-            number_format($this->amount, 2),
-            $this->deadline->format('d M Y'),
-            number_format($this->cashBalance, 2)
+        return $this->tr(
+            'Your contribution for :period (SAR :amount) is due by :deadline. Current cash balance: SAR :balance.',
+            'استحقاق مساهمتك لفترة :period (SAR :amount) بتاريخ :deadline. رصيدك النقدي الحالي: SAR :balance.',
+            [
+                'period' => $this->periodLabel(),
+                'amount' => number_format($this->amount, 2),
+                'deadline' => $this->deadline->format('d M Y'),
+                'balance' => number_format($this->cashBalance, 2),
+            ],
         );
     }
 
@@ -53,12 +61,12 @@ class ContributionDueNotification extends Notification
         $sufficient = $this->cashBalance >= $this->amount;
 
         return [
-            'title'   => "Contribution Due – {$this->periodLabel()}",
+            'title'   => $this->tr('Contribution Due – :period', 'استحقاق المساهمة – :period', ['period' => $this->periodLabel()]),
             'body'    => $this->shortBody(),
             'icon'    => $sufficient ? 'heroicon-o-bell' : 'heroicon-o-exclamation-triangle',
             'color'   => $sufficient ? 'warning' : 'danger',
             'actions' => [
-                ['label' => 'View Account', 'url' => url('/member')],
+                ['label' => $this->tr('View Account', 'عرض الحساب'), 'url' => url('/member')],
             ],
         ];
     }
@@ -68,24 +76,28 @@ class ContributionDueNotification extends Notification
         $sufficient = $this->cashBalance >= $this->amount;
 
         $mail = (new MailMessage)
-            ->subject("FundFlow — {$this->periodLabel()} Contribution Due")
-            ->greeting("Dear {$notifiable->name},")
-            ->line("Your monthly contribution for **{$this->periodLabel()}** is due.")
-            ->line("**Amount due:** ﷼" . number_format($this->amount, 2))
-            ->line("**Deadline:** " . $this->deadline->format('d F Y'))
-            ->line("**Your current cash balance:** ﷼" . number_format($this->cashBalance, 2));
+            ->subject($this->tr('FundFlow — :period Contribution Due', 'FundFlow — استحقاق مساهمة :period', ['period' => $this->periodLabel()]))
+            ->greeting($this->tr('Dear :name,', 'عزيزي/عزيزتي :name،', ['name' => $notifiable->name]))
+            ->line($this->tr('Your monthly contribution for **:period** is due.', 'مساهمتك الشهرية لفترة **:period** مستحقة.', ['period' => $this->periodLabel()]))
+            ->line($this->tr('**Amount due:** SAR :amount', '**المبلغ المستحق:** SAR :amount', ['amount' => number_format($this->amount, 2)]))
+            ->line($this->tr('**Deadline:** :date', '**تاريخ الاستحقاق:** :date', ['date' => $this->deadline->format('d F Y')]))
+            ->line($this->tr('**Your current cash balance:** SAR :amount', '**رصيدك النقدي الحالي:** SAR :amount', ['amount' => number_format($this->cashBalance, 2)]));
 
         if (! $sufficient) {
             $shortfall = $this->amount - $this->cashBalance;
-            $mail->line("⚠️ Your cash account is short by ﷼" . number_format($shortfall, 2) . ". Please fund your account before the deadline to avoid a late contribution.");
+            $mail->line($this->tr(
+                '⚠️ Your cash account is short by SAR :amount. Please fund your account before the deadline to avoid a late contribution.',
+                '⚠️ يوجد عجز في حسابك النقدي بمقدار SAR :amount. يرجى تمويل حسابك قبل الموعد لتجنب تأخير المساهمة.',
+                ['amount' => number_format($shortfall, 2)],
+            ));
         }
 
-        $mail->action('View My Account', url('/member'));
+        $mail->action($this->tr('View My Account', 'عرض حسابي'), url('/member'));
 
         NotificationLog::create([
             'user_id' => $notifiable->id,
             'channel' => 'mail',
-            'subject' => "FundFlow — {$this->periodLabel()} Contribution Due",
+            'subject' => $this->tr('FundFlow — :period Contribution Due', 'FundFlow — استحقاق مساهمة :period', ['period' => $this->periodLabel()]),
             'body'    => $this->shortBody(),
             'status'  => 'sent',
             'sent_at' => now(),
@@ -96,7 +108,7 @@ class ContributionDueNotification extends Notification
 
     public function toTwilio(mixed $notifiable): TwilioSmsMessage
     {
-        $body = "FundFlow: " . $this->shortBody() . " " . url('/member');
+        $body = 'FundFlow: ' . $this->shortBody() . ' ' . url('/member');
 
         NotificationLog::create([
             'user_id' => $notifiable->id,
@@ -115,12 +127,17 @@ class ContributionDueNotification extends Notification
         $sufficient = $this->cashBalance >= $this->amount;
         $icon       = $sufficient ? '🔔' : '⚠️';
 
-        return "{$icon} *FundFlow – Contribution Due*\n\n"
-            . "Dear {$notifiable->name},\n\n"
-            . "Your contribution for *{$this->periodLabel()}* is due.\n\n"
-            . "*Amount:* ﷼" . number_format($this->amount, 2) . "\n"
-            . "*Deadline:* " . $this->deadline->format('d F Y') . "\n"
-            . "*Cash Balance:* ﷼" . number_format($this->cashBalance, 2) . "\n\n"
-            . url('/member');
+        return $this->tr(
+            "{$icon} *FundFlow – Contribution Due*\n\nDear :name,\n\nYour contribution for *:period* is due.\n\n*Amount:* SAR :amount\n*Deadline:* :date\n*Cash Balance:* SAR :balance\n\n:url",
+            "{$icon} *FundFlow – استحقاق المساهمة*\n\nعزيزي/عزيزتي :name،\n\nمساهمتك لفترة *:period* مستحقة.\n\n*المبلغ:* SAR :amount\n*تاريخ الاستحقاق:* :date\n*الرصيد النقدي:* SAR :balance\n\n:url",
+            [
+                'name' => $notifiable->name,
+                'period' => $this->periodLabel(),
+                'amount' => number_format($this->amount, 2),
+                'date' => $this->deadline->format('d F Y'),
+                'balance' => number_format($this->cashBalance, 2),
+                'url' => url('/member'),
+            ],
+        );
     }
 }

@@ -2,6 +2,7 @@
 
 namespace App\Notifications;
 
+use App\Notifications\Concerns\LocalizesCommunication;
 use App\Channels\TwilioWhatsAppChannel;
 use App\Models\NotificationLog;
 use Illuminate\Bus\Queueable;
@@ -13,6 +14,7 @@ use NotificationChannels\Twilio\TwilioSmsMessage;
 class MemberDelinquencySuspensionNotification extends Notification
 {
     use Queueable;
+    use LocalizesCommunication;
 
     public function __construct(
         public readonly int $trailingConsecutive,
@@ -31,15 +33,12 @@ class MemberDelinquencySuspensionNotification extends Notification
     public function toDatabase(mixed $notifiable): array
     {
         return [
-            'title' => 'Membership suspended — delinquency',
-            'body' => 'Your membership has been suspended due to repeated missed contributions or loan repayments. '
-                . "Trailing consecutive misses: {$this->trailingConsecutive}. "
-                . "Rolling total (configured window): {$this->rollingTotal}. "
-                . 'Repayment obligations may transfer to your guarantor. Contact the fund office.',
+            'title' => $this->tr('Membership suspended — delinquency', 'تم تعليق العضوية — تعثر'),
+            'body' => $this->tr('Your membership has been suspended due to repeated missed contributions or loan repayments. Trailing consecutive misses: :trailing. Rolling total (configured window): :rolling. Repayment obligations may transfer to your guarantor. Contact the fund office.', 'تم تعليق عضويتك بسبب تكرار عدم الالتزام بالمساهمات أو سداد القروض. عدد حالات التعثر المتتالية: :trailing. الإجمالي ضمن النافذة المحددة: :rolling. قد تنتقل التزامات السداد إلى الكفيل. يرجى التواصل مع إدارة الصندوق.', ['trailing' => $this->trailingConsecutive, 'rolling' => $this->rollingTotal]),
             'icon' => 'heroicon-o-no-symbol',
             'color' => 'danger',
             'actions' => [
-                ['label' => 'Contact office', 'url' => url('/')],
+                ['label' => $this->tr('Contact office', 'التواصل مع الإدارة'), 'url' => url('/')],
             ],
         ];
     }
@@ -47,18 +46,18 @@ class MemberDelinquencySuspensionNotification extends Notification
     public function toMail(mixed $notifiable): MailMessage
     {
         $mail = (new MailMessage)
-            ->subject('FundFlow — Membership suspended (delinquency)')
-            ->greeting("Dear {$notifiable->name},")
-            ->line('Your membership has been **suspended** because contribution or loan repayment obligations were not met under the fund’s delinquency policy.')
-            ->line("Consecutive missed cycles (trailing): **{$this->trailingConsecutive}**.")
-            ->line("Total misses in the rolling window: **{$this->rollingTotal}**.")
-            ->line('Outstanding loan repayments may be collected from your guarantor while you remain suspended. Please contact the fund office to regularize your account.')
-            ->line('You will not be able to sign in to the member portal until your status is restored by the administration.');
+            ->subject($this->tr('FundFlow — Membership suspended (delinquency)', 'FundFlow — تم تعليق العضوية (تعثر)'))
+            ->greeting($this->tr('Dear :name,', 'عزيزي/عزيزتي :name،', ['name' => $notifiable->name]))
+            ->line($this->tr('Your membership has been **suspended** because contribution or loan repayment obligations were not met under the fund’s delinquency policy.', 'تم **تعليق** عضويتك لعدم الالتزام بمتطلبات المساهمة أو سداد القرض وفق سياسة التعثر.'))
+            ->line($this->tr('Consecutive missed cycles (trailing): **:count**.', 'الدورات المتتالية غير المسددة: **:count**.', ['count' => $this->trailingConsecutive]))
+            ->line($this->tr('Total misses in the rolling window: **:count**.', 'إجمالي حالات التعثر ضمن النافذة المتحركة: **:count**.', ['count' => $this->rollingTotal]))
+            ->line($this->tr('Outstanding loan repayments may be collected from your guarantor while you remain suspended. Please contact the fund office to regularize your account.', 'قد يتم تحصيل أقساط القرض المستحقة من كفيلك طوال فترة التعليق. يرجى التواصل مع إدارة الصندوق لتسوية الحساب.'))
+            ->line($this->tr('You will not be able to sign in to the member portal until your status is restored by the administration.', 'لن تتمكن من تسجيل الدخول إلى بوابة الأعضاء حتى تتم إعادة حالتك بواسطة الإدارة.'));
 
         NotificationLog::create([
             'user_id' => $notifiable->id,
             'channel' => 'mail',
-            'subject' => 'FundFlow — Membership suspended (delinquency)',
+            'subject' => $this->tr('FundFlow — Membership suspended (delinquency)', 'FundFlow — تم تعليق العضوية (تعثر)'),
             'body' => "Delinquency suspension for {$notifiable->name}.",
             'status' => 'sent',
             'sent_at' => now(),
@@ -69,7 +68,7 @@ class MemberDelinquencySuspensionNotification extends Notification
 
     public function toTwilio(mixed $notifiable): TwilioSmsMessage
     {
-        $body = "FundFlow: Your membership is suspended due to missed contributions/repayments (consecutive {$this->trailingConsecutive}, rolling {$this->rollingTotal}). Contact the fund office.";
+        $body = $this->tr('FundFlow: Your membership is suspended due to missed contributions/repayments (consecutive :trailing, rolling :rolling). Contact the fund office.', 'FundFlow: تم تعليق عضويتك بسبب عدم سداد المساهمات/الأقساط (متتالية :trailing، إجمالي :rolling). يرجى التواصل مع إدارة الصندوق.', ['trailing' => $this->trailingConsecutive, 'rolling' => $this->rollingTotal]);
 
         NotificationLog::create([
             'user_id' => $notifiable->id,
@@ -85,6 +84,6 @@ class MemberDelinquencySuspensionNotification extends Notification
 
     public function toWhatsApp(mixed $notifiable): string
     {
-        return "⚠️ *FundFlow — Membership suspended*\n\nDear {$notifiable->name},\n\nYour membership has been suspended due to repeated missed contributions or loan repayments.\n\nTrailing consecutive: *{$this->trailingConsecutive}*\nRolling total (window): *{$this->rollingTotal}*\n\nRepayment obligations may transfer to your guarantor. Contact the fund office.";
+        return $this->tr("⚠️ *FundFlow — Membership suspended*\n\nDear :name,\n\nYour membership has been suspended due to repeated missed contributions or loan repayments.\n\nTrailing consecutive: *:trailing*\nRolling total (window): *:rolling*\n\nRepayment obligations may transfer to your guarantor. Contact the fund office.", "⚠️ *FundFlow — تم تعليق العضوية*\n\nعزيزي/عزيزتي :name،\n\nتم تعليق عضويتك بسبب تكرار عدم سداد المساهمات أو أقساط القرض.\n\nالمتتالية: *:trailing*\nالإجمالي (النافذة): *:rolling*\n\nقد تنتقل التزامات السداد إلى الكفيل. يرجى التواصل مع إدارة الصندوق.", ['name' => $notifiable->name, 'trailing' => $this->trailingConsecutive, 'rolling' => $this->rollingTotal]);
     }
 }
