@@ -1101,6 +1101,146 @@ class AccountingService
         });
     }
 
+    // =========================================================================
+    // Split transaction (master cash only)
+    // =========================================================================
+
+    /**
+     * Replace one master-cash ledger entry with N labelled parts summing to the same total.
+     * Net balance effect is zero (old entry reversed then the parts re-posted).
+     *
+     * @param  array<int, array{amount: float, description: string}>  $parts
+     */
+    public function splitTransaction(AccountTransaction $original, array $parts): void
+    {
+        $partTotal = array_sum(array_column($parts, 'amount'));
+
+        if (abs($partTotal - (float) $original->amount) > 0.01) {
+            throw new \InvalidArgumentException(
+                'Parts must sum to the original amount (SAR ' . number_format((float) $original->amount, 2) . ').'
+            );
+        }
+
+        if (count($parts) < 2) {
+            throw new \InvalidArgumentException('At least two parts are required for a split.');
+        }
+
+        foreach ($parts as $i => $part) {
+            if (($part['amount'] ?? 0) <= 0) {
+                throw new \InvalidArgumentException("Part #" . ($i + 1) . " must have a positive amount.");
+            }
+            if (empty(trim($part['description'] ?? ''))) {
+                throw new \InvalidArgumentException("Part #" . ($i + 1) . " requires a description.");
+            }
+        }
+
+        DB::transaction(function () use ($original, $parts) {
+            $account        = Account::query()->lockForUpdate()->findOrFail($original->account_id);
+            $originalAt     = $original->transacted_at ?? now();
+            $originalMember = $original->member_id;
+
+            // Reverse the original entry.
+            $this->reverseSingleLedgerEntry($original);
+
+            // Re-post each part on the same account with the same timestamp.
+            foreach ($parts as $part) {
+                $source = User::query()->findOrFail(auth()->id() ?? 1);
+                $this->postEntry(
+                    $account,
+                    (float) $part['amount'],
+                    'credit',
+                    trim($part['description']),
+                    $source,
+                    $originalMember,
+                    $originalAt,
+                );
+            }
+        });
+    }
+
+    // =========================================================================
+    // Refund (member cash → also debits master cash)
+    // =========================================================================
+
+    /**
+     * Debit a member's cash account AND the master cash account to record a refund payment.
+     * The refund description is applied to both ledger lines for easy reconciliation.
+     */
+    public function refundMemberCash(
+        Account $memberCash,
+        float $amount,
+        string $description,
+        ?Member $member = null,
+        ?\Illuminate\Support\Carbon $at = null,
+    ): void {
+        if ($memberCash->type !== Account::TYPE_MEMBER_CASH) {
+            throw new \InvalidArgumentException('Refund can only be posted to a member cash account.');
+        }
+        if ($amount <= 0) {
+            throw new \InvalidArgumentException('Refund amount must be greater than zero.');
+        }
+        if ($amount > (float) $memberCash->balance) {
+            throw new \InvalidArgumentException(
+                'Refund amount (SAR ' . number_format($amount, 2) . ') exceeds the available cash balance (SAR ' . number_format((float) $memberCash->balance, 2) . ').'
+            );
+        }
+
+        $trimmed = trim($description);
+        if ($trimmed === '') {
+            throw new \InvalidArgumentException('Refund description is required.');
+        }
+
+        DB::transaction(function () use ($memberCash, $amount, $trimmed, $member, $at) {
+            $member     = $member ?? $memberCash->member;
+            $memberId   = $member?->id ?? $memberCash->member_id;
+            $masterCash = Account::masterCash();
+            $source     = User::query()->findOrFail(auth()->id() ?? 1);
+            $refundDesc = 'Refund — ' . ($member?->user?->name ?? 'Member') . ' — ' . $trimmed;
+            $transactedAt = $at ?? now();
+
+            // Debit member cash (balance decreases).
+            $memberCashLocked = Account::query()->lockForUpdate()->findOrFail($memberCash->id);
+            $this->postEntry($memberCashLocked, $amount, 'debit', $refundDesc, $source, $memberId, $transactedAt);
+
+            // Debit master cash (cash leaves the fund).
+            $masterCashLocked = Account::query()->lockForUpdate()->findOrFail($masterCash->id);
+            $this->postEntry($masterCashLocked, $amount, 'debit', $refundDesc, $source, $memberId, $transactedAt);
+        });
+    }
+
+    // =========================================================================
+    // Annual subscription fee (master cash only, like membership application fees)
+    // =========================================================================
+
+    /**
+     * Credit master cash for an annual subscription fee and link the ledger entry
+     * back to the MemberSubscriptionFee record.
+     */
+    public function postSubscriptionFeeToMasterCash(\App\Models\MemberSubscriptionFee $fee): void
+    {
+        $fee->loadMissing('member.user');
+        $member = $fee->member;
+
+        $masterCash = Account::masterCash();
+        $label      = $member->user?->name ?? 'Member';
+        $description = "Annual Subscription Fee {$fee->year} — {$label}";
+
+        DB::transaction(function () use ($masterCash, $fee, $description, $member) {
+            $source = User::query()->findOrFail(auth()->id() ?? 1);
+            $entry = $this->postEntry(
+                $masterCash,
+                (float) $fee->amount,
+                'credit',
+                $description,
+                $source,
+                $member->id,
+                $fee->paid_at,
+            );
+
+            $fee->update(['account_transaction_id' => $entry->id]);
+        });
+    }
+
     /**
      * Late fees increase master cash only (not master fund), same idea as membership application fees.
      */

@@ -16,11 +16,14 @@ use App\Models\DirectMessage;
 use App\Models\Member;
 use App\Models\MembershipApplication;
 use App\Notifications\AdminBroadcastNotification;
+use App\Models\MemberSubscriptionFee;
+use App\Models\Setting;
 use App\Services\AccountingService;
 use App\Services\ContributionCycleService;
 use App\Services\LoanEligibilityService;
 use App\Services\LoanRepaymentService;
 use App\Services\MemberDeletionService;
+use App\Services\SubscriptionFeeService;
 use App\Support\PhoneDisplay;
 use Filament\Actions\Action;
 use Filament\Actions\ActionGroup;
@@ -906,6 +909,66 @@ class MemberResource extends Resource
                                 ->send();
                             static::dispatchMemberListHeaderWidgetsRefresh($livewire);
                         }),
+                    Action::make('chargeSubscription')
+                        ->label(__('Charge Annual Subscription'))
+                        ->icon('heroicon-o-calendar-days')
+                        ->color('primary')
+                        ->modalHeading(__('Charge Annual Subscription'))
+                        ->modalDescription(__('Credits the annual subscription fee to master cash for the selected year. Only one charge per member per year is allowed.'))
+                        ->modalSubmitActionLabel(__('Charge Subscription'))
+                        ->visible(fn (Member $record): bool => ! $record->trashed())
+                        ->authorize(fn (Member $record): bool => auth()->user()?->can('update', $record) ?? false)
+                        ->schema(fn (Member $record): array => [
+                            Forms\Components\Select::make('year')
+                                ->label(__('Year'))
+                                ->options(collect(range(now()->year, now()->year - 3))->mapWithKeys(fn ($y) => [$y => $y])->all())
+                                ->default(now()->year)
+                                ->required()
+                                ->helperText(function (Get $get) use ($record): string {
+                                    $year = (int) ($get('year') ?? now()->year);
+                                    $exists = MemberSubscriptionFee::where('member_id', $record->id)->where('year', $year)->exists();
+
+                                    return $exists
+                                        ? '⚠ ' . __('Already charged for :year', ['year' => $year])
+                                        : __('No subscription charged yet for :year', ['year' => $year]);
+                                })
+                                ->live(),
+                            Forms\Components\TextInput::make('amount')
+                                ->label(__('Amount (SAR)'))
+                                ->numeric()
+                                ->prefix('SAR')
+                                ->required()
+                                ->minValue(0.01)
+                                ->default(fn (): float => Setting::annualSubscriptionFee() > 0 ? Setting::annualSubscriptionFee() : 0.0)
+                                ->step(0.01),
+                            Forms\Components\Textarea::make('notes')
+                                ->label(__('Notes'))
+                                ->rows(2)
+                                ->maxLength(500),
+                        ])
+                        ->action(function (array $data, Member $record, Component $livewire): void {
+                            try {
+                                app(SubscriptionFeeService::class)->chargeMember(
+                                    $record,
+                                    (int) $data['year'],
+                                    (float) $data['amount'],
+                                    (string) ($data['notes'] ?? ''),
+                                );
+                            } catch (\Throwable $e) {
+                                Notification::make()
+                                    ->title(__('Subscription charge failed'))
+                                    ->body($e->getMessage())
+                                    ->danger()
+                                    ->send();
+
+                                return;
+                            }
+
+                            Notification::make()
+                                ->title(__('Annual Subscription Fee charged for :year', ['year' => $data['year']]))
+                                ->success()
+                                ->send();
+                        }),
                     DeleteAction::make()
                         ->modalDescription(__('Removes this member from active records: loans are safe-deleted first (ledger reversed), then bank/SMS lines, virtual accounts, the member row, and their login user (soft-deleted). Blocked while contribution records still exist — remove or soft-delete those first if you need to delete.'))
                         ->using(function (Member $record): bool {
@@ -1127,6 +1190,66 @@ class MemberResource extends Resource
                             Notification::make()
                                 ->title(__('Notifications Sent'))
                                 ->body(__('Sent to :sent member(s). Skipped: :skipped.', ['sent' => $sent, 'skipped' => $skipped]))
+                                ->success()
+                                ->send();
+                        })
+                        ->deselectRecordsAfterCompletion(),
+                    BulkAction::make('charge_subscription')
+                        ->label(__('Charge Annual Subscription'))
+                        ->icon('heroicon-o-calendar-days')
+                        ->color('primary')
+                        ->modalHeading(__('Charge Annual Subscription (bulk)'))
+                        ->modalDescription(__('Charges the annual subscription fee to every selected active member for the chosen year. Members already charged for that year are skipped.'))
+                        ->schema([
+                            Forms\Components\Select::make('year')
+                                ->label(__('Year'))
+                                ->options(collect(range(now()->year, now()->year - 3))->mapWithKeys(fn ($y) => [$y => $y])->all())
+                                ->default(now()->year)
+                                ->required(),
+                            Forms\Components\TextInput::make('amount')
+                                ->label(__('Amount (SAR)'))
+                                ->numeric()
+                                ->prefix('SAR')
+                                ->required()
+                                ->minValue(0.01)
+                                ->default(fn (): float => Setting::annualSubscriptionFee() > 0 ? Setting::annualSubscriptionFee() : 0.0)
+                                ->step(0.01),
+                            Forms\Components\Textarea::make('notes')
+                                ->label(__('Notes'))
+                                ->rows(2)
+                                ->maxLength(500),
+                        ])
+                        ->authorizeIndividualRecords('update')
+                        ->action(function (array $data, EloquentCollection $records): void {
+                            $svc = app(SubscriptionFeeService::class);
+                            $year = (int) $data['year'];
+                            $amount = (float) $data['amount'];
+                            $notes = (string) ($data['notes'] ?? '');
+                            $charged = 0;
+                            $skipped = 0;
+
+                            foreach ($records as $record) {
+                                if (! $record instanceof Member || $record->trashed()) {
+                                    $skipped++;
+
+                                    continue;
+                                }
+
+                                try {
+                                    $svc->chargeMember($record, $year, $amount, $notes);
+                                    $charged++;
+                                } catch (\InvalidArgumentException) {
+                                    // Already charged or invalid — skip silently
+                                    $skipped++;
+                                } catch (\Throwable $e) {
+                                    $skipped++;
+                                    report($e);
+                                }
+                            }
+
+                            Notification::make()
+                                ->title(__('Subscription bulk charge complete'))
+                                ->body(__('Charged: :charged. Skipped: :skipped.', ['charged' => $charged, 'skipped' => $skipped]))
                                 ->success()
                                 ->send();
                         })

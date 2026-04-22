@@ -25,6 +25,7 @@ use Filament\Tables;
 use Filament\Tables\Table;
 use Illuminate\Database\Eloquent\Collection;
 use Illuminate\Database\Eloquent\Model;
+use Illuminate\Support\HtmlString;
 
 class TransactionsRelationManager extends RelationManager
 {
@@ -108,6 +109,79 @@ class TransactionsRelationManager extends RelationManager
                     ->authorize(fn () => auth()->user()?->can('update', $this->getOwnerRecord()) ?? false)
                     ->schema($this->manualLedgerEntryFormSchema())
                     ->action(fn (array $data) => $this->postManualLedgerLineFromAction($data, 'debit')),
+                // Refund — only visible on member cash accounts
+                Action::make('refundMemberCash')
+                    ->label(__('Refund'))
+                    ->icon('heroicon-o-arrow-uturn-left')
+                    ->color('warning')
+                    ->modalHeading(__('Post Refund'))
+                    ->modalDescription(__('Debits both this member cash account and master cash — recording money returned to the member. The matching debit will appear on the next imported bank statement.'))
+                    ->modalSubmitActionLabel(__('Post Refund'))
+                    ->visible(fn (): bool => $this->getOwnerRecord()->type === Account::TYPE_MEMBER_CASH)
+                    ->authorize(fn () => auth()->user()?->can('update', $this->getOwnerRecord()) ?? false)
+                    ->schema(function (): array {
+                        $account = $this->getOwnerRecord();
+                        $balance = (float) $account->balance;
+
+                        return [
+                            Forms\Components\Placeholder::make('balance_info')
+                                ->label(__('Available balance'))
+                                ->content(new HtmlString(
+                                    '<span class="text-lg font-bold ' . ($balance > 0 ? 'text-emerald-600' : 'text-red-600') . '">'
+                                    . __('SAR') . ' ' . number_format($balance, 2)
+                                    . '</span>'
+                                )),
+                            Forms\Components\TextInput::make('amount')
+                                ->label(__('Amount (SAR)'))
+                                ->numeric()
+                                ->required()
+                                ->minValue(0.01)
+                                ->maxValue($balance > 0 ? $balance : null)
+                                ->default($balance > 0 ? $balance : null)
+                                ->step(0.01),
+                            Forms\Components\Textarea::make('description')
+                                ->label(__('Reason / Description'))
+                                ->required()
+                                ->rows(2)
+                                ->maxLength(500),
+                            Forms\Components\DateTimePicker::make('transacted_at')
+                                ->label(__('Transaction date'))
+                                ->default(now())
+                                ->required()
+                                ->seconds(false),
+                        ];
+                    })
+                    ->action(function (array $data): void {
+                        $account = $this->getOwnerRecord();
+                        try {
+                            app(AccountingService::class)->refundMemberCash(
+                                $account,
+                                (float) $data['amount'],
+                                (string) $data['description'],
+                                $account->member,
+                                $data['transacted_at'] ? \Illuminate\Support\Carbon::parse($data['transacted_at']) : null,
+                            );
+                        } catch (\Throwable $e) {
+                            report($e);
+                            Notification::make()
+                                ->title(__('Refund failed'))
+                                ->body($e->getMessage())
+                                ->danger()
+                                ->send();
+                            throw new Halt;
+                        }
+
+                        Notification::make()
+                            ->title(__('Refund of SAR :amount posted for :name', [
+                                'amount' => number_format((float) $data['amount'], 2),
+                                'name'   => $account->member?->user?->name ?? __('Member'),
+                            ]))
+                            ->success()
+                            ->send();
+
+                        $this->resetTable();
+                        $this->dispatchAccountWidgetsRefresh();
+                    }),
             ])
             ->columns([
                 Tables\Columns\TextColumn::make('transacted_at')
@@ -188,6 +262,109 @@ class TransactionsRelationManager extends RelationManager
             ])
             ->recordActions([
                 ActionGroup::make([
+                    // Split Transaction — master cash only
+                    Action::make('splitTransaction')
+                        ->label(__('Split Transaction'))
+                        ->icon('heroicon-o-scissors')
+                        ->color('info')
+                        ->modalHeading(__('Split Transaction'))
+                        ->modalDescription(fn (AccountTransaction $record): string => __(
+                            'Divide SAR :amount into labelled parts. Parts must sum to the original amount.',
+                            ['amount' => number_format((float) $record->amount, 2)]
+                        ))
+                        ->modalSubmitActionLabel(__('Split into parts'))
+                        ->modalWidth('3xl')
+                        ->visible(fn (AccountTransaction $record): bool =>
+                            $this->getOwnerRecord()->type === Account::TYPE_MASTER_CASH
+                            && $record->entry_type === 'credit'
+                            && $record->trashed() === false
+                        )
+                        ->authorize(fn (): bool => auth()->user()?->can('update', $this->getOwnerRecord()) ?? false)
+                        ->schema(fn (AccountTransaction $record): array => [
+                            Forms\Components\Placeholder::make('original_info')
+                                ->label(__('Original entry'))
+                                ->content(new HtmlString(
+                                    '<span class="text-base font-semibold text-emerald-600">'
+                                    . __('SAR') . ' ' . number_format((float) $record->amount, 2)
+                                    . '</span>'
+                                    . ' — ' . e($record->description ?? '—')
+                                )),
+                            Forms\Components\Repeater::make('parts')
+                                ->label(__('Split into parts'))
+                                ->minItems(2)
+                                ->addActionLabel(__('Add part'))
+                                ->defaultItems(2)
+                                ->columns(3)
+                                ->schema([
+                                    Forms\Components\Select::make('category')
+                                        ->label(__('Category'))
+                                        ->options([
+                                            'contribution'        => __('Contribution'),
+                                            'late_fee'            => __('Late Fee'),
+                                            'membership_fee'      => __('Membership Fee'),
+                                            'annual_subscription' => __('Annual Subscription'),
+                                            'other'               => __('Other'),
+                                        ])
+                                        ->required()
+                                        ->reactive()
+                                        ->afterStateUpdated(function ($state, callable $set): void {
+                                            $labels = [
+                                                'contribution'        => __('Contribution'),
+                                                'late_fee'            => __('Late Fee'),
+                                                'membership_fee'      => __('Membership Fee'),
+                                                'annual_subscription' => __('Annual Subscription Fee'),
+                                            ];
+                                            if (isset($labels[$state])) {
+                                                $set('description', $labels[$state]);
+                                            }
+                                        }),
+                                    Forms\Components\TextInput::make('description')
+                                        ->label(__('Description'))
+                                        ->required()
+                                        ->maxLength(500),
+                                    Forms\Components\TextInput::make('amount')
+                                        ->label(__('Amount (SAR)'))
+                                        ->numeric()
+                                        ->required()
+                                        ->minValue(0.01)
+                                        ->step(0.01),
+                                ]),
+                            Forms\Components\Placeholder::make('running_total')
+                                ->label(__('Running total'))
+                                ->content(new HtmlString(
+                                    '<span class="text-sm text-gray-500">'
+                                    . __('Parts must sum to SAR :amount', ['amount' => number_format((float) $record->amount, 2)])
+                                    . '</span>'
+                                )),
+                        ])
+                        ->action(function (AccountTransaction $record, array $data): void {
+                            $parts = collect($data['parts'] ?? [])
+                                ->map(fn ($p) => [
+                                    'amount'      => (float) ($p['amount'] ?? 0),
+                                    'description' => trim($p['description'] ?? ''),
+                                ])
+                                ->all();
+
+                            try {
+                                app(AccountingService::class)->splitTransaction($record, $parts);
+                            } catch (\Throwable $e) {
+                                report($e);
+                                Notification::make()
+                                    ->title(__('Split failed'))
+                                    ->body($e->getMessage())
+                                    ->danger()
+                                    ->send();
+                                throw new Halt;
+                            }
+
+                            Notification::make()
+                                ->title(__('Transaction split into :count parts', ['count' => count($parts)]))
+                                ->success()
+                                ->send();
+
+                            $this->resetTable();
+                            $this->dispatchAccountWidgetsRefresh();
+                        }),
                     Action::make('post_to_member')
                         ->label(__('Post to Member'))
                         ->icon('heroicon-o-user-plus')

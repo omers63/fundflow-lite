@@ -4018,3 +4018,34 @@ Every toggle button for that channel across all categories shows as red-tinted, 
 A footnote explains the behavior: "Channels marked Unavailable have been disabled by the administrator."
 Member preferences for disabled channels are preserved in the DB — if the admin re-enables a channel, members automatically resume their previous settings.
 -------------------------------------
+All 10 todos are complete. Here's a summary of everything implemented:
+
+What was built
+1. Split Transaction (master cash ledger)
+In AccountResource → TransactionsRelationManager, a new "Split Transaction" row action appears on any credit entry in the master cash account. It opens a modal with:
+
+A read-only display of the original amount
+A repeater with at least 2 rows, each with a category picker (Contribution / Late Fee / Membership Fee / Annual Subscription / Other), a description (auto-filled from category), and an amount
+The description auto-updates when you pick a category
+On submit, AccountingService::splitTransaction() reverses the original entry and re-posts each part with the same timestamp and member tag — net balance effect is zero
+2. Refund (member cash ledger)
+A new "Refund" header action appears only on member cash accounts (top of the ledger table). It:
+
+Pre-fills with the full current balance (editable down to a partial amount)
+Calls AccountingService::refundMemberCash() which posts a debit to both the member cash account and master cash in a single DB transaction
+The matching debit will appear on the next imported bank statement for reconciliation
+3. Annual Subscription Fees
+New member_subscription_fees table (one row per member per year, unique constraint)
+New MemberSubscriptionFee model with scopes
+SubscriptionFeeService::chargeMember() posts the fee to master cash (credit only, like late fees and membership fees)
+SubscriptionFeeService::chargeAnniversaryFees() auto-charges all active members whose join-date anniversary falls today
+Daily scheduler entry at 06:00 in routes/console.php
+"Charge Annual Subscription" single-record action on each member row in MemberResource
+Bulk action on the members list page to charge multiple members at once
+Setting::annualSubscriptionFee() helper; configurable in System Settings → Cycle Settings under a new "Annual Subscription Fee" section
+4. Fee Revenue Dashboard Widget
+A new full-width widget (FeesRevenueWidget) appears on the admin dashboard (sort=3, after the Financial Health widget). It shows three side-by-side cards:
+
+Late Fees (red accent) — all-time total, this-year breakdown with progress bar
+Membership Fees (sky accent) — application fees posted to master cash
+Annual Subscription Fees (emerald accent) — or an empty-state prompt to configure the fee if none exist yet

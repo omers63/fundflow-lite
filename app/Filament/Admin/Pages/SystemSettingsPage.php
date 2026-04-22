@@ -173,6 +173,7 @@ class SystemSettingsPage extends Page
                     'late_fee_repayment_10d' => Setting::lateFeeRepaymentTier(10),
                     'late_fee_repayment_20d' => Setting::lateFeeRepaymentTier(20),
                     'late_fee_repayment_30d' => Setting::lateFeeRepaymentTier(30),
+                    'annual_subscription_fee' => Setting::annualSubscriptionFee(),
                 ])
                 ->schema([
                     Section::make(__('Cycle boundaries'))
@@ -252,9 +253,24 @@ class SystemSettingsPage extends Page
                                 ->label(__('Repayment — 30+ days late (SAR)'))
                                 ->numeric()->prefix('SAR')->required()->minValue(0)->default(0),
                         ])->columns(3),
+                    Section::make(__('Annual Subscription Fee'))
+                        ->description(
+                            __('Charged once per year on each active member\'s join-date anniversary. Set to 0 to disable automatic anniversary charging.')
+                        )
+                        ->schema([
+                            Forms\Components\TextInput::make('annual_subscription_fee')
+                                ->label(__('Annual subscription fee (SAR)'))
+                                ->numeric()
+                                ->prefix('SAR')
+                                ->required()
+                                ->minValue(0)
+                                ->default(0)
+                                ->helperText(__('Credit goes to master cash (like late fees and membership fees). The daily scheduler charges eligible members automatically on their anniversary.')),
+                        ]),
                 ])
                 ->action(function (array $data): void {
                     Setting::set('contribution.cycle_start_day', max(1, min(28, (int) $data['cycle_start_day'])));
+                    Setting::set('subscription.annual_fee', max(0, (float) $data['annual_subscription_fee']));
                     Setting::set('delinquency.consecutive_miss_threshold', max(1, min(36, (int) $data['delinquency_consecutive'])));
                     Setting::set('delinquency.total_miss_threshold', max(1, min(240, (int) $data['delinquency_total'])));
                     Setting::set('delinquency.total_miss_lookback_months', max(1, min(240, (int) $data['delinquency_lookback_months'])));

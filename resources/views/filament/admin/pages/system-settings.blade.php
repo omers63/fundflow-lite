@@ -253,6 +253,31 @@
                     {{ __('Cash-account debits bundle principal and late fee; late fees credit master cash only (not master fund).') }}
                 </p>
             </div>
+
+            {{-- Annual Subscription Fee card --}}
+            <div class="relative overflow-hidden rounded-xl border border-violet-200 bg-white p-5 shadow-sm dark:border-violet-800/50 dark:bg-gray-800">
+                <div class="absolute inset-y-0 left-0 w-1 rounded-l-xl bg-violet-500"></div>
+                <div class="pl-2">
+                    <div class="flex items-center gap-2 mb-3">
+                        <div class="flex h-8 w-8 items-center justify-center rounded-lg bg-violet-100 dark:bg-violet-900/40">
+                            <x-heroicon-o-calendar-days class="w-4 h-4 text-violet-600 dark:text-violet-400" />
+                        </div>
+                        <h3 class="text-sm font-semibold text-gray-950 dark:text-white">{{ __('Annual Subscription Fee') }}</h3>
+                    </div>
+                    @php $annualFee = \App\Models\Setting::annualSubscriptionFee(); @endphp
+                    @if($annualFee > 0)
+                        <p class="text-2xl font-bold text-violet-600 dark:text-violet-400 mb-1">{{ __('SAR') }} {{ number_format($annualFee, 2) }}</p>
+                        <p class="text-xs text-gray-500 dark:text-gray-400 leading-relaxed">
+                            {{ __('Charged once per year on each active member\'s join-date anniversary. Credits master cash only.') }}
+                        </p>
+                    @else
+                        <p class="text-sm font-semibold text-gray-400 dark:text-gray-500 mb-1">{{ __('Disabled (SAR 0.00)') }}</p>
+                        <p class="text-xs text-gray-500 dark:text-gray-400 leading-relaxed">
+                            {{ __('Set a non-zero amount using the "Save cycle settings" button above to enable annual anniversary charges.') }}
+                        </p>
+                    @endif
+                </div>
+            </div>
         </div>
     @elseif ($activeTab === 'public-membership')
         <x-filament::section

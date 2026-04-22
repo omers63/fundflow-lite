@@ -5,6 +5,7 @@ namespace App\Filament\Admin\Pages;
 use App\Filament\Admin\Widgets\AdminStatsOverview;
 use App\Filament\Admin\Widgets\AdminWelcomeBannerWidget;
 use App\Filament\Admin\Widgets\ContributionTrendWidget;
+use App\Filament\Admin\Widgets\FeesRevenueWidget;
 use App\Filament\Admin\Widgets\FundHealthWidget;
 use App\Filament\Admin\Widgets\LoanPortfolioWidget;
 use App\Filament\Admin\Widgets\LoanRepaymentTrendWidget;
@@ -39,6 +40,7 @@ class Dashboard extends BaseDashboard
         return [
             AdminStatsOverview::class,
             FundHealthWidget::class,
+            FeesRevenueWidget::class,
             OverdueInstallmentsWidget::class,
             MemberPipelineWidget::class,
             LoanPortfolioWidget::class,

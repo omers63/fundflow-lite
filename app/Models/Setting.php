@@ -178,6 +178,17 @@ class Setting extends Model
         return max(0.0, (float) static::get("late_fee.repayment_day_{$minDays}", 0));
     }
 
+    // ── Annual Subscription Settings ─────────────────────────────────────────
+
+    /**
+     * Annual subscription fee amount (SAR). 0 means the feature is disabled / no fee charged.
+     * The scheduler uses this value when auto-charging anniversary fees.
+     */
+    public static function annualSubscriptionFee(): float
+    {
+        return max(0.0, (float) static::get('subscription.annual_fee', 0));
+    }
+
     // ── Statement Settings ────────────────────────────────────────────────
 
     public static function statementBrandName(): string
