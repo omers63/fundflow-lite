@@ -7,8 +7,10 @@ use App\Models\Contribution;
 use App\Models\LoanInstallment;
 use App\Observers\ContributionObserver;
 use App\Observers\LoanInstallmentObserver;
+use App\Support\Notifications\DatabaseBellNotification;
 use BezhanSalleh\LanguageSwitch\LanguageSwitch;
 use Filament\Auth\Http\Responses\Contracts\LogoutResponse as LogoutResponseContract;
+use Filament\Notifications\Notification as FilamentNotification;
 use Filament\Tables\Columns\Column;
 use Filament\Tables\Enums\FiltersLayout;
 use Filament\Tables\Table;
@@ -19,6 +21,7 @@ class AppServiceProvider extends ServiceProvider
     public function register(): void
     {
         $this->app->bind(LogoutResponseContract::class, FilamentLogoutResponse::class);
+        $this->app->bind(FilamentNotification::class, DatabaseBellNotification::class);
     }
 
     public function boot(): void

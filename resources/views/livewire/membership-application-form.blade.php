@@ -473,11 +473,21 @@
                 @endif
 
                 {{-- Navigation Buttons --}}
+                @php
+                    $isArabicLocale = app()->getLocale() === 'ar';
+                @endphp
                 <div class="flex justify-between mt-8 pt-6 border-t border-slate-100">
                     @if($currentStep > 1)
                     <button wire:click="previousStep" type="button" class="flex items-center gap-2 px-6 py-3 text-sm font-semibold text-slate-600 bg-slate-100 hover:bg-slate-200 rounded-xl transition-colors">
-                        <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M15 19l-7-7 7-7"/></svg>
-                        {{ __('Previous') }}
+                        @if($isArabicLocale)
+                            <span dir="ltr" class="inline-flex items-center gap-1">
+                                <span dir="rtl">{{ __('Previous') }}</span>
+                                <span aria-hidden="true">&gt;</span>
+                            </span>
+                        @else
+                            <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M15 19l-7-7 7-7"/></svg>
+                            {{ __('Previous') }}
+                        @endif
                     </button>
                     @else
                     <div></div>
@@ -485,8 +495,15 @@
 
                     @if($currentStep < $totalSteps)
                     <button wire:click="nextStep" type="button" class="flex items-center gap-2 px-6 py-3 text-sm font-semibold text-white bg-blue-600 hover:bg-blue-700 rounded-xl transition-colors">
-                        {{ __('Next') }}
-                        <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 5l7 7-7 7"/></svg>
+                        @if($isArabicLocale)
+                            <span dir="ltr" class="inline-flex items-center gap-1">
+                                <span aria-hidden="true">&lt;</span>
+                                <span dir="rtl">{{ __('Next') }}</span>
+                            </span>
+                        @else
+                            {{ __('Next') }}
+                            <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 5l7 7-7 7"/></svg>
+                        @endif
                     </button>
                     @else
                     <button
