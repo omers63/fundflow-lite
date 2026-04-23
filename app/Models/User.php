@@ -10,11 +10,30 @@ use Illuminate\Database\Eloquent\SoftDeletes;
 use Illuminate\Foundation\Auth\User as Authenticatable;
 use Illuminate\Notifications\Notifiable;
 use Illuminate\Contracts\Translation\HasLocalePreference;
+use Spatie\Permission\Models\Role;
 use Spatie\Permission\Traits\HasRoles;
 
 class User extends Authenticatable implements FilamentUser, HasLocalePreference
 {
     use HasFactory, Notifiable, HasRoles, SoftDeletes;
+
+    protected static function booted(): void
+    {
+        static::saved(function (self $user): void {
+            if ($user->role !== 'member') {
+                return;
+            }
+
+            $memberRole = Role::firstOrCreate([
+                'name' => 'member',
+                'guard_name' => 'web',
+            ]);
+
+            if (!$user->hasRole($memberRole->name)) {
+                $user->assignRole($memberRole);
+            }
+        });
+    }
 
     protected $fillable = [
         'name',
