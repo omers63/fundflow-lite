@@ -48,7 +48,7 @@ class Dashboard extends BaseDashboard
         /** @var User|null $user */
         $user = auth()->user();
 
-        if (! $user instanceof User) {
+        if (!$user instanceof User) {
             return $available;
         }
 
@@ -83,9 +83,11 @@ class Dashboard extends BaseDashboard
     {
         return [
             Action::make('configureWidgets')
-                ->label('')
+                ->label(__('Customize widgets'))
                 ->icon('heroicon-o-adjustments-horizontal')
+                ->iconButton()
                 ->tooltip(__('Customize widgets'))
+                ->modalHeading(__('Customize widgets'))
                 ->form([
                     CheckboxList::make('visible_widgets')
                         ->label(__('Visible widgets'))
@@ -106,7 +108,7 @@ class Dashboard extends BaseDashboard
                     /** @var User|null $user */
                     $user = auth()->user();
 
-                    if (! $user instanceof User) {
+                    if (!$user instanceof User) {
                         return;
                     }
 
