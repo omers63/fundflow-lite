@@ -8,6 +8,8 @@ use Filament\Widgets\Widget;
 
 class ContributionHistoryWidget extends Widget
 {
+    protected static bool $isLazy = false;
+
     protected string $view = 'filament.member.widgets.contribution-history';
 
     protected static ?int $sort = 4;

@@ -10,6 +10,8 @@ use Filament\Widgets\Widget;
 
 class MemberStatsOverview extends Widget
 {
+    protected static bool $isLazy = false;
+
     protected string $view = 'filament.member.widgets.member-stats-overview';
 
     protected static ?int $sort = 1;

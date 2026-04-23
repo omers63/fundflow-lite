@@ -8,6 +8,8 @@ use Filament\Widgets\Widget;
 
 class AccountBalancesWidget extends Widget
 {
+    protected static bool $isLazy = false;
+
     protected string $view = 'filament.member.widgets.account-balances';
 
     protected static ?int $sort = 2;

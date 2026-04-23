@@ -12,6 +12,8 @@ use Filament\Widgets\Widget;
 
 class MemberWelcomeBannerWidget extends Widget
 {
+    protected static bool $isLazy = false;
+
     protected string $view = 'filament.member.widgets.member-welcome-banner';
 
     protected static ?int $sort = -1;
@@ -83,15 +85,15 @@ class MemberWelcomeBannerWidget extends Widget
             ->exists();
 
         // Eligibility check
-        $eligService  = app(LoanEligibilityService::class);
-        $isEligible   = $eligService->isEligible($member);
+        $eligService = app(LoanEligibilityService::class);
+        $isEligible = $eligService->isEligible($member);
 
         // Pending loan check
-        $pendingLoan  = Loan::where('member_id', $member->id)->where('status', 'pending')->first();
+        $pendingLoan = Loan::where('member_id', $member->id)->where('status', 'pending')->first();
 
         // Repayment availability
         $repayService = app(LoanRepaymentService::class);
-        $canRepay     = $repayService->shouldOfferOpenPeriodRepayment($member);
+        $canRepay = $repayService->shouldOfferOpenPeriodRepayment($member);
         $repayInsufficient = $canRepay && $repayService->hasInsufficientCashForOpenPeriodRepayment($member);
 
         // Contribution status

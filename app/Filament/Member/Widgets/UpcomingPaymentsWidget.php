@@ -9,6 +9,8 @@ use Filament\Widgets\Widget;
 
 class UpcomingPaymentsWidget extends Widget
 {
+    protected static bool $isLazy = false;
+
     protected static ?int $sort = 3;
 
     protected string $view = 'filament.member.widgets.upcoming-payments';
@@ -18,7 +20,7 @@ class UpcomingPaymentsWidget extends Widget
     public function getData(): array
     {
         $member = auth()->user()?->member;
-        if (! $member) {
+        if (!$member) {
             return ['months' => [], 'member' => null];
         }
 
@@ -36,7 +38,7 @@ class UpcomingPaymentsWidget extends Widget
                 ->first();
 
             // Installments due in this month
-            $installments = LoanInstallment::whereHas('loan', fn ($q) => $q->where('member_id', $member->id))
+            $installments = LoanInstallment::whereHas('loan', fn($q) => $q->where('member_id', $member->id))
                 ->whereYear('due_date', $y)
                 ->whereMonth('due_date', $m)
                 ->with('loan.loanTier')
@@ -54,7 +56,7 @@ class UpcomingPaymentsWidget extends Widget
                     'paid' => $contribution !== null,
                     'is_late' => $contribution?->is_late ?? false,
                 ],
-                'installments' => $installments->map(fn ($inst) => [
+                'installments' => $installments->map(fn($inst) => [
                     'amount' => (float) $inst->amount,
                     'due_date' => $inst->due_date->locale(app()->getLocale())->translatedFormat('d M'),
                     'status' => $inst->status,

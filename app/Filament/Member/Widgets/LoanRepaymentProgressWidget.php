@@ -10,6 +10,8 @@ use Illuminate\Support\Collection;
 
 class LoanRepaymentProgressWidget extends Widget
 {
+    protected static bool $isLazy = false;
+
     protected static ?int $sort = 3;
 
     protected int|string|array $columnSpan = 'full';
@@ -19,7 +21,7 @@ class LoanRepaymentProgressWidget extends Widget
     public static function canView(): bool
     {
         $member = auth()->user()?->member;
-        if (! $member) {
+        if (!$member) {
             return false;
         }
 
@@ -31,7 +33,7 @@ class LoanRepaymentProgressWidget extends Widget
     public function getLoans(): Collection
     {
         $member = auth()->user()?->member;
-        if (! $member) {
+        if (!$member) {
             return collect();
         }
 
