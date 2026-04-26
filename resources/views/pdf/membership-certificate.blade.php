@@ -1,5 +1,5 @@
 <!DOCTYPE html>
-<html>
+<html lang="{{ app()->getLocale() }}" dir="{{ app()->getLocale() === 'ar' ? 'rtl' : 'ltr' }}">
 <head>
     <meta charset="UTF-8">
     <title>Membership Certificate — {{ $member->user->name }}</title>
@@ -45,45 +45,45 @@
 
         <div class="header">
             <div class="logo-line">{{ app()->getLocale() === 'ar' ? 'فندفلو' : 'FundFlow' }}</div>
-            <div class="subtitle">Member Fund Management</div>
+            <div class="subtitle">{{ __('Member Fund Management') }}</div>
         </div>
 
         <div class="title-block">
-            <div class="cert-title">Certificate of Membership</div>
-            <div class="cert-subtitle">This is to certify that the following individual is a registered member</div>
+            <div class="cert-title">{{ __('Certificate of Membership') }}</div>
+            <div class="cert-subtitle">{{ __('This is to certify that the following individual is a registered member') }}</div>
         </div>
 
         <hr class="divider">
 
         <div class="member-name">{{ $member->user->name }}</div>
-        <div class="member-number">Member No. {{ $member->member_number }}</div>
+        <div class="member-number">{{ __('Member No.') }} {{ $member->member_number }}</div>
 
         <table class="details-table">
             <tr>
-                <td class="label">Membership Status</td>
+                <td class="label">{{ __('Membership Status') }}</td>
                 <td class="value">
                     <span class="status-badge {{ $member->status === 'active' ? 'status-active' : 'status-other' }}">
                         {{ strtoupper($member->status) }}
                     </span>
                 </td>
-                <td class="label">Email</td>
+                <td class="label">{{ __('Email') }}</td>
                 <td class="value">{{ $member->user->email }}</td>
             </tr>
             <tr>
-                <td class="label">Member Since</td>
+                <td class="label">{{ __('Member Since') }}</td>
                 <td class="value">{{ $member->joined_at?->format('d F Y') ?? '—' }}</td>
-                <td class="label">Phone</td>
+                <td class="label">{{ __('Phone') }}</td>
                 <td class="value" dir="ltr" style="unicode-bidi:isolate;">{{ \App\Support\PhoneDisplay::plain($member->user->phone ?? null) }}</td>
             </tr>
             <tr>
-                <td class="label">Monthly Contribution</td>
+                <td class="label">{{ __('Monthly Contribution') }}</td>
                 <td class="value">{{ __('SAR') }} {{ number_format($member->monthly_contribution_amount) }}</td>
-                <td class="label">Tenure</td>
-                <td class="value">{{ $joinedMonths }} month{{ $joinedMonths === 1 ? '' : 's' }}</td>
+                <td class="label">{{ __('Tenure') }}</td>
+                <td class="value">{{ $joinedMonths }} {{ $joinedMonths === 1 ? __('month') : __('months') }}</td>
             </tr>
             @if($member->parent)
             <tr>
-                <td class="label">Sponsored by</td>
+                <td class="label">{{ __('Sponsored by') }}</td>
                 <td class="value" colspan="3">{{ $member->parent->user->name }} ({{ $member->parent->member_number }})</td>
             </tr>
             @endif
@@ -92,39 +92,39 @@
         <div class="stats-row">
             <div class="stat-cell">
                 <div class="stat-val">{{ __('SAR') }} {{ number_format($member->fund_balance ?? 0) }}</div>
-                <div class="stat-lbl">Fund Balance</div>
+                <div class="stat-lbl">{{ __('Fund Balance') }}</div>
             </div>
             <div class="stat-cell">
                 <div class="stat-val">{{ __('SAR') }} {{ number_format($totalContributions) }}</div>
-                <div class="stat-lbl">Total Contributed</div>
+                <div class="stat-lbl">{{ __('Total Contributed') }}</div>
             </div>
             <div class="stat-cell">
                 <div class="stat-val">{{ __('SAR') }} {{ number_format($member->cash_balance ?? 0) }}</div>
-                <div class="stat-lbl">Cash Balance</div>
+                <div class="stat-lbl">{{ __('Cash Balance') }}</div>
             </div>
         </div>
 
         <p class="body-text">
-            This certificate confirms the membership of the above-named individual in the {{ app()->getLocale() === 'ar' ? 'فندفلو' : 'FundFlow' }} Fund.<br>
-            This document is valid as of the date of issue shown below.
+            {{ __('This certificate confirms the membership of the above-named individual in the :brand Fund.', ['brand' => app()->getLocale() === 'ar' ? 'فندفلو' : 'FundFlow']) }}<br>
+            {{ __('This document is valid as of the date of issue shown below.') }}
         </p>
 
         <div class="signature-row">
             <div class="sig-cell">
                 <div class="sig-line"></div>
-                <div class="sig-label">Fund Administrator</div>
+                <div class="sig-label">{{ __('Fund Administrator') }}</div>
             </div>
             <div class="sig-cell">
                 <div class="sig-line"></div>
-                <div class="sig-label">Member Signature</div>
+                <div class="sig-label">{{ __('Member Signature') }}</div>
             </div>
         </div>
 
         <div class="footer">
             <p class="footer-issued">
-                Issued: {{ now()->format('d F Y') }} &nbsp;|&nbsp;
+                {{ __('Issued') }}: {{ now()->format('d F Y') }} &nbsp;|&nbsp;
                 Certificate ID: CERT-{{ strtoupper($member->member_number) }}-{{ now()->format('Ymd') }} &nbsp;|&nbsp;
-                This is a computer-generated document.
+                {{ __('This is a computer-generated document.') }}
             </p>
         </div>
     </div>

@@ -1,5 +1,5 @@
 <!DOCTYPE html>
-<html>
+<html lang="{{ app()->getLocale() }}" dir="{{ app()->getLocale() === 'ar' ? 'rtl' : 'ltr' }}">
 <head>
     <meta charset="UTF-8">
     <title>Loan Repayment Schedule — Loan #{{ $loan->id }}</title>
@@ -37,58 +37,58 @@
 <body>
 
 <div class="header">
-    <h1>{{ app()->getLocale() === 'ar' ? 'فندفلو' : 'FundFlow' }} — Loan Repayment Schedule</h1>
-    <p>Loan #{{ $loan->id }} &nbsp;|&nbsp; Member: {{ $loan->member->user->name }} ({{ $loan->member->member_number }})</p>
+    <h1>{{ app()->getLocale() === 'ar' ? 'فندفلو' : 'FundFlow' }} — {{ __('Loan Repayment Schedule') }}</h1>
+    <p>{{ __('Loan') }} #{{ $loan->id }} &nbsp;|&nbsp; {{ __('Member') }}: {{ $loan->member->user->name }} ({{ $loan->member->member_number }})</p>
 </div>
 
 <div class="content">
 
     {{-- Loan details --}}
-    <div class="section-title">Loan Details</div>
+    <div class="section-title">{{ __('Loan Details') }}</div>
     <table class="info-table">
         <tr>
-            <td class="lbl">Loan Amount</td>
+            <td class="lbl">{{ __('Loan Amount') }}</td>
             <td class="val">{{ __('SAR') }} {{ number_format((float) $loan->amount_approved ?: $loan->amount_requested, 2) }}</td>
-            <td class="lbl">Status</td>
+            <td class="lbl">{{ __('Status') }}</td>
             <td class="val">{{ ucfirst(str_replace('_', ' ', $loan->status)) }}</td>
         </tr>
         <tr>
-            <td class="lbl">Tier</td>
+            <td class="lbl">{{ __('Tier') }}</td>
             <td class="val">{{ $loan->loanTier?->label ?? '—' }}</td>
-            <td class="lbl">Applied</td>
+            <td class="lbl">{{ __('Applied') }}</td>
             <td class="val">{{ $loan->applied_at?->format('d M Y') ?? '—' }}</td>
         </tr>
         <tr>
-            <td class="lbl">Total Installments</td>
+            <td class="lbl">{{ __('Total Installments') }}</td>
             <td class="val">{{ $loan->installments->count() }}</td>
-            <td class="lbl">Disbursed</td>
+            <td class="lbl">{{ __('Disbursed') }}</td>
             <td class="val">{{ $loan->disbursed_at?->format('d M Y') ?? '—' }}</td>
         </tr>
         <tr>
-            <td class="lbl">Monthly Installment</td>
+            <td class="lbl">{{ __('Monthly Installment') }}</td>
             <td class="val">{{ __('SAR') }} {{ number_format((float) ($loan->loanTier?->min_monthly_installment ?? 0), 2) }}</td>
-            <td class="lbl">Purpose</td>
+            <td class="lbl">{{ __('Purpose') }}</td>
             <td class="val">{{ $loan->purpose ?? '—' }}</td>
         </tr>
     </table>
 
     {{-- Progress summary --}}
-    <div class="section-title">Repayment Progress</div>
+    <div class="section-title">{{ __('Repayment Progress') }}</div>
     <div class="summary-grid">
         <div class="summary-cell">
-            <div class="summary-label">Total Installments</div>
+            <div class="summary-label">{{ __('Total Installments') }}</div>
             <div class="summary-value">{{ $loan->installments->count() }}</div>
         </div>
         <div class="summary-cell">
-            <div class="summary-label">Paid</div>
+            <div class="summary-label">{{ __('Paid') }}</div>
             <div class="summary-value" style="color: #059669;">{{ $paidCount }}</div>
         </div>
         <div class="summary-cell">
-            <div class="summary-label">Remaining</div>
+            <div class="summary-label">{{ __('Remaining') }}</div>
             <div class="summary-value" style="color: #b45309;">{{ $pendingCount }}</div>
         </div>
         <div class="summary-cell">
-            <div class="summary-label">Amount Remaining</div>
+            <div class="summary-label">{{ __('Amount Remaining') }}</div>
             <div class="summary-value">{{ __('SAR') }} {{ number_format($remaining, 2) }}</div>
         </div>
     </div>
@@ -100,19 +100,19 @@
     <div class="progress-bar-bg">
         <div class="progress-bar-fill" style="width: {{ $pct }}%"></div>
     </div>
-    <div class="progress-label">{{ $pct }}% repaid ({{ $paidCount }} of {{ $totalCount }} installments)</div>
+    <div class="progress-label">{{ $pct }}% {{ __('repaid') }} ({{ $paidCount }} {{ __('of') }} {{ $totalCount }} {{ __('installments') }})</div>
 
     {{-- Installment schedule --}}
-    <div class="section-title" style="margin-top: 24px;">Installment Schedule</div>
+    <div class="section-title" style="margin-top: 24px;">{{ __('Installment Schedule') }}</div>
     <table class="schedule">
         <thead>
             <tr>
                 <th>#</th>
-                <th>Due Date</th>
-                <th class="amount-right">Amount (SAR)</th>
-                <th>Status</th>
-                <th>Paid Date</th>
-                <th class="amount-right">Late Fee (SAR)</th>
+                <th>{{ __('Due Date') }}</th>
+                <th class="amount-right">{{ __('Amount (SAR)') }}</th>
+                <th>{{ __('Status') }}</th>
+                <th>{{ __('Paid Date') }}</th>
+                <th class="amount-right">{{ __('Late Fee (SAR)') }}</th>
             </tr>
         </thead>
         <tbody>
@@ -135,10 +135,10 @@
             </tr>
             @endforeach
             <tr class="total-row">
-                <td colspan="2">Total</td>
+                <td colspan="2">{{ __('Total') }}</td>
                 <td class="amount-right">{{ number_format((float) $loan->installments->sum('amount'), 2) }}</td>
                 <td></td>
-                <td>Paid: {{ __('SAR') }} {{ number_format($totalPaid, 2) }}</td>
+                <td>{{ __('Paid') }}: {{ __('SAR') }} {{ number_format($totalPaid, 2) }}</td>
                 <td class="amount-right">{{ number_format((float) $loan->installments->sum('late_fee_amount'), 2) }}</td>
             </tr>
         </tbody>
@@ -147,7 +147,7 @@
 </div>
 
 <div class="footer">
-    Generated on {{ now()->format('d F Y \a\t H:i') }} &nbsp;|&nbsp; {{ app()->getLocale() === 'ar' ? 'فندفلو' : 'FundFlow' }} Fund Management System &nbsp;|&nbsp; This is a computer-generated document.
+    {{ __('Generated on') }} {{ now()->format('d F Y \a\t H:i') }} &nbsp;|&nbsp; {{ app()->getLocale() === 'ar' ? 'فندفلو' : 'FundFlow' }} {{ __('Fund Management System') }} &nbsp;|&nbsp; {{ __('This is a computer-generated document.') }}
 </div>
 
 </body>

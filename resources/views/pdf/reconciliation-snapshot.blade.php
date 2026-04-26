@@ -1,8 +1,8 @@
 <!DOCTYPE html>
-<html lang="en">
+<html lang="{{ app()->getLocale() }}" dir="{{ app()->getLocale() === 'ar' ? 'rtl' : 'ltr' }}">
 <head>
     <meta charset="utf-8">
-    <title>Reconciliation snapshot #{{ $snapshot->id }}</title>
+    <title>{{ __('Reconciliation snapshot') }} #{{ $snapshot->id }}</title>
     <style>
         body { font-family: DejaVu Sans, sans-serif; font-size: 10pt; color: #111; }
         h1 { font-size: 16pt; margin: 0 0 8px; }
@@ -18,26 +18,26 @@
     </style>
 </head>
 <body>
-    <h1>Financial reconciliation report</h1>
-    <p class="muted">Snapshot #{{ $snapshot->id }} · Mode {{ $snapshot->mode }} · As of {{ $snapshot->as_of->format('Y-m-d H:i T') }}</p>
+    <h1>{{ __('Financial reconciliation report') }}</h1>
+    <p class="muted">{{ __('Snapshot') }} #{{ $snapshot->id }} · {{ __('Mode') }} {{ $snapshot->mode }} · {{ __('As of') }} {{ $snapshot->as_of->format('Y-m-d H:i T') }}</p>
     @if ($snapshot->period_start && $snapshot->period_end)
-        <p class="muted">Period {{ $snapshot->period_start->format('Y-m-d') }} → {{ $snapshot->period_end->format('Y-m-d') }}</p>
+        <p class="muted">{{ __('Period') }} {{ $snapshot->period_start->format('Y-m-d') }} → {{ $snapshot->period_end->format('Y-m-d') }}</p>
     @endif
 
-    <h2>Verdict</h2>
+    <h2>{{ __('Verdict') }}</h2>
     <p>
-        <strong>Result:</strong>
-        <span class="{{ $snapshot->is_passing ? 'pass' : 'fail' }}">{{ $snapshot->is_passing ? 'PASS' : 'FAIL' }}</span>
-        · Critical issues: {{ $snapshot->critical_issues }} · Warnings: {{ $snapshot->warnings }}
+        <strong>{{ __('Result') }}:</strong>
+        <span class="{{ $snapshot->is_passing ? 'pass' : 'fail' }}">{{ $snapshot->is_passing ? __('PASS') : __('FAIL') }}</span>
+        · {{ __('Critical issues') }}: {{ $snapshot->critical_issues }} · {{ __('Warnings') }}: {{ $snapshot->warnings }}
     </p>
 
-    <h2>Check summary</h2>
+    <h2>{{ __('Check summary') }}</h2>
     <table>
         <thead>
             <tr>
-                <th>Check</th>
-                <th>Severity</th>
-                <th>Notes</th>
+                <th>{{ __('Check') }}</th>
+                <th>{{ __('Severity') }}</th>
+                <th>{{ __('Notes') }}</th>
             </tr>
         </thead>
         <tbody>
@@ -47,21 +47,21 @@
                     <td>{{ $check['severity'] ?? '—' }}</td>
                     <td>
                         @if ($key === 'ledger_balances')
-                            Mismatches: {{ $check['mismatch_count'] ?? 0 }}
+                            {{ __('Mismatches') }}: {{ $check['mismatch_count'] ?? 0 }}
                         @elseif ($key === 'global_trial')
-                            Δ credits−debits: {{ number_format($check['delta'] ?? 0, 2) }}
+                            Δ {{ __('credits−debits') }}: {{ number_format($check['delta'] ?? 0, 2) }}
                         @elseif ($key === 'paired_control_totals')
-                            Cash Δ {{ number_format($check['cash_delta'] ?? 0, 2) }} · Fund Δ {{ number_format($check['fund_delta'] ?? 0, 2) }}
+                            {{ __('Cash') }} Δ {{ number_format($check['cash_delta'] ?? 0, 2) }} · {{ __('Fund') }} Δ {{ number_format($check['fund_delta'] ?? 0, 2) }}
                         @elseif (str_starts_with((string) $key, 'loans_') || str_contains((string) $key, 'loan'))
                             @if (isset($check['mismatch_count']))
-                                Mismatches: {{ $check['mismatch_count'] }}
+                                {{ __('Mismatches') }}: {{ $check['mismatch_count'] }}
                             @else
                                 —
                             @endif
                         @elseif ($key === 'contributions_ledger')
-                            Missing ledger rows: {{ $check['missing_ledger_count'] ?? 0 }} · Master fund Δ {{ number_format($check['master_fund_delta'] ?? 0, 2) }}
+                            {{ __('Missing ledger rows') }}: {{ $check['missing_ledger_count'] ?? 0 }} · {{ __('Master fund') }} Δ {{ number_format($check['master_fund_delta'] ?? 0, 2) }}
                         @elseif ($key === 'bank_statement_vs_book')
-                            Book {{ number_format($check['master_cash_book'] ?? 0, 2) }} vs stated {{ isset($check['declared_balance']) ? number_format($check['declared_balance'], 2) : '—' }}
+                            {{ __('Book') }} {{ number_format($check['master_cash_book'] ?? 0, 2) }} {{ __('vs stated') }} {{ isset($check['declared_balance']) ? number_format($check['declared_balance'], 2) : '—' }}
                         @else
                             —
                         @endif
@@ -71,14 +71,14 @@
         </tbody>
     </table>
 
-    <h2>Pipeline</h2>
+    <h2>{{ __('Pipeline') }}</h2>
     <table>
-        <tr><th>Bank unposted</th><td>{{ $snapshot->report['pipeline']['bank_unposted_count'] ?? 0 }} rows ({{ number_format($snapshot->report['pipeline']['bank_unposted_amount'] ?? 0, 2) }} SAR)</td></tr>
-        <tr><th>SMS unposted</th><td>{{ $snapshot->report['pipeline']['sms_unposted_count'] ?? 0 }} rows ({{ number_format($snapshot->report['pipeline']['sms_unposted_amount'] ?? 0, 2) }} SAR)</td></tr>
+        <tr><th>{{ __('Bank unposted') }}</th><td>{{ $snapshot->report['pipeline']['bank_unposted_count'] ?? 0 }} {{ __('rows') }} ({{ number_format($snapshot->report['pipeline']['bank_unposted_amount'] ?? 0, 2) }} SAR)</td></tr>
+        <tr><th>{{ __('SMS unposted') }}</th><td>{{ $snapshot->report['pipeline']['sms_unposted_count'] ?? 0 }} {{ __('rows') }} ({{ number_format($snapshot->report['pipeline']['sms_unposted_amount'] ?? 0, 2) }} SAR)</td></tr>
     </table>
 
-    <h2>Report payload (truncated)</h2>
-    <p class="muted">Use the JSON download in the admin UI for the complete machine-readable snapshot.</p>
+    <h2>{{ __('Report payload (truncated)') }}</h2>
+    <p class="muted">{{ __('Use the JSON download in the admin UI for the complete machine-readable snapshot.') }}</p>
     <pre>@php
         $json = json_encode(
             $snapshot->report,
