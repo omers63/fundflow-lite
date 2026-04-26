@@ -105,7 +105,7 @@ class MembershipApplicationForm extends Component
     /** Fee (SAR) for the currently selected application type; 0 if fees are disabled or this type is free. */
     public function currentApplicationFeeAmount(): float
     {
-        if (! $this->hasApplicationFee) {
+        if (!$this->hasApplicationFee) {
             return 0.0;
         }
 
@@ -114,7 +114,7 @@ class MembershipApplicationForm extends Component
 
     protected function checkApplicationCapReached(): bool
     {
-        if (! Setting::publicApplicationCapEnabled()) {
+        if (!Setting::publicApplicationCapEnabled()) {
             return false;
         }
 
@@ -183,11 +183,11 @@ class MembershipApplicationForm extends Component
                 'application_type' => 'required|in:new,resume,renew',
             ],
             'payment' => $this->hasApplicationFee && $this->currentApplicationFeeAmount() > 0
-                ? [
-                    'membership_fee_transfer_reference' => 'required|string|min:3|max:120',
-                    'membership_fee_acknowledged' => 'accepted',
-                ]
-                : [],
+            ? [
+                'membership_fee_transfer_reference' => 'required|string|min:3|max:120',
+                'membership_fee_acknowledged' => 'accepted',
+            ]
+            : [],
             'identity' => [
                 'gender' => 'nullable|in:male,female,other',
                 'marital_status' => 'nullable|in:single,married,divorced,widowed,other',
@@ -265,6 +265,9 @@ class MembershipApplicationForm extends Component
                         'phone' => $this->mobile_phone,
                         'role' => 'member',
                         'status' => 'pending',
+                        'preferred_locale' => in_array(app()->getLocale(), ['ar', 'en'], true)
+                            ? app()->getLocale()
+                            : config('app.locale', 'en'),
                         'password' => Hash::make($this->password),
                     ]);
 

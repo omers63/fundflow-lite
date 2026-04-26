@@ -52,7 +52,7 @@ class MembershipApplicationResource extends Resource
 
     public static function getNavigationLabel(): string
     {
-        return __('Applications');
+        return __('Membership Applications');
     }
 
     public static function getNavigationGroup(): ?string
@@ -270,7 +270,7 @@ class MembershipApplicationResource extends Resource
                     ->searchable(),
                 Tables\Columns\TextColumn::make('mobile_phone')
                     ->label(__('Mobile'))
-                    ->formatStateUsing(fn (?string $state): \Illuminate\Support\HtmlString => PhoneDisplay::toHtml($state)),
+                    ->formatStateUsing(fn(?string $state): \Illuminate\Support\HtmlString => PhoneDisplay::toHtml($state)),
                 Tables\Columns\TextColumn::make('application_type')
                     ->label(__('Type'))
                     ->formatStateUsing(function (?string $state): string {
@@ -601,7 +601,10 @@ class MembershipApplicationResource extends Resource
         app(AccountingService::class)->ensureMemberAccounts($member);
 
         try {
-            $record->user->notify(new MembershipApprovedNotification($memberNumber));
+            $record->user->notify(
+                (new MembershipApprovedNotification($memberNumber))
+                    ->locale($record->user->preferredLocale())
+            );
         } catch (\Throwable $e) {
             // notifications are best-effort
         }
@@ -623,7 +626,10 @@ class MembershipApplicationResource extends Resource
         $record->user->update(['status' => 'rejected']);
 
         try {
-            $record->user->notify(new MembershipRejectedNotification($rejectionReason));
+            $record->user->notify(
+                (new MembershipRejectedNotification($rejectionReason))
+                    ->locale($record->user->preferredLocale())
+            );
         } catch (\Throwable $e) {
             // notifications are best-effort
         }

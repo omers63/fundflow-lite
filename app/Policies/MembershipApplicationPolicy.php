@@ -11,7 +11,20 @@ use Illuminate\Auth\Access\HandlesAuthorization;
 class MembershipApplicationPolicy
 {
     use HandlesAuthorization;
-    
+
+    public function before(AuthUser $authUser, string $ability): ?bool
+    {
+        if (method_exists($authUser, 'hasRole') && $authUser->hasRole('super_admin')) {
+            return true;
+        }
+
+        if (property_exists($authUser, 'role') && $authUser->role === 'admin') {
+            return true;
+        }
+
+        return null;
+    }
+
     public function viewAny(AuthUser $authUser): bool
     {
         return $authUser->can('ViewAny:MembershipApplication');

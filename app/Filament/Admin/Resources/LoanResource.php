@@ -471,7 +471,10 @@ class LoanResource extends Resource
             ->action(function (Loan $record, array $data, Component $livewire) {
                 $record->update(['status' => 'rejected', 'rejection_reason' => $data['rejection_reason']]);
                 try {
-                    $record->member->user->notify(new MembershipRejectedNotification($data['rejection_reason']));
+                    $record->member->user->notify(
+                        (new MembershipRejectedNotification($data['rejection_reason']))
+                            ->locale($record->member->user->preferredLocale())
+                    );
                 } catch (\Throwable) {
                 }
                 Notification::make()->title(__('Loan Rejected'))->warning()->send();
@@ -575,7 +578,7 @@ class LoanResource extends Resource
                         ->label(__('Amount to disburse (SAR)'))
                         ->numeric()
                         ->minValue(0.01)
-                        ->maxValue(fn (Get $get) => $get('force') ? $masterMax : ($policyMax > 0.01 ? $policyMax : 0.01))
+                        ->maxValue(fn(Get $get) => $get('force') ? $masterMax : ($policyMax > 0.01 ? $policyMax : 0.01))
                         ->default(fn() => $policyMax > 0.01 ? $policyMax : null)
                         ->suffix('SAR')
                         ->helperText(function (Get $get) use ($masterBal, $policyMax, $masterMax) {
@@ -585,8 +588,8 @@ class LoanResource extends Resource
 
                             return __('Max: SAR :max (lesser of remaining approved and fund tier declared pool). Master ledger SAR :ledger is enforced on submit.', ['max' => number_format($policyMax, 2), 'ledger' => number_format($masterBal, 2)]);
                         })
-                        ->disabled(fn (Get $get) => $remaining <= 0.01 || $masterMax <= 0.01 || (!$get('force') && $policyMax < 0.01))
-                        ->required(fn (Get $get) => !($remaining <= 0.01 || $masterMax <= 0.01 || (!$get('force') && $policyMax < 0.01)))
+                        ->disabled(fn(Get $get) => $remaining <= 0.01 || $masterMax <= 0.01 || (!$get('force') && $policyMax < 0.01))
+                        ->required(fn(Get $get) => !($remaining <= 0.01 || $masterMax <= 0.01 || (!$get('force') && $policyMax < 0.01)))
                         ->columnSpanFull(),
                     Forms\Components\Textarea::make('notes')
                         ->label(__('Notes (optional)'))
@@ -842,62 +845,62 @@ class LoanResource extends Resource
                     ->label(__('app.action.import_loans'))
                     ->icon('heroicon-o-arrow-up-tray')
                     ->color('success')
-                    ->visible(fn (): bool => static::canCreate())
+                    ->visible(fn(): bool => static::canCreate())
                     ->modalHeading(__('app.loan.import.heading'))
                     ->modalDescription(new HtmlString(
                         '<div class="space-y-3 text-sm">' .
-                            '<div class="rounded-lg border border-blue-200 bg-blue-50/80 p-3 text-xs dark:border-blue-500/30 dark:bg-blue-500/10">' .
-                                '<p class="font-semibold text-blue-900 dark:text-blue-200 mb-1">' . e(__('app.ui.before_import')) . '</p>' .
-                                '<p class="text-blue-900/90 dark:text-blue-100/90 mb-1">' .
-                                    e(__('app.loan.import.sample_hint', ['filename' => ''])) . ' ' .
-                                    '<a href="' . route('downloads.loan-import-sample') . '" class="font-semibold text-blue-700 underline hover:text-blue-600 dark:text-blue-300 dark:hover:text-blue-200">loans-import-sample-10.csv</a>' .
-                                '</p>' .
-                                '<p class="text-blue-900/90 dark:text-blue-100/90">' .
-                                    e(__('app.loan.import.warning_opening_balances')) .
-                                '</p>' .
-                            '</div>' .
-                            '<div class="overflow-hidden rounded-lg border border-gray-200 dark:border-gray-700">' .
-                                '<table class="w-full text-xs">' .
-                                    '<tbody class="divide-y divide-gray-100 dark:divide-gray-800">' .
-                                        '<tr>' .
-                                            '<td class="w-44 bg-gray-50 px-3 py-2 font-semibold text-gray-700 dark:bg-gray-900/30 dark:text-gray-200">' . e(__('app.ui.csv_format')) . '</td>' .
-                                            '<td class="px-3 py-2 text-gray-600 dark:text-gray-300">' . e(__('app.ui.first_row_headers')) . '</td>' .
-                                        '</tr>' .
-                                        '<tr>' .
-                                            '<td class="bg-gray-50 px-3 py-2 font-semibold text-gray-700 dark:bg-gray-900/30 dark:text-gray-200">' . e(__('app.ui.member_identifier')) . '</td>' .
-                                            '<td class="px-3 py-2 text-gray-600 dark:text-gray-300">' . e(__('app.loan.import.member_columns_help')) . '</td>' .
-                                        '</tr>' .
-                                        '<tr>' .
-                                            '<td class="bg-gray-50 px-3 py-2 font-semibold text-gray-700 dark:bg-gray-900/30 dark:text-gray-200">' . e(__('app.ui.status_values')) . '</td>' .
-                                            '<td class="px-3 py-2 text-gray-600 dark:text-gray-300">' . e(__('app.loan.import.status_help')) . '</td>' .
-                                        '</tr>' .
-                                        '<tr>' .
-                                            '<td class="bg-gray-50 px-3 py-2 font-semibold text-gray-700 dark:bg-gray-900/30 dark:text-gray-200">' . e(__('app.ui.amount_columns')) . '</td>' .
-                                            '<td class="px-3 py-2 text-gray-600 dark:text-gray-300">' . e(__('app.loan.import.amount_help')) . '</td>' .
-                                        '</tr>' .
-                                        '<tr>' .
-                                            '<td class="bg-gray-50 px-3 py-2 font-semibold text-gray-700 dark:bg-gray-900/30 dark:text-gray-200">' . e(__('app.ui.disbursement_columns')) . '</td>' .
-                                            '<td class="px-3 py-2 text-gray-600 dark:text-gray-300">' . e(__('app.loan.import.disbursement_help')) . '</td>' .
-                                        '</tr>' .
-                                        '<tr>' .
-                                            '<td class="bg-gray-50 px-3 py-2 font-semibold text-gray-700 dark:bg-gray-900/30 dark:text-gray-200">' . e(__('app.ui.installment_columns')) . '</td>' .
-                                            '<td class="px-3 py-2 text-gray-600 dark:text-gray-300">' . e(__('app.loan.import.installment_help')) . '</td>' .
-                                        '</tr>' .
-                                        '<tr>' .
-                                            '<td class="bg-gray-50 px-3 py-2 font-semibold text-gray-700 dark:bg-gray-900/30 dark:text-gray-200">' . e(__('app.ui.tier_columns')) . '</td>' .
-                                            '<td class="px-3 py-2 text-gray-600 dark:text-gray-300">' . e(__('app.loan.import.tier_help')) . '</td>' .
-                                        '</tr>' .
-                                        '<tr>' .
-                                            '<td class="bg-gray-50 px-3 py-2 font-semibold text-gray-700 dark:bg-gray-900/30 dark:text-gray-200">' . e(__('app.ui.flags_and_notes')) . '</td>' .
-                                            '<td class="px-3 py-2 text-gray-600 dark:text-gray-300">' . e(__('app.loan.import.flags_help')) . '</td>' .
-                                        '</tr>' .
-                                        '<tr>' .
-                                            '<td class="bg-gray-50 px-3 py-2 font-semibold text-gray-700 dark:bg-gray-900/30 dark:text-gray-200">' . e(__('app.ui.date_columns')) . '</td>' .
-                                            '<td class="px-3 py-2 text-gray-600 dark:text-gray-300">' . e(__('app.loan.import.dates_help')) . '</td>' .
-                                        '</tr>' .
-                                    '</tbody>' .
-                                '</table>' .
-                            '</div>' .
+                        '<div class="rounded-lg border border-blue-200 bg-blue-50/80 p-3 text-xs dark:border-blue-500/30 dark:bg-blue-500/10">' .
+                        '<p class="font-semibold text-blue-900 dark:text-blue-200 mb-1">' . e(__('app.ui.before_import')) . '</p>' .
+                        '<p class="text-blue-900/90 dark:text-blue-100/90 mb-1">' .
+                        e(__('app.loan.import.sample_hint', ['filename' => ''])) . ' ' .
+                        '<a href="' . route('downloads.loan-import-sample') . '" class="font-semibold text-blue-700 underline hover:text-blue-600 dark:text-blue-300 dark:hover:text-blue-200">loans-import-sample-10.csv</a>' .
+                        '</p>' .
+                        '<p class="text-blue-900/90 dark:text-blue-100/90">' .
+                        e(__('app.loan.import.warning_opening_balances')) .
+                        '</p>' .
+                        '</div>' .
+                        '<div class="overflow-hidden rounded-lg border border-gray-200 dark:border-gray-700">' .
+                        '<table class="w-full text-xs">' .
+                        '<tbody class="divide-y divide-gray-100 dark:divide-gray-800">' .
+                        '<tr>' .
+                        '<td class="w-44 bg-gray-50 px-3 py-2 font-semibold text-gray-700 dark:bg-gray-900/30 dark:text-gray-200">' . e(__('app.ui.csv_format')) . '</td>' .
+                        '<td class="px-3 py-2 text-gray-600 dark:text-gray-300">' . e(__('app.ui.first_row_headers')) . '</td>' .
+                        '</tr>' .
+                        '<tr>' .
+                        '<td class="bg-gray-50 px-3 py-2 font-semibold text-gray-700 dark:bg-gray-900/30 dark:text-gray-200">' . e(__('app.ui.member_identifier')) . '</td>' .
+                        '<td class="px-3 py-2 text-gray-600 dark:text-gray-300">' . e(__('app.loan.import.member_columns_help')) . '</td>' .
+                        '</tr>' .
+                        '<tr>' .
+                        '<td class="bg-gray-50 px-3 py-2 font-semibold text-gray-700 dark:bg-gray-900/30 dark:text-gray-200">' . e(__('app.ui.status_values')) . '</td>' .
+                        '<td class="px-3 py-2 text-gray-600 dark:text-gray-300">' . e(__('app.loan.import.status_help')) . '</td>' .
+                        '</tr>' .
+                        '<tr>' .
+                        '<td class="bg-gray-50 px-3 py-2 font-semibold text-gray-700 dark:bg-gray-900/30 dark:text-gray-200">' . e(__('app.ui.amount_columns')) . '</td>' .
+                        '<td class="px-3 py-2 text-gray-600 dark:text-gray-300">' . e(__('app.loan.import.amount_help')) . '</td>' .
+                        '</tr>' .
+                        '<tr>' .
+                        '<td class="bg-gray-50 px-3 py-2 font-semibold text-gray-700 dark:bg-gray-900/30 dark:text-gray-200">' . e(__('app.ui.disbursement_columns')) . '</td>' .
+                        '<td class="px-3 py-2 text-gray-600 dark:text-gray-300">' . e(__('app.loan.import.disbursement_help')) . '</td>' .
+                        '</tr>' .
+                        '<tr>' .
+                        '<td class="bg-gray-50 px-3 py-2 font-semibold text-gray-700 dark:bg-gray-900/30 dark:text-gray-200">' . e(__('app.ui.installment_columns')) . '</td>' .
+                        '<td class="px-3 py-2 text-gray-600 dark:text-gray-300">' . e(__('app.loan.import.installment_help')) . '</td>' .
+                        '</tr>' .
+                        '<tr>' .
+                        '<td class="bg-gray-50 px-3 py-2 font-semibold text-gray-700 dark:bg-gray-900/30 dark:text-gray-200">' . e(__('app.ui.tier_columns')) . '</td>' .
+                        '<td class="px-3 py-2 text-gray-600 dark:text-gray-300">' . e(__('app.loan.import.tier_help')) . '</td>' .
+                        '</tr>' .
+                        '<tr>' .
+                        '<td class="bg-gray-50 px-3 py-2 font-semibold text-gray-700 dark:bg-gray-900/30 dark:text-gray-200">' . e(__('app.ui.flags_and_notes')) . '</td>' .
+                        '<td class="px-3 py-2 text-gray-600 dark:text-gray-300">' . e(__('app.loan.import.flags_help')) . '</td>' .
+                        '</tr>' .
+                        '<tr>' .
+                        '<td class="bg-gray-50 px-3 py-2 font-semibold text-gray-700 dark:bg-gray-900/30 dark:text-gray-200">' . e(__('app.ui.date_columns')) . '</td>' .
+                        '<td class="px-3 py-2 text-gray-600 dark:text-gray-300">' . e(__('app.loan.import.dates_help')) . '</td>' .
+                        '</tr>' .
+                        '</tbody>' .
+                        '</table>' .
+                        '</div>' .
                         '</div>'
                     ))
                     ->modalWidth('2xl')
@@ -924,9 +927,9 @@ class LoanResource extends Resource
                         if ($result['errors'] !== []) {
                             $preview = implode("\n", array_slice($result['errors'], 0, 8));
                             if (count($result['errors']) > 8) {
-                                $preview .= "\n… and ".(count($result['errors']) - 8).' more';
+                                $preview .= "\n… and " . (count($result['errors']) - 8) . ' more';
                             }
-                            $body .= "\n\n".$preview;
+                            $body .= "\n\n" . $preview;
                         }
 
                         Notification::make()
@@ -946,13 +949,23 @@ class LoanResource extends Resource
                         return response()->streamDownload(function () {
                             $handle = fopen('php://output', 'w');
                             fputcsv($handle, [
-                                'loan_number', 'member_number', 'member_name',
-                                'tier', 'amount_requested', 'amount_approved',
-                                'member_portion', 'master_portion',
-                                'status', 'applied_at', 'approved_at', 'disbursed_at',
-                                'installments_total', 'installments_paid',
+                                'loan_number',
+                                'member_number',
+                                'member_name',
+                                'tier',
+                                'amount_requested',
+                                'amount_approved',
+                                'member_portion',
+                                'master_portion',
+                                'status',
+                                'applied_at',
+                                'approved_at',
+                                'disbursed_at',
+                                'installments_total',
+                                'installments_paid',
                                 'min_monthly_installment',
-                                'guarantor_member_number', 'guarantor_name',
+                                'guarantor_member_number',
+                                'guarantor_name',
                             ]);
 
                             Loan::with(['member.user', 'loanTier', 'guarantor.user'])
@@ -1200,14 +1213,14 @@ class LoanResource extends Resource
                         TextEntry::make('witness1_phone')
                             ->label(__('Witness 1 — phone'))
                             ->placeholder(__('—'))
-                            ->formatStateUsing(fn (?string $state): \Illuminate\Support\HtmlString => PhoneDisplay::toHtml($state)),
+                            ->formatStateUsing(fn(?string $state): \Illuminate\Support\HtmlString => PhoneDisplay::toHtml($state)),
                         TextEntry::make('witness2_name')
                             ->label(__('Witness 2 — name'))
                             ->placeholder(__('—')),
                         TextEntry::make('witness2_phone')
                             ->label(__('Witness 2 — phone'))
                             ->placeholder(__('—'))
-                            ->formatStateUsing(fn (?string $state): \Illuminate\Support\HtmlString => PhoneDisplay::toHtml($state)),
+                            ->formatStateUsing(fn(?string $state): \Illuminate\Support\HtmlString => PhoneDisplay::toHtml($state)),
                     ])->columns(2),
             ]);
     }
