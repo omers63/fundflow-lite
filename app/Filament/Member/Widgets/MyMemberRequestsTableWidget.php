@@ -43,19 +43,20 @@ class MyMemberRequestsTableWidget extends TableWidget
         $service = app(MemberRequestService::class);
 
         return $table
+            ->heading(__('Your requests'))
             ->description(__('Track requests you have submitted. Use the actions above to ask for independence or to add or remove a dependent. Pending items are reviewed by administration.'))
             ->headerActions([
                 Action::make('request_independence')
                     ->label(__('Become independent'))
                     ->icon('heroicon-o-arrow-right-start-on-rectangle')
                     ->color('warning')
-                    ->visible(fn (): bool => $this->member()?->parent_id !== null)
+                    ->visible(fn(): bool => $this->member()?->parent_id !== null)
                     ->requiresConfirmation()
                     ->modalHeading(__('Request independence'))
                     ->modalDescription(__('You will no longer be sponsored under a parent member. Allocation updates are already self-service, while dependent-link changes continue through requests.'))
                     ->action(function () use ($service): void {
                         $member = $this->member();
-                        if (! $member) {
+                        if (!$member) {
                             return;
                         }
                         try {
@@ -69,7 +70,7 @@ class MyMemberRequestsTableWidget extends TableWidget
                 Action::make('request_add_dependent')
                     ->label(__('Request to add a dependent'))
                     ->icon('heroicon-o-user-plus')
-                    ->visible(fn (): bool => $this->member() !== null)
+                    ->visible(fn(): bool => $this->member() !== null)
                     ->schema([
                         Forms\Components\Textarea::make('details')
                             ->label(__('Who should be added?'))
@@ -79,7 +80,7 @@ class MyMemberRequestsTableWidget extends TableWidget
                     ])
                     ->action(function (array $data) use ($service): void {
                         $member = $this->member();
-                        if (! $member) {
+                        if (!$member) {
                             return;
                         }
                         try {
@@ -96,13 +97,13 @@ class MyMemberRequestsTableWidget extends TableWidget
                     ->label(__('Request to remove a dependent'))
                     ->icon('heroicon-o-user-minus')
                     ->color('danger')
-                    ->visible(fn (): bool => $this->member()?->dependents()->exists() ?? false)
+                    ->visible(fn(): bool => $this->member()?->dependents()->exists() ?? false)
                     ->schema([
                         Forms\Components\Select::make('dependent_member_id')
                             ->label(__('Dependent'))
                             ->options(function (): array {
                                 $m = $this->member();
-                                if (! $m) {
+                                if (!$m) {
                                     return [];
                                 }
 
@@ -110,8 +111,8 @@ class MyMemberRequestsTableWidget extends TableWidget
                                     ->with('user')
                                     ->orderBy('member_number')
                                     ->get()
-                                    ->mapWithKeys(fn (Member $d): array => [
-                                        $d->id => ($d->user?->name ?? __('Member')).' (#'.($d->member_number ?? $d->id).')',
+                                    ->mapWithKeys(fn(Member $d): array => [
+                                        $d->id => ($d->user?->name ?? __('Member')) . ' (#' . ($d->member_number ?? $d->id) . ')',
                                     ])
                                     ->all();
                             })
@@ -120,7 +121,7 @@ class MyMemberRequestsTableWidget extends TableWidget
                     ])
                     ->action(function (array $data) use ($service): void {
                         $member = $this->member();
-                        if (! $member) {
+                        if (!$member) {
                             return;
                         }
                         try {
@@ -136,23 +137,23 @@ class MyMemberRequestsTableWidget extends TableWidget
             ->columns([
                 TextColumn::make('type')
                     ->label(__('Request'))
-                    ->formatStateUsing(fn (string $state): string => MemberRequest::typeLabel($state)),
+                    ->formatStateUsing(fn(string $state): string => MemberRequest::typeLabel($state)),
                 TextColumn::make('details_display')
                     ->label(__('Details'))
                     ->visibleFrom('md')
-                    ->getStateUsing(fn (MemberRequest $record): string => $record->describePayload())
+                    ->getStateUsing(fn(MemberRequest $record): string => $record->describePayload())
                     ->wrap(),
                 TextColumn::make('status')
                     ->label(__('Status'))
                     ->badge()
-                    ->formatStateUsing(fn (string $state): string => match ($state) {
+                    ->formatStateUsing(fn(string $state): string => match ($state) {
                         MemberRequest::STATUS_PENDING => __('Pending'),
                         MemberRequest::STATUS_APPROVED => __('Approved'),
                         MemberRequest::STATUS_REJECTED => __('Rejected'),
                         MemberRequest::STATUS_CANCELLED => __('Cancelled'),
                         default => __(ucfirst(str_replace('_', ' ', $state))),
                     })
-                    ->color(fn (string $state): string => match ($state) {
+                    ->color(fn(string $state): string => match ($state) {
                         MemberRequest::STATUS_PENDING => 'warning',
                         MemberRequest::STATUS_APPROVED => 'success',
                         MemberRequest::STATUS_REJECTED => 'danger',
@@ -166,12 +167,14 @@ class MyMemberRequestsTableWidget extends TableWidget
                     ->toggleable(isToggledHiddenByDefault: true),
                 TextColumn::make('created_at')
                     ->label(__('Submitted'))
-                    ->formatStateUsing(fn ($state): string => $state
+                    ->formatStateUsing(fn($state): string => $state
                         ? \Illuminate\Support\Carbon::parse($state)->locale(app()->getLocale())->translatedFormat('d M Y H:i')
                         : '')
                     ->sortable(),
             ])
-            ->defaultSort('created_at', 'desc');
+            ->defaultSort('created_at', 'desc')
+            ->emptyStateHeading(__('No member requests'))
+            ->emptyStateDescription(__('You have not submitted any member requests yet.'));
     }
 
     protected function member(): ?Member
