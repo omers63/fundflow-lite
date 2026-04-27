@@ -7,6 +7,7 @@ use App\Filament\Admin\Resources\MembershipApplicationResource;
 use App\Models\Contribution;
 use App\Models\Member;
 use App\Models\Setting;
+use App\Services\LoanEligibilityService;
 use Filament\Widgets\Widget;
 
 class MemberProfileWidget extends Widget
@@ -43,9 +44,12 @@ class MemberProfileWidget extends Widget
             ? min(100, round($contribCount / $monthsActive * 100))
             : 0;
 
+        $eligibilityService = app(LoanEligibilityService::class);
+        $isLoanEligible = $eligibilityService->isEligible($member);
+        $loanIneligibilityReason = $isLoanEligible ? '' : $eligibilityService->getIneligibilityReason($member);
+
         $eligibilityMonths = Setting::loanEligibilityMonths();
         $loanEligibleDate = $member->loanEligibilityStartDate()?->copy()->addMonths($eligibilityMonths);
-        $isLoanEligibleAge = $loanEligibleDate?->isPast() ?? false;
 
         $targetPage = $this->memberResourceTargetPage();
 
@@ -69,8 +73,9 @@ class MemberProfileWidget extends Widget
             'months_active' => $monthsActive,
             'monthly_contrib' => (int) $member->monthly_contribution_amount,
             'compliance_rate' => $complianceRate,
-            'is_loan_eligible_age' => $isLoanEligibleAge,
+            'is_loan_eligible_age' => $isLoanEligible,
             'loan_eligible_date' => $loanEligibleDate?->locale(app()->getLocale())->translatedFormat('d M Y') ?? '—',
+            'loan_eligibility_reason' => $loanIneligibilityReason,
 
             // User
             'name' => $user?->name ?? '—',

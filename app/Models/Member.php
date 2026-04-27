@@ -211,7 +211,7 @@ class Member extends Model
     {
         return array_combine(
             self::CONTRIBUTION_STEPS,
-            array_map(fn($v) => __('SAR').' '.number_format($v), self::CONTRIBUTION_STEPS)
+            array_map(fn($v) => __('SAR') . ' ' . number_format($v), self::CONTRIBUTION_STEPS)
         );
     }
 
@@ -260,13 +260,13 @@ class Member extends Model
     /** True if the member has any in-progress loan (pending / approved / active). */
     public function hasActiveLoan(): bool
     {
-        return $this->loans()->whereIn('status', ['pending', 'approved', 'active'])->exists();
+        return $this->loans()->whereIn('status', ['pending', 'approved', 'disbursed', 'active'])->exists();
     }
 
     /** True if the member is currently exempt from contributions (active loan in progress). */
     public function isExemptFromContributions(): bool
     {
-        return $this->loans()->whereIn('status', ['approved', 'active'])->exists();
+        return $this->loans()->whereIn('status', ['approved', 'disbursed', 'active'])->exists();
     }
 
     public function getCashBalanceAttribute(): float

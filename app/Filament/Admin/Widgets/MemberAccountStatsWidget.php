@@ -6,6 +6,7 @@ use App\Models\Contribution;
 use App\Models\LoanInstallment;
 use App\Models\Member;
 use App\Models\Setting;
+use App\Services\LoanEligibilityService;
 use Filament\Widgets\Widget;
 
 class MemberAccountStatsWidget extends Widget
@@ -56,11 +57,7 @@ class MemberAccountStatsWidget extends Widget
         $totalContributions = (float) Contribution::where('member_id', $member->id)->sum('amount');
         $contribCount = Contribution::where('member_id', $member->id)->count();
 
-        $eligibilityMonths = Setting::loanEligibilityMonths();
-        $loanStart = $member->loanEligibilityStartDate();
-        $eligible = $loanStart !== null
-            && $loanStart->copy()->addMonths($eligibilityMonths)->isPast()
-            && $fundBalance >= $minFund;
+        $eligible = app(LoanEligibilityService::class)->isEligible($member);
 
         $maxBorrow = $fundBalance * Setting::loanMaxBorrowMultiplier();
 
@@ -72,6 +69,9 @@ class MemberAccountStatsWidget extends Widget
         $now = now();
         $paidThisMonth = Contribution::where('member_id', $member->id)
             ->where('month', $now->month)->where('year', $now->year)->exists();
+        if ($member->isExemptFromContributions()) {
+            $paidThisMonth = true;
+        }
 
         return [
             'hasRecord' => true,

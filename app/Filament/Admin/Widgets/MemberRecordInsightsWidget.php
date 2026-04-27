@@ -9,6 +9,7 @@ use App\Models\Loan;
 use App\Models\LoanInstallment;
 use App\Models\Member;
 use App\Models\Setting;
+use App\Services\LoanEligibilityService;
 use Carbon\Carbon;
 use Filament\Widgets\Widget;
 
@@ -91,11 +92,7 @@ class MemberRecordInsightsWidget extends Widget
         $totalContributions = (float) Contribution::where('member_id', $member->id)->sum('amount');
         $contribCount = Contribution::where('member_id', $member->id)->count();
 
-        $eligibilityMonths = Setting::loanEligibilityMonths();
-        $loanStart = $member->loanEligibilityStartDate();
-        $eligible = $loanStart !== null
-            && $loanStart->copy()->addMonths($eligibilityMonths)->isPast()
-            && $fundBalance >= $minFund;
+        $eligible = app(LoanEligibilityService::class)->isEligible($member);
 
         $maxBorrow = $fundBalance * Setting::loanMaxBorrowMultiplier();
 
@@ -107,6 +104,9 @@ class MemberRecordInsightsWidget extends Widget
         $now = now();
         $paidThisMonth = Contribution::where('member_id', $member->id)
             ->where('month', $now->month)->where('year', $now->year)->exists();
+        if ($member->isExemptFromContributions()) {
+            $paidThisMonth = true;
+        }
 
         return [
             'hasRecord' => true,
@@ -153,9 +153,12 @@ class MemberRecordInsightsWidget extends Widget
             ? min(100, round($contribCount / $monthsActive * 100))
             : 0;
 
+        $eligibilityService = app(LoanEligibilityService::class);
+        $isLoanEligible = $eligibilityService->isEligible($member);
+        $loanIneligibilityReason = $isLoanEligible ? '' : $eligibilityService->getIneligibilityReason($member);
+
         $eligibilityMonths = Setting::loanEligibilityMonths();
         $loanEligibleDate = $member->loanEligibilityStartDate()?->copy()->addMonths($eligibilityMonths);
-        $isLoanEligibleAge = $loanEligibleDate?->isPast() ?? false;
 
         $targetPage = $this->memberResourceTargetPage();
 
@@ -179,8 +182,9 @@ class MemberRecordInsightsWidget extends Widget
             'months_active' => $monthsActive,
             'monthly_contrib' => (int) $member->monthly_contribution_amount,
             'compliance_rate' => $complianceRate,
-            'is_loan_eligible_age' => $isLoanEligibleAge,
+            'is_loan_eligible_age' => $isLoanEligible,
             'loan_eligible_date' => $loanEligibleDate?->locale(app()->getLocale())->translatedFormat('d M Y') ?? '—',
+            'loan_eligibility_reason' => $loanIneligibilityReason,
 
             'name' => $user?->name ?? '—',
             'email' => $user?->email ?? '—',

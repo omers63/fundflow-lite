@@ -41,6 +41,13 @@ class Contribution extends Model
     protected static function booted(): void
     {
         static::creating(function (Contribution $contribution): void {
+            $member = Member::query()->find((int) $contribution->member_id);
+            if ($member && $member->isExemptFromContributions()) {
+                throw ValidationException::withMessages([
+                    'member_id' => ['This member has an active loan and cannot make contributions until the loan is fully paid or settled early.'],
+                ]);
+            }
+
             if (
                 static::activePeriodExists(
                     (int) $contribution->member_id,
@@ -56,6 +63,15 @@ class Contribution extends Model
         });
 
         static::updating(function (Contribution $contribution): void {
+            if ($contribution->isDirty('member_id')) {
+                $member = Member::query()->find((int) $contribution->member_id);
+                if ($member && $member->isExemptFromContributions()) {
+                    throw ValidationException::withMessages([
+                        'member_id' => ['This member has an active loan and cannot make contributions until the loan is fully paid or settled early.'],
+                    ]);
+                }
+            }
+
             if (!$contribution->isDirty(['member_id', 'month', 'year'])) {
                 return;
             }

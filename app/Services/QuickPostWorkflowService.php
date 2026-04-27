@@ -33,6 +33,8 @@ class QuickPostWorkflowService
      *     reference: ?string,
      *     description: ?string,
      *     member_id: int,
+     *     apply?: 'both'|'contribution'|'repayment',
+     *     raw_data?: array<string, mixed>,
      * } $data
      * @return array{tx: BankTransaction, steps: array<int, array{label: string, done: bool, note: string}>}
      */
@@ -56,7 +58,10 @@ class QuickPostWorkflowService
                 'description' => $data['description'] ?? null,
                 'member_id' => $member->id,
                 'is_duplicate' => false,
-                'raw_data' => ['source' => 'quick_post', 'created_by_user_id' => auth()->id()],
+                'raw_data' => array_merge(
+                    ['source' => 'quick_post', 'created_by_user_id' => auth()->id()],
+                    is_array($data['raw_data'] ?? null) ? $data['raw_data'] : []
+                ),
             ]);
             $steps[] = ['label' => 'Transaction created', 'done' => true, 'note' => "#{$tx->id} · SAR " . number_format($data['amount'], 2)];
 
@@ -105,24 +110,33 @@ class QuickPostWorkflowService
 
             // ── Step 5: Settle contributions & installments (member + dependents) ──
             $allMembers = $dependents->prepend($member);
+            $apply = (string) ($data['apply'] ?? 'both');
             $contributions = 0;
             $installments = 0;
 
             foreach ($allMembers as $m) {
-                $contributions += $this->settleContribution($m);
-                $installments += $this->settleInstallments($m);
+                if (in_array($apply, ['both', 'contribution'], true)) {
+                    $contributions += $this->settleContribution($m);
+                }
+                if (in_array($apply, ['both', 'repayment'], true)) {
+                    $installments += $this->settleInstallments($m);
+                }
             }
 
-            $steps[] = [
-                'label' => 'Contributions settled',
-                'done' => true,
-                'note' => "{$contributions} contribution(s) applied",
-            ];
-            $steps[] = [
-                'label' => 'Loan installments settled',
-                'done' => true,
-                'note' => "{$installments} installment(s) applied",
-            ];
+            if (in_array($apply, ['both', 'contribution'], true)) {
+                $steps[] = [
+                    'label' => 'Contributions settled',
+                    'done' => true,
+                    'note' => "{$contributions} contribution(s) applied",
+                ];
+            }
+            if (in_array($apply, ['both', 'repayment'], true)) {
+                $steps[] = [
+                    'label' => 'Loan installments settled',
+                    'done' => true,
+                    'note' => "{$installments} installment(s) applied",
+                ];
+            }
 
             return ['tx' => $tx, 'steps' => $steps];
         });
@@ -139,6 +153,8 @@ class QuickPostWorkflowService
      *     reference: ?string,
      *     raw_sms: string,
      *     member_id: int,
+     *     apply?: 'both'|'contribution'|'repayment',
+     *     raw_data?: array<string, mixed>,
      * } $data
      * @return array{tx: SmsTransaction, steps: array<int, array{label: string, done: bool, note: string}>}
      */
@@ -161,7 +177,10 @@ class QuickPostWorkflowService
                 'raw_sms' => $data['raw_sms'] ?? '(manual)',
                 'member_id' => $member->id,
                 'is_duplicate' => false,
-                'raw_data' => ['source' => 'quick_post', 'created_by_user_id' => auth()->id()],
+                'raw_data' => array_merge(
+                    ['source' => 'quick_post', 'created_by_user_id' => auth()->id()],
+                    is_array($data['raw_data'] ?? null) ? $data['raw_data'] : []
+                ),
             ]);
             $steps[] = ['label' => 'SMS transaction created', 'done' => true, 'note' => "#{$tx->id} · SAR " . number_format($data['amount'], 2)];
 
@@ -202,15 +221,24 @@ class QuickPostWorkflowService
             }
 
             $allMembers = $dependents->prepend($member);
+            $apply = (string) ($data['apply'] ?? 'both');
             $contributions = 0;
             $installments = 0;
             foreach ($allMembers as $m) {
-                $contributions += $this->settleContribution($m);
-                $installments += $this->settleInstallments($m);
+                if (in_array($apply, ['both', 'contribution'], true)) {
+                    $contributions += $this->settleContribution($m);
+                }
+                if (in_array($apply, ['both', 'repayment'], true)) {
+                    $installments += $this->settleInstallments($m);
+                }
             }
 
-            $steps[] = ['label' => 'Contributions settled', 'done' => true, 'note' => "{$contributions} contribution(s) applied"];
-            $steps[] = ['label' => 'Loan installments settled', 'done' => true, 'note' => "{$installments} installment(s) applied"];
+            if (in_array($apply, ['both', 'contribution'], true)) {
+                $steps[] = ['label' => 'Contributions settled', 'done' => true, 'note' => "{$contributions} contribution(s) applied"];
+            }
+            if (in_array($apply, ['both', 'repayment'], true)) {
+                $steps[] = ['label' => 'Loan installments settled', 'done' => true, 'note' => "{$installments} installment(s) applied"];
+            }
 
             return ['tx' => $tx, 'steps' => $steps];
         });
@@ -294,6 +322,10 @@ class QuickPostWorkflowService
      */
     private function settleContribution(Member $member): int
     {
+        if ($member->isExemptFromContributions()) {
+            return 0;
+        }
+
         $now = Carbon::now();
         $already = Contribution::where('member_id', $member->id)
             ->where('month', $now->month)
@@ -364,6 +396,9 @@ class QuickPostWorkflowService
         $lateFees = app(LateFeeService::class);
         $settled = 0;
         foreach ($pending as $installment) {
+            if (!$installment instanceof LoanInstallment) {
+                continue;
+            }
             $due = $installment->due_date;
             $m = (int) $due->month;
             $y = (int) $due->year;

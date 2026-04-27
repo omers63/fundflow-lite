@@ -25,7 +25,7 @@ class LoanEligibilityService
         // (pending review or already active and not fully paid).
         $hasPendingOrActiveLoan = Loan::query()
             ->where('member_id', $member->id)
-            ->whereIn('status', ['pending', 'active'])
+            ->whereIn('status', ['pending', 'approved', 'disbursed', 'active'])
             ->exists();
         if ($hasPendingOrActiveLoan) {
             return 'You already have a pending or active loan. Cancel the pending loan or fully settle the active loan before applying again.';
