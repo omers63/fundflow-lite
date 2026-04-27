@@ -5,6 +5,7 @@ namespace App\Notifications;
 use App\Notifications\Concerns\LocalizesCommunication;
 use App\Channels\TwilioWhatsAppChannel;
 use App\Models\NotificationLog;
+use App\Services\EmailTemplateService;
 use Illuminate\Bus\Queueable;
 use Illuminate\Notifications\Messages\MailMessage;
 use Illuminate\Notifications\Notification;
@@ -35,14 +36,14 @@ class LoanApprovedNotification extends Notification
     public function toDatabase(mixed $notifiable): array
     {
         return [
-            'title'   => $this->tr('Loan Approved', 'تم اعتماد القرض'),
-            'body'    => $this->tr(
+            'title' => $this->tr('Loan Approved', 'تم اعتماد القرض'),
+            'body' => $this->tr(
                 'Your loan of SAR :amount has been approved with :installments monthly installments.',
                 'تمت الموافقة على قرضك بمبلغ SAR :amount مع :installments أقساط شهرية.',
                 ['amount' => number_format($this->amount, 2), 'installments' => $this->installments],
             ),
-            'icon'    => 'heroicon-o-check-circle',
-            'color'   => 'success',
+            'icon' => 'heroicon-o-check-circle',
+            'color' => 'success',
             'actions' => [
                 ['label' => $this->tr('View Loans', 'عرض القروض'), 'url' => url('/member')],
             ],
@@ -51,22 +52,91 @@ class LoanApprovedNotification extends Notification
 
     public function toMail(mixed $notifiable): MailMessage
     {
+        $locale = method_exists($notifiable, 'preferredLocale')
+            ? $notifiable->preferredLocale()
+            : app()->getLocale();
+
         $amountFormatted = 'SAR ' . number_format($this->amount, 2);
+        $subject = EmailTemplateService::render(
+            EmailTemplateService::get(
+                'loan_approved',
+                'subject',
+                $locale,
+                $this->tr('FundFlow — Loan Approved!', 'FundFlow — تمت الموافقة على القرض!')
+            ),
+            [
+                'name' => $notifiable->name,
+                'amount' => $amountFormatted,
+                'count' => $this->installments,
+                'date' => $this->dueDate,
+            ]
+        );
+
+        $greeting = EmailTemplateService::render(
+            EmailTemplateService::get(
+                'loan_approved',
+                'greeting',
+                $locale,
+                $this->tr('Dear :name,', 'عزيزي/عزيزتي :name،', ['name' => $notifiable->name])
+            ),
+            [
+                'name' => $notifiable->name,
+                'amount' => $amountFormatted,
+                'count' => $this->installments,
+                'date' => $this->dueDate,
+            ]
+        );
+
+        $bodyLines = EmailTemplateService::renderLines(
+            EmailTemplateService::get(
+                'loan_approved',
+                'body',
+                $locale,
+                implode("\n", [
+                    $this->tr('Your loan application for **:amount** has been approved.', 'تمت الموافقة على طلب قرضك بمبلغ **:amount**.', ['amount' => $amountFormatted]),
+                    $this->tr('Repayment Details:', 'تفاصيل السداد:'),
+                    $this->tr('• Amount: :amount', '• المبلغ: :amount', ['amount' => $amountFormatted]),
+                    $this->tr('• Installments: :count monthly payments', '• الأقساط: :count دفعات شهرية', ['count' => $this->installments]),
+                    $this->tr('• Final due date: :date', '• تاريخ الاستحقاق النهائي: :date', ['date' => $this->dueDate]),
+                ])
+            ),
+            [
+                'name' => $notifiable->name,
+                'amount' => $amountFormatted,
+                'count' => $this->installments,
+                'date' => $this->dueDate,
+            ]
+        );
+
+        $actionLabel = EmailTemplateService::render(
+            EmailTemplateService::get(
+                'loan_approved',
+                'action_label',
+                $locale,
+                $this->tr('View Loan Details', 'عرض تفاصيل القرض')
+            ),
+            [
+                'name' => $notifiable->name,
+                'amount' => $amountFormatted,
+                'count' => $this->installments,
+                'date' => $this->dueDate,
+            ]
+        );
 
         $mail = (new MailMessage)
-            ->subject($this->tr('FundFlow — Loan Approved!', 'FundFlow — تمت الموافقة على القرض!'))
-            ->greeting($this->tr('Dear :name,', 'عزيزي/عزيزتي :name،', ['name' => $notifiable->name]))
-            ->line($this->tr('Your loan application for **:amount** has been approved.', 'تمت الموافقة على طلب قرضك بمبلغ **:amount**.', ['amount' => $amountFormatted]))
-            ->line($this->tr('Repayment Details:', 'تفاصيل السداد:'))
-            ->line($this->tr('• Amount: :amount', '• المبلغ: :amount', ['amount' => $amountFormatted]))
-            ->line($this->tr('• Installments: :count monthly payments', '• الأقساط: :count دفعات شهرية', ['count' => $this->installments]))
-            ->line($this->tr('• Final due date: :date', '• تاريخ الاستحقاق النهائي: :date', ['date' => $this->dueDate]))
-            ->action($this->tr('View Loan Details', 'عرض تفاصيل القرض'), url('/member'));
+            ->subject($subject)
+            ->greeting($greeting);
+
+        foreach ($bodyLines as $line) {
+            $mail->line($line);
+        }
+
+        $mail->action($actionLabel, url('/member'));
 
         NotificationLog::create([
             'user_id' => $notifiable->id,
             'channel' => 'mail',
-            'subject' => $this->tr('FundFlow — Loan Approved!', 'FundFlow — تمت الموافقة على القرض!'),
+            'subject' => $subject,
             'body' => "Loan approved for {$notifiable->name}. Amount: {$amountFormatted}",
             'status' => 'sent',
             'sent_at' => now(),

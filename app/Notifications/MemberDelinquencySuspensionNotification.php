@@ -5,6 +5,7 @@ namespace App\Notifications;
 use App\Notifications\Concerns\LocalizesCommunication;
 use App\Channels\TwilioWhatsAppChannel;
 use App\Models\NotificationLog;
+use App\Services\EmailTemplateService;
 use Illuminate\Bus\Queueable;
 use Illuminate\Notifications\Messages\MailMessage;
 use Illuminate\Notifications\Notification;
@@ -19,7 +20,8 @@ class MemberDelinquencySuspensionNotification extends Notification
     public function __construct(
         public readonly int $trailingConsecutive,
         public readonly int $rollingTotal,
-    ) {}
+    ) {
+    }
 
     public function via(mixed $notifiable): array
     {
@@ -45,19 +47,35 @@ class MemberDelinquencySuspensionNotification extends Notification
 
     public function toMail(mixed $notifiable): MailMessage
     {
-        $mail = (new MailMessage)
-            ->subject($this->tr('FundFlow — Membership suspended (delinquency)', 'FundFlow — تم تعليق العضوية (تعثر)'))
-            ->greeting($this->tr('Dear :name,', 'عزيزي/عزيزتي :name،', ['name' => $notifiable->name]))
-            ->line($this->tr('Your membership has been **suspended** because contribution or loan repayment obligations were not met under the fund’s delinquency policy.', 'تم **تعليق** عضويتك لعدم الالتزام بمتطلبات المساهمة أو سداد القرض وفق سياسة التعثر.'))
-            ->line($this->tr('Consecutive missed cycles (trailing): **:count**.', 'الدورات المتتالية غير المسددة: **:count**.', ['count' => $this->trailingConsecutive]))
-            ->line($this->tr('Total misses in the rolling window: **:count**.', 'إجمالي حالات التعثر ضمن النافذة المتحركة: **:count**.', ['count' => $this->rollingTotal]))
-            ->line($this->tr('Outstanding loan repayments may be collected from your guarantor while you remain suspended. Please contact the fund office to regularize your account.', 'قد يتم تحصيل أقساط القرض المستحقة من كفيلك طوال فترة التعليق. يرجى التواصل مع إدارة الصندوق لتسوية الحساب.'))
-            ->line($this->tr('You will not be able to sign in to the member portal until your status is restored by the administration.', 'لن تتمكن من تسجيل الدخول إلى بوابة الأعضاء حتى تتم إعادة حالتك بواسطة الإدارة.'));
+        $locale = method_exists($notifiable, 'preferredLocale') ? $notifiable->preferredLocale() : app()->getLocale();
+        $vars = ['name' => $notifiable->name, 'trailing' => $this->trailingConsecutive, 'rolling' => $this->rollingTotal];
+        $subject = EmailTemplateService::render(
+            EmailTemplateService::get('member_delinquency_suspension', 'subject', $locale, $this->tr('FundFlow — Membership suspended (delinquency)', 'FundFlow — تم تعليق العضوية (تعثر)')),
+            $vars
+        );
+        $greeting = EmailTemplateService::render(
+            EmailTemplateService::get('member_delinquency_suspension', 'greeting', $locale, $this->tr('Dear :name,', 'عزيزي/عزيزتي :name،', ['name' => $notifiable->name])),
+            $vars
+        );
+        $bodyLines = EmailTemplateService::renderLines(
+            EmailTemplateService::get('member_delinquency_suspension', 'body', $locale, implode("\n", [
+                $this->tr('Your membership has been **suspended** because contribution or loan repayment obligations were not met under the fund’s delinquency policy.', 'تم **تعليق** عضويتك لعدم الالتزام بمتطلبات المساهمة أو سداد القرض وفق سياسة التعثر.'),
+                $this->tr('Consecutive missed cycles (trailing): **:count**.', 'الدورات المتتالية غير المسددة: **:count**.', ['count' => $this->trailingConsecutive]),
+                $this->tr('Total misses in the rolling window: **:count**.', 'إجمالي حالات التعثر ضمن النافذة المتحركة: **:count**.', ['count' => $this->rollingTotal]),
+                $this->tr('Outstanding loan repayments may be collected from your guarantor while you remain suspended. Please contact the fund office to regularize your account.', 'قد يتم تحصيل أقساط القرض المستحقة من كفيلك طوال فترة التعليق. يرجى التواصل مع إدارة الصندوق لتسوية الحساب.'),
+                $this->tr('You will not be able to sign in to the member portal until your status is restored by the administration.', 'لن تتمكن من تسجيل الدخول إلى بوابة الأعضاء حتى تتم إعادة حالتك بواسطة الإدارة.'),
+            ])),
+            $vars
+        );
+        $mail = (new MailMessage)->subject($subject)->greeting($greeting);
+        foreach ($bodyLines as $line) {
+            $mail->line($line);
+        }
 
         NotificationLog::create([
             'user_id' => $notifiable->id,
             'channel' => 'mail',
-            'subject' => $this->tr('FundFlow — Membership suspended (delinquency)', 'FundFlow — تم تعليق العضوية (تعثر)'),
+            'subject' => $subject,
             'body' => "Delinquency suspension for {$notifiable->name}.",
             'status' => 'sent',
             'sent_at' => now(),

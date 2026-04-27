@@ -7,6 +7,7 @@ use App\Channels\TwilioWhatsAppChannel;
 use App\Models\Contribution;
 use App\Services\ContributionCycleService;
 use App\Models\NotificationLog;
+use App\Services\EmailTemplateService;
 use Carbon\Carbon;
 use Illuminate\Bus\Queueable;
 use Illuminate\Notifications\Messages\MailMessage;
@@ -74,17 +75,43 @@ class ContributionAppliedNotification extends Notification
     public function toMail(mixed $notifiable): MailMessage
     {
         $amount = number_format((float) $this->contribution->amount, 2);
+        $locale = method_exists($notifiable, 'preferredLocale') ? $notifiable->preferredLocale() : app()->getLocale();
+        $vars = [
+            'name' => $notifiable->name,
+            'period' => $this->periodLabel(),
+            'amount' => $amount,
+            'balance' => number_format($this->cashBalance, 2),
+            'applied' => now()->format('d F Y H:i'),
+        ];
 
-        $mail = (new MailMessage)
-            ->subject($this->tr('FundFlow — Account Statement: :period Contribution', 'FundFlow — كشف الحساب: مساهمة :period', ['period' => $this->periodLabel()]))
-            ->greeting($this->tr('Dear :name,', 'عزيزي/عزيزتي :name،', ['name' => $notifiable->name]))
-            ->line($this->tr('Your monthly contribution for **:period** has been successfully applied.', 'تم تطبيق مساهمتك الشهرية لفترة **:period** بنجاح.', ['period' => $this->periodLabel()]))
-            ->line("---")
-            ->line($this->tr('**Account Statement**', '**كشف الحساب**'))
-            ->line($this->tr('• Period: :period', '• الفترة: :period', ['period' => $this->periodLabel()]))
-            ->line($this->tr('• Contribution Amount: SAR :amount', '• مبلغ المساهمة: SAR :amount', ['amount' => $amount]))
-            ->line($this->tr('• Applied On: :date', '• تاريخ التطبيق: :date', ['date' => now()->format('d F Y H:i')]))
-            ->line($this->tr('• Remaining Cash Balance: SAR :amount', '• الرصيد النقدي المتبقي: SAR :amount', ['amount' => number_format($this->cashBalance, 2)]));
+        $subject = EmailTemplateService::render(
+            EmailTemplateService::get('contribution_applied', 'subject', $locale, $this->tr('FundFlow — Account Statement: :period Contribution', 'FundFlow — كشف الحساب: مساهمة :period', ['period' => $this->periodLabel()])),
+            $vars
+        );
+        $greeting = EmailTemplateService::render(
+            EmailTemplateService::get('contribution_applied', 'greeting', $locale, $this->tr('Dear :name,', 'عزيزي/عزيزتي :name،', ['name' => $notifiable->name])),
+            $vars
+        );
+        $bodyLines = EmailTemplateService::renderLines(
+            EmailTemplateService::get('contribution_applied', 'body', $locale, implode("\n", [
+                $this->tr('Your monthly contribution for **:period** has been successfully applied.', 'تم تطبيق مساهمتك الشهرية لفترة **:period** بنجاح.', ['period' => $this->periodLabel()]),
+                $this->tr('**Account Statement**', '**كشف الحساب**'),
+                $this->tr('• Period: :period', '• الفترة: :period', ['period' => $this->periodLabel()]),
+                $this->tr('• Contribution Amount: SAR :amount', '• مبلغ المساهمة: SAR :amount', ['amount' => $amount]),
+                $this->tr('• Applied On: :date', '• تاريخ التطبيق: :date', ['date' => now()->format('d F Y H:i')]),
+                $this->tr('• Remaining Cash Balance: SAR :amount', '• الرصيد النقدي المتبقي: SAR :amount', ['amount' => number_format($this->cashBalance, 2)]),
+            ])),
+            $vars
+        );
+        $actionLabel = EmailTemplateService::render(
+            EmailTemplateService::get('contribution_applied', 'action_label', $locale, $this->tr('View My Account', 'عرض حسابي')),
+            $vars
+        );
+
+        $mail = (new MailMessage)->subject($subject)->greeting($greeting);
+        foreach ($bodyLines as $line) {
+            $mail->line($line);
+        }
 
         if ($this->contribution->is_late) {
             $deadline = app(ContributionCycleService::class)->cycleDueEndAt(
@@ -98,12 +125,12 @@ class ContributionAppliedNotification extends Notification
             ));
         }
 
-        $mail->action($this->tr('View My Account', 'عرض حسابي'), url('/member'));
+        $mail->action($actionLabel, url('/member'));
 
         NotificationLog::create([
             'user_id' => $notifiable->id,
             'channel' => 'mail',
-            'subject' => $this->tr('FundFlow — Account Statement: :period Contribution', 'FundFlow — كشف الحساب: مساهمة :period', ['period' => $this->periodLabel()]),
+            'subject' => $subject,
             'body' => $this->shortBody(),
             'status' => 'sent',
             'sent_at' => now(),

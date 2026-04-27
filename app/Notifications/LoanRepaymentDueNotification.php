@@ -7,6 +7,7 @@ use App\Channels\TwilioWhatsAppChannel;
 use App\Models\Loan;
 use App\Models\LoanInstallment;
 use App\Models\NotificationLog;
+use App\Services\EmailTemplateService;
 use Carbon\Carbon;
 use Illuminate\Bus\Queueable;
 use Illuminate\Notifications\Messages\MailMessage;
@@ -20,11 +21,12 @@ class LoanRepaymentDueNotification extends Notification
     use LocalizesCommunication;
 
     public function __construct(
-        public readonly Loan            $loan,
+        public readonly Loan $loan,
         public readonly LoanInstallment $installment,
-        public readonly Carbon          $deadline,
-        public readonly float           $cashBalance,
-    ) {}
+        public readonly Carbon $deadline,
+        public readonly float $cashBalance,
+    ) {
+    }
 
     public function via(mixed $notifiable): array
     {
@@ -60,16 +62,49 @@ class LoanRepaymentDueNotification extends Notification
     public function toMail(mixed $notifiable): MailMessage
     {
         $sufficient = $this->cashBalance >= (float) $this->installment->amount;
+        $locale = method_exists($notifiable, 'preferredLocale') ? $notifiable->preferredLocale() : app()->getLocale();
+        $vars = [
+            'name' => $notifiable->name,
+            'number' => $this->installment->installment_number,
+            'count' => $this->loan->installments_count,
+            'amount' => number_format((float) $this->installment->amount, 2),
+            'date' => $this->deadline->format('d F Y'),
+            'balance' => number_format($this->cashBalance, 2),
+        ];
+        $subject = EmailTemplateService::render(
+            EmailTemplateService::get('loan_repayment_due', 'subject', $locale, $this->tr('FundFlow — Loan Repayment Due', 'FundFlow — استحقاق سداد القرض')),
+            $vars
+        );
+        $greeting = EmailTemplateService::render(
+            EmailTemplateService::get('loan_repayment_due', 'greeting', $locale, $this->tr('Dear :name,', 'عزيزي/عزيزتي :name،', ['name' => $notifiable->name])),
+            $vars
+        );
+        $bodyLines = EmailTemplateService::renderLines(
+            EmailTemplateService::get('loan_repayment_due', 'body', $locale, implode("\n", [
+                $this->tr('Installment **#:number** of **:count** is due.', 'القسط **رقم :number** من **:count** مستحق.', ['number' => $this->installment->installment_number, 'count' => $this->loan->installments_count]),
+                $this->tr('**Amount:** SAR :amount', '**المبلغ:** SAR :amount', ['amount' => number_format((float) $this->installment->amount, 2)]),
+                $this->tr('**Deadline:** :date', '**تاريخ الاستحقاق:** :date', ['date' => $this->deadline->format('d F Y')]),
+                $this->tr('**Cash Balance:** SAR :amount', '**الرصيد النقدي:** SAR :amount', ['amount' => number_format($this->cashBalance, 2)]),
+            ])),
+            $vars
+        );
+        $insufficientLine = EmailTemplateService::render(
+            EmailTemplateService::get('loan_repayment_due', 'insufficient_line', $locale, $this->tr('⚠️ Insufficient cash balance. Please fund your account before the deadline.', '⚠️ الرصيد النقدي غير كافٍ. يرجى تمويل حسابك قبل الموعد.')),
+            $vars
+        );
+        $actionLabel = EmailTemplateService::render(
+            EmailTemplateService::get('loan_repayment_due', 'action_label', $locale, $this->tr('View My Loans', 'عرض قروضي')),
+            $vars
+        );
         NotificationLog::create(['user_id' => $notifiable->id, 'channel' => 'mail', 'subject' => $this->tr('Loan Repayment Due', 'استحقاق سداد القرض'), 'body' => $this->shortBody(), 'status' => 'sent', 'sent_at' => now()]);
-        $mail = (new MailMessage)
-            ->subject($this->tr('FundFlow — Loan Repayment Due', 'FundFlow — استحقاق سداد القرض'))
-            ->greeting($this->tr('Dear :name,', 'عزيزي/عزيزتي :name،', ['name' => $notifiable->name]))
-            ->line($this->tr('Installment **#:number** of **:count** is due.', 'القسط **رقم :number** من **:count** مستحق.', ['number' => $this->installment->installment_number, 'count' => $this->loan->installments_count]))
-            ->line($this->tr('**Amount:** SAR :amount', '**المبلغ:** SAR :amount', ['amount' => number_format((float) $this->installment->amount, 2)]))
-            ->line($this->tr('**Deadline:** :date', '**تاريخ الاستحقاق:** :date', ['date' => $this->deadline->format('d F Y')]))
-            ->line($this->tr('**Cash Balance:** SAR :amount', '**الرصيد النقدي:** SAR :amount', ['amount' => number_format($this->cashBalance, 2)]));
-        if (!$sufficient) { $mail->line($this->tr('⚠️ Insufficient cash balance. Please fund your account before the deadline.', '⚠️ الرصيد النقدي غير كافٍ. يرجى تمويل حسابك قبل الموعد.')); }
-        return $mail->action($this->tr('View My Loans', 'عرض قروضي'), url('/member'));
+        $mail = (new MailMessage)->subject($subject)->greeting($greeting);
+        foreach ($bodyLines as $line) {
+            $mail->line($line);
+        }
+        if (!$sufficient) {
+            $mail->line($insufficientLine);
+        }
+        return $mail->action($actionLabel, url('/member'));
     }
 
     public function toTwilio(mixed $notifiable): TwilioSmsMessage

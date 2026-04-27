@@ -5,6 +5,7 @@ namespace App\Filament\Admin\Pages;
 use App\Models\MembershipApplication;
 use App\Models\Setting;
 use App\Services\ContributionCycleService;
+use App\Services\EmailTemplateService;
 use BezhanSalleh\FilamentShield\Resources\Roles\RoleResource;
 use Filament\Actions\Action;
 use Filament\Forms;
@@ -77,12 +78,12 @@ class SystemSettingsPage extends Page
         }
 
         $allowedTop = ['loans', 'contribution-cycles', 'public-membership', 'statements', 'communication', 'roles'];
-        if (! in_array($this->activeTab, $allowedTop, true)) {
+        if (!in_array($this->activeTab, $allowedTop, true)) {
             $this->activeTab = 'loans';
         }
 
         $allowedLoanSub = ['loan-rules', 'loan-tiers', 'fund-tiers'];
-        if (! in_array($this->loanSubTab, $allowedLoanSub, true)) {
+        if (!in_array($this->loanSubTab, $allowedLoanSub, true)) {
             $this->loanSubTab = 'loan-rules';
         }
 
@@ -115,7 +116,7 @@ class SystemSettingsPage extends Page
                 ->label(__('Save loan settings'))
                 ->icon('heroicon-o-check')
                 ->color('primary')
-                ->visible(fn (): bool => $this->activeTab === 'loans' && $this->loanSubTab === 'loan-rules')
+                ->visible(fn(): bool => $this->activeTab === 'loans' && $this->loanSubTab === 'loan-rules')
                 ->fillForm([
                     'settlement_threshold_pct' => Setting::loanSettlementThreshold() * 100,
                     'min_fund_balance' => Setting::loanMinFundBalance(),
@@ -159,7 +160,7 @@ class SystemSettingsPage extends Page
                 ->label(__('Save cycle settings'))
                 ->icon('heroicon-o-check')
                 ->color('primary')
-                ->visible(fn (): bool => $this->activeTab === 'contribution-cycles')
+                ->visible(fn(): bool => $this->activeTab === 'contribution-cycles')
                 ->fillForm([
                     'cycle_start_day' => Setting::contributionCycleStartDay(),
                     'delinquency_consecutive' => Setting::delinquencyConsecutiveMissThreshold(),
@@ -192,7 +193,7 @@ class SystemSettingsPage extends Page
                         ]),
                     Section::make(__('Delinquency policy'))
                         ->description(
-                            __('Daily job `fund:check-delinquency` evaluates missed monthly contributions (when due) and unpaid loan installments for active loans. ').
+                            __('Daily job `fund:check-delinquency` evaluates missed monthly contributions (when due) and unpaid loan installments for active loans. ') .
                             __('Breaching either threshold suspends the member (member portal blocked) and shifts active loan repayment collection to the guarantor until restored.')
                         )
                         ->schema([
@@ -223,8 +224,8 @@ class SystemSettingsPage extends Page
                         ])->columns(3),
                     Section::make(__('Late fees (tiered by days after due)'))
                         ->description(
-                            __('Due is the end of the contribution/repayment cycle for that month. Calendar days after that are counted; ').
-                            __('the highest tier reached (30+ ≥ 20+ ≥ 10+ ≥ 1+) with a non-zero SAR amount applies — if a tier is 0, the next lower tier is used. ').
+                            __('Due is the end of the contribution/repayment cycle for that month. Calendar days after that are counted; ') .
+                            __('the highest tier reached (30+ ≥ 20+ ≥ 10+ ≥ 1+) with a non-zero SAR amount applies — if a tier is 0, the next lower tier is used. ') .
                             __('Cash-account debits bundle principal and late fee; late fees credit master cash only (not master fund).')
                         )
                         ->schema([
@@ -292,8 +293,8 @@ class SystemSettingsPage extends Page
                 ->label(__('Save statement settings'))
                 ->icon('heroicon-o-check')
                 ->color('primary')
-                ->visible(fn (): bool => $this->activeTab === 'statements')
-                ->fillForm(fn () => [
+                ->visible(fn(): bool => $this->activeTab === 'statements')
+                ->fillForm(fn() => [
                     'brand_name' => Setting::statementBrandName(),
                     'tagline' => Setting::statementTagline(),
                     'accent_color' => Setting::statementAccentColor(),
@@ -378,7 +379,7 @@ class SystemSettingsPage extends Page
                 ->label(__('Save public membership settings'))
                 ->icon('heroicon-o-check')
                 ->color('primary')
-                ->visible(fn (): bool => $this->activeTab === 'public-membership')
+                ->visible(fn(): bool => $this->activeTab === 'public-membership')
                 ->fillForm([
                     'max_pending_public' => Setting::maxPublicApplications(),
                     'membership_application_fee_new' => Setting::membershipApplicationFeeForType('new'),
@@ -400,7 +401,7 @@ class SystemSettingsPage extends Page
                         ]),
                     Section::make(__('Membership application fees'))
                         ->description(
-                            __('Set a separate fee for each application type. When at least one fee is greater than zero, /apply adds a final payment step (after identity, employment, and document upload): applicants transfer to your bank and submit a reference for the fee that matches their chosen type, then submit the application. ').
+                            __('Set a separate fee for each application type. When at least one fee is greater than zero, /apply adds a final payment step (after identity, employment, and document upload): applicants transfer to your bank and submit a reference for the fee that matches their chosen type, then submit the application. ') .
                             __('On successful submission, that amount is credited to the master cash account only (not the master fund). Reconcile with your bank to avoid double-counting if you also import the same deposit.')
                         )
                         ->schema([
@@ -452,8 +453,8 @@ class SystemSettingsPage extends Page
                 ->label(__('Save communication settings'))
                 ->icon('heroicon-o-check')
                 ->color('primary')
-                ->visible(fn (): bool => $this->activeTab === 'communication')
-                ->fillForm(fn () => [
+                ->visible(fn(): bool => $this->activeTab === 'communication')
+                ->fillForm(fn() => [
                     'channel_in_app' => Setting::commChannelEnabled('in_app'),
                     'channel_email' => Setting::commChannelEnabled('email'),
                     'channel_sms' => Setting::commChannelEnabled('sms'),
@@ -462,8 +463,8 @@ class SystemSettingsPage extends Page
                 ->schema([
                     Section::make(__('Communication Channels'))
                         ->description(
-                            __('Enable or disable each outbound communication channel system-wide. ').
-                            __('When a channel is disabled, no notifications of any type will be sent through it, ').
+                            __('Enable or disable each outbound communication channel system-wide. ') .
+                            __('When a channel is disabled, no notifications of any type will be sent through it, ') .
                             __('regardless of individual member preferences.')
                         )
                         ->schema([
@@ -501,6 +502,195 @@ class SystemSettingsPage extends Page
                         ->success()
                         ->send();
                 }),
+            Action::make('save_email_templates')
+                ->label(__('Configure member email templates'))
+                ->icon('heroicon-o-envelope')
+                ->color('gray')
+                ->visible(fn(): bool => $this->activeTab === 'communication')
+                ->fillForm([
+                    'membership_approved_subject_en' => EmailTemplateService::get('membership_approved', 'subject', 'en', 'Welcome to FundFlow — Membership Approved!'),
+                    'membership_approved_subject_ar' => EmailTemplateService::get('membership_approved', 'subject', 'ar', 'مرحبًا بك في FundFlow — تمت الموافقة على العضوية!'),
+                    'membership_approved_greeting_en' => EmailTemplateService::get('membership_approved', 'greeting', 'en', 'Dear :name,'),
+                    'membership_approved_greeting_ar' => EmailTemplateService::get('membership_approved', 'greeting', 'ar', 'عزيزي/عزيزتي :name،'),
+                    'membership_approved_body_en' => EmailTemplateService::get('membership_approved', 'body', 'en', "Congratulations! Your membership application has been **approved**.\nYour member number is: **:number**\nYou can now log in to your member portal to:\n• View your contribution history\n• Apply for interest-free loans\n• Download monthly statements"),
+                    'membership_approved_body_ar' => EmailTemplateService::get('membership_approved', 'body', 'ar', "تهانينا! تمت **الموافقة** على طلب عضويتك.\nرقم عضويتك هو: **:number**\nيمكنك الآن تسجيل الدخول إلى بوابة الأعضاء من أجل:\n• عرض سجل المساهمات\n• التقديم على القروض الحسنة\n• تنزيل الكشوفات الشهرية"),
+                    'membership_approved_action_en' => EmailTemplateService::get('membership_approved', 'action_label', 'en', 'Sign In to Member Portal'),
+                    'membership_approved_action_ar' => EmailTemplateService::get('membership_approved', 'action_label', 'ar', 'تسجيل الدخول إلى بوابة الأعضاء'),
+                    'membership_approved_closing_en' => EmailTemplateService::get('membership_approved', 'closing', 'en', 'Welcome to the family!'),
+                    'membership_approved_closing_ar' => EmailTemplateService::get('membership_approved', 'closing', 'ar', 'مرحبًا بك ضمن أسرة الصندوق!'),
+
+                    'membership_rejected_subject_en' => EmailTemplateService::get('membership_rejected', 'subject', 'en', 'FundFlow — Membership Application Update'),
+                    'membership_rejected_subject_ar' => EmailTemplateService::get('membership_rejected', 'subject', 'ar', 'FundFlow — تحديث طلب العضوية'),
+                    'membership_rejected_greeting_en' => EmailTemplateService::get('membership_rejected', 'greeting', 'en', 'Dear :name,'),
+                    'membership_rejected_greeting_ar' => EmailTemplateService::get('membership_rejected', 'greeting', 'ar', 'عزيزي/عزيزتي :name،'),
+                    'membership_rejected_body_en' => EmailTemplateService::get('membership_rejected', 'body', 'en', "Thank you for your interest in joining FundFlow.\nAfter careful review, we regret to inform you that your membership application could not be approved at this time."),
+                    'membership_rejected_body_ar' => EmailTemplateService::get('membership_rejected', 'body', 'ar', "شكرًا لاهتمامك بالانضمام إلى FundFlow.\nبعد مراجعة دقيقة، نأسف لإبلاغك بأنه تعذر الموافقة على طلب العضوية في الوقت الحالي."),
+                    'membership_rejected_reason_line_en' => EmailTemplateService::get('membership_rejected', 'reason_line', 'en', '**Reason:** :reason'),
+                    'membership_rejected_reason_line_ar' => EmailTemplateService::get('membership_rejected', 'reason_line', 'ar', '**السبب:** :reason'),
+                    'membership_rejected_closing_en' => EmailTemplateService::get('membership_rejected', 'closing', 'en', 'If you believe this decision was made in error or have any questions, please contact us at admin@fundflow.sa.'),
+                    'membership_rejected_closing_ar' => EmailTemplateService::get('membership_rejected', 'closing', 'ar', 'إذا كنت تعتقد أن هذا القرار تم بالخطأ أو كانت لديك أي أسئلة، يرجى التواصل معنا عبر admin@fundflow.sa.'),
+                    'membership_rejected_action_en' => EmailTemplateService::get('membership_rejected', 'action_label', 'en', 'Contact Us'),
+                    'membership_rejected_action_ar' => EmailTemplateService::get('membership_rejected', 'action_label', 'ar', 'تواصل معنا'),
+
+                    'loan_approved_subject_en' => EmailTemplateService::get('loan_approved', 'subject', 'en', 'FundFlow — Loan Approved!'),
+                    'loan_approved_subject_ar' => EmailTemplateService::get('loan_approved', 'subject', 'ar', 'FundFlow — تمت الموافقة على القرض!'),
+                    'loan_approved_greeting_en' => EmailTemplateService::get('loan_approved', 'greeting', 'en', 'Dear :name,'),
+                    'loan_approved_greeting_ar' => EmailTemplateService::get('loan_approved', 'greeting', 'ar', 'عزيزي/عزيزتي :name،'),
+                    'loan_approved_body_en' => EmailTemplateService::get('loan_approved', 'body', 'en', "Your loan application for **:amount** has been approved.\nRepayment Details:\n• Amount: :amount\n• Installments: :count monthly payments\n• Final due date: :date"),
+                    'loan_approved_body_ar' => EmailTemplateService::get('loan_approved', 'body', 'ar', "تمت الموافقة على طلب قرضك بمبلغ **:amount**.\nتفاصيل السداد:\n• المبلغ: :amount\n• الأقساط: :count دفعات شهرية\n• تاريخ الاستحقاق النهائي: :date"),
+                    'loan_approved_action_en' => EmailTemplateService::get('loan_approved', 'action_label', 'en', 'View Loan Details'),
+                    'loan_approved_action_ar' => EmailTemplateService::get('loan_approved', 'action_label', 'ar', 'عرض تفاصيل القرض'),
+                    'signature_line_en' => EmailTemplateService::get('global', 'signature_line', 'en', config('app.name', 'FundFlow')),
+                    'signature_line_ar' => EmailTemplateService::get('global', 'signature_line', 'ar', config('app.name', 'FundFlow')),
+                    'email_template_overrides_en' => $this->emailTemplateOverrides('en'),
+                    'email_template_overrides_ar' => $this->emailTemplateOverrides('ar'),
+                ])
+                ->schema([
+                    Section::make(__('Membership approved email'))
+                        ->description(__('Available placeholders: :name, :number'))
+                        ->schema([
+                            Forms\Components\TextInput::make('membership_approved_subject_en')->label(__('Subject (EN)'))->required(),
+                            Forms\Components\TextInput::make('membership_approved_subject_ar')->label(__('Subject (AR)'))->required(),
+                            Forms\Components\TextInput::make('membership_approved_greeting_en')->label(__('Greeting (EN)'))->required(),
+                            Forms\Components\TextInput::make('membership_approved_greeting_ar')->label(__('Greeting (AR)'))->required(),
+                            Forms\Components\Textarea::make('membership_approved_body_en')->label(__('Body (EN, one line per paragraph)'))->rows(6)->required()->columnSpanFull(),
+                            Forms\Components\Textarea::make('membership_approved_body_ar')->label(__('Body (AR, one line per paragraph)'))->rows(6)->required()->columnSpanFull(),
+                            Forms\Components\TextInput::make('membership_approved_action_en')->label(__('Action button label (EN)'))->required(),
+                            Forms\Components\TextInput::make('membership_approved_action_ar')->label(__('Action button label (AR)'))->required(),
+                            Forms\Components\TextInput::make('membership_approved_closing_en')->label(__('Closing line (EN)'))->required(),
+                            Forms\Components\TextInput::make('membership_approved_closing_ar')->label(__('Closing line (AR)'))->required(),
+                        ])->columns(2),
+                    Section::make(__('Membership rejected email'))
+                        ->description(__('Available placeholders: :name, :reason'))
+                        ->schema([
+                            Forms\Components\TextInput::make('membership_rejected_subject_en')->label(__('Subject (EN)'))->required(),
+                            Forms\Components\TextInput::make('membership_rejected_subject_ar')->label(__('Subject (AR)'))->required(),
+                            Forms\Components\TextInput::make('membership_rejected_greeting_en')->label(__('Greeting (EN)'))->required(),
+                            Forms\Components\TextInput::make('membership_rejected_greeting_ar')->label(__('Greeting (AR)'))->required(),
+                            Forms\Components\Textarea::make('membership_rejected_body_en')->label(__('Body (EN, one line per paragraph)'))->rows(4)->required()->columnSpanFull(),
+                            Forms\Components\Textarea::make('membership_rejected_body_ar')->label(__('Body (AR, one line per paragraph)'))->rows(4)->required()->columnSpanFull(),
+                            Forms\Components\TextInput::make('membership_rejected_reason_line_en')->label(__('Reason line (EN)'))->required(),
+                            Forms\Components\TextInput::make('membership_rejected_reason_line_ar')->label(__('Reason line (AR)'))->required(),
+                            Forms\Components\TextInput::make('membership_rejected_closing_en')->label(__('Closing line (EN)'))->required(),
+                            Forms\Components\TextInput::make('membership_rejected_closing_ar')->label(__('Closing line (AR)'))->required(),
+                            Forms\Components\TextInput::make('membership_rejected_action_en')->label(__('Action button label (EN)'))->required(),
+                            Forms\Components\TextInput::make('membership_rejected_action_ar')->label(__('Action button label (AR)'))->required(),
+                        ])->columns(2),
+                    Section::make(__('Loan approved email'))
+                        ->description(__('Available placeholders: :name, :amount, :count, :date'))
+                        ->schema([
+                            Forms\Components\TextInput::make('loan_approved_subject_en')->label(__('Subject (EN)'))->required(),
+                            Forms\Components\TextInput::make('loan_approved_subject_ar')->label(__('Subject (AR)'))->required(),
+                            Forms\Components\TextInput::make('loan_approved_greeting_en')->label(__('Greeting (EN)'))->required(),
+                            Forms\Components\TextInput::make('loan_approved_greeting_ar')->label(__('Greeting (AR)'))->required(),
+                            Forms\Components\Textarea::make('loan_approved_body_en')->label(__('Body (EN, one line per paragraph)'))->rows(5)->required()->columnSpanFull(),
+                            Forms\Components\Textarea::make('loan_approved_body_ar')->label(__('Body (AR, one line per paragraph)'))->rows(5)->required()->columnSpanFull(),
+                            Forms\Components\TextInput::make('loan_approved_action_en')->label(__('Action button label (EN)'))->required(),
+                            Forms\Components\TextInput::make('loan_approved_action_ar')->label(__('Action button label (AR)'))->required(),
+                        ])->columns(2),
+                    Section::make(__('Advanced template overrides (all member emails)'))
+                        ->description(__('Use keys in the format template_key.field (for example: contribution_due.subject). Values here are saved as email templates and can override any email that supports the template service.'))
+                        ->schema([
+                            Forms\Components\TextInput::make('signature_line_en')
+                                ->label(__('Line after "Regards," (EN)'))
+                                ->helperText(__('Global email signature line used after the "Regards," keyword when no custom salutation is set. Current fallback: :fallback', ['fallback' => config('app.name', 'FundFlow')]))
+                                ->required(),
+                            Forms\Components\TextInput::make('signature_line_ar')
+                                ->label(__('Line after "Regards," (AR)'))
+                                ->helperText(__('Global email signature line used after "مع التحية،" when no custom salutation is set. Current fallback: :fallback', ['fallback' => config('app.name', 'FundFlow')]))
+                                ->required(),
+                            Forms\Components\Placeholder::make('email_template_helper')
+                                ->label(__('Quick helper'))
+                                ->content(__(
+                                    "Common keys:\n" .
+                                    "• contribution_due.subject\n" .
+                                    "• contribution_due.body\n" .
+                                    "• loan_repayment_due.subject\n" .
+                                    "• loan_repayment_due.insufficient_line\n" .
+                                    "• loan_disbursed.subject\n" .
+                                    "• monthly_statement.closing\n" .
+                                    "• global.signature_line\n\n" .
+                                    "Common placeholders:\n" .
+                                    "• :name, :amount, :period, :date\n" .
+                                    "• :count, :balance, :number, :reason"
+                                ))
+                                ->columnSpanFull(),
+                            Forms\Components\KeyValue::make('email_template_overrides_en')
+                                ->label(__('Overrides (EN)'))
+                                ->keyLabel(__('Template key.field'))
+                                ->valueLabel(__('Template text'))
+                                ->columnSpanFull(),
+                            Forms\Components\KeyValue::make('email_template_overrides_ar')
+                                ->label(__('Overrides (AR)'))
+                                ->keyLabel(__('Template key.field'))
+                                ->valueLabel(__('Template text'))
+                                ->columnSpanFull(),
+                        ]),
+                ])
+                ->modalWidth('7xl')
+                ->action(function (array $data): void {
+                    $pairs = [
+                        'email_template.membership_approved.subject.en' => $data['membership_approved_subject_en'],
+                        'email_template.membership_approved.subject.ar' => $data['membership_approved_subject_ar'],
+                        'email_template.membership_approved.greeting.en' => $data['membership_approved_greeting_en'],
+                        'email_template.membership_approved.greeting.ar' => $data['membership_approved_greeting_ar'],
+                        'email_template.membership_approved.body.en' => $data['membership_approved_body_en'],
+                        'email_template.membership_approved.body.ar' => $data['membership_approved_body_ar'],
+                        'email_template.membership_approved.action_label.en' => $data['membership_approved_action_en'],
+                        'email_template.membership_approved.action_label.ar' => $data['membership_approved_action_ar'],
+                        'email_template.membership_approved.closing.en' => $data['membership_approved_closing_en'],
+                        'email_template.membership_approved.closing.ar' => $data['membership_approved_closing_ar'],
+
+                        'email_template.membership_rejected.subject.en' => $data['membership_rejected_subject_en'],
+                        'email_template.membership_rejected.subject.ar' => $data['membership_rejected_subject_ar'],
+                        'email_template.membership_rejected.greeting.en' => $data['membership_rejected_greeting_en'],
+                        'email_template.membership_rejected.greeting.ar' => $data['membership_rejected_greeting_ar'],
+                        'email_template.membership_rejected.body.en' => $data['membership_rejected_body_en'],
+                        'email_template.membership_rejected.body.ar' => $data['membership_rejected_body_ar'],
+                        'email_template.membership_rejected.reason_line.en' => $data['membership_rejected_reason_line_en'],
+                        'email_template.membership_rejected.reason_line.ar' => $data['membership_rejected_reason_line_ar'],
+                        'email_template.membership_rejected.closing.en' => $data['membership_rejected_closing_en'],
+                        'email_template.membership_rejected.closing.ar' => $data['membership_rejected_closing_ar'],
+                        'email_template.membership_rejected.action_label.en' => $data['membership_rejected_action_en'],
+                        'email_template.membership_rejected.action_label.ar' => $data['membership_rejected_action_ar'],
+
+                        'email_template.loan_approved.subject.en' => $data['loan_approved_subject_en'],
+                        'email_template.loan_approved.subject.ar' => $data['loan_approved_subject_ar'],
+                        'email_template.loan_approved.greeting.en' => $data['loan_approved_greeting_en'],
+                        'email_template.loan_approved.greeting.ar' => $data['loan_approved_greeting_ar'],
+                        'email_template.loan_approved.body.en' => $data['loan_approved_body_en'],
+                        'email_template.loan_approved.body.ar' => $data['loan_approved_body_ar'],
+                        'email_template.loan_approved.action_label.en' => $data['loan_approved_action_en'],
+                        'email_template.loan_approved.action_label.ar' => $data['loan_approved_action_ar'],
+                        'email_template.global.signature_line.en' => $data['signature_line_en'],
+                        'email_template.global.signature_line.ar' => $data['signature_line_ar'],
+                    ];
+
+                    foreach ($pairs as $key => $value) {
+                        Setting::set($key, trim((string) $value));
+                    }
+
+                    foreach (($data['email_template_overrides_en'] ?? []) as $k => $v) {
+                        $k = trim((string) $k);
+                        if ($k === '') {
+                            continue;
+                        }
+                        Setting::set("email_template.{$k}.en", trim((string) $v));
+                    }
+
+                    foreach (($data['email_template_overrides_ar'] ?? []) as $k => $v) {
+                        $k = trim((string) $k);
+                        if ($k === '') {
+                            continue;
+                        }
+                        Setting::set("email_template.{$k}.ar", trim((string) $v));
+                    }
+
+                    Notification::make()
+                        ->title(__('Email templates saved'))
+                        ->success()
+                        ->send();
+                }),
         ];
     }
 
@@ -516,7 +706,7 @@ class SystemSettingsPage extends Page
         $svc = app(ContributionCycleService::class);
         [$month, $year] = $svc->currentOpenPeriod();
 
-        return $svc->periodLabel($month, $year).' — '.$svc->cycleWindowDescription($month, $year);
+        return $svc->periodLabel($month, $year) . ' — ' . $svc->cycleWindowDescription($month, $year);
     }
 
     public function getTotalApplicationsCount(): int
@@ -526,7 +716,7 @@ class SystemSettingsPage extends Page
 
     public function canViewRolesPage(): bool
     {
-        if (! class_exists(RoleResource::class)) {
+        if (!class_exists(RoleResource::class)) {
             return false;
         }
 
@@ -535,10 +725,41 @@ class SystemSettingsPage extends Page
 
     public function getRolesPageUrl(): ?string
     {
-        if (! $this->canViewRolesPage()) {
+        if (!$this->canViewRolesPage()) {
             return null;
         }
 
         return RoleResource::getUrl('index');
+    }
+
+    /**
+     * @return array<string, string>
+     */
+    protected function emailTemplateOverrides(string $locale): array
+    {
+        $rows = Setting::query()
+            ->where('key', 'like', "email_template.%.{$locale}")
+            ->get(['key', 'value']);
+
+        $out = [];
+        foreach ($rows as $row) {
+            $prefix = 'email_template.';
+            $suffix = ".{$locale}";
+            $key = (string) $row->key;
+            if (!str_starts_with($key, $prefix) || !str_ends_with($key, $suffix)) {
+                continue;
+            }
+
+            $trimmed = substr($key, strlen($prefix), -strlen($suffix));
+            if ($trimmed === false || $trimmed === '') {
+                continue;
+            }
+
+            $out[$trimmed] = (string) $row->value;
+        }
+
+        ksort($out);
+
+        return $out;
     }
 }
