@@ -5,13 +5,7 @@
 ])
 @php
     $isRtl = app()->getLocale() === 'ar';
-    $effectiveAlign = $align;
-
-    // Keep explicit non-center alignment, but for Arabic default button placement
-    // move from center to the reading-start side (right) for a more natural flow.
-    if ($isRtl && $align === 'center') {
-        $effectiveAlign = 'right';
-    }
+    $effectiveAlign = ($isRtl && $align === 'center') ? 'right' : $align;
 @endphp
                 <table class="action" align="{{ $effectiveAlign }}" width="100%" cellpadding="0" cellspacing="0" role="presentation">
                     <tr>

@@ -5,6 +5,15 @@
     $isRtl = $locale === 'ar';
     $dir = $isRtl ? 'rtl' : 'ltr';
     $textAlign = $isRtl ? 'right' : 'left';
+    $renderedSlot = Illuminate\Mail\Markdown::parse($slot);
+    $renderedSubcopy = $subcopy ?? '';
+
+    if ($isRtl) {
+        // Laravel inlines `text-align: left;` from default mail theme styles.
+        // Force right alignment for Arabic-rendered fragments.
+        $renderedSlot = str_replace('text-align: left;', 'text-align: right;', $renderedSlot);
+        $renderedSubcopy = str_replace('text-align: left;', 'text-align: right;', $renderedSubcopy);
+    }
 @endphp
 <html xmlns="http://www.w3.org/1999/xhtml" lang="{{ str_replace('_', '-', $locale) }}" dir="{{ $dir }}">
 
@@ -30,6 +39,21 @@
                 width: 100% !important;
             }
         }
+
+        /* Enforce RTL alignment for Arabic, even after Laravel inlines theme CSS. */
+        html[dir="rtl"] h1,
+        html[dir="rtl"] h2,
+        html[dir="rtl"] h3,
+        html[dir="rtl"] p,
+        html[dir="rtl"] td,
+        html[dir="rtl"] th,
+        html[dir="rtl"] li,
+        html[dir="rtl"] .subcopy p,
+        html[dir="rtl"] .footer p,
+        html[dir="rtl"] .content-cell {
+            text-align: right !important;
+            direction: rtl !important;
+        }
     </style>
     {!! $head ?? '' !!}
 </head>
@@ -52,9 +76,9 @@
                                 <tr>
                                     <td class="content-cell" dir="{{ $dir }}"
                                         style="direction: {{ $dir }}; text-align: {{ $textAlign }};">
-                                        {!! Illuminate\Mail\Markdown::parse($slot) !!}
+                                        {!! $renderedSlot !!}
 
-                                        {!! $subcopy ?? '' !!}
+                                        {!! $renderedSubcopy !!}
                                     </td>
                                 </tr>
                             </table>
