@@ -4145,3 +4145,53 @@ Run migration so persistence table exists:
 
 php artisan migrate
 -----------------------------------
+Implemented a comprehensive, idempotent feature-exercise seeder and wired it into DatabaseSeeder.
+
+What I added
+New seeder: database/seeders/ComprehensiveFeatureExerciseSeeder.php
+Updated database/seeders/DatabaseSeeder.php to call it.
+What this seeder covers
+It seeds realistic linked data for most app domains:
+
+System settings (loan/contribution/delinquency/communication/email signature defaults)
+Staff users and multiple member/applicant users with mixed locales/statuses
+Membership applications in approved, pending, and rejected states
+Members including:
+parent/dependent relationship
+active/suspended/terminated states
+Loan tiers + fund tiers (including emergency)
+Accounts + ledger transactions (master/member cash/fund)
+Communication preferences for every notification category
+Widget preferences
+Contributions across multiple periods (including late examples)
+Loans in mixed lifecycle states + installments + disbursement
+Monthly statements
+Member requests + dependent allocation change/audit + cycle allocation
+Direct messages (threaded) and support request
+Notification logs
+Annual subscription fee
+Bank/SMS import artifacts:
+bank, templates, import sessions, transactions
+sms templates, import sessions, transactions
+Important note on “full confidence”
+A seed dataset can exercise flows and improve confidence, but it cannot by itself prove all functions work properly. Full confidence needs:
+
+automated tests (feature/integration)
+running key workflows
+assertions on outcomes
+Run it
+Your environment blocked db:seed because it is in production mode. Run with force:
+
+php artisan db:seed --force
+If you want to reset then reseed from scratch:
+
+php artisan migrate:fresh --seed --force
+Recommended validation after seeding
+php artisan optimize:clear
+Login checks:
+admin and member panels
+Smoke-check key pages:
+memberships, dependents, contributions, loans, statements, communication settings
+Trigger sample notifications to verify template rendering and locale/RTL behavior.
+If you want, next I can add a post-seed verifier Artisan command (assert counts + referential integrity + status distribution) so seeding gives you a machine-readable pass/fail report.
+

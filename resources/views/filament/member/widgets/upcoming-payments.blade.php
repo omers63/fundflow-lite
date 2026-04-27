@@ -48,7 +48,7 @@
                     </div>
                     <div class="text-right">
                         <p class="text-xs font-semibold {{ $month['contribution']['paid'] ? 'text-emerald-700 dark:text-emerald-300' : 'text-gray-700 dark:text-gray-300' }}">
-                            {{ __('SAR :amount', ['amount' => number_format($month['contribution']['amount'])]) }}
+                            {{ \App\Support\UiNumber::sar($month['contribution']['amount']) }}
                         </p>
                         @if($month['contribution']['paid'])
                         <p class="text-xs text-emerald-600 dark:text-emerald-400">{{ __('Paid') }}</p>
@@ -78,7 +78,7 @@
                     </div>
                     <div class="text-right">
                         <p class="text-xs font-semibold {{ $isOverdue ? 'text-red-600 dark:text-red-400' : ($isPaid ? 'text-emerald-700 dark:text-emerald-300' : 'text-gray-700 dark:text-gray-300') }}">
-                            {{ __('SAR :amount', ['amount' => number_format($inst['amount'])]) }}
+                            {{ \App\Support\UiNumber::sar($inst['amount']) }}
                         </p>
                         <p class="text-xs {{ $isOverdue ? 'text-red-500 dark:text-red-400' : ($isPaid ? 'text-emerald-500 dark:text-emerald-400' : 'text-gray-400') }}">
                             {{
@@ -103,7 +103,7 @@
             @if($month['total_due'] > 0)
             <div class="mt-3 pt-3 border-t border-gray-200 dark:border-gray-600 flex items-center justify-between">
                 <span class="text-xs font-semibold text-gray-500 dark:text-gray-400 uppercase tracking-wide">{{ __('Total due') }}</span>
-                <span class="text-sm font-bold text-gray-900 dark:text-white">{{ __('SAR :amount', ['amount' => number_format($month['total_due'])]) }}</span>
+                <span class="text-sm font-bold text-gray-900 dark:text-white">{{ \App\Support\UiNumber::sar($month['total_due']) }}</span>
             </div>
             @else
             <div class="mt-3 pt-3 border-t border-gray-200 dark:border-gray-600 flex items-center gap-1.5">

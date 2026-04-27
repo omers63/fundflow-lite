@@ -108,7 +108,7 @@
         <div>
             <p class="text-sm font-semibold text-red-800 dark:text-red-300">
                 {{ $d['overdueCount'] > 1 ? __(':count overdue installments', ['count' => $d['overdueCount']]) : __(':count overdue installment', ['count' => $d['overdueCount']]) }}
-                — {{ __('SAR :amount outstanding', ['amount' => number_format($d['overdueAmount'], 2)]) }}
+                — {{ __(':amount outstanding', ['amount' => \App\Support\UiNumber::sar($d['overdueAmount'])]) }}
             </p>
             <p class="text-xs text-red-600 dark:text-red-400 mt-0.5">{{ __('Late fees may be accruing. Pay as soon as possible to avoid further penalties.') }}</p>
         </div>

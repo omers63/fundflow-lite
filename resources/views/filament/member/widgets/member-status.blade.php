@@ -85,7 +85,7 @@
             <p class="text-xs text-gray-500 dark:text-gray-400 mt-0.5">{{ __('total recorded') }}</p>
             @if($d['lateContribCount'] > 0)
             <p class="text-xs text-amber-600 dark:text-amber-400 mt-2">
-                {{ __('SAR :amount in late fees', ['amount' => number_format($d['lateContribAmount'], 2)]) }}
+                {{ __(':amount in late fees', ['amount' => \App\Support\UiNumber::sar($d['lateContribAmount'])]) }}
             </p>
             @endif
             @if($d['streak'] > 0)
@@ -114,7 +114,7 @@
                 <p class="text-xl font-bold text-red-600 dark:text-red-400">{{ $d['lateRepayCount'] }}</p>
                 <p class="text-xs text-gray-500 dark:text-gray-400 mt-0.5">{{ __('late installments recorded') }}</p>
                 <p class="text-xs text-red-600 dark:text-red-400 mt-2">
-                    {{ __('SAR :amount in late fees', ['amount' => number_format($d['lateRepayAmount'], 2)]) }}
+                    {{ __(':amount in late fees', ['amount' => \App\Support\UiNumber::sar($d['lateRepayAmount'])]) }}
                 </p>
             @else
                 <p class="text-xl font-bold text-emerald-600 dark:text-emerald-400">0</p>
@@ -135,7 +135,7 @@
             @if($d['overdueCount'] > 0)
                 <p class="text-xl font-bold text-red-600 dark:text-red-400">{{ $d['overdueCount'] }}</p>
                 <p class="text-xs text-gray-500 dark:text-gray-400 mt-0.5">{{ $d['overdueCount'] > 1 ? __('overdue installments') : __('overdue installment') }}</p>
-                <p class="text-xs text-red-600 dark:text-red-400 mt-1">{{ __('SAR :amount owed', ['amount' => number_format($d['overdueAmount'], 2)]) }}</p>
+                <p class="text-xs text-red-600 dark:text-red-400 mt-1">{{ __(':amount owed', ['amount' => \App\Support\UiNumber::sar($d['overdueAmount'])]) }}</p>
                 @if($d['overdueLateFees'] > 0)
                 <p class="text-xs text-red-500 dark:text-red-400 mt-0.5">{{ __('+ SAR :amount late fees', ['amount' => number_format($d['overdueLateFees'], 2)]) }}</p>
                 @endif

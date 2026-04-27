@@ -3,15 +3,23 @@
 namespace App\Filament\Admin\Widgets;
 
 use App\Models\Loan;
-use Filament\Widgets\Widget;
+use Filament\Support\RawJs;
+use Filament\Widgets\ChartWidget;
 
-class LoanPortfolioWidget extends Widget
+class LoanPortfolioWidget extends ChartWidget
 {
-    protected string $view = 'filament.admin.widgets.loan-portfolio';
-
     protected static ?int $sort = 4;
 
-    public function getData(): array
+    protected ?string $heading = 'Loan Portfolio';
+
+    protected ?string $maxHeight = '320px';
+
+    protected function getType(): string
+    {
+        return 'doughnut';
+    }
+
+    protected function getData(): array
     {
         $statuses = [
             'pending' => ['label' => __('Pending'), 'color' => 'rgba(251,191,36,0.85)', 'ring' => 'ring-amber-300', 'bg' => 'bg-amber-100 dark:bg-amber-900/30', 'text' => 'text-amber-700 dark:text-amber-300'],
@@ -53,26 +61,34 @@ class LoanPortfolioWidget extends Widget
         }
 
         return [
-            'chart' => [
-                'datasets' => [
-                    [
-                        'data' => $data,
-                        'backgroundColor' => $colors,
-                        'borderWidth' => 2,
-                        'borderColor' => '#ffffff',
-                        'hoverOffset' => 6,
-                    ]
+            'datasets' => [
+                [
+                    'data' => $data,
+                    'backgroundColor' => $colors,
+                    'borderWidth' => 2,
+                    'borderColor' => '#ffffff',
+                    'hoverOffset' => 6,
                 ],
-                'labels' => $labels,
             ],
-            'options' => [
-                'plugins' => ['legend' => ['display' => false], 'tooltip' => ['callbacks' => []]],
-                'cutout' => '65%',
-                'maintainAspectRatio' => true,
-            ],
-            'legend' => $legend,
-            'total_all' => $totalAll,
-            'total_amt' => $totalAmt,
+            'labels' => $labels,
+        ];
+    }
+
+    public function getDescription(): ?string
+    {
+        $totals = Loan::selectRaw('COUNT(*) as count, COALESCE(SUM(amount_approved), 0) as total')->first();
+        return __(':count total loans | SAR :total portfolio value', [
+            'count' => number_format((int) ($totals->count ?? 0)),
+            'total' => number_format((float) ($totals->total ?? 0), 0),
+        ]);
+    }
+
+    protected function getOptions(): array | RawJs | null
+    {
+        return [
+            'plugins' => ['legend' => ['display' => true, 'position' => 'right']],
+            'cutout' => '65%',
+            'maintainAspectRatio' => false,
         ];
     }
 }

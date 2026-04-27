@@ -38,12 +38,12 @@
         <div class="mt-6 grid grid-cols-2 gap-3 sm:grid-cols-4">
             <div class="rounded-xl bg-white/8 ring-1 ring-white/15 px-4 py-3 backdrop-blur-sm">
                 <p class="text-xs font-medium text-indigo-300 uppercase tracking-wider">{{ __('Master Fund') }}</p>
-                <p class="mt-1 text-xl font-bold text-white">SAR {{ number_format($d['masterFund'], 0) }}</p>
+                <p class="mt-1 text-xl font-bold text-white">{{ \App\Support\UiNumber::sar($d['masterFund']) }}</p>
                 <p class="mt-0.5 text-xs text-indigo-400">{{ __('Investable capital') }}</p>
             </div>
             <div class="rounded-xl bg-white/8 ring-1 ring-white/15 px-4 py-3 backdrop-blur-sm">
                 <p class="text-xs font-medium text-indigo-300 uppercase tracking-wider">{{ __('Cash on Hand') }}</p>
-                <p class="mt-1 text-xl font-bold text-white">SAR {{ number_format($d['masterCash'], 0) }}</p>
+                <p class="mt-1 text-xl font-bold text-white">{{ \App\Support\UiNumber::sar($d['masterCash']) }}</p>
                 <p class="mt-0.5 text-xs text-indigo-400">{{ __('Member deposits') }}</p>
             </div>
             <div class="rounded-xl bg-white/8 ring-1 ring-white/15 px-4 py-3 backdrop-blur-sm">

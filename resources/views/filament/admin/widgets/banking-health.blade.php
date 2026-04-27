@@ -7,13 +7,13 @@
     <div class="grid grid-cols-1 gap-4 xl:grid-cols-3">
         <div class="rounded-2xl bg-gradient-to-br from-primary-600 to-primary-700 p-6 text-white shadow-md ring-1 ring-white/15 dark:from-primary-700 dark:to-primary-900">
             <p class="text-xs uppercase tracking-[0.14em] text-white/85">{{ __('Master Cash') }}</p>
-            <p class="mt-2 text-3xl font-semibold text-white">{{ __('SAR :amount', ['amount' => number_format($d['master_cash'], 2)]) }}</p>
+            <p class="mt-2 text-3xl font-semibold text-white">{{ \App\Support\UiNumber::sar($d['master_cash']) }}</p>
             <p class="mt-3 text-xs text-white/85">{{ __('Live ledger balance') }}</p>
         </div>
 
         <div class="rounded-2xl bg-gradient-to-br from-emerald-700 to-cyan-900 p-6 text-white shadow-md ring-1 ring-white/15">
             <p class="text-xs uppercase tracking-[0.14em] text-white/85">{{ __('Master Fund') }}</p>
-            <p class="mt-2 text-3xl font-semibold text-white">{{ __('SAR :amount', ['amount' => number_format($d['master_fund'], 2)]) }}</p>
+            <p class="mt-2 text-3xl font-semibold text-white">{{ \App\Support\UiNumber::sar($d['master_fund']) }}</p>
             <p class="mt-3 text-xs text-white/85">{{ __('Funding pool snapshot') }}</p>
         </div>
 
@@ -50,12 +50,12 @@
                 <div class="rounded-xl bg-gray-50 p-3 dark:bg-white/5">
                     <p class="text-xs text-gray-500 dark:text-gray-400">{{ __('Bank rows') }}</p>
                     <p class="mt-1 text-lg font-semibold text-gray-900 dark:text-white">{{ number_format($d['bank_pending']) }}</p>
-                    <p class="text-xs text-gray-500 dark:text-gray-400">{{ __('SAR :amount', ['amount' => number_format($d['bank_pending_amount'], 2)]) }}</p>
+                    <p class="text-xs text-gray-500 dark:text-gray-400">{{ \App\Support\UiNumber::sar($d['bank_pending_amount']) }}</p>
                 </div>
                 <div class="rounded-xl bg-gray-50 p-3 dark:bg-white/5">
                     <p class="text-xs text-gray-500 dark:text-gray-400">{{ __('SMS rows') }}</p>
                     <p class="mt-1 text-lg font-semibold text-gray-900 dark:text-white">{{ number_format($d['sms_pending']) }}</p>
-                    <p class="text-xs text-gray-500 dark:text-gray-400">{{ __('SAR :amount', ['amount' => number_format($d['sms_pending_amount'], 2)]) }}</p>
+                    <p class="text-xs text-gray-500 dark:text-gray-400">{{ \App\Support\UiNumber::sar($d['sms_pending_amount']) }}</p>
                 </div>
             </div>
         </div>

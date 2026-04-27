@@ -21,7 +21,7 @@
                 <span class="text-xs font-semibold text-gray-500 dark:text-gray-400 uppercase tracking-wide">{{ __('Cash') }}</span>
             </div>
             <p class="text-lg font-bold text-gray-900 dark:text-white leading-tight">
-                {{ __('SAR :amount', ['amount' => number_format($d['cash_balance'], 2)]) }}
+                {{ \App\Support\UiNumber::sar($d['cash_balance']) }}
             </p>
             <p class="text-xs text-gray-500 dark:text-gray-400">{{ __('Member cash account') }}</p>
         </div>
@@ -39,7 +39,7 @@
                 <span class="text-xs font-semibold text-gray-500 dark:text-gray-400 uppercase tracking-wide">{{ __('Fund') }}</span>
             </div>
             <p class="text-lg font-bold text-gray-900 dark:text-white leading-tight">
-                {{ __('SAR :amount', ['amount' => number_format($d['fund_balance'], 2)]) }}
+                {{ \App\Support\UiNumber::sar($d['fund_balance']) }}
             </p>
             <div class="mt-1">
                 <div class="w-full bg-gray-200 dark:bg-gray-700 rounded-full h-1.5">
@@ -59,7 +59,7 @@
                 <span class="text-xs font-semibold text-gray-500 dark:text-gray-400 uppercase tracking-wide">{{ __('Net Worth') }}</span>
             </div>
             <p class="text-lg font-bold text-gray-900 dark:text-white leading-tight">
-                {{ __('SAR :amount', ['amount' => number_format($d['net_worth'], 2)]) }}
+                {{ \App\Support\UiNumber::sar($d['net_worth']) }}
             </p>
             <p class="text-xs text-gray-500 dark:text-gray-400">
                 {{ $d['eligible'] ? __('✅ Loan eligible') : __('⏳ Not yet loan eligible') }}
@@ -75,7 +75,7 @@
                 <span class="text-xs font-semibold text-gray-500 dark:text-gray-400 uppercase tracking-wide">{{ __('Max Loan') }}</span>
             </div>
             <p class="text-lg font-bold text-gray-900 dark:text-white leading-tight">
-                {{ __('SAR :amount', ['amount' => number_format($d['max_borrow'], 2)]) }}
+                {{ \App\Support\UiNumber::sar($d['max_borrow']) }}
             </p>
             <p class="text-xs text-gray-500 dark:text-gray-400">
                 @if($d['active_loans_count'] > 0)
@@ -97,7 +97,7 @@
                 <span class="text-xs font-semibold text-gray-500 dark:text-gray-400 uppercase tracking-wide">{{ __('Contributions') }}</span>
             </div>
             <p class="text-lg font-bold text-gray-900 dark:text-white leading-tight">
-                {{ __('SAR :amount', ['amount' => number_format($d['total_contributions'], 2)]) }}
+                {{ \App\Support\UiNumber::sar($d['total_contributions']) }}
             </p>
             <p class="text-xs text-gray-500 dark:text-gray-400">
                 {{ __(':count paid', ['count' => $d['contrib_count']]) }}
@@ -128,7 +128,7 @@
             </p>
             <p class="text-xs text-gray-500 dark:text-gray-400">
                 @if($d['late_repay_amount'] > 0)
-                    {{ __('SAR :amount late amt', ['amount' => number_format($d['late_repay_amount'], 2)]) }}
+                    {{ __(':amount late amt', ['amount' => \App\Support\UiNumber::sar($d['late_repay_amount'])]) }}
                 @else
                     {{ __('No late repayments') }}
                 @endif
@@ -150,7 +150,7 @@
         <div class="flex items-center gap-2 px-3 py-2 rounded-lg bg-blue-100 dark:bg-blue-900/40 border border-blue-300 dark:border-blue-600 text-blue-800 dark:text-blue-200 text-sm">
             <x-heroicon-o-clock class="w-4 h-4 flex-shrink-0" />
             {{ __('Next loan installment due :date', ['date' => \Carbon\Carbon::parse($d['next_installment']->due_date)->format('d M Y')]) }}
-            · {{ __('SAR :amount', ['amount' => number_format((float)$d['next_installment']->amount, 2)]) }}
+            · {{ \App\Support\UiNumber::sar((float) $d['next_installment']->amount) }}
         </div>
         @endif
     </div>

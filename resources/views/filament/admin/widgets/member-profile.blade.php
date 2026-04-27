@@ -138,7 +138,7 @@
                 @if($d['monthly_income'])
                 <div class="flex items-start gap-2">
                     <dt class="text-xs text-gray-400 dark:text-gray-500 w-24 flex-shrink-0 pt-0.5">{{ __('Monthly Income') }}</dt>
-                    <dd class="text-sm text-gray-900 dark:text-gray-100 font-medium">{{ __('SAR :amount', ['amount' => number_format($d['monthly_income'], 2)]) }}</dd>
+                    <dd class="text-sm text-gray-900 dark:text-gray-100 font-medium">{{ \App\Support\UiNumber::sar($d['monthly_income']) }}</dd>
                 </div>
                 @endif
                 @if(!$d['occupation'] && !$d['employer'] && !$d['monthly_income'])

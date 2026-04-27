@@ -49,7 +49,7 @@
                         </p>
                     </div>
                     <span class="ml-3 text-sm font-semibold text-gray-900 dark:text-white">
-                        {{ __('SAR :amount', ['amount' => number_format((float) $tx->amount, 2)]) }}
+                        {{ \App\Support\UiNumber::sar((float) $tx->amount) }}
                     </span>
                 </div>
             @empty
@@ -66,7 +66,7 @@
             @forelse ($d['latest_linked_debits'] as $tx)
                 <div class="rounded-xl bg-gray-50 px-3 py-3 dark:bg-white/5">
                     <p class="text-sm font-medium text-gray-900 dark:text-white">
-                        {{ __('SAR :amount', ['amount' => number_format((float) $tx->amount, 2)]) }}
+                        {{ \App\Support\UiNumber::sar((float) $tx->amount) }}
                     </p>
                     <p class="mt-1 text-xs text-gray-500 dark:text-gray-400">
                         {{ $tx->posted_at?->locale($locale)->translatedFormat('d M Y H:i') ?? __('—') }}

@@ -148,7 +148,7 @@
         <div class="mt-4 flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between rounded-xl bg-slate-50 dark:bg-slate-800/60 ring-1 ring-slate-200 dark:ring-slate-600 px-4 py-3">
             <div class="text-sm text-gray-700 dark:text-gray-300">
                 <span class="font-semibold text-gray-900 dark:text-white">{{ __('Pay off early:') }}</span>
-                {{ __('SAR :amount total from your cash account', ['amount' => number_format($item['remaining_settlement_cash'], 2)]) }}
+                {{ __(':amount total from your cash account', ['amount' => \App\Support\UiNumber::sar($item['remaining_settlement_cash'])]) }}
                 {{ __('(scheduled installments plus late fees if any cycle is past due).') }}
                 {{ __('Cash balance: SAR :amount.', ['amount' => number_format($item['cash_balance'] ?? 0, 2)]) }}
                 @if(!$item['can_early_settle_cash'] && $shortfall > 0)
