@@ -12,7 +12,8 @@
         <div>
             <h3 class="text-base font-semibold text-gray-900 dark:text-white">{{ __('Fee Revenue') }}</h3>
             <p class="text-xs text-gray-400 dark:text-gray-500">
-                {{ __('Late fees, membership fees, and annual subscriptions') }}</p>
+                {{ __('Late fees, membership fees, and annual subscriptions') }}
+            </p>
         </div>
         <span
             class="ms-auto inline-flex items-center gap-1.5 rounded-full bg-violet-100 dark:bg-violet-900/40 px-2.5 py-1 text-xs font-semibold text-violet-700 dark:text-violet-300">
@@ -28,7 +29,7 @@
         {{-- Late Fees --}}
         <button type="button" @click="selectedFee = 'late'"
             :class="selectedFee === 'late' ? 'bg-red-50/40 dark:bg-red-900/10' : ''"
-            class="p-6 text-start transition-colors hover:bg-gray-50 dark:hover:bg-gray-700/30">
+            class="w-full appearance-none border-0 bg-transparent p-6 text-start transition-colors hover:bg-gray-50 dark:hover:bg-gray-700/30 focus:outline-none">
             <div class="flex items-center justify-between mb-4">
                 <div class="flex items-center gap-2.5">
                     <div class="flex h-9 w-9 items-center justify-center rounded-xl bg-red-100 dark:bg-red-900/40">
@@ -52,7 +53,8 @@
                 {{ \App\Support\UiNumber::sar($d['late_fee_all_time']) }}
             </p>
             <p class="text-xs text-gray-400 dark:text-gray-500 mb-3">{{ __('All-time') }} · {{ $d['late_fee_count'] }}
-                {{ __('late records') }}</p>
+                {{ __('late records') }}
+            </p>
 
             {{-- This year bar --}}
             @php
@@ -75,7 +77,7 @@
         {{-- Membership Fees --}}
         <button type="button" @click="selectedFee = 'membership'"
             :class="selectedFee === 'membership' ? 'bg-sky-50/40 dark:bg-sky-900/10' : ''"
-            class="p-6 text-start transition-colors hover:bg-gray-50 dark:hover:bg-gray-700/30">
+            class="w-full appearance-none border-0 bg-transparent p-6 text-start transition-colors hover:bg-gray-50 dark:hover:bg-gray-700/30 focus:outline-none">
             <div class="flex items-center justify-between mb-4">
                 <div class="flex items-center gap-2.5">
                     <div class="flex h-9 w-9 items-center justify-center rounded-xl bg-sky-100 dark:bg-sky-900/40">
@@ -99,7 +101,8 @@
                 {{ \App\Support\UiNumber::sar($d['membership_fee_all_time']) }}
             </p>
             <p class="text-xs text-gray-400 dark:text-gray-500 mb-3">{{ __('All-time') }} ·
-                {{ $d['membership_fee_count'] }} {{ __('applications') }}</p>
+                {{ $d['membership_fee_count'] }} {{ __('applications') }}
+            </p>
 
             @php
                 $memberPct = $d['membership_fee_all_time'] > 0 ? min(100, round($d['membership_fee_this_year'] / $d['membership_fee_all_time'] * 100)) : 0;
@@ -121,7 +124,7 @@
         {{-- Annual Subscription Fees --}}
         <button type="button" @click="selectedFee = 'subscription'"
             :class="selectedFee === 'subscription' ? 'bg-emerald-50/40 dark:bg-emerald-900/10' : ''"
-            class="p-6 text-start transition-colors hover:bg-gray-50 dark:hover:bg-gray-700/30">
+            class="w-full appearance-none border-0 bg-transparent p-6 text-start transition-colors hover:bg-gray-50 dark:hover:bg-gray-700/30 focus:outline-none">
             <div class="flex items-center justify-between mb-4">
                 <div class="flex items-center gap-2.5">
                     <div
@@ -130,7 +133,8 @@
                     </div>
                     <div>
                         <p class="text-sm font-semibold text-gray-700 dark:text-gray-200">
-                            {{ __('Annual Subscription Fees') }}</p>
+                            {{ __('Annual Subscription Fees') }}
+                        </p>
                         <p class="text-xs text-gray-400 dark:text-gray-500">{{ __('Anniversary-based charges') }}</p>
                     </div>
                 </div>
@@ -143,34 +147,36 @@
             </div>
 
             @if($d['subscription_fee_all_time'] > 0)
-                <p class="text-2xl font-bold text-gray-900 dark:text-white mb-1">
-                    {{ \App\Support\UiNumber::sar($d['subscription_fee_all_time']) }}
-                </p>
-                <p class="text-xs text-gray-400 dark:text-gray-500 mb-3">{{ __('All-time') }} ·
-                    {{ $d['subscription_fee_count'] }} {{ __('charges') }}</p>
+                        <p class="text-2xl font-bold text-gray-900 dark:text-white mb-1">
+                            {{ \App\Support\UiNumber::sar($d['subscription_fee_all_time']) }}
+                        </p>
+                        <p class="text-xs text-gray-400 dark:text-gray-500 mb-3">{{ __('All-time') }} ·
+                            {{ $d['subscription_fee_count'] }} {{ __('charges') }}
+                        </p>
 
                 @php
                     $subPct = $d['subscription_fee_all_time'] > 0 ? min(100, round($d['subscription_fee_this_year'] / $d['subscription_fee_all_time'] * 100)) : 0;
                 @endphp
-                <div class="space-y-1">
-                    <div class="flex items-center justify-between text-xs text-gray-500 dark:text-gray-400">
-                        <span>{{ __('This year') }}</span>
-                        <span
-                            class="font-semibold text-emerald-600 dark:text-emerald-400">{{ \App\Support\UiNumber::sar($d['subscription_fee_this_year']) }}</span>
-                    </div>
-                    <div class="h-2 rounded-full bg-gray-100 dark:bg-gray-700">
-                        <div class="h-2 rounded-full bg-emerald-500 transition-all" style="width: {{ $subPct }}%"></div>
-                    </div>
-                    <p class="text-xs text-gray-400 dark:text-gray-500">{{ $subPct }}% {{ __('of all-time') }}</p>
-                </div>
-                <p class="mt-4 text-xs font-medium text-emerald-600 dark:text-emerald-400">{{ __('Click to view details') }}
-                </p>
+                        <div class="space-y-1">
+                            <div class="flex items-center justify-between text-xs text-gray-500 dark:text-gray-400">
+                                <span>{{ __('This year') }}</span>
+                                <span
+                                    class="font-semibold text-emerald-600 dark:text-emerald-400">{{ \App\Support\UiNumber::sar($d['subscription_fee_this_year']) }}</span>
+                            </div>
+                            <div class="h-2 rounded-full bg-gray-100 dark:bg-gray-700">
+                                <div class="h-2 rounded-full bg-emerald-500 transition-all" style="width: {{ $subPct }}%"></div>
+                            </div>
+                            <p class="text-xs text-gray-400 dark:text-gray-500">{{ $subPct }}% {{ __('of all-time') }}</p>
+                        </div>
+                        <p class="mt-4 text-xs font-medium text-emerald-600 dark:text-emerald-400">{{ __('Click to view details') }}
+                        </p>
             @else
                 <div class="flex flex-col items-center justify-center py-4 text-center">
                     <x-heroicon-o-calendar-days class="w-8 h-8 text-gray-300 dark:text-gray-600 mb-2" />
                     <p class="text-sm text-gray-400 dark:text-gray-500">{{ __('No fees recorded yet') }}</p>
                     <p class="text-xs text-gray-400 dark:text-gray-500 mt-1">
-                        {{ __('Configure the annual fee in System Settings → Cycle Settings') }}</p>
+                        {{ __('Configure the annual fee in System Settings → Cycle Settings') }}
+                    </p>
                 </div>
             @endif
         </button>
@@ -185,7 +191,8 @@
 
         <div x-show="selectedFee === 'late'" x-cloak>
             <div class="mb-2 text-xs text-gray-500 dark:text-gray-400">
-                {{ __('Late Fees from contributions and repayments') }}</div>
+                {{ __('Late Fees from contributions and repayments') }}
+            </div>
             <div class="overflow-x-auto">
                 <table class="min-w-full text-sm">
                     <thead>
@@ -204,12 +211,14 @@
                                 <td class="py-2 text-gray-500 dark:text-gray-400">{{ $row['source'] }}</td>
                                 <td class="py-2 text-gray-500 dark:text-gray-400">{{ $row['date'] ?? '—' }}</td>
                                 <td class="py-2 text-end font-medium text-gray-800 dark:text-gray-100">
-                                    {{ \App\Support\UiNumber::sar((float) $row['amount']) }}</td>
+                                    {{ \App\Support\UiNumber::sar((float) $row['amount']) }}
+                                </td>
                             </tr>
                         @empty
                             <tr>
                                 <td colspan="4" class="py-4 text-center text-gray-500 dark:text-gray-400">
-                                    {{ __('No late fee records found') }}</td>
+                                    {{ __('No late fee records found') }}
+                                </td>
                             </tr>
                         @endforelse
                     </tbody>
@@ -238,12 +247,14 @@
                                 <td class="py-2 text-gray-500 dark:text-gray-400">{{ $row['source'] }}</td>
                                 <td class="py-2 text-gray-500 dark:text-gray-400">{{ $row['date'] ?? '—' }}</td>
                                 <td class="py-2 text-end font-medium text-gray-800 dark:text-gray-100">
-                                    {{ \App\Support\UiNumber::sar((float) $row['amount']) }}</td>
+                                    {{ \App\Support\UiNumber::sar((float) $row['amount']) }}
+                                </td>
                             </tr>
                         @empty
                             <tr>
                                 <td colspan="4" class="py-4 text-center text-gray-500 dark:text-gray-400">
-                                    {{ __('No membership fee records found') }}</td>
+                                    {{ __('No membership fee records found') }}
+                                </td>
                             </tr>
                         @endforelse
                     </tbody>
@@ -272,12 +283,14 @@
                                 <td class="py-2 text-gray-500 dark:text-gray-400">{{ $row['source'] }}</td>
                                 <td class="py-2 text-gray-500 dark:text-gray-400">{{ $row['date'] ?? '—' }}</td>
                                 <td class="py-2 text-end font-medium text-gray-800 dark:text-gray-100">
-                                    {{ \App\Support\UiNumber::sar((float) $row['amount']) }}</td>
+                                    {{ \App\Support\UiNumber::sar((float) $row['amount']) }}
+                                </td>
                             </tr>
                         @empty
                             <tr>
                                 <td colspan="4" class="py-4 text-center text-gray-500 dark:text-gray-400">
-                                    {{ __('No annual subscription fee records found') }}</td>
+                                    {{ __('No annual subscription fee records found') }}
+                                </td>
                             </tr>
                         @endforelse
                     </tbody>
