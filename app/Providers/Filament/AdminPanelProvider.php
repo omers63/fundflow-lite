@@ -3,6 +3,7 @@
 namespace App\Providers\Filament;
 
 use App\Filament\Admin\Pages\Dashboard;
+use App\Filament\Admin\Pages\PostedFundsPage;
 use App\Filament\Admin\Pages\ReconciliationPage;
 use App\Filament\Admin\Pages\SystemMaintenancePage;
 use App\Filament\Admin\Pages\SystemSettingsPage;
@@ -36,7 +37,7 @@ class AdminPanelProvider extends PanelProvider
             ->login()
             ->sidebarCollapsibleOnDesktop()
             ->sidebarFullyCollapsibleOnDesktop()
-            ->brandName(fn (): string => app()->getLocale() === 'ar' ? 'فندفلو — لوحة الإدارة' : __('app.brand.admin'))
+            ->brandName(fn(): string => app()->getLocale() === 'ar' ? 'فندفلو — لوحة الإدارة' : __('app.brand.admin'))
             ->databaseNotifications()
             ->databaseNotificationsPolling('30s')
             ->colors([
@@ -46,7 +47,7 @@ class AdminPanelProvider extends PanelProvider
             ->plugins([
                 FilamentShieldPlugin::make()
                     ->navigationGroup('system')
-                    ->navigationLabel(fn (): string => __('app.nav.system_roles'))
+                    ->navigationLabel(fn(): string => __('app.nav.system_roles'))
                     ->navigationSort(1)
                     ->gridColumns([
                         'default' => 1,
@@ -64,11 +65,11 @@ class AdminPanelProvider extends PanelProvider
                     ]),
             ])
             ->navigationGroups([
-                'membership' => NavigationGroup::make()->label(fn (): string => __('app.nav.group.membership')),
-                'finance' => NavigationGroup::make()->label(fn (): string => __('app.nav.group.finance')),
-                'settings' => NavigationGroup::make()->label(fn (): string => __('app.nav.group.settings'))
+                'membership' => NavigationGroup::make()->label(fn(): string => __('app.nav.group.membership')),
+                'finance' => NavigationGroup::make()->label(fn(): string => __('app.nav.group.finance')),
+                'settings' => NavigationGroup::make()->label(fn(): string => __('app.nav.group.settings'))
                     ->collapsed(),
-                'system' => NavigationGroup::make()->label(fn (): string => __('app.nav.group.system'))
+                'system' => NavigationGroup::make()->label(fn(): string => __('app.nav.group.system'))
                     ->collapsed(),
             ])
             ->viteTheme('resources/css/filament/admin/theme.css')
@@ -76,6 +77,7 @@ class AdminPanelProvider extends PanelProvider
             ->discoverPages(in: app_path('Filament/Admin/Pages'), for: 'App\Filament\Admin\Pages')
             ->pages([
                 Dashboard::class,
+                PostedFundsPage::class,
                 ReconciliationPage::class,
                 SystemSettingsPage::class,
                 SystemMaintenancePage::class,

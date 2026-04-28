@@ -2,7 +2,10 @@
 
 namespace App\Filament\Admin\Resources\AccountResource\Pages;
 
+use App\Filament\Admin\Pages\PostedFundsPage;
 use App\Filament\Admin\Resources\AccountResource;
+use App\Models\Account;
+use Filament\Actions\Action;
 use App\Filament\Admin\Widgets\AccountDetailWidget;
 use Filament\Infolists\Components\TextEntry;
 use Filament\Resources\Pages\ViewRecord;
@@ -17,7 +20,14 @@ class ViewAccount extends ViewRecord
 
     protected function getHeaderActions(): array
     {
-        return [];
+        return [
+            Action::make('postedFunds')
+                ->label(__('Posted Funds'))
+                ->icon('heroicon-o-banknotes')
+                ->color('info')
+                ->visible(fn(): bool => in_array($this->record->type, [Account::TYPE_MASTER_CASH, Account::TYPE_MEMBER_CASH], true))
+                ->url(PostedFundsPage::getUrl(['account' => $this->record->getKey()])),
+        ];
     }
 
     public function getTitle(): string
