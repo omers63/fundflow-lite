@@ -44,6 +44,7 @@
 12. [Scheduled Automation](#12-scheduled-automation)
 13. [Notifications Reference](#13-notifications-reference)
 14. [Artisan Commands Reference](#14-artisan-commands-reference)
+15. [Financial Reconciliation Runbook](#15-financial-reconciliation-runbook)
 
 ---
 
@@ -794,6 +795,14 @@ php artisan loans:apply 3 2026
 ```
 
 > **Idempotency:** Applying contributions or repayments for a period that already has records for a member will skip that member — safe to run multiple times.
+
+---
+
+## 15. Financial Reconciliation Runbook
+
+For the complete reconciliation process (checks, severities, run procedures, troubleshooting, and Post Funds integrity coverage), see:
+
+- `docs/reconciliation-process.md`
 
 ---
 

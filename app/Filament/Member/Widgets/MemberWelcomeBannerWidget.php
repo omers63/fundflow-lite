@@ -6,6 +6,7 @@ use App\Models\Contribution;
 use App\Models\Loan;
 use App\Models\LoanInstallment;
 use App\Models\Member;
+use App\Services\ContributionCycleService;
 use App\Services\LoanEligibilityService;
 use App\Services\LoanRepaymentService;
 use Filament\Widgets\Widget;
@@ -92,9 +93,14 @@ class MemberWelcomeBannerWidget extends Widget
         $pendingLoan = Loan::where('member_id', $member->id)->where('status', 'pending')->first();
 
         // Repayment availability
+        $contributionService = app(ContributionCycleService::class);
         $repayService = app(LoanRepaymentService::class);
         $canRepay = $repayService->shouldOfferOpenPeriodRepayment($member);
         $repayInsufficient = $canRepay && $repayService->hasInsufficientCashForOpenPeriodRepayment($member);
+
+        $canContributeOpenCycle = $contributionService->shouldOfferOpenPeriodContribution($member);
+        $canAllocateOpenCycle = $contributionService->shouldOfferOpenPeriodDependentAllocation($member);
+        $canPostFunds = $canContributeOpenCycle || $canAllocateOpenCycle || $canRepay;
 
         // Contribution status
         $contributionDue = !$paidThisMonth && $member->isActive();
@@ -123,6 +129,7 @@ class MemberWelcomeBannerWidget extends Widget
             'pendingLoan' => $pendingLoan,
             'canRepay' => $canRepay,
             'repayInsufficient' => $repayInsufficient,
+            'canPostFunds' => $canPostFunds,
         ];
     }
 }

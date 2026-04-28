@@ -275,6 +275,105 @@ class FinanceReconciliationService
             ];
         }
 
+        // --- 3d) Member portal "Post Funds" integrity (bank tx -> master/member cash mirror) ---
+        $memberPortalPostingIssues = [];
+        $memberPortalPostedCount = 0;
+        $bankTxMorph = BankTransaction::class;
+
+        $masterCashId = $masterCash?->id;
+
+        BankTransaction::query()
+            ->whereNull('deleted_at')
+            ->where('raw_data->source', 'member_portal_post')
+            ->orderBy('id')
+            ->chunkById(200, function ($rows) use (&$memberPortalPostingIssues, &$memberPortalPostedCount, $bankTxMorph, $masterCashId): void {
+                foreach ($rows as $tx) {
+                    if (!$tx instanceof BankTransaction) {
+                        continue;
+                    }
+
+                    $memberPortalPostedCount++;
+
+                    if ($tx->posted_at === null) {
+                        $memberPortalPostingIssues[] = [
+                            'bank_transaction_id' => $tx->id,
+                            'issue' => 'member_portal_post transaction is not posted',
+                        ];
+                        continue;
+                    }
+
+                    if ($tx->transaction_type !== 'credit') {
+                        $memberPortalPostingIssues[] = [
+                            'bank_transaction_id' => $tx->id,
+                            'issue' => 'member_portal_post transaction type is not credit',
+                            'transaction_type' => $tx->transaction_type,
+                        ];
+                    }
+
+                    if ($tx->member_id === null) {
+                        $memberPortalPostingIssues[] = [
+                            'bank_transaction_id' => $tx->id,
+                            'issue' => 'member_portal_post transaction has no member_id',
+                        ];
+                        continue;
+                    }
+
+                    $lines = AccountTransaction::query()
+                        ->where('source_type', $bankTxMorph)
+                        ->where('source_id', $tx->id)
+                        ->whereNull('deleted_at')
+                        ->get();
+
+                    $masterLine = $masterCashId
+                        ? $lines->first(fn(AccountTransaction $l) => (int) $l->account_id === (int) $masterCashId)
+                        : null;
+                    if ($masterLine === null) {
+                        $memberPortalPostingIssues[] = [
+                            'bank_transaction_id' => $tx->id,
+                            'issue' => 'missing master cash ledger line for member_portal_post transaction',
+                        ];
+                    } elseif ($masterLine->entry_type !== 'credit' || abs((float) $masterLine->amount - (float) $tx->amount) > self::AMOUNT_TOLERANCE) {
+                        $memberPortalPostingIssues[] = [
+                            'bank_transaction_id' => $tx->id,
+                            'issue' => 'master cash ledger line does not match posted amount/type',
+                            'ledger_amount' => (float) $masterLine->amount,
+                            'transaction_amount' => (float) $tx->amount,
+                            'ledger_entry_type' => $masterLine->entry_type,
+                        ];
+                    }
+
+                    $memberCashLineExists = AccountTransaction::query()
+                        ->where('source_type', $bankTxMorph)
+                        ->where('source_id', $tx->id)
+                        ->whereNull('deleted_at')
+                        ->where('entry_type', 'credit')
+                        ->where('member_id', $tx->member_id)
+                        ->whereHas('account', fn($q) => $q->where('type', Account::TYPE_MEMBER_CASH)->where('member_id', $tx->member_id))
+                        ->exists();
+
+                    if (!$memberCashLineExists) {
+                        $memberPortalPostingIssues[] = [
+                            'bank_transaction_id' => $tx->id,
+                            'issue' => 'missing member cash mirror line for member_portal_post transaction',
+                            'member_id' => $tx->member_id,
+                        ];
+                    }
+                }
+            });
+
+        if ($memberPortalPostingIssues !== []) {
+            $incrementCritical();
+        }
+
+        $checks['member_portal_posting_integrity'] = [
+            'label' => 'Member portal Post Funds — posted + cash mirror integrity',
+            'severity' => $memberPortalPostingIssues === [] ? 'ok' : 'critical',
+            'transactions_checked' => $memberPortalPostedCount,
+            'issue_count' => count($memberPortalPostingIssues),
+            'issues' => array_slice($memberPortalPostingIssues, 0, 100),
+            'issues_truncated' => count($memberPortalPostingIssues) > 100,
+        ];
+
         // --- 4) Active loans: installment schedule vs loan ledger ---
         $activeLoanMismatches = [];
         Loan::query()
@@ -465,6 +564,7 @@ class FinanceReconciliationService
                 'global_trial' => $checks['global_trial']['severity'],
                 'bank_statement_vs_book' => $checks['bank_statement_vs_book']['severity'],
                 'contributions_ledger' => $checks['contributions_ledger']['severity'],
+                'member_portal_posting_integrity' => $checks['member_portal_posting_integrity']['severity'],
                 'orphan_loan_accounts' => $checks['orphan_loan_accounts']['severity'],
                 'paired_control_totals' => $checks['paired_control_totals']['severity'],
                 'active_loans' => $checks['active_loans_schedule_vs_ledger']['severity'],

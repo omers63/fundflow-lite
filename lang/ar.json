@@ -2482,5 +2482,22 @@
     "Contribution(s) & Repayment": "اشتراك(ات) وسداد",
     "Record your transfer. The system will automatically apply it as contribution or repayment based on business rules.": "سجّل تحويلك. سيقوم النظام تلقائياً بتطبيقه كاشتراك أو سداد وفق قواعد العمل.",
     "Funds posted successfully": "تم ترحيل الأموال بنجاح",
-    "Your transfer is automatically applied as contribution or repayment based on your account status and active cycle rules.": "يتم تطبيق تحويلك تلقائياً كاشتراك أو سداد بناءً على حالة حسابك وقواعد الدورة النشطة."
+    "Your transfer is automatically applied as contribution or repayment based on your account status and active cycle rules.": "يتم تطبيق تحويلك تلقائياً كاشتراك أو سداد بناءً على حالة حسابك وقواعد الدورة النشطة.",
+    "Already posted for current cycle": "تم الترحيل بالفعل للدورة الحالية",
+    "Post Funds is only available once per current cycle.": "ترحيل الأموال متاح مرة واحدة فقط لكل دورة حالية.",
+    "Current cycle posting is open": "الترحيل للدورة الحالية متاح",
+    "Current cycle posting is completed": "تم إكمال الترحيل للدورة الحالية",
+    "You can post funds for the current cycle now.": "يمكنك ترحيل الأموال للدورة الحالية الآن.",
+    "No further posting is needed for the current cycle.": "لا حاجة لأي ترحيل إضافي للدورة الحالية.",
+    "Click to view details": "انقر لعرض التفاصيل",
+    "Fee details": "تفاصيل الرسوم",
+    "Showing latest 10 records": "عرض آخر 10 سجلات",
+    "Late Fees from contributions and repayments": "رسوم التأخير من الاشتراكات والأقساط",
+    "No late fee records found": "لم يتم العثور على سجلات رسوم تأخير",
+    "Posted application membership fees": "رسوم عضوية الطلبات المُرحّلة",
+    "No membership fee records found": "لم يتم العثور على سجلات رسوم عضوية",
+    "Annual subscription fee postings": "ترحيلات رسوم الاشتراك السنوية",
+    "No annual subscription fee records found": "لم يتم العثور على سجلات رسوم اشتراك سنوية",
+    "Applicant": "مقدّم الطلب",
+    "Year": "السنة"
 }

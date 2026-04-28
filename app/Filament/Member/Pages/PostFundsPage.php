@@ -5,6 +5,7 @@ namespace App\Filament\Member\Pages;
 use App\Models\Bank;
 use App\Models\BankTransaction;
 use App\Models\Member;
+use App\Services\ContributionCycleService;
 use App\Services\LoanRepaymentService;
 use App\Services\QuickPostWorkflowService;
 use Filament\Actions\Action;
@@ -37,6 +38,7 @@ class PostFundsPage extends Page
                 ->modalDescription(__('Record your transfer. The system will automatically apply it as contribution or repayment based on business rules.'))
                 ->modalWidth('lg')
                 ->schema($this->postFormSchema())
+                ->disabled(fn(): bool => !$this->canPostFundsForCurrentCycle())
                 ->action(fn(array $data) => $this->runPostWorkflow($data)),
         ];
     }
@@ -76,6 +78,21 @@ class PostFundsPage extends Page
             ->all();
     }
 
+    public function currentCyclePostingStatus(): array
+    {
+        $open = $this->canPostFundsForCurrentCycle();
+
+        return [
+            'open' => $open,
+            'title' => $open
+                ? __('Current cycle posting is open')
+                : __('Current cycle posting is completed'),
+            'message' => $open
+                ? __('You can post funds for the current cycle now.')
+                : __('No further posting is needed for the current cycle.'),
+        ];
+    }
+
     protected function postFormSchema(): array
     {
         return [
@@ -113,6 +130,16 @@ class PostFundsPage extends Page
             Notification::make()
                 ->title(__('Member record not found'))
                 ->danger()
+                ->send();
+
+            return;
+        }
+
+        if (!$this->canPostFundsForCurrentCycle($member)) {
+            Notification::make()
+                ->title(__('Already posted for current cycle'))
+                ->body(__('Post Funds is only available once per current cycle.'))
+                ->warning()
                 ->send();
 
             return;
@@ -193,6 +220,25 @@ class PostFundsPage extends Page
         }
 
         return 'contribution';
+    }
+
+    protected function canPostFundsForCurrentCycle(?Member $member = null): bool
+    {
+        $member = $member ?? Member::query()
+            ->where('user_id', auth()->id())
+            ->with(['dependents'])
+            ->first();
+
+        if (!$member) {
+            return false;
+        }
+
+        $contributionService = app(ContributionCycleService::class);
+        $repaymentService = app(LoanRepaymentService::class);
+
+        return $contributionService->shouldOfferOpenPeriodContribution($member)
+            || $contributionService->shouldOfferOpenPeriodDependentAllocation($member)
+            || $repaymentService->shouldOfferOpenPeriodRepayment($member);
     }
 }
 

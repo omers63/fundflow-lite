@@ -25,6 +25,13 @@
             </p>
         </div>
 
+        @php $cycleStatus = $this->currentCyclePostingStatus(); @endphp
+        <div
+            class="rounded-lg p-3 ring-1 text-sm {{ $cycleStatus['open'] ? 'bg-emerald-50 dark:bg-emerald-950/30 ring-emerald-200 dark:ring-emerald-800 text-emerald-800 dark:text-emerald-300' : 'bg-gray-50 dark:bg-gray-900/40 ring-gray-200 dark:ring-gray-700 text-gray-700 dark:text-gray-300' }}">
+            <p class="font-semibold">{{ $cycleStatus['title'] }}</p>
+            <p class="text-xs mt-0.5 opacity-90">{{ $cycleStatus['message'] }}</p>
+        </div>
+
         <div class="rounded-xl bg-white dark:bg-gray-800 ring-1 ring-gray-200 dark:ring-gray-700 p-4 shadow-sm">
             <div class="flex items-center justify-between mb-3">
                 <h3 class="text-sm font-semibold text-gray-800 dark:text-gray-200">{{ __('Recent posted funds') }}</h3>

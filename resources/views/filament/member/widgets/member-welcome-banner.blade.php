@@ -209,47 +209,56 @@
         @endif
 
         {{-- ── Quick actions ─────────────────────────────────────────────────── --}}
-        <div class="flex flex-wrap gap-2 pt-1">
-            <a href="{{ \App\Filament\Member\Pages\PostFundsPage::getUrl() }}"
-                class="inline-flex items-center gap-1.5 rounded-full bg-emerald-600 ring-1 ring-emerald-500 px-4 py-2 text-xs font-semibold text-white hover:bg-emerald-700 transition-colors shadow-sm">
-                <x-heroicon-o-arrow-down-circle class="w-3.5 h-3.5" />
-                {{ __('Post Funds') }}
-            </a>
-            <a href="{{ \App\Filament\Member\Resources\MyLoansResource::getUrl('index') }}"
-                class="inline-flex items-center gap-1.5 rounded-full bg-white dark:bg-gray-800 ring-1 ring-gray-200 dark:ring-gray-700 px-4 py-2 text-xs font-medium text-gray-700 dark:text-gray-300 hover:bg-gray-50 dark:hover:bg-gray-700 transition-colors shadow-sm">
-                <x-heroicon-o-document-currency-dollar class="w-3.5 h-3.5 text-emerald-500" />
-                {{ __('My Loans') }}
-            </a>
-            <a href="{{ \App\Filament\Member\Resources\MyInstallmentsResource::getUrl('index') }}"
-                class="inline-flex items-center gap-1.5 rounded-full bg-white dark:bg-gray-800 ring-1 ring-gray-200 dark:ring-gray-700 px-4 py-2 text-xs font-medium text-gray-700 dark:text-gray-300 hover:bg-gray-50 dark:hover:bg-gray-700 transition-colors shadow-sm">
-                <x-heroicon-o-calendar-days class="w-3.5 h-3.5 text-blue-500" />
-                {{ __('Installments') }}
-            </a>
-            <a href="{{ \App\Filament\Member\Resources\MyContributionsResource::getUrl('index') }}"
-                class="inline-flex items-center gap-1.5 rounded-full bg-white dark:bg-gray-800 ring-1 ring-gray-200 dark:ring-gray-700 px-4 py-2 text-xs font-medium text-gray-700 dark:text-gray-300 hover:bg-gray-50 dark:hover:bg-gray-700 transition-colors shadow-sm">
-                <x-heroicon-o-banknotes class="w-3.5 h-3.5 text-amber-500" />
-                {{ __('Contributions') }}
-            </a>
-            <a href="{{ \App\Filament\Member\Resources\MyStatementsResource::getUrl('index') }}"
-                class="inline-flex items-center gap-1.5 rounded-full bg-white dark:bg-gray-800 ring-1 ring-gray-200 dark:ring-gray-700 px-4 py-2 text-xs font-medium text-gray-700 dark:text-gray-300 hover:bg-gray-50 dark:hover:bg-gray-700 transition-colors shadow-sm">
-                <x-heroicon-o-document-chart-bar class="w-3.5 h-3.5 text-purple-500" />
-                {{ __('Statements') }}
-            </a>
-            <a href="{{ \App\Filament\Member\Resources\MyAccountLedgerResource::getUrl('index') }}"
-                class="inline-flex items-center gap-1.5 rounded-full bg-white dark:bg-gray-800 ring-1 ring-gray-200 dark:ring-gray-700 px-4 py-2 text-xs font-medium text-gray-700 dark:text-gray-300 hover:bg-gray-50 dark:hover:bg-gray-700 transition-colors shadow-sm">
-                <x-heroicon-o-clipboard-document-list class="w-3.5 h-3.5 text-teal-500" />
-                {{ __('Account Ledger') }}
-            </a>
-            <a href="{{ \App\Filament\Member\Pages\MyProfilePage::getUrl() }}"
-                class="inline-flex items-center gap-1.5 rounded-full bg-white dark:bg-gray-800 ring-1 ring-gray-200 dark:ring-gray-700 px-4 py-2 text-xs font-medium text-gray-700 dark:text-gray-300 hover:bg-gray-50 dark:hover:bg-gray-700 transition-colors shadow-sm">
-                <x-heroicon-o-user-circle class="w-3.5 h-3.5 text-gray-500" />
-                {{ __('My Profile') }}
-            </a>
-            <a href="{{ \App\Filament\Member\Pages\SupportPage::getUrl() }}"
-                class="inline-flex items-center gap-1.5 rounded-full bg-white dark:bg-gray-800 ring-1 ring-gray-200 dark:ring-gray-700 px-4 py-2 text-xs font-medium text-gray-700 dark:text-gray-300 hover:bg-gray-50 dark:hover:bg-gray-700 transition-colors shadow-sm">
-                <x-heroicon-o-chat-bubble-left-right class="w-3.5 h-3.5 text-indigo-500" />
-                {{ __('Support') }}
-            </a>
+        <div class="rounded-2xl bg-white dark:bg-gray-800 ring-1 ring-gray-200 dark:ring-gray-700 shadow-sm p-4 sm:p-5">
+            <div class="flex items-center gap-2 mb-3">
+                <div class="w-7 h-7 rounded-lg bg-emerald-100 dark:bg-emerald-900/40 flex items-center justify-center">
+                    <x-heroicon-o-bolt class="w-4 h-4 text-emerald-600 dark:text-emerald-400" />
+                </div>
+                <p class="text-sm font-semibold text-gray-800 dark:text-gray-100">{{ __('Quick Actions') }}</p>
+            </div>
+
+            <div class="flex flex-wrap gap-2">
+                <a href="{{ \App\Filament\Member\Pages\PostFundsPage::getUrl() }}"
+                    class="inline-flex items-center gap-1.5 rounded-full bg-emerald-600 ring-1 ring-emerald-500 px-4 py-2 text-xs font-semibold text-white hover:bg-emerald-700 transition-colors shadow-sm">
+                    <x-heroicon-o-arrow-down-circle class="w-3.5 h-3.5" />
+                    {{ __('Post Funds') }}
+                </a>
+                <a href="{{ \App\Filament\Member\Resources\MyLoansResource::getUrl('index') }}"
+                    class="inline-flex items-center gap-1.5 rounded-full bg-white dark:bg-gray-800 ring-1 ring-gray-200 dark:ring-gray-700 px-4 py-2 text-xs font-medium text-gray-700 dark:text-gray-300 hover:bg-gray-50 dark:hover:bg-gray-700 transition-colors shadow-sm">
+                    <x-heroicon-o-document-currency-dollar class="w-3.5 h-3.5 text-emerald-500" />
+                    {{ __('My Loans') }}
+                </a>
+                <a href="{{ \App\Filament\Member\Resources\MyInstallmentsResource::getUrl('index') }}"
+                    class="inline-flex items-center gap-1.5 rounded-full bg-white dark:bg-gray-800 ring-1 ring-gray-200 dark:ring-gray-700 px-4 py-2 text-xs font-medium text-gray-700 dark:text-gray-300 hover:bg-gray-50 dark:hover:bg-gray-700 transition-colors shadow-sm">
+                    <x-heroicon-o-calendar-days class="w-3.5 h-3.5 text-blue-500" />
+                    {{ __('Installments') }}
+                </a>
+                <a href="{{ \App\Filament\Member\Resources\MyContributionsResource::getUrl('index') }}"
+                    class="inline-flex items-center gap-1.5 rounded-full bg-white dark:bg-gray-800 ring-1 ring-gray-200 dark:ring-gray-700 px-4 py-2 text-xs font-medium text-gray-700 dark:text-gray-300 hover:bg-gray-50 dark:hover:bg-gray-700 transition-colors shadow-sm">
+                    <x-heroicon-o-banknotes class="w-3.5 h-3.5 text-amber-500" />
+                    {{ __('Contributions') }}
+                </a>
+                <a href="{{ \App\Filament\Member\Resources\MyStatementsResource::getUrl('index') }}"
+                    class="inline-flex items-center gap-1.5 rounded-full bg-white dark:bg-gray-800 ring-1 ring-gray-200 dark:ring-gray-700 px-4 py-2 text-xs font-medium text-gray-700 dark:text-gray-300 hover:bg-gray-50 dark:hover:bg-gray-700 transition-colors shadow-sm">
+                    <x-heroicon-o-document-chart-bar class="w-3.5 h-3.5 text-purple-500" />
+                    {{ __('Statements') }}
+                </a>
+                <a href="{{ \App\Filament\Member\Resources\MyAccountLedgerResource::getUrl('index') }}"
+                    class="inline-flex items-center gap-1.5 rounded-full bg-white dark:bg-gray-800 ring-1 ring-gray-200 dark:ring-gray-700 px-4 py-2 text-xs font-medium text-gray-700 dark:text-gray-300 hover:bg-gray-50 dark:hover:bg-gray-700 transition-colors shadow-sm">
+                    <x-heroicon-o-clipboard-document-list class="w-3.5 h-3.5 text-teal-500" />
+                    {{ __('Account Ledger') }}
+                </a>
+                <a href="{{ \App\Filament\Member\Pages\MyProfilePage::getUrl() }}"
+                    class="inline-flex items-center gap-1.5 rounded-full bg-white dark:bg-gray-800 ring-1 ring-gray-200 dark:ring-gray-700 px-4 py-2 text-xs font-medium text-gray-700 dark:text-gray-300 hover:bg-gray-50 dark:hover:bg-gray-700 transition-colors shadow-sm">
+                    <x-heroicon-o-user-circle class="w-3.5 h-3.5 text-gray-500" />
+                    {{ __('My Profile') }}
+                </a>
+                <a href="{{ \App\Filament\Member\Pages\SupportPage::getUrl() }}"
+                    class="inline-flex items-center gap-1.5 rounded-full bg-white dark:bg-gray-800 ring-1 ring-gray-200 dark:ring-gray-700 px-4 py-2 text-xs font-medium text-gray-700 dark:text-gray-300 hover:bg-gray-50 dark:hover:bg-gray-700 transition-colors shadow-sm">
+                    <x-heroicon-o-chat-bubble-left-right class="w-3.5 h-3.5 text-indigo-500" />
+                    {{ __('Support') }}
+                </a>
+            </div>
         </div>
 
     @endif

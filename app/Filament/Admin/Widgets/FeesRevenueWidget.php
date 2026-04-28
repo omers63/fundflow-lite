@@ -61,6 +61,64 @@ class FeesRevenueWidget extends Widget
         $subscriptionFeeCount = (int) MemberSubscriptionFee::count();
         $subscriptionFeeCountThisYear = (int) MemberSubscriptionFee::where('year', $year)->count();
 
+        $lateFeeRecentContributions = Contribution::query()
+            ->with('member.user')
+            ->whereNotNull('late_fee_amount')
+            ->where('late_fee_amount', '>', 0)
+            ->latest('paid_at')
+            ->limit(5)
+            ->get()
+            ->map(fn(Contribution $row): array => [
+                'member' => $row->member?->user?->name ?? __('Member # :id', ['id' => $row->member_id]),
+                'amount' => (float) $row->late_fee_amount,
+                'date' => optional($row->paid_at)?->format('Y-m-d'),
+                'source' => __('Contribution'),
+            ])
+            ->all();
+
+        $lateFeeRecentRepayments = LoanInstallment::query()
+            ->with('loan.member.user')
+            ->whereNotNull('late_fee_amount')
+            ->where('late_fee_amount', '>', 0)
+            ->latest('paid_at')
+            ->limit(5)
+            ->get()
+            ->map(fn(LoanInstallment $row): array => [
+                'member' => $row->loan?->member?->user?->name ?? __('Member'),
+                'amount' => (float) $row->late_fee_amount,
+                'date' => optional($row->paid_at)?->format('Y-m-d'),
+                'source' => __('Repayment'),
+            ])
+            ->all();
+
+        $membershipFeeRecent = MembershipApplication::query()
+            ->with('user')
+            ->whereNotNull('membership_fee_posted_at')
+            ->where('membership_fee_amount', '>', 0)
+            ->latest('membership_fee_posted_at')
+            ->limit(10)
+            ->get()
+            ->map(fn(MembershipApplication $row): array => [
+                'member' => $row->user?->name ?? __('Applicant # :id', ['id' => $row->id]),
+                'amount' => (float) $row->membership_fee_amount,
+                'date' => optional($row->membership_fee_posted_at)?->format('Y-m-d'),
+                'source' => __('Application'),
+            ])
+            ->all();
+
+        $subscriptionFeeRecent = MemberSubscriptionFee::query()
+            ->with('member.user')
+            ->latest('paid_at')
+            ->limit(10)
+            ->get()
+            ->map(fn(MemberSubscriptionFee $row): array => [
+                'member' => $row->member?->user?->name ?? __('Member # :id', ['id' => $row->member_id]),
+                'amount' => (float) $row->amount,
+                'date' => optional($row->paid_at)?->format('Y-m-d'),
+                'source' => (string) $row->year,
+            ])
+            ->all();
+
         return [
             'year' => $year,
             'late_fee_all_time' => $lateFeeAllTime,
@@ -75,6 +133,9 @@ class FeesRevenueWidget extends Widget
             'subscription_fee_this_year' => $subscriptionFeeThisYear,
             'subscription_fee_count' => $subscriptionFeeCount,
             'subscription_fee_count_this_year' => $subscriptionFeeCountThisYear,
+            'late_fee_recent' => array_values(array_slice(array_merge($lateFeeRecentContributions, $lateFeeRecentRepayments), 0, 10)),
+            'membership_fee_recent' => $membershipFeeRecent,
+            'subscription_fee_recent' => $subscriptionFeeRecent,
         ];
     }
 }
