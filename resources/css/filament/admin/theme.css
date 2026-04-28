@@ -65,6 +65,67 @@
     @apply font-semibold text-base;
 }
 
+/* ─── Admin auth page theming ───────────────────────────────────────────── */
+
+.fi-body.fi-panel-admin .fi-simple-layout {
+    min-height: 100vh;
+    background: linear-gradient(135deg, #020617 0%, #172554 45%, #312e81 100%);
+    padding: 1.25rem;
+}
+
+.fi-body.fi-panel-admin .fi-simple-main-ctn {
+    width: 100%;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+}
+
+.fi-body.fi-panel-admin .fi-simple-main {
+    width: 100%;
+    max-width: 30rem;
+}
+
+.fi-body.fi-panel-admin .fi-simple-page {
+    border-radius: 0;
+    overflow: visible;
+    border: 0;
+    background: transparent;
+    box-shadow: none;
+}
+
+.fi-body.fi-panel-admin .fi-simple-header {
+    background: linear-gradient(90deg, #1d4ed8 0%, #2563eb 55%, #4f46e5 100%);
+    padding: 1.5rem 1.75rem;
+}
+
+.fi-body.fi-panel-admin .fi-simple-header-heading {
+    color: #ffffff;
+    font-size: 1.35rem;
+    font-weight: 700;
+}
+
+.fi-body.fi-panel-admin .fi-simple-header-subheading {
+    color: rgb(219 234 254);
+    font-size: 0.875rem;
+}
+
+.fi-body.fi-panel-admin .fi-simple-page-content {
+    padding: 1.5rem 0 0;
+}
+
+.fi-body.fi-panel-admin .fi-simple-page .fi-logo {
+    color: #ffffff;
+}
+
+.dark .fi-body.fi-panel-admin .fi-simple-page {
+    border-color: transparent;
+    background: transparent;
+}
+
+.dark .fi-body.fi-panel-admin .fi-simple-page-content {
+    background: transparent;
+}
+
 /* ─── Mobile responsiveness ─────────────────────────────────────────────── */
 
 /* Keep long tables usable on phones */

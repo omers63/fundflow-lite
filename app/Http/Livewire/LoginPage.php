@@ -15,6 +15,17 @@ class LoginPage extends Component
     public ?string $statusType = null;
     public ?string $rejectionReason = null;
 
+    public function mount(): void
+    {
+        if (session()->pull('member_suspended_notice')) {
+            $this->statusType = 'suspended';
+            $this->statusMessage = __('Your member portal access is currently suspended. Please contact fund administration for support.');
+        } elseif (session()->pull('member_terminated_notice')) {
+            $this->statusType = 'terminated';
+            $this->statusMessage = __('Your membership has been terminated. Member portal access is no longer available. Please contact fund administration for support.');
+        }
+    }
+
     protected array $rules = [
         'email' => 'required|email',
         'password' => 'required|min:6',
@@ -26,7 +37,7 @@ class LoginPage extends Component
 
         $user = \App\Models\User::where('email', $this->email)->first();
 
-        if (! $user) {
+        if (!$user) {
             $this->addError('email', __('No account found with this email address.'));
             return;
         }
@@ -44,7 +55,19 @@ class LoginPage extends Component
             return;
         }
 
-        if (! Auth::attempt(['email' => $this->email, 'password' => $this->password], $this->remember)) {
+        if ($user->member?->status === 'suspended') {
+            $this->statusType = 'suspended';
+            $this->statusMessage = __('Your member portal access is currently suspended. Please contact fund administration for support.');
+            return;
+        }
+
+        if ($user->member?->status === 'terminated') {
+            $this->statusType = 'terminated';
+            $this->statusMessage = __('Your membership has been terminated. Member portal access is no longer available. Please contact fund administration for support.');
+            return;
+        }
+
+        if (!Auth::attempt(['email' => $this->email, 'password' => $this->password], $this->remember)) {
             $this->addError('password', __('The provided credentials are incorrect.'));
             return;
         }

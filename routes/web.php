@@ -20,10 +20,12 @@ use App\Http\Livewire\ApplicationStatusPage;
 use App\Http\Livewire\LoginPage;
 use App\Http\Livewire\MembershipApplicationForm;
 use App\Http\Livewire\PublicHomePage;
+use Illuminate\Support\Facades\Auth;
 use Illuminate\Support\Facades\Route;
 
 Route::get('/', PublicHomePage::class)->name('home');
 Route::get('/login', LoginPage::class)->name('login');
+Route::redirect('/member/login', '/login')->name('member.login.redirect');
 Route::get('/apply', MembershipApplicationForm::class)->name('apply');
 Route::get('/application-status', ApplicationStatusPage::class)->name('application.status');
 
@@ -72,7 +74,7 @@ Route::middleware(['auth'])->group(function () {
 });
 
 Route::post('/logout', function () {
-    auth()->logout();
+    Auth::logout();
     request()->session()->invalidate();
     request()->session()->regenerateToken();
 

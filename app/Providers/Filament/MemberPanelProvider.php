@@ -4,7 +4,7 @@ namespace App\Providers\Filament;
 
 use App\Filament\Member\Pages\Dashboard;
 use App\Filament\Member\Widgets\MemberStatsOverview;
-use Filament\Http\Middleware\Authenticate;
+use App\Http\Middleware\AuthenticateMemberPanel;
 use Filament\Http\Middleware\AuthenticateSession;
 use Filament\Http\Middleware\DisableBladeIconComponents;
 use Filament\Http\Middleware\DispatchServingFilamentEvent;
@@ -31,7 +31,7 @@ class MemberPanelProvider extends PanelProvider
             ->login()
             ->sidebarCollapsibleOnDesktop()
             ->sidebarFullyCollapsibleOnDesktop()
-            ->brandName(fn (): string => app()->getLocale() === 'ar' ? 'فندفلو — بوابة العضو' : __('app.brand.member'))
+            ->brandName(fn(): string => app()->getLocale() === 'ar' ? 'فندفلو — بوابة العضو' : __('app.brand.member'))
             ->databaseNotifications()
             ->databaseNotificationsPolling('30s')
             ->colors([
@@ -39,10 +39,10 @@ class MemberPanelProvider extends PanelProvider
                 'gray' => Color::Slate,
             ])
             ->navigationGroups([
-                'my_finance' => NavigationGroup::make()->label(fn (): string => __('app.nav.group.my_finance')),
-                'loans' => NavigationGroup::make()->label(fn (): string => __('app.nav.group.loans')),
-                'account' => NavigationGroup::make()->label(fn (): string => __('app.nav.group.account')),
-                'settings' => NavigationGroup::make()->label(fn (): string => __('app.nav.group.settings')),
+                'my_finance' => NavigationGroup::make()->label(fn(): string => __('app.nav.group.my_finance')),
+                'loans' => NavigationGroup::make()->label(fn(): string => __('app.nav.group.loans')),
+                'account' => NavigationGroup::make()->label(fn(): string => __('app.nav.group.account')),
+                'settings' => NavigationGroup::make()->label(fn(): string => __('app.nav.group.settings')),
             ])
             ->viteTheme('resources/css/filament/member/theme.css')
             ->discoverResources(in: app_path('Filament/Member/Resources'), for: 'App\Filament\Member\Resources')
@@ -65,7 +65,7 @@ class MemberPanelProvider extends PanelProvider
                 DispatchServingFilamentEvent::class,
             ])
             ->authMiddleware([
-                Authenticate::class,
+                AuthenticateMemberPanel::class,
             ]);
     }
 }

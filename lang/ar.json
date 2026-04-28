@@ -2499,5 +2499,9 @@
     "Annual subscription fee postings": "ترحيلات رسوم الاشتراك السنوية",
     "No annual subscription fee records found": "لم يتم العثور على سجلات رسوم اشتراك سنوية",
     "Applicant": "مقدّم الطلب",
-    "Year": "السنة"
+    "Year": "السنة",
+    "Membership suspended": "تم تعليق العضوية",
+    "Your member portal access is currently suspended. Please contact fund administration for support.": "تم تعليق وصولك إلى بوابة العضو حالياً. يرجى التواصل مع إدارة الصندوق للحصول على الدعم.",
+    "Membership terminated": "تم إنهاء العضوية",
+    "Your membership has been terminated. Member portal access is no longer available. Please contact fund administration for support.": "تم إنهاء عضويتك. لم يعد الوصول إلى بوابة العضو متاحاً. يرجى التواصل مع إدارة الصندوق للحصول على الدعم."
 }
