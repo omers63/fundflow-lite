@@ -25,6 +25,6 @@ class DatabaseSeeder extends Seeder
 
         $this->call(ReconciliationPermissionsSeeder::class);
         $this->call(MemberPortalPermissionsSeeder::class);
-        $this->call(ComprehensiveFeatureExerciseSeeder::class);
+        // $this->call(ComprehensiveFeatureExerciseSeeder::class);
     }
 }
