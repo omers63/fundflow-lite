@@ -1,10 +1,10 @@
 <div
-    class="min-h-screen bg-gradient-to-br from-slate-950 via-blue-950 to-indigo-950 flex items-center justify-center py-8 sm:py-12 px-4">
+    class="min-h-screen bg-gradient-to-br from-emerald-700 via-teal-800 to-cyan-900 flex items-center justify-center py-8 sm:py-12 px-4">
     <div class="w-full max-w-md">
         {{-- Card --}}
         <div class="bg-white rounded-3xl shadow-2xl overflow-hidden">
             {{-- Header --}}
-            <div class="bg-gradient-to-r from-blue-700 via-blue-600 to-indigo-600 p-6 sm:p-8 text-center">
+            <div class="bg-gradient-to-r from-emerald-700 via-teal-800 to-cyan-900 p-6 sm:p-8 text-center">
                 <div class="w-16 h-16 bg-white/20 rounded-2xl flex items-center justify-center mx-auto mb-4">
                     <svg class="w-8 h-8 text-white" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                         <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2"
@@ -12,7 +12,7 @@
                     </svg>
                 </div>
                 <h2 class="text-2xl font-bold text-white">{{ __('Welcome Back') }}</h2>
-                <p class="text-blue-100 text-sm mt-1">{{ __('Sign in to your FundFlow account') }}</p>
+                <p class="text-emerald-100 text-sm mt-1">{{ __('Sign in to your FundFlow account') }}</p>
             </div>
 
             <div class="p-6 sm:p-8">

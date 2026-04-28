@@ -69,7 +69,7 @@
 
 .fi-body.fi-panel-admin .fi-simple-layout {
     min-height: 100vh;
-    background: linear-gradient(135deg, #020617 0%, #172554 45%, #312e81 100%);
+    background: linear-gradient(135deg, #1e293b 0%, #312e81 50%, #581c87 100%);
     padding: 1.25rem;
 }
 
@@ -94,7 +94,7 @@
 }
 
 .fi-body.fi-panel-admin .fi-simple-header {
-    background: linear-gradient(90deg, #1d4ed8 0%, #2563eb 55%, #4f46e5 100%);
+    background: linear-gradient(90deg, #1e293b 0%, #312e81 55%, #581c87 100%);
     padding: 1.5rem 1.75rem;
 }
 

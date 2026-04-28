@@ -11,6 +11,7 @@ use App\Filament\Admin\Widgets\LoanPortfolioWidget;
 use App\Filament\Admin\Widgets\LoanRepaymentTrendWidget;
 use App\Filament\Admin\Widgets\MemberPipelineWidget;
 use App\Filament\Admin\Widgets\OverdueInstallmentsWidget;
+use App\Filament\Admin\Widgets\PostedFundsProgressWidget;
 use App\Filament\Admin\Widgets\QuickPostWidget;
 use App\Models\User;
 use App\Support\WidgetVisibility;
@@ -42,7 +43,7 @@ class Dashboard extends BaseDashboard
         /** @var User|null $user */
         $user = auth()->user();
 
-        if (! $user instanceof User) {
+        if (!$user instanceof User) {
             return $available;
         }
 
@@ -58,6 +59,7 @@ class Dashboard extends BaseDashboard
             AdminStatsOverview::class,
             FundHealthWidget::class,
             FeesRevenueWidget::class,
+            PostedFundsProgressWidget::class,
             OverdueInstallmentsWidget::class,
             MemberPipelineWidget::class,
             LoanPortfolioWidget::class,
@@ -102,7 +104,7 @@ class Dashboard extends BaseDashboard
                     /** @var User|null $user */
                     $user = auth()->user();
 
-                    if (! $user instanceof User) {
+                    if (!$user instanceof User) {
                         return;
                     }
 
