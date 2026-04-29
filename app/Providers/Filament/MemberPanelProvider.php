@@ -27,7 +27,7 @@ class MemberPanelProvider extends PanelProvider
         return $panel
             ->id('member')
             ->path('member')
-            ->favicon(asset('favicon.svg'))
+            ->favicon(asset('favicon-32x32.png'))
             ->login()
             ->sidebarCollapsibleOnDesktop()
             ->sidebarFullyCollapsibleOnDesktop()

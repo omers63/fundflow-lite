@@ -84,7 +84,7 @@
                         <label class="block text-sm font-semibold text-slate-700 mb-2">{{ __('Email Address') }}</label>
                         <input wire:model="email" type="email" autocomplete="email"
                             placeholder="{{ __('your@email.com') }}"
-                            class="w-full px-4 py-3 border border-slate-200 rounded-xl text-sm focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent transition-all @error('email') border-red-400 @enderror">
+                            class="w-full px-4 py-3 border border-slate-200 rounded-xl text-sm focus:outline-none focus:ring-2 focus:ring-emerald-500 focus:border-transparent transition-all @error('email') border-red-400 @enderror">
                         @error('email')
                             <p class="text-red-500 text-xs mt-1">{{ $message }}</p>
                         @enderror
@@ -94,7 +94,7 @@
                         <label class="block text-sm font-semibold text-slate-700 mb-2">{{ __('Password') }}</label>
                         <input wire:model="password" type="password" autocomplete="current-password"
                             placeholder="{{ __('••••••••') }}"
-                            class="w-full px-4 py-3 border border-slate-200 rounded-xl text-sm focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent transition-all @error('password') border-red-400 @enderror">
+                            class="w-full px-4 py-3 border border-slate-200 rounded-xl text-sm focus:outline-none focus:ring-2 focus:ring-emerald-500 focus:border-transparent transition-all @error('password') border-red-400 @enderror">
                         @error('password')
                             <p class="text-red-500 text-xs mt-1">{{ $message }}</p>
                         @enderror
@@ -103,13 +103,13 @@
                     <div class="flex items-center justify-between">
                         <label class="flex items-center gap-2 text-sm text-slate-600 cursor-pointer">
                             <input wire:model="remember" type="checkbox"
-                                class="rounded border-slate-300 text-blue-600 focus:ring-blue-500">
+                                class="rounded border-slate-300 text-emerald-600 focus:ring-emerald-500">
                             {{ __('Remember me') }}
                         </label>
                     </div>
 
                     <button type="submit" wire:loading.attr="disabled"
-                        class="w-full bg-gradient-to-r from-blue-600 to-indigo-600 hover:from-blue-700 hover:to-indigo-700 text-white font-bold py-3.5 px-6 rounded-xl transition-all shadow-md hover:shadow-lg disabled:opacity-50 flex items-center justify-center gap-2">
+                        class="w-full bg-gradient-to-r from-emerald-600 to-teal-600 hover:from-emerald-700 hover:to-teal-700 text-white font-bold py-3.5 px-6 rounded-xl transition-all duration-200 shadow-md hover:shadow-lg hover:-translate-y-0.5 active:translate-y-0 active:scale-[0.99] disabled:opacity-50 flex items-center justify-center gap-2">
                         <span wire:loading.remove>{{ __('Sign In') }}</span>
                         <span wire:loading class="flex items-center gap-2">
                             <svg class="animate-spin w-4 h-4" fill="none" viewBox="0 0 24 24">
@@ -127,12 +127,12 @@
                     <p class="text-sm text-slate-500">
                         {{ __('Not a member yet?') }}
                         <a href="{{ route('apply') }}"
-                            class="text-blue-600 font-semibold hover:underline">{{ __('Apply for membership') }}</a>
+                            class="text-emerald-600 font-semibold hover:underline">{{ __('Apply for membership') }}</a>
                     </p>
                     <p class="text-sm text-slate-500 mt-2">
                         {{ __('Applied already?') }}
                         <a href="{{ route('application.status') }}"
-                            class="text-indigo-600 font-semibold hover:underline">{{ __('Check your status') }}</a>
+                            class="text-teal-600 font-semibold hover:underline">{{ __('Check your status') }}</a>
                     </p>
                 </div>
             </div>
