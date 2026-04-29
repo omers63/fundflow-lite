@@ -1,4 +1,5 @@
 @php
+    $appShortName = config('app.short_name', 'FundFlow');
     $appName = config('app.name', 'FundFlow');
     $isArabic = app()->getLocale() === 'ar';
 @endphp
@@ -26,7 +27,7 @@
                 {{ $isArabic ? 'بوابة الإدارة الآمنة' : 'Secure Administrator Access' }}
             </h2>
             <p class="mt-1 text-sm font-semibold text-sky-700 dark:text-sky-300">
-                {{ $isArabic ? $appName . ' — نظام إدارة صندوق الأسرة' : $appName }}
+                {{ __($appShortName) }} - {{ __('Family Fund Management System') }}
             </p>
         </div>
     </div>
