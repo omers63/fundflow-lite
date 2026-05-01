@@ -78,50 +78,138 @@
                     </div>
                 @endif
 
-                {{-- Login Form --}}
-                <form wire:submit="login" class="space-y-5">
-                    <div>
-                        <label class="block text-sm font-semibold text-slate-700 mb-2">{{ __('Email Address') }}</label>
-                        <input wire:model="email" type="email" autocomplete="email"
-                            placeholder="{{ __('your@email.com') }}"
-                            class="w-full px-4 py-3 border border-slate-200 rounded-xl text-sm focus:outline-none focus:ring-2 focus:ring-emerald-500 focus:border-transparent transition-all @error('email') border-red-400 @enderror">
-                        @error('email')
-                            <p class="text-red-500 text-xs mt-1">{{ $message }}</p>
-                        @enderror
-                    </div>
+                @if (!$showProfilePicker)
+                    {{-- Login Form --}}
+                    <form wire:submit="login" class="space-y-5">
+                        <div>
+                            <label class="block text-sm font-semibold text-slate-700 mb-2">{{ __('Email Address') }}</label>
+                            <input wire:model="email" type="email" autocomplete="email"
+                                placeholder="{{ __('your@email.com') }}"
+                                class="w-full px-4 py-3 border border-slate-200 rounded-xl text-sm focus:outline-none focus:ring-2 focus:ring-emerald-500 focus:border-transparent transition-all @error('email') border-red-400 @enderror">
+                            @error('email')
+                                <p class="text-red-500 text-xs mt-1">{{ $message }}</p>
+                            @enderror
+                        </div>
 
-                    <div>
-                        <label class="block text-sm font-semibold text-slate-700 mb-2">{{ __('Password') }}</label>
-                        <input wire:model="password" type="password" autocomplete="current-password"
-                            placeholder="{{ __('••••••••') }}"
-                            class="w-full px-4 py-3 border border-slate-200 rounded-xl text-sm focus:outline-none focus:ring-2 focus:ring-emerald-500 focus:border-transparent transition-all @error('password') border-red-400 @enderror">
-                        @error('password')
-                            <p class="text-red-500 text-xs mt-1">{{ $message }}</p>
-                        @enderror
-                    </div>
+                        <div>
+                            <label class="block text-sm font-semibold text-slate-700 mb-2">{{ __('Password') }}</label>
+                            <input wire:model="password" type="password" autocomplete="current-password"
+                                placeholder="{{ __('••••••••') }}"
+                                class="w-full px-4 py-3 border border-slate-200 rounded-xl text-sm focus:outline-none focus:ring-2 focus:ring-emerald-500 focus:border-transparent transition-all @error('password') border-red-400 @enderror">
+                            @error('password')
+                                <p class="text-red-500 text-xs mt-1">{{ $message }}</p>
+                            @enderror
+                        </div>
 
-                    <div class="flex items-center justify-between">
-                        <label class="flex items-center gap-2 text-sm text-slate-600 cursor-pointer">
-                            <input wire:model="remember" type="checkbox"
-                                class="rounded border-slate-300 text-emerald-600 focus:ring-emerald-500">
-                            {{ __('Remember me') }}
-                        </label>
-                    </div>
+                        <div class="flex items-center justify-between">
+                            <label class="flex items-center gap-2 text-sm text-slate-600 cursor-pointer">
+                                <input wire:model="remember" type="checkbox"
+                                    class="rounded border-slate-300 text-emerald-600 focus:ring-emerald-500">
+                                {{ __('Remember me') }}
+                            </label>
+                            <a href="{{ route('password.request') }}" class="text-sm text-emerald-600 hover:underline">
+                                {{ __('Forgot password?') }}
+                            </a>
+                        </div>
 
-                    <button type="submit" wire:loading.attr="disabled"
-                        class="w-full bg-gradient-to-r from-emerald-600 to-teal-600 hover:from-emerald-700 hover:to-teal-700 text-white font-bold py-3.5 px-6 rounded-xl transition-all duration-200 shadow-md hover:shadow-lg hover:-translate-y-0.5 active:translate-y-0 active:scale-[0.99] disabled:opacity-50 flex items-center justify-center gap-2">
-                        <span wire:loading.remove>{{ __('Sign In') }}</span>
-                        <span wire:loading class="flex items-center gap-2">
-                            <svg class="animate-spin w-4 h-4" fill="none" viewBox="0 0 24 24">
-                                <circle class="opacity-25" cx="12" cy="12" r="10" stroke="currentColor"
-                                    stroke-width="4"></circle>
-                                <path class="opacity-75" fill="currentColor"
-                                    d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4z"></path>
-                            </svg>
-                            {{ __('Signing in...') }}
-                        </span>
-                    </button>
-                </form>
+                        <button type="submit" wire:loading.attr="disabled"
+                            class="w-full bg-gradient-to-r from-emerald-600 to-teal-600 hover:from-emerald-700 hover:to-teal-700 text-white font-bold py-3.5 px-6 rounded-xl transition-all duration-200 shadow-md hover:shadow-lg hover:-translate-y-0.5 active:translate-y-0 active:scale-[0.99] disabled:opacity-50 flex items-center justify-center gap-2">
+                            <span wire:loading.remove>{{ __('Sign In') }}</span>
+                            <span wire:loading class="flex items-center gap-2">
+                                <svg class="animate-spin w-4 h-4" fill="none" viewBox="0 0 24 24">
+                                    <circle class="opacity-25" cx="12" cy="12" r="10" stroke="currentColor"
+                                        stroke-width="4"></circle>
+                                    <path class="opacity-75" fill="currentColor"
+                                        d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4z"></path>
+                                </svg>
+                                {{ __('Signing in...') }}
+                            </span>
+                        </button>
+                    </form>
+                @else
+                    <form wire:submit="verifySelectedProfile" class="space-y-5">
+                        <div>
+                            <p class="text-sm font-semibold text-slate-700">{{ __('Who is accessing the portal?') }}</p>
+                            <p class="text-xs text-slate-500 mt-1">
+                                {{ __('Select a profile, then verify using PIN/password.') }}
+                            </p>
+                        </div>
+
+                        <div class="space-y-3">
+                            <label
+                                class="block text-sm font-semibold text-slate-700 mb-2">{{ __('Select profile') }}</label>
+                            <select wire:change="selectProfile($event.target.value)"
+                                class="w-full px-4 py-3 border border-slate-200 rounded-xl text-sm focus:outline-none focus:ring-2 focus:ring-emerald-500 focus:border-transparent transition-all @error('selectedMemberId') border-red-400 @enderror">
+                                <option value="">{{ __('Choose a profile') }}</option>
+                                @foreach($availableProfiles as $profile)
+                                    <option value="{{ $profile['id'] }}" @selected($selectedMemberId === $profile['id'])>
+                                        {{ $profile['name'] }} —
+                                        {{ $profile['is_parent'] ? __('Parent profile') : __('Dependent profile') }}
+                                        @if($profile['is_separated'])
+                                            ({{ __('Separated') }})
+                                        @endif
+                                    </option>
+                                @endforeach
+                            </select>
+                            @error('selectedMemberId')
+                                <p class="text-red-500 text-xs">{{ $message }}</p>
+                            @enderror
+
+                            @if($selectedMemberId)
+                                @php
+                                    $selectedProfile = collect($availableProfiles)->firstWhere('id', $selectedMemberId);
+                                @endphp
+                                @if($selectedProfile)
+                                    <div class="p-3 rounded-xl border border-emerald-200 bg-emerald-50/70">
+                                        <div class="flex items-center gap-3">
+                                            <div
+                                                class="h-10 w-10 rounded-full bg-slate-200 overflow-hidden flex items-center justify-center text-sm font-bold text-slate-600">
+                                                @if($selectedProfile['avatar_url'])
+                                                    <img src="{{ $selectedProfile['avatar_url'] }}" alt="{{ $selectedProfile['name'] }}"
+                                                        class="h-full w-full object-cover">
+                                                @else
+                                                    {{ strtoupper(mb_substr($selectedProfile['name'], 0, 1)) }}
+                                                @endif
+                                            </div>
+                                            <div>
+                                                <p class="text-sm font-semibold text-slate-800">{{ $selectedProfile['name'] }}</p>
+                                                <p class="text-xs text-slate-500">
+                                                    {{ $selectedProfile['is_parent'] ? __('Parent profile') : __('Dependent profile') }}
+                                                    @if($selectedProfile['is_separated'])
+                                                        · {{ __('Separated') }}
+                                                    @endif
+                                                </p>
+                                            </div>
+                                        </div>
+                                    </div>
+                                @endif
+                            @endif
+                        </div>
+
+                        <div>
+                            <label class="block text-sm font-semibold text-slate-700 mb-2">
+                                {{ __('Verification code/password') }}
+                            </label>
+                            <input wire:model="verificationSecret" type="password" autocomplete="off"
+                                placeholder="{{ __('Enter parent PIN or dependent password') }}"
+                                class="w-full px-4 py-3 border border-slate-200 rounded-xl text-sm focus:outline-none focus:ring-2 focus:ring-emerald-500 focus:border-transparent transition-all @error('verificationSecret') border-red-400 @enderror">
+                            @error('verificationSecret')
+                                <p class="text-red-500 text-xs mt-1">{{ $message }}</p>
+                            @enderror
+                        </div>
+
+                        <div class="flex gap-2">
+                            <button type="button" wire:click="backToEmailStep"
+                                class="w-1/3 bg-slate-100 hover:bg-slate-200 text-slate-700 font-semibold py-3 px-4 rounded-xl transition-all">
+                                {{ __('Back') }}
+                            </button>
+                            <button type="submit" wire:loading.attr="disabled"
+                                class="w-2/3 bg-gradient-to-r from-emerald-600 to-teal-600 hover:from-emerald-700 hover:to-teal-700 text-white font-bold py-3 px-4 rounded-xl transition-all duration-200 shadow-md hover:shadow-lg">
+                                {{ __('Continue') }}
+                            </button>
+                        </div>
+                    </form>
+                @endif
 
                 <div class="mt-6 text-center">
                     <p class="text-sm text-slate-500">

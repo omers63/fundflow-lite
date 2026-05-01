@@ -3,13 +3,17 @@
 namespace App\Http\Livewire;
 
 use App\Models\MembershipApplication;
+use App\Models\Member;
 use App\Models\Setting;
 use App\Models\User;
+use App\Support\StorageFilename;
 use App\Services\AccountingService;
 use Illuminate\Contracts\Cache\LockTimeoutException;
 use Illuminate\Support\Facades\Cache;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Hash;
+use Illuminate\Support\Facades\RateLimiter;
+use Illuminate\Support\Str;
 use Illuminate\Validation\ValidationException;
 use Livewire\Component;
 use Livewire\WithFileUploads;
@@ -91,15 +95,27 @@ class MembershipApplicationForm extends Component
 
     /** True when total applications are at or above the configured public cap. */
     public bool $applicationCapReached = false;
+    public bool $onBehalfMode = false;
+    public ?int $parentMemberId = null;
 
     public function mount(): void
     {
+        $loggedInMember = auth()->check()
+            ? Member::query()->where('user_id', auth()->id())->with('user')->first()
+            : null;
+        $this->onBehalfMode = request()->boolean('on_behalf') && $loggedInMember !== null && $loggedInMember->parent_id === null;
+        $this->parentMemberId = $this->onBehalfMode ? $loggedInMember?->id : null;
+
         $this->applicationCapReached = $this->checkApplicationCapReached();
         $this->hasApplicationFee = Setting::publicMembershipApplicationFeesEnabled();
         $this->totalSteps = $this->hasApplicationFee ? 5 : 4;
         $this->stepLabels = $this->hasApplicationFee
             ? [__('Personal Info'), __('Identity'), __('Employment'), __('Document'), __('Membership fee')]
             : [__('Personal Info'), __('Identity'), __('Employment'), __('Document')];
+
+        if ($this->onBehalfMode && $loggedInMember !== null) {
+            $this->email = (string) ($loggedInMember->household_email ?: $loggedInMember->user?->email);
+        }
     }
 
     /** Fee (SAR) for the currently selected application type; 0 if fees are disabled or this type is free. */
@@ -135,7 +151,7 @@ class MembershipApplicationForm extends Component
     {
         $rules = [
             'name' => 'required|string|max:150',
-            'email' => 'required|email|unique:users,email',
+            'email' => $this->onBehalfMode ? 'required|email' : 'required|email|unique:users,email',
             'password' => 'required|min:8|confirmed',
             'application_type' => 'required|in:new,resume,renew',
             'gender' => 'nullable|in:male,female,other',
@@ -178,7 +194,7 @@ class MembershipApplicationForm extends Component
         return match ($kind) {
             'personal' => [
                 'name' => 'required|string|max:150',
-                'email' => 'required|email|unique:users,email',
+                'email' => $this->onBehalfMode ? 'required|email' : 'required|email|unique:users,email',
                 'password' => 'required|min:8|confirmed',
                 'application_type' => 'required|in:new,resume,renew',
             ],
@@ -232,6 +248,12 @@ class MembershipApplicationForm extends Component
 
     public function submit(): void
     {
+        if (!$this->ensureNotRateLimited()) {
+            throw ValidationException::withMessages([
+                'form' => __('Too many submission attempts. Please try again shortly.'),
+            ]);
+        }
+
         if ($this->applicationCapReached) {
             throw ValidationException::withMessages([
                 'form' => __('We are not accepting new applications at the moment. Please try again later.'),
@@ -256,12 +278,19 @@ class MembershipApplicationForm extends Component
                 DB::transaction(function () use ($feeAmount) {
                     $filePath = null;
                     if ($this->application_form) {
-                        $filePath = $this->application_form->store('applications', 'public');
+                        $filename = StorageFilename::make('application', $this->application_form->getClientOriginalName(), [
+                            $this->name,
+                            $this->national_id,
+                            $this->application_type,
+                        ]);
+                        $filePath = $this->application_form->storeAs('applications', $filename, 'public');
                     }
 
                     $user = User::create([
                         'name' => $this->name,
-                        'email' => $this->email,
+                        'email' => $this->onBehalfMode && $this->parentMemberId !== null
+                            ? ((string) (Member::find($this->parentMemberId)?->household_email ?: $this->email))
+                            : $this->email,
                         'phone' => $this->mobile_phone,
                         'role' => 'member',
                         'status' => 'pending',
@@ -273,6 +302,8 @@ class MembershipApplicationForm extends Component
 
                     $application = MembershipApplication::create([
                         'user_id' => $user->id,
+                        'parent_member_id' => $this->parentMemberId,
+                        'submitted_by_user_id' => auth()->id(),
                         'application_type' => $this->application_type,
                         'gender' => filled($this->gender) ? $this->gender : null,
                         'marital_status' => filled($this->marital_status) ? $this->marital_status : null,
@@ -310,12 +341,31 @@ class MembershipApplicationForm extends Component
             ]);
         }
 
+        $this->clearRateLimiter();
         $this->submitted = true;
+    }
+
+    protected function ensureNotRateLimited(): bool
+    {
+        $key = 'membership-submit|' . Str::lower($this->email) . '|' . request()->ip();
+        if (RateLimiter::tooManyAttempts($key, 5)) {
+            return false;
+        }
+
+        RateLimiter::hit($key, 300);
+
+        return true;
+    }
+
+    protected function clearRateLimiter(): void
+    {
+        $key = 'membership-submit|' . Str::lower($this->email) . '|' . request()->ip();
+        RateLimiter::clear($key);
     }
 
     public function render()
     {
         return view('livewire.membership-application-form')
-            ->layout('layouts.public', ['title' => __('Apply for Membership')]);
+            ->layout('layouts.public', ['title' => $this->onBehalfMode ? __('Apply for a Dependent') : __('Apply for Membership')]);
     }
 }

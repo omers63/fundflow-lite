@@ -3,6 +3,7 @@
 namespace App\Http\Middleware;
 
 use App\Models\User;
+use App\Services\ImpersonationService;
 use Filament\Facades\Filament;
 use Filament\Models\Contracts\FilamentUser;
 use Illuminate\Auth\AuthenticationException;
@@ -26,17 +27,53 @@ class AuthenticateMemberPanel
 
     public function handle(Request $request, \Closure $next, ...$guards)
     {
-        $guard = Filament::auth();
+        $panel = Filament::getCurrentOrDefaultPanel();
+        $memberGuardName = Filament::getPanel('member')?->getAuthGuard() ?? Filament::getAuthGuard();
+        $guard = Auth::guard($memberGuardName);
+
+        if (!$guard->check()) {
+            $impersonatedUserId = (int) $request->session()->get('impersonated_user_id');
+            if ($impersonatedUserId > 0) {
+                $impersonatedUser = User::find($impersonatedUserId);
+                if (
+                    $impersonatedUser instanceof User
+                    && $impersonatedUser->canAccessPanel($panel)
+                ) {
+                    Auth::guard($memberGuardName)->login($impersonatedUser);
+                    if ($memberGuardName !== 'web') {
+                        Auth::guard('web')->login($impersonatedUser);
+                    }
+                    $guard = Auth::guard($memberGuardName);
+                }
+            }
+        }
+
+        if (!$guard->check() && Auth::guard('web')->check()) {
+            $webUser = Auth::guard('web')->user();
+            if ($webUser instanceof User && $webUser->canAccessPanel($panel)) {
+                Auth::guard($memberGuardName)->login($webUser);
+                $guard = Auth::guard($memberGuardName);
+            }
+        }
 
         if (!$guard->check()) {
             $this->unauthenticated($request, $guards);
         }
 
-        Auth::shouldUse(Filament::getAuthGuard());
+        if (
+            $request->isMethod('post')
+            && $request->path() === 'member/logout'
+            && (int) $request->session()->get('impersonator_user_id') > 0
+        ) {
+            app(ImpersonationService::class)->stop();
+
+            return redirect('/member');
+        }
+
+        Auth::shouldUse($memberGuardName);
 
         /** @var Authenticatable $authUser */
         $authUser = $guard->user();
-        $panel = Filament::getCurrentOrDefaultPanel();
 
         if ($authUser instanceof FilamentUser && !$authUser->canAccessPanel($panel)) {
             if (
@@ -47,7 +84,7 @@ class AuthenticateMemberPanel
             ) {
                 $memberStatus = $authUser->member?->status;
 
-                Auth::guard(Filament::getAuthGuard())->logout();
+                Auth::guard($memberGuardName)->logout();
                 $request->session()->invalidate();
                 $request->session()->regenerateToken();
                 $request->session()->flash(

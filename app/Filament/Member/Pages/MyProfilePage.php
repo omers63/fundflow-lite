@@ -3,12 +3,16 @@
 namespace App\Filament\Member\Pages;
 
 use App\Models\Member;
+use App\Services\HouseholdAccessService;
+use App\Support\StorageFilename;
 use Filament\Actions\Action;
 use Filament\Forms;
 use Filament\Notifications\Notification;
 use Filament\Pages\Page;
 use Illuminate\Support\Facades\Hash;
+use Illuminate\Support\Facades\Storage;
 use Illuminate\Validation\Rules\Password;
+use Livewire\Features\SupportFileUploads\TemporaryUploadedFile;
 
 class MyProfilePage extends Page
 {
@@ -50,63 +54,155 @@ class MyProfilePage extends Page
                 ->url(fn() => route('member.certificate'))
                 ->openUrlInNewTab(),
 
-            Action::make('update_phone')
-                ->label(__('app.member.update_phone'))
-                ->icon('heroicon-o-phone')
-                ->color('info')
-                ->fillForm(['phone' => auth()->user()?->phone])
+            Action::make('update_profile')
+                ->label(__('Update Profile'))
+                ->icon('heroicon-o-pencil-square')
+                ->color('primary')
+                ->fillForm(function (): array {
+                    $member = $this->currentMember();
+                    $user = auth()->user();
+
+                    return [
+                        'name' => $user?->name,
+                        'phone' => $user?->phone,
+                        'email' => $user?->email,
+                        'avatar' => $user?->avatar_path,
+                        'remove_avatar' => false,
+                        'set_parent_pin' => $member?->parent_id === null,
+                    ];
+                })
                 ->schema([
+                    Forms\Components\TextInput::make('name')
+                        ->label(__('Full Name'))
+                        ->required()
+                        ->maxLength(255),
                     Forms\Components\TextInput::make('phone')
                         ->label(__('app.field.phone'))
                         ->tel()
                         ->required()
                         ->maxLength(50)
                         ->helperText(__('app.member.phone_helper')),
-                ])
-                ->action(function (array $data): void {
-                    auth()->user()->update(['phone' => $data['phone']]);
-                    Notification::make()->title(__('app.member.phone_updated'))->success()->send();
-                }),
-
-            Action::make('change_password')
-                ->label(__('app.member.change_password'))
-                ->icon('heroicon-o-lock-closed')
-                ->color('primary')
-                ->schema([
+                    Forms\Components\TextInput::make('email')
+                        ->label(__('Email Address'))
+                        ->email()
+                        ->required()
+                        ->maxLength(255)
+                        ->helperText(__('Dependents that use a unique login email become separated (direct login enabled). Using household email rejoins and disables direct login.')),
+                    Forms\Components\FileUpload::make('avatar')
+                        ->label(__('Avatar'))
+                        ->image()
+                        ->disk('public')
+                        ->directory('avatars')
+                        ->getUploadedFileNameForStorageUsing(function (TemporaryUploadedFile $file): string {
+                            return StorageFilename::make('avatar', $file->getClientOriginalName(), [
+                                auth()->user()?->name,
+                                auth()->id(),
+                            ]);
+                        })
+                        ->imageEditor()
+                        ->maxSize(2048),
+                    Forms\Components\Toggle::make('remove_avatar')
+                        ->label(__('Remove Avatar'))
+                        ->helperText(__('Enable to remove existing avatar image.')),
                     Forms\Components\TextInput::make('current_password')
                         ->label(__('app.member.current_password'))
                         ->password()
                         ->revealable()
-                        ->required()
-                        ->rules([
-                            fn() => function (string $attribute, mixed $value, \Closure $fail) {
-                                if (!Hash::check($value, auth()->user()->password)) {
-                                    $fail(__('app.member.current_password_incorrect'));
-                                }
-                            },
-                        ]),
-                    Forms\Components\TextInput::make('password')
+                        ->dehydrated(false)
+                        ->helperText(__('Required only when changing password.')),
+                    Forms\Components\TextInput::make('new_password')
                         ->label(__('app.member.new_password'))
                         ->password()
                         ->revealable()
-                        ->required()
                         ->rules([Password::min(8)->mixedCase()->numbers()])
-                        ->helperText(__('app.member.new_password_helper')),
-                    Forms\Components\TextInput::make('password_confirmation')
+                        ->dehydrated(false)
+                        ->helperText(__('Leave blank to keep current password.')),
+                    Forms\Components\TextInput::make('new_password_confirmation')
                         ->label(__('app.member.confirm_new_password'))
                         ->password()
                         ->revealable()
-                        ->required()
-                        ->same('password'),
+                        ->same('new_password')
+                        ->dehydrated(false),
+                    Forms\Components\Toggle::make('set_parent_pin')
+                        ->label(__('Set Parent PIN'))
+                        ->visible(fn() => $this->currentMember()?->parent_id === null),
+                    Forms\Components\TextInput::make('pin')
+                        ->label(__('4-digit PIN'))
+                        ->password()
+                        ->rules(['nullable', 'digits:4'])
+                        ->visible(fn($get) => (bool) $get('set_parent_pin')),
+                    Forms\Components\TextInput::make('pin_confirmation')
+                        ->label(__('Confirm PIN'))
+                        ->password()
+                        ->same('pin')
+                        ->visible(fn($get) => (bool) $get('set_parent_pin')),
                 ])
                 ->action(function (array $data): void {
-                    auth()->user()->update(['password' => Hash::make($data['password'])]);
-                    Notification::make()
-                        ->title(__('app.member.password_changed'))
-                        ->body(__('app.member.password_changed_body'))
-                        ->success()
-                        ->send();
+                    $member = $this->currentMember();
+                    $user = auth()->user();
+                    if (!$member || !$user) {
+                        return;
+                    }
+
+                    $oldAvatarPath = $user->avatar_path;
+                    $newAvatarPath = $data['avatar'] ?? null;
+
+                    $user->update([
+                        'name' => (string) $data['name'],
+                        'phone' => (string) $data['phone'],
+                    ]);
+
+                    $newEmail = (string) $data['email'];
+                    if ($newEmail !== (string) $user->email) {
+                        try {
+                            app(HouseholdAccessService::class)->updateMemberLoginEmail($member, $user, $newEmail);
+                        } catch (\InvalidArgumentException) {
+                            Notification::make()
+                                ->title(__('Email already in use.'))
+                                ->body(__('Choose a unique email, or use your household email to rejoin.'))
+                                ->danger()
+                                ->send();
+
+                            return;
+                        }
+                    }
+
+                    if ((bool) ($data['remove_avatar'] ?? false)) {
+                        if (filled($user->avatar_path)) {
+                            Storage::disk('public')->delete($user->avatar_path);
+                        }
+                        $user->update(['avatar_path' => null]);
+                    } elseif (filled($newAvatarPath)) {
+                        $user->update(['avatar_path' => (string) $newAvatarPath]);
+                        if (filled($oldAvatarPath) && $oldAvatarPath !== $newAvatarPath) {
+                            Storage::disk('public')->delete($oldAvatarPath);
+                        }
+                    }
+
+                    $newPassword = (string) ($data['new_password'] ?? '');
+                    if ($newPassword !== '') {
+                        $currentPassword = (string) ($data['current_password'] ?? '');
+                        if (!Hash::check($currentPassword, (string) $user->password)) {
+                            Notification::make()
+                                ->title(__('app.member.current_password_incorrect'))
+                                ->danger()
+                                ->send();
+
+                            return;
+                        }
+
+                        $user->update(['password' => Hash::make($newPassword)]);
+                    }
+
+                    $shouldSetPin = (bool) ($data['set_parent_pin'] ?? false);
+                    $pin = (string) ($data['pin'] ?? '');
+                    if ($member->parent_id === null && $shouldSetPin && $pin !== '') {
+                        $member->update(['portal_pin' => Hash::make($pin)]);
+                    }
+
+                    Notification::make()->title(__('Profile updated successfully.'))->success()->send();
                 }),
+
         ];
     }
 }

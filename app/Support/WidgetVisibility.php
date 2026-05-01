@@ -35,7 +35,7 @@ class WidgetVisibility
             }
         }
 
-        return $selected;
+        return $selected === [] ? $availableWidgets : $selected;
     }
 
     /**

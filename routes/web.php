@@ -11,12 +11,14 @@ use App\Http\Controllers\LoanImportSampleController;
 use App\Http\Controllers\LoanSchedulePdfController;
 use App\Http\Controllers\LocaleSwitchController;
 use App\Http\Controllers\MemberImportSampleController;
+use App\Http\Controllers\Member\StartDependentImpersonationController;
 use App\Http\Controllers\MembershipApplicationFormTemplateController;
 use App\Http\Controllers\MembershipApplicationImportSampleController;
 use App\Http\Controllers\MembershipCertificateController;
 use App\Http\Controllers\StatementPdfController;
 use App\Http\Controllers\TermsConditionsDownloadController;
 use App\Http\Livewire\ApplicationStatusPage;
+use App\Http\Livewire\ForgotPasswordPage;
 use App\Http\Livewire\LoginPage;
 use App\Http\Livewire\MembershipApplicationForm;
 use App\Http\Livewire\PublicHomePage;
@@ -25,6 +27,7 @@ use Illuminate\Support\Facades\Route;
 
 Route::get('/', PublicHomePage::class)->name('home');
 Route::get('/login', LoginPage::class)->name('login');
+Route::get('/forgot-password', ForgotPasswordPage::class)->name('password.request');
 Route::redirect('/member/login', '/login')->name('member.login.redirect');
 Route::get('/apply', MembershipApplicationForm::class)->name('apply');
 Route::get('/application-status', ApplicationStatusPage::class)->name('application.status');
@@ -46,7 +49,13 @@ Route::get('/downloads/terms-and-conditions', TermsConditionsDownloadController:
 Route::get('/locale/{locale}', LocaleSwitchController::class)
     ->name('locale.switch');
 
+Route::get('/member/dependents/{dependent}/impersonate', StartDependentImpersonationController::class)
+    ->name('member.dependents.impersonate');
+
 Route::middleware(['auth'])->group(function () {
+    Route::get('/member/dependents/apply', MembershipApplicationForm::class)
+        ->name('member.dependents.apply');
+
     Route::get('/direct-messages/{message}/attachment/{index}', [DirectMessageAttachmentController::class, 'show'])
         ->whereNumber('index')
         ->name('direct-messages.attachment');

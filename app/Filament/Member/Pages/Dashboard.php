@@ -10,6 +10,7 @@ use App\Filament\Member\Widgets\MemberStatusWidget;
 use App\Filament\Member\Widgets\MemberWelcomeBannerWidget;
 use App\Filament\Member\Widgets\UpcomingPaymentsWidget;
 use App\Models\User;
+use App\Services\ImpersonationService;
 use App\Support\WidgetVisibility;
 use Filament\Actions\Action;
 use Filament\Forms\Components\CheckboxList;
@@ -82,6 +83,26 @@ class Dashboard extends BaseDashboard
     public function getHeaderActions(): array
     {
         return [
+            Action::make('return_to_parent_portal')
+                ->label(__('Return to Parent Portal'))
+                ->icon('heroicon-o-arrow-uturn-left')
+                ->color('warning')
+                ->visible(fn(): bool => session()->has('impersonator_user_id'))
+                ->requiresConfirmation()
+                ->action(function (): void {
+                    $stopped = app(ImpersonationService::class)->stop();
+                    if (!$stopped) {
+                        return;
+                    }
+
+                    Notification::make()
+                        ->title(__('Returned to parent portal.'))
+                        ->success()
+                        ->send();
+
+                    $this->redirect('/member', navigate: false);
+                }),
+
             Action::make('configureWidgets')
                 ->label(__('Customize widgets'))
                 ->icon('heroicon-o-adjustments-horizontal')

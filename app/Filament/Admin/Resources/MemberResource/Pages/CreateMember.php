@@ -53,6 +53,13 @@ class CreateMember extends CreateRecord
                         ->revealable()
                         ->required()
                         ->dehydrated(false),
+                    Forms\Components\TextInput::make('parent_pin')
+                        ->label(__('Parent PIN (4 digits, for profile access)'))
+                        ->password()
+                        ->revealable()
+                        ->rules(['nullable', 'digits:4'])
+                        ->visible(fn(callable $get) => blank($get('parent_id')))
+                        ->dehydrated(false),
                 ])->columns(2),
 
             Section::make(__('Membership Details'))
@@ -81,10 +88,10 @@ class CreateMember extends CreateRecord
                         ->helperText(__('Multiples of SAR 500, from SAR 500 to SAR 3,000.')),
                     Forms\Components\Select::make('parent_id')
                         ->label(__('Parent Member (Sponsor)'))
-                        ->options(fn () => Member::with('user')
+                        ->options(fn() => Member::with('user')
                             ->whereNull('parent_id')
                             ->get()
-                            ->mapWithKeys(fn ($m) => [$m->id => "{$m->member_number} – {$m->user->name}"]))
+                            ->mapWithKeys(fn($m) => [$m->id => "{$m->member_number} – {$m->user->name}"]))
                         ->searchable()
                         ->nullable()
                         ->placeholder(__('None (independent member)'))
@@ -148,6 +155,14 @@ class CreateMember extends CreateRecord
                 'status' => $data['status'],
                 'monthly_contribution_amount' => $data['monthly_contribution_amount'],
                 'parent_id' => $data['parent_id'] ?? null,
+                'household_email' => $data['parent_id']
+                    ? Member::query()->find((int) $data['parent_id'])?->household_email
+                    : $data['email'],
+                'is_separated' => false,
+                'direct_login_enabled' => false,
+                'portal_pin' => blank($data['parent_id']) && filled($data['parent_pin'] ?? null)
+                    ? Hash::make((string) $data['parent_pin'])
+                    : null,
             ]);
 
             // 4. Ensure the member's virtual accounts are provisioned

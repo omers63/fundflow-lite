@@ -167,6 +167,30 @@ class EditMember extends EditRecord
      */
     protected function afterSave(): void
     {
+        $this->record->refresh();
+
+        if ($this->record->parent_id === null) {
+            $this->record->update([
+                'household_email' => $this->record->user?->email,
+                'is_separated' => false,
+                'direct_login_enabled' => false,
+            ]);
+
+            $this->record->dependents()
+                ->where('is_separated', false)
+                ->update([
+                    'household_email' => $this->record->user?->email,
+                    'direct_login_enabled' => false,
+                ]);
+        } else {
+            $parentHouseholdEmail = $this->record->parent?->household_email ?? $this->record->parent?->user?->email;
+            $this->record->update([
+                'household_email' => $parentHouseholdEmail,
+                'is_separated' => false,
+                'direct_login_enabled' => false,
+            ]);
+        }
+
         if (!empty($this->pendingUserUpdates)) {
             $this->record->user->update($this->pendingUserUpdates);
         }

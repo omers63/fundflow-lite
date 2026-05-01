@@ -5,6 +5,7 @@ namespace App\Filament\Admin\Resources\MembershipApplicationResource\Pages;
 use App\Filament\Admin\Resources\MembershipApplicationResource;
 use App\Models\MembershipApplication;
 use App\Models\User;
+use App\Support\StorageFilename;
 use Filament\Forms;
 use Filament\Notifications\Notification;
 use Filament\Resources\Pages\CreateRecord;
@@ -15,6 +16,7 @@ use Filament\Schemas\Schema;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Hash;
 use Illuminate\Support\HtmlString;
+use Livewire\Features\SupportFileUploads\TemporaryUploadedFile;
 
 class CreateMembershipApplication extends CreateRecord
 {
@@ -187,6 +189,12 @@ class CreateMembershipApplication extends CreateRecord
                                         ->label(__('Signed application form'))
                                         ->disk('public')
                                         ->directory('membership-applications')
+                                        ->getUploadedFileNameForStorageUsing(function (TemporaryUploadedFile $file): string {
+                                            return StorageFilename::make('application-form', $file->getClientOriginalName(), [
+                                                'admin-create',
+                                                auth()->id() ? ('admin-' . auth()->id()) : null,
+                                            ]);
+                                        })
                                         ->downloadable()
                                         ->openable()
                                         ->acceptedFileTypes(['application/pdf', 'image/jpeg', 'image/png', 'image/webp'])

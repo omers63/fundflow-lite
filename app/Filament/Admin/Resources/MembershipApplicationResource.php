@@ -11,6 +11,7 @@ use App\Notifications\MembershipApprovedNotification;
 use App\Notifications\MembershipRejectedNotification;
 use App\Services\AccountingService;
 use App\Services\MemberNumberService;
+use App\Support\StorageFilename;
 use App\Support\PhoneDisplay;
 use Filament\Actions\Action;
 use Filament\Actions\ActionGroup;
@@ -38,6 +39,7 @@ use Illuminate\Database\Eloquent\Builder;
 use Illuminate\Database\Eloquent\Collection as EloquentCollection;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Support\HtmlString;
+use Livewire\Features\SupportFileUploads\TemporaryUploadedFile;
 use Livewire\Component;
 
 class MembershipApplicationResource extends Resource
@@ -246,6 +248,11 @@ class MembershipApplicationResource extends Resource
                                         ->label(__('Signed application form'))
                                         ->disk('public')
                                         ->directory('membership-applications')
+                                        ->getUploadedFileNameForStorageUsing(function (TemporaryUploadedFile $file): string {
+                                            return StorageFilename::make('application-form', $file->getClientOriginalName(), [
+                                                auth()->id() ? ('admin-' . auth()->id()) : null,
+                                            ]);
+                                        })
                                         ->downloadable()
                                         ->openable()
                                         ->acceptedFileTypes(['application/pdf', 'image/jpeg', 'image/png', 'image/webp'])
@@ -579,7 +586,7 @@ class MembershipApplicationResource extends Resource
      */
     public static function approvePendingApplication(MembershipApplication $record): string
     {
-        $record->loadMissing('user');
+        $record->loadMissing('user', 'parentMember.user');
 
         $memberNumber = app(MemberNumberService::class)->generate();
 
@@ -591,8 +598,15 @@ class MembershipApplicationResource extends Resource
 
         $record->user->update(['status' => 'approved']);
 
+        $parent = $record->parentMember;
+        $householdEmail = $parent?->household_email ?: $parent?->user?->email ?: $record->user?->email;
+
         $member = Member::create([
             'user_id' => $record->user_id,
+            'parent_id' => $parent?->id,
+            'household_email' => $householdEmail,
+            'is_separated' => false,
+            'direct_login_enabled' => false,
             'member_number' => $memberNumber,
             'joined_at' => now()->toDateString(),
             'status' => 'active',

@@ -39,6 +39,7 @@ class User extends Authenticatable implements FilamentUser, HasLocalePreference
         'name',
         'email',
         'phone',
+        'avatar_path',
         'role',
         'status',
         'preferred_locale',
@@ -68,7 +69,7 @@ class User extends Authenticatable implements FilamentUser, HasLocalePreference
             return false;
         }
 
-        if ($panel->getId() === 'member' && $this->role === 'member') {
+        if ($panel->getId() === 'member') {
             $member = $this->member;
             if ($member === null) {
                 return false;
@@ -80,7 +81,7 @@ class User extends Authenticatable implements FilamentUser, HasLocalePreference
 
         return match ($panel->getId()) {
             'admin' => $this->role === 'admin',
-            'member' => $this->role === 'member',
+            'member' => $this->member !== null,
             default => false,
         };
     }

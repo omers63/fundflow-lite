@@ -5,9 +5,10 @@ namespace App\Filament\Member\Resources;
 use App\Filament\Member\Resources\MyDependentsResource\Pages;
 use App\Models\DependentAllocationChange;
 use App\Models\Member;
+use App\Models\User;
 use App\Services\AccountingService;
 use App\Services\AllocationService;
-use App\Services\ImpersonationService;
+use Filament\Facades\Filament;
 use Filament\Actions\Action;
 use Filament\Actions\ActionGroup;
 use Filament\Forms;
@@ -361,14 +362,24 @@ class MyDependentsResource extends Resource
                         ->color('primary')
                         ->requiresConfirmation()
                         ->modalDescription(__('You will switch into this dependent portal.'))
-                        ->action(function (Member $record): void {
-                            if (!$record->user) {
+                        ->action(function (Member $record, \Livewire\Component $livewire): void {
+                            if (!$record->user instanceof User) {
                                 return;
                             }
 
-                            app(ImpersonationService::class)
-                                ->start(auth()->user(), $record->user, $record);
-                            redirect('/member');
+                            $memberPanel = Filament::getPanel('member');
+                            if ($memberPanel !== null && !$record->user->canAccessPanel($memberPanel)) {
+                                Notification::make()
+                                    ->title(__('Dependent portal is not accessible'))
+                                    ->body(__('This dependent account cannot access the member portal yet (status may be pending, suspended, or terminated).'))
+                                    ->danger()
+                                    ->send();
+
+                                return;
+                            }
+
+                            $url = route('member.dependents.impersonate', ['dependent' => $record->id]);
+                            $livewire->js('window.location.assign(' . json_encode($url) . ');');
                         }),
 
                     // ── View allocation history ───────────────────────────────────

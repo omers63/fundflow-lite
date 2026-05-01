@@ -12,6 +12,8 @@ class MembershipApplication extends Model
 
     protected $fillable = [
         'user_id',
+        'parent_member_id',
+        'submitted_by_user_id',
         'application_type',
         'gender',
         'marital_status',
@@ -94,6 +96,16 @@ class MembershipApplication extends Model
     public function reviewer(): BelongsTo
     {
         return $this->belongsTo(User::class, 'reviewed_by');
+    }
+
+    public function parentMember(): BelongsTo
+    {
+        return $this->belongsTo(Member::class, 'parent_member_id');
+    }
+
+    public function submittedBy(): BelongsTo
+    {
+        return $this->belongsTo(User::class, 'submitted_by_user_id');
     }
 
     public function isPending(): bool
