@@ -7,6 +7,7 @@ use App\Models\DependentAllocationChange;
 use App\Models\Member;
 use App\Services\AccountingService;
 use App\Services\AllocationService;
+use App\Services\ImpersonationService;
 use Filament\Actions\Action;
 use Filament\Actions\ActionGroup;
 use Filament\Forms;
@@ -60,7 +61,7 @@ class MyDependentsResource extends Resource
 
     public static function table(Table $table): Table
     {
-        $parentMember = fn () => Member::where('user_id', auth()->id())->first();
+        $parentMember = fn() => Member::where('user_id', auth()->id())->first();
 
         return $table
             ->heading(__('Your dependents'))
@@ -72,7 +73,7 @@ class MyDependentsResource extends Resource
                     ->with([
                         'user',
                         'accounts',
-                        'allocationChangesReceived' => fn (Relation $query) => $query->latest()->limit(1),
+                        'allocationChangesReceived' => fn(Relation $query) => $query->latest()->limit(1),
                     ]);
             })
             ->columns([
@@ -94,7 +95,7 @@ class MyDependentsResource extends Resource
                         $last = DependentAllocationChange::where('dependent_member_id', $record->id)
                             ->latest()
                             ->first();
-                        if (! $last) {
+                        if (!$last) {
                             return null;
                         }
                         $dir = $last->isIncrease() ? '↑' : '↓';
@@ -102,19 +103,19 @@ class MyDependentsResource extends Resource
                         return "{$dir} {$last->deltaLabel()} · {$last->created_at->diffForHumans()}";
                     })
                     ->placeholder(__('Never changed'))
-                    ->color(fn (Member $record): ?string => null),
+                    ->color(fn(Member $record): ?string => null),
                 Tables\Columns\TextColumn::make('status')
                     ->label(__('app.field.status'))
                     ->badge()
                     ->visibleFrom('sm')
-                    ->formatStateUsing(fn (string $state): string => match ($state) {
+                    ->formatStateUsing(fn(string $state): string => match ($state) {
                         'active' => __('Active'),
                         'suspended' => __('Suspended'),
                         'delinquent' => __('Delinquent'),
                         'terminated' => __('Terminated'),
                         default => __(ucfirst(str_replace('_', ' ', $state))),
                     })
-                    ->color(fn (string $state) => match ($state) {
+                    ->color(fn(string $state) => match ($state) {
                         'active' => 'success',
                         'suspended' => 'warning',
                         'delinquent', 'terminated' => 'danger',
@@ -124,8 +125,8 @@ class MyDependentsResource extends Resource
                     ->label(__('Cash Balance'))
                     ->money('SAR')
                     ->visibleFrom('md')
-                    ->getStateUsing(fn (Member $r) => $r->cash_balance)
-                    ->color(fn (Member $r) => $r->cash_balance >= 0 ? 'success' : 'danger'),
+                    ->getStateUsing(fn(Member $r) => $r->cash_balance)
+                    ->color(fn(Member $r) => $r->cash_balance >= 0 ? 'success' : 'danger'),
             ])
             ->filters([
                 Tables\Filters\SelectFilter::make('status')
@@ -140,6 +141,13 @@ class MyDependentsResource extends Resource
                     ->options(Member::contributionAmountOptions()),
             ])
             ->headerActions([
+                Action::make('apply_for_dependent')
+                    ->label(__('Apply for a Dependent'))
+                    ->icon('heroicon-o-user-plus')
+                    ->color('success')
+                    ->url(fn(): string => route('member.dependents.apply', ['on_behalf' => 1]))
+                    ->openUrlInNewTab(),
+
                 // ── Bulk update all dependents at once ───────────────────────
                 Action::make('bulk_update_allocations')
                     ->label(__('Update allocations (all)'))
@@ -147,7 +155,7 @@ class MyDependentsResource extends Resource
                     ->color('primary')
                     ->modalHeading(__('Update dependent allocations'))
                     ->modalDescription(new HtmlString(
-                        '<p class="text-sm text-gray-600 dark:text-gray-400">'.e(__('Changed amounts are applied immediately and administrators are notified automatically.')).'</p>'
+                        '<p class="text-sm text-gray-600 dark:text-gray-400">' . e(__('Changed amounts are applied immediately and administrators are notified automatically.')) . '</p>'
                     ))
                     ->modalWidth('xl')
                     ->schema(function () use ($parentMember): array {
@@ -170,7 +178,7 @@ class MyDependentsResource extends Resource
                                 ->options(Member::contributionAmountOptions())
                                 ->default($dep->monthly_contribution_amount)
                                 ->required()
-                                ->helperText(fn () => __('Current allocation: :currency :alloc · Cash: :currency :cash', [
+                                ->helperText(fn() => __('Current allocation: :currency :alloc · Cash: :currency :cash', [
                                     'currency' => __('SAR'),
                                     'alloc' => number_format($dep->monthly_contribution_amount),
                                     'cash' => number_format($dep->cash_balance, 2),
@@ -187,7 +195,7 @@ class MyDependentsResource extends Resource
                     })
                     ->action(function (array $data) use ($parentMember) {
                         $parent = $parentMember();
-                        if (! $parent) {
+                        if (!$parent) {
                             Notification::make()->title(__('Member record not found.'))->danger()->send();
 
                             return;
@@ -210,7 +218,7 @@ class MyDependentsResource extends Resource
                         );
 
                         $body = app(AllocationService::class)->buildSummary($results);
-                        $updated = collect($results)->filter(fn (array $row): bool => $row['change'] !== null)->count();
+                        $updated = collect($results)->filter(fn(array $row): bool => $row['change'] !== null)->count();
 
                         Notification::make()
                             ->title($updated > 0 ? __('Allocations updated') : __('No changes applied'))
@@ -226,7 +234,7 @@ class MyDependentsResource extends Resource
                         ->label(__('Update allocation'))
                         ->icon('heroicon-o-adjustments-horizontal')
                         ->color('warning')
-                        ->fillForm(fn (Member $record) => [
+                        ->fillForm(fn(Member $record) => [
                             'monthly_contribution_amount' => $record->monthly_contribution_amount,
                             'note' => null,
                         ])
@@ -235,7 +243,7 @@ class MyDependentsResource extends Resource
                                 ->label(__('Monthly Contribution Amount'))
                                 ->options(Member::contributionAmountOptions())
                                 ->required()
-                                ->helperText(fn (?Member $record) => $record
+                                ->helperText(fn(?Member $record) => $record
                                     ? __('Current allocation: :currency :alloc · Cash balance: :currency :cash', [
                                         'currency' => __('SAR'),
                                         'alloc' => number_format($record->monthly_contribution_amount),
@@ -249,14 +257,14 @@ class MyDependentsResource extends Resource
                         ])
                         ->action(function (Member $record, array $data) use ($parentMember) {
                             $parent = $parentMember();
-                            if (! $parent) {
+                            if (!$parent) {
                                 Notification::make()->title(__('Parent member not found.'))->danger()->send();
 
                                 return;
                             }
 
                             $newAmount = (int) $data['monthly_contribution_amount'];
-                            if (! Member::isValidContributionAmount($newAmount)) {
+                            if (!Member::isValidContributionAmount($newAmount)) {
                                 Notification::make()->title(__('Invalid amount selected.'))->danger()->send();
 
                                 return;
@@ -321,7 +329,7 @@ class MyDependentsResource extends Resource
                         })
                         ->action(function (Member $record, array $data) use ($parentMember) {
                             $parent = $parentMember();
-                            if (! $parent) {
+                            if (!$parent) {
                                 Notification::make()->title(__('Your member record was not found.'))->danger()->send();
 
                                 return;
@@ -347,13 +355,30 @@ class MyDependentsResource extends Resource
                             }
                         }),
 
+                    Action::make('open_as_dependent')
+                        ->label(__('Open Portal as Dependent'))
+                        ->icon('heroicon-o-arrow-right-end-on-rectangle')
+                        ->color('primary')
+                        ->requiresConfirmation()
+                        ->modalDescription(__('You will switch into this dependent portal.'))
+                        ->action(function (Member $record): void {
+                            if (!$record->user) {
+                                return;
+                            }
+
+                            app(ImpersonationService::class)
+                                ->start(auth()->user(), $record->user, $record);
+                            redirect('/member');
+                        }),
+
                     // ── View allocation history ───────────────────────────────────
                     Action::make('view_history')
                         ->label(__('History'))
                         ->icon('heroicon-o-clock')
                         ->color('gray')
-                        ->modalHeading(fn (Member $record) => __('Allocation History — :name', ['name' => $record->user?->name ?? '']))
+                        ->modalHeading(fn(Member $record) => __('Allocation History — :name', ['name' => $record->user?->name ?? '']))
                         ->modalContent(function (Member $record): HtmlString {
+                            /** @var \Illuminate\Support\Collection<int, DependentAllocationChange> $changes */
                             $changes = DependentAllocationChange::where('dependent_member_id', $record->id)
                                 ->with('changedBy')
                                 ->latest()
@@ -366,20 +391,21 @@ class MyDependentsResource extends Resource
 
                             $rows = '';
                             foreach ($changes as $c) {
+                                /** @var DependentAllocationChange $c */
                                 $dir = $c->isIncrease()
                                     ? '<span class="text-emerald-600 font-bold">↑</span>'
                                     : '<span class="text-amber-600 font-bold">↓</span>';
                                 $delta = $c->isIncrease()
-                                    ? '<span class="text-emerald-600">+'.e(__('SAR')).' '.number_format(abs($c->delta())).'</span>'
-                                    : '<span class="text-amber-600">−'.e(__('SAR')).' '.number_format(abs($c->delta())).'</span>';
+                                    ? '<span class="text-emerald-600">+' . e(__('SAR')) . ' ' . number_format(abs($c->delta())) . '</span>'
+                                    : '<span class="text-amber-600">−' . e(__('SAR')) . ' ' . number_format(abs($c->delta())) . '</span>';
                                 $by = e($c->changedBy?->name ?? __('System'));
-                                $note = $c->note ? '<br><span class="text-gray-400 text-xs">'.e($c->note).'</span>' : '';
+                                $note = $c->note ? '<br><span class="text-gray-400 text-xs">' . e($c->note) . '</span>' : '';
                                 $date = $c->created_at->locale(app()->getLocale())->translatedFormat('d M Y H:i');
 
                                 $rows .= "
                                 <tr class=\"border-b border-gray-100 dark:border-gray-700\">
                                     <td class=\"py-2 px-3 text-xs text-gray-500\">{$date}</td>
-                                    <td class=\"py-2 px-3 text-sm\">{$dir} ".e(__('SAR'))." {$c->old_amount} → ".e(__('SAR'))." {$c->new_amount}</td>
+                                    <td class=\"py-2 px-3 text-sm\">{$dir} " . e(__('SAR')) . " {$c->old_amount} → " . e(__('SAR')) . " {$c->new_amount}</td>
                                     <td class=\"py-2 px-3 text-sm\">{$delta}</td>
                                     <td class=\"py-2 px-3 text-sm\">{$by}{$note}</td>
                                 </tr>";
