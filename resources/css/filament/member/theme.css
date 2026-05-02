@@ -4,6 +4,55 @@
 @source '../../../../app/Filament/Member/**/*';
 @source '../../../../resources/views/filament/member/**/*';
 
+/* ─── Member profile page (identity card) — same purge-safe pattern as admin ─ */
+
+.fi-body.fi-panel-member .member-profile-identity-card {
+    border-radius: 1rem;
+    padding: 1.5rem;
+    color: #ffffff;
+    background: linear-gradient(135deg, #0369a1 0%, #075985 50%, #312e81 100%);
+    box-shadow:
+        0 10px 15px -3px rgb(0 0 0 / 0.1),
+        0 4px 6px -4px rgb(0 0 0 / 0.1);
+    border: 1px solid rgb(125 211 252 / 0.35);
+}
+
+.fi-body.fi-panel-member .member-profile-identity-card .member-profile-identity-muted {
+    color: rgb(255 255 255 / 0.9);
+}
+
+.fi-body.fi-panel-member .member-profile-identity-card .member-profile-identity-heading {
+    margin: 0;
+    color: #ffffff;
+    font-size: 1.5rem;
+    line-height: 2rem;
+    font-weight: 700;
+}
+
+.fi-body.fi-panel-member .member-profile-identity-card .member-profile-status {
+    display: inline-flex;
+    align-items: center;
+    border-radius: 9999px;
+    padding: 0.25rem 0.75rem;
+    font-size: 0.75rem;
+    line-height: 1rem;
+    font-weight: 600;
+    border-width: 1px;
+    border-style: solid;
+}
+
+.fi-body.fi-panel-member .member-profile-identity-card .member-profile-status--active {
+    background: rgb(52 211 153 / 0.25);
+    color: #ffffff;
+    border-color: rgb(167 243 208 / 0.4);
+}
+
+.fi-body.fi-panel-member .member-profile-identity-card .member-profile-status--inactive {
+    background: rgb(251 191 36 / 0.25);
+    color: #ffffff;
+    border-color: rgb(253 230 138 / 0.4);
+}
+
 /* ─── Table enhancements ─────────────────────────────────────────────────── */
 
 .fi-ta-row {

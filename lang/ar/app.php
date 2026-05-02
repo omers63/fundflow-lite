@@ -230,4 +230,12 @@ return [
     'member.allocation_updated_body' => 'تم تحديث مبلغ المساهمة الشهرية بنجاح.',
     'member.my_dependents' => 'المعالون',
 
+    // Admin area (own profile)
+    'admin.my_profile' => 'ملفي الشخصي',
+    'admin.edit_profile' => 'تعديل الملف الشخصي',
+    'admin.edit_profile_subheading' => 'حدّث الاسم وبيانات الاتصال واللغة والصورة وكلمة المرور.',
+    'admin.profile_edit_section' => 'بيانات الملف',
+    'admin.email_helper' => 'يجب أن يكون فريداً بين جميع المستخدمين.',
+    'admin.phone_helper' => 'اختياري. يُستخدم إذا أرسل النظام رسائل نصية أو واتساب.',
+
 ];

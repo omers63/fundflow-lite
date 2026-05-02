@@ -224,4 +224,12 @@ return [
     'member.allocation_updated_body' => 'Your monthly contribution amount was updated successfully.',
     'member.my_dependents' => 'My Dependents',
 
+    // Admin area (own profile)
+    'admin.my_profile' => 'My Profile',
+    'admin.edit_profile' => 'Edit profile',
+    'admin.edit_profile_subheading' => 'Update your name, contact details, language, avatar, and password.',
+    'admin.profile_edit_section' => 'Profile details',
+    'admin.email_helper' => 'Must be unique for all users in the system.',
+    'admin.phone_helper' => 'Optional. Used if the system sends you SMS or WhatsApp.',
+
 ];

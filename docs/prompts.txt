@@ -185,3 +185,4 @@ I need an action added to allow me to split a transaction in the master cash acc
 Are there any case where one would need to reverse a transaction (either cash or fund), at master level or member account level. If so, prepare a plan and then implement reverse functionality.
 Allow me to control and configure (via an action header with icon only and no label) what widgets to show and what to hide in the dashboard and members pages only. Do the same for member's dashboard based on the member choice. These settings should presist.
 can you generate a full database seeder that excercise all application features and give me full convediance that all functions work properly. Please be conmrehensive and accurate.
+Can you breifly explain how funds flow for a partial/full disbursement of loan to a member

@@ -3,8 +3,10 @@
 namespace App\Providers\Filament;
 
 use App\Filament\Member\Pages\Dashboard;
+use App\Filament\Member\Pages\MyProfilePage;
 use App\Filament\Member\Widgets\MemberStatsOverview;
 use App\Http\Middleware\AuthenticateMemberPanel;
+use Filament\Actions\Action;
 use Filament\Http\Middleware\DisableBladeIconComponents;
 use Filament\Http\Middleware\DispatchServingFilamentEvent;
 use Filament\Navigation\NavigationGroup;
@@ -32,6 +34,13 @@ class MemberPanelProvider extends PanelProvider
             ->sidebarCollapsibleOnDesktop()
             ->sidebarFullyCollapsibleOnDesktop()
             ->brandName(fn(): string => app()->getLocale() === 'ar' ? 'فندفلو — بوابة العضو' : __('app.brand.member'))
+            ->userMenuItems([
+                Action::make('profile')
+                    ->label(fn(): string => __('app.member.my_profile'))
+                    ->icon('heroicon-o-user-circle')
+                    ->url(fn(): string => MyProfilePage::getUrl())
+                    ->sort(-1),
+            ])
             ->disabledErrorNotification(419)
             ->disabledErrorNotification(401)
             ->renderHook(

@@ -1,10 +1,8 @@
 <?php
 
-namespace App\Filament\Member\Pages;
+namespace App\Filament\Admin\Pages;
 
-use App\Models\Member;
 use App\Models\User;
-use App\Services\HouseholdAccessService;
 use App\Support\StorageFilename;
 use Filament\Actions\Action;
 use Filament\Forms;
@@ -27,7 +25,7 @@ use Livewire\Features\SupportFileUploads\TemporaryUploadedFile;
 /**
  * @property-read Schema $form
  */
-class EditMyProfilePage extends Page
+class EditAdminProfilePage extends Page
 {
     protected static bool $shouldRegisterNavigation = false;
 
@@ -46,7 +44,7 @@ class EditMyProfilePage extends Page
 
     public static function getNavigationLabel(): string
     {
-        return __('app.member.edit_profile');
+        return __('app.admin.edit_profile');
     }
 
     public static function getNavigationGroup(): ?string
@@ -56,24 +54,19 @@ class EditMyProfilePage extends Page
 
     public function getTitle(): string|\Illuminate\Contracts\Support\Htmlable
     {
-        return __('app.member.edit_profile');
+        return __('app.admin.edit_profile');
     }
 
     public function getSubheading(): ?string
     {
-        return __('app.member.edit_profile_subheading');
+        return __('app.admin.edit_profile_subheading');
     }
 
     public static function canAccess(): bool
     {
         $user = auth()->user();
 
-        return $user instanceof User && $user->member !== null;
-    }
-
-    protected function currentMember(): ?Member
-    {
-        return Member::where('user_id', auth()->id())->first();
+        return $user instanceof User && $user->isAdmin();
     }
 
     public function mount(): void
@@ -84,7 +77,6 @@ class EditMyProfilePage extends Page
     protected function fillForm(): void
     {
         $user = auth()->user();
-        $member = $this->currentMember();
         if (!$user instanceof User) {
             return;
         }
@@ -100,12 +92,9 @@ class EditMyProfilePage extends Page
                 ? (User::normalizePublicDiskRelativePath($user->avatar_path) ?? $user->avatar_path)
                 : null,
             'remove_avatar' => false,
-            'set_parent_pin' => $member?->parent_id === null,
             'current_password' => null,
             'new_password' => null,
             'new_password_confirmation' => null,
-            'pin' => null,
-            'pin_confirmation' => null,
         ]);
     }
 
@@ -119,7 +108,7 @@ class EditMyProfilePage extends Page
     {
         return $schema
             ->schema([
-                Section::make(__('app.member.profile_edit_section'))
+                Section::make(__('app.admin.profile_edit_section'))
                     ->schema([
                         Forms\Components\TextInput::make('name')
                             ->label(__('Full Name'))
@@ -129,16 +118,16 @@ class EditMyProfilePage extends Page
                         Forms\Components\TextInput::make('phone')
                             ->label(__('app.field.phone'))
                             ->tel()
-                            ->required()
                             ->maxLength(50)
-                            ->helperText(__('app.member.phone_helper')),
+                            ->helperText(__('app.admin.phone_helper')),
                         Forms\Components\TextInput::make('email')
                             ->label(__('Email Address'))
                             ->email()
                             ->required()
                             ->maxLength(255)
+                            ->unique(User::class, 'email', ignorable: fn() => auth()->user())
                             ->columnSpanFull()
-                            ->helperText(__('Dependents that use a unique login email become separated (direct login enabled). Using household email rejoins and disables direct login.')),
+                            ->helperText(__('app.admin.email_helper')),
                         Forms\Components\Select::make('preferred_locale')
                             ->label(__('app.member.preferred_language'))
                             ->helperText(__('app.member.preferred_language_helper'))
@@ -186,19 +175,6 @@ class EditMyProfilePage extends Page
                             ->revealable()
                             ->same('new_password')
                             ->dehydrated(false),
-                        Forms\Components\Toggle::make('set_parent_pin')
-                            ->label(__('Set Parent PIN'))
-                            ->visible(fn() => $this->currentMember()?->parent_id === null),
-                        Forms\Components\TextInput::make('pin')
-                            ->label(__('4-digit PIN'))
-                            ->password()
-                            ->rules(['nullable', 'digits:4'])
-                            ->visible(fn($get) => (bool) $get('set_parent_pin')),
-                        Forms\Components\TextInput::make('pin_confirmation')
-                            ->label(__('Confirm PIN'))
-                            ->password()
-                            ->same('pin')
-                            ->visible(fn($get) => (bool) $get('set_parent_pin')),
                     ])
                     ->columns(2),
             ]);
@@ -238,16 +214,15 @@ class EditMyProfilePage extends Page
                 ->keyBindings(['mod+s']),
             Action::make('cancel')
                 ->label(__('Cancel'))
-                ->url(fn() => MyProfilePage::getUrl())
+                ->url(fn() => AdminProfilePage::getUrl())
                 ->color('gray'),
         ];
     }
 
     public function save(): void
     {
-        $member = $this->currentMember();
         $user = auth()->user();
-        if (!$member || !$user instanceof User) {
+        if (!$user instanceof User || !$user->isAdmin()) {
             return;
         }
 
@@ -262,8 +237,6 @@ class EditMyProfilePage extends Page
         $newAvatarPath = filled($rawAvatar) ? (string) $rawAvatar : null;
         $newAvatarPath = User::normalizePublicDiskRelativePath($newAvatarPath) ?? $newAvatarPath;
 
-        // Incomplete Livewire upload — keep previous avatar; do not use `exists()` here (path can be valid
-        // while checks fail due to timing or normalization differences after Filament stores the file).
         if ($newAvatarPath !== null && str_contains($newAvatarPath, 'livewire-tmp')) {
             $newAvatarPath = User::normalizePublicDiskRelativePath((string) $oldAvatarPath) ?? $oldAvatarPath;
         }
@@ -275,26 +248,12 @@ class EditMyProfilePage extends Page
 
         $user->update([
             'name' => (string) $data['name'],
-            'phone' => (string) $data['phone'],
+            'phone' => filled($data['phone'] ?? null) ? (string) $data['phone'] : null,
+            'email' => (string) $data['email'],
             'preferred_locale' => (string) $preferredLocale,
         ]);
 
         session()->put('locale', $user->fresh()->preferredLocale());
-
-        $newEmail = (string) $data['email'];
-        if ($newEmail !== (string) $user->email) {
-            try {
-                app(HouseholdAccessService::class)->updateMemberLoginEmail($member, $user, $newEmail);
-            } catch (\InvalidArgumentException) {
-                Notification::make()
-                    ->title(__('Email already in use.'))
-                    ->body(__('Choose a unique email, or use your household email to rejoin.'))
-                    ->danger()
-                    ->send();
-
-                return;
-            }
-        }
 
         if ((bool) ($data['remove_avatar'] ?? false)) {
             if (filled($oldAvatarPath)) {
@@ -330,15 +289,9 @@ class EditMyProfilePage extends Page
             $user->update(['password' => Hash::make($newPassword)]);
         }
 
-        $shouldSetPin = (bool) ($data['set_parent_pin'] ?? false);
-        $pin = (string) ($data['pin'] ?? '');
-        if ($member->parent_id === null && $shouldSetPin && $pin !== '') {
-            $member->update(['portal_pin' => Hash::make($pin)]);
-        }
-
         Notification::make()->title(__('Profile updated successfully.'))->success()->send();
 
-        $url = MyProfilePage::getUrl();
+        $url = AdminProfilePage::getUrl();
         $this->redirect($url, navigate: FilamentView::hasSpaMode($url));
     }
 
@@ -346,7 +299,7 @@ class EditMyProfilePage extends Page
     {
         return [
             static::getRouteName(),
-            MyProfilePage::getRouteName(),
+            AdminProfilePage::getRouteName(),
         ];
     }
 }

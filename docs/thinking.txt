@@ -4217,3 +4217,27 @@ Verification evidence
 Feature tests pass: 10 passed, 33 assertions.
 Syntax checks pass on changed files.
 Only remaining linter warnings are pre-existing/static-analysis warnings in MyDependentsResource history block (stdClass::isIncrease()/delta()), not introduced by this design work.
+I’ll give you a concise flow based on the actual implementation so it matches your system behavior.
+
+Yes — briefly, in your current system:
+
+Each disbursement posting (partial or full tranche) does 3 ledger entries:
+
+Debit master fund account by tranche amount
+Debit member fund account by the same amount (mirror entry for ledger symmetry)
+Debit the loan account by the tranche amount (tracks outstanding principal)
+Partial disbursement
+
+Increases loan.amount_disbursed
+Loan stays approved (not active yet)
+Member gets partial-disbursement notification
+Repayment schedule is not created yet
+When cumulative disbursed amount reaches approved amount (full disbursement)
+
+Loan switches to active
+System computes installment count + first repayment period
+Creates installment rows
+Sends full-disbursement notification
+Important distinction
+
+The member_portion / master_portion used for loan semantics is finalized on activation, based on member fund balance before activation logic; the per-tranche ledger still posts master debit + member mirror for operational consistency.

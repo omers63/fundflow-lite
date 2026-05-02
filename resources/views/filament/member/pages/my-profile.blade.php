@@ -6,13 +6,12 @@
 
     <div class="space-y-6">
 
-        {{-- ── Identity card ───────────────────────────────────────────────────── --}}
-        <div
-            class="rounded-2xl bg-gradient-to-br from-sky-700 via-sky-800 to-indigo-900 p-6 text-white shadow-lg ring-1 ring-sky-400/30">
-            <div class="flex flex-col sm:flex-row sm:items-center gap-5">
+        {{-- ── Identity card (CSS in member theme — same purge-safe pattern as admin profile) ── --}}
+        <div class="member-profile-identity-card">
+            <div class="flex flex-col gap-5 sm:flex-row sm:items-center">
                 {{-- Avatar --}}
                 <div
-                    class="relative flex-shrink-0 h-20 w-20 rounded-full bg-white/20 ring-2 ring-white/30 overflow-hidden flex items-center justify-center text-3xl font-bold select-none">
+                    class="relative flex h-20 w-20 flex-shrink-0 items-center justify-center overflow-hidden rounded-full border-2 border-white/30 bg-white/20 text-3xl font-bold text-white select-none ring-2 ring-white/30">
                     @if($url = $user?->avatarPublicUrl())
                         <img src="{{ $url }}" alt="{{ $user?->name }}"
                             class="absolute inset-0 h-full w-full object-cover object-center">
@@ -20,31 +19,30 @@
                         {{ strtoupper(mb_substr($user?->name ?? '?', 0, 1)) }}
                     @endif
                 </div>
-                <div class="flex-1 min-w-0">
-                    <p class="text-2xl font-bold leading-tight">{{ $user?->name }}</p>
+                <div class="min-w-0 flex-1">
+                    <p class="member-profile-identity-heading">{{ $user?->name }}</p>
                     @if($member)
-                        <p class="mt-1 text-white/90 text-sm font-mono">{{ $member->member_number }}</p>
+                        <p class="member-profile-identity-muted mt-1 font-mono text-sm">{{ $member->member_number }}</p>
                     @endif
                     <div class="mt-2 flex flex-wrap gap-3 text-sm">
-                        <span class="flex items-center gap-1 text-white/90">
-                            <x-heroicon-o-envelope class="w-4 h-4" /> {{ $user?->email }}
+                        <span class="member-profile-identity-muted flex items-center gap-1">
+                            <x-heroicon-o-envelope class="h-4 w-4 shrink-0" /> {{ $user?->email }}
                         </span>
                         @if($user?->phone)
-                            <span class="flex items-center gap-1 text-white/90">
-                                <x-heroicon-o-phone class="w-4 h-4" />
-                                <x-phone-display :value="$user?->phone" class="!font-mono text-white/90" />
+                            <span class="member-profile-identity-muted flex items-center gap-1">
+                                <x-heroicon-o-phone class="h-4 w-4 shrink-0" />
+                                <x-phone-display :value="$user?->phone" class="member-profile-identity-muted !font-mono" />
                             </span>
                         @endif
                     </div>
                 </div>
                 @if($member)
-                            <div class="flex-shrink-0">
-                                <span class="inline-flex items-center rounded-full px-3 py-1 text-xs font-semibold ring-1
-                                {{ $member->status === 'active' ? 'bg-emerald-400/25 text-white ring-emerald-200/40'
-                    : 'bg-amber-400/25 text-white ring-amber-200/40' }}">
-                                    {{ __(ucfirst(str_replace('_', ' ', $member->status))) }}
-                                </span>
-                            </div>
+                    <div class="flex-shrink-0">
+                        <span
+                            class="member-profile-status {{ $member->status === 'active' ? 'member-profile-status--active' : 'member-profile-status--inactive' }}">
+                            {{ __(ucfirst(str_replace('_', ' ', $member->status))) }}
+                        </span>
+                    </div>
                 @endif
             </div>
         </div>

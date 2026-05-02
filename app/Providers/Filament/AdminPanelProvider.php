@@ -2,6 +2,7 @@
 
 namespace App\Providers\Filament;
 
+use App\Filament\Admin\Pages\AdminProfilePage;
 use App\Filament\Admin\Pages\Dashboard;
 use App\Filament\Admin\Pages\PostedFundsPage;
 use App\Filament\Admin\Pages\ReconciliationPage;
@@ -10,6 +11,7 @@ use App\Filament\Admin\Pages\SystemMaintenancePage;
 use App\Filament\Admin\Pages\SystemSettingsPage;
 use App\Filament\Admin\Widgets\AdminStatsOverview;
 use BezhanSalleh\FilamentShield\FilamentShieldPlugin;
+use Filament\Actions\Action;
 use Filament\Http\Middleware\Authenticate;
 use Filament\Http\Middleware\AuthenticateSession;
 use Filament\Http\Middleware\DisableBladeIconComponents;
@@ -60,6 +62,13 @@ class AdminPanelProvider extends PanelProvider
             ->sidebarCollapsibleOnDesktop()
             ->sidebarFullyCollapsibleOnDesktop()
             ->brandName(fn(): string => app()->getLocale() === 'ar' ? 'فندفلو — لوحة الإدارة' : __('app.brand.admin'))
+            ->userMenuItems([
+                Action::make('profile')
+                    ->label(fn(): string => __('app.admin.my_profile'))
+                    ->icon('heroicon-o-user-circle')
+                    ->url(fn(): string => AdminProfilePage::getUrl())
+                    ->sort(-1),
+            ])
             ->databaseNotifications()
             ->databaseNotificationsPolling('30s')
             ->colors([

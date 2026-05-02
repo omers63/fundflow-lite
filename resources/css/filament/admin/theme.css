@@ -65,6 +65,45 @@
     @apply font-semibold text-base;
 }
 
+/* ─── Admin profile page (identity card) ────────────────────────────────── */
+/*
+ * Custom page views must not rely on Tailwind color utilities alone — v4 scanning
+ * can omit classes only used in Blade, leaving a transparent card and inherited
+ * body text (light-on-light). This block is always bundled.
+ */
+.fi-body.fi-panel-admin .admin-profile-identity-card {
+    border-radius: 1rem;
+    padding: 1.5rem;
+    color: #ffffff;
+    background: linear-gradient(135deg, #0369a1 0%, #075985 50%, #312e81 100%);
+    box-shadow:
+        0 10px 15px -3px rgb(0 0 0 / 0.1),
+        0 4px 6px -4px rgb(0 0 0 / 0.1);
+    border: 1px solid rgb(125 211 252 / 0.35);
+}
+
+.fi-body.fi-panel-admin .admin-profile-identity-card a {
+    color: rgb(255 255 255);
+    text-decoration: underline;
+    text-underline-offset: 2px;
+}
+
+.fi-body.fi-panel-admin .admin-profile-identity-card .admin-profile-identity-muted {
+    color: rgb(255 255 255 / 0.9);
+}
+
+.fi-body.fi-panel-admin .admin-profile-identity-card .admin-profile-identity-subtle {
+    color: rgb(255 255 255 / 0.8);
+}
+
+.fi-body.fi-panel-admin .admin-profile-identity-card .admin-profile-identity-heading {
+    margin: 0;
+    color: #ffffff;
+    font-size: 1.5rem;
+    line-height: 2rem;
+    font-weight: 700;
+}
+
 /* ─── Admin auth page theming ───────────────────────────────────────────── */
 
 .fi-body.fi-panel-admin .fi-simple-layout {

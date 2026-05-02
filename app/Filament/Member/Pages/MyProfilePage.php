@@ -11,6 +11,8 @@ class MyProfilePage extends Page
 {
     protected string $view = 'filament.member.pages.my-profile';
 
+    protected static bool $shouldRegisterNavigation = false;
+
     protected static ?string $navigationLabel = 'My Profile';
 
     protected static string|\BackedEnum|null $navigationIcon = 'heroicon-o-user-circle';
