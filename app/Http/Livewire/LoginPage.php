@@ -213,6 +213,7 @@ class LoginPage extends Component
             if ($user->isAdmin()) {
                 Auth::login($user, $this->remember);
                 session()->regenerate();
+                session()->put('locale', $user->preferredLocale());
                 $this->redirect('/admin', navigate: false);
 
                 return;
@@ -226,6 +227,7 @@ class LoginPage extends Component
         Auth::login($user, $this->remember);
 
         session()->regenerate();
+        session()->put('locale', $user->preferredLocale());
 
         $this->redirect('/member', navigate: false);
     }
@@ -294,7 +296,7 @@ class LoginPage extends Component
                 'name' => (string) ($m->user?->name ?? __('Member')),
                 'is_parent' => $m->id === $householdParent->id,
                 'is_separated' => (bool) $m->is_separated,
-                'avatar_url' => filled($m->user?->avatar_path) ? asset('storage/' . $m->user->avatar_path) : null,
+                'avatar_url' => $m->user?->avatarPublicUrl(),
             ])
             ->all();
     }

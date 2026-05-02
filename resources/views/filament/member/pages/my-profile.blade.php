@@ -12,10 +12,10 @@
             <div class="flex flex-col sm:flex-row sm:items-center gap-5">
                 {{-- Avatar --}}
                 <div
-                    class="flex-shrink-0 h-20 w-20 rounded-full bg-white/20 ring-2 ring-white/30 overflow-hidden flex items-center justify-center text-3xl font-bold select-none">
-                    @if(filled($user?->avatar_path))
-                        <img src="{{ asset('storage/' . $user->avatar_path) }}" alt="{{ $user?->name }}"
-                            class="h-full w-full object-cover">
+                    class="relative flex-shrink-0 h-20 w-20 rounded-full bg-white/20 ring-2 ring-white/30 overflow-hidden flex items-center justify-center text-3xl font-bold select-none">
+                    @if($url = $user?->avatarPublicUrl())
+                        <img src="{{ $url }}" alt="{{ $user?->name }}"
+                            class="absolute inset-0 h-full w-full object-cover object-center">
                     @else
                         {{ strtoupper(mb_substr($user?->name ?? '?', 0, 1)) }}
                     @endif

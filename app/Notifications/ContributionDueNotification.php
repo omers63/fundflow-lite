@@ -46,13 +46,15 @@ class ContributionDueNotification extends Notification
 
     private function shortBody(): string
     {
+        $locale = app()->getLocale();
+
         return $this->tr(
             'Your contribution for :period (SAR :amount) is due by :deadline. Current cash balance: SAR :balance.',
             'استحقاق مساهمتك لفترة :period (SAR :amount) بتاريخ :deadline. رصيدك النقدي الحالي: SAR :balance.',
             [
                 'period' => $this->periodLabel(),
                 'amount' => number_format($this->amount, 2),
-                'deadline' => $this->deadline->format('d M Y'),
+                'deadline' => $this->deadline->copy()->locale($locale)->translatedFormat('d M Y'),
                 'balance' => number_format($this->cashBalance, 2),
             ],
         );
@@ -77,11 +79,13 @@ class ContributionDueNotification extends Notification
     {
         $sufficient = $this->cashBalance >= $this->amount;
         $locale = method_exists($notifiable, 'preferredLocale') ? $notifiable->preferredLocale() : app()->getLocale();
+        $locale = in_array($locale, ['ar', 'en'], true) ? $locale : 'en';
+        $deadlineFormatted = $this->deadline->copy()->locale($locale)->translatedFormat('d F Y');
         $vars = [
             'name' => $notifiable->name,
             'period' => $this->periodLabel(),
             'amount' => number_format($this->amount, 2),
-            'date' => $this->deadline->format('d F Y'),
+            'date' => $deadlineFormatted,
             'balance' => number_format($this->cashBalance, 2),
         ];
 
@@ -97,8 +101,8 @@ class ContributionDueNotification extends Notification
             EmailTemplateService::get('contribution_due', 'body', $locale, implode("\n", [
                 $this->tr('Your monthly contribution for **:period** is due.', 'مساهمتك الشهرية لفترة **:period** مستحقة.', ['period' => $this->periodLabel()]),
                 $this->tr('**Amount due:** SAR :amount', '**المبلغ المستحق:** SAR :amount', ['amount' => number_format($this->amount, 2)]),
-                $this->tr('**Deadline:** :date', '**تاريخ الاستحقاق:** :date', ['date' => $this->deadline->format('d F Y')]),
-                $this->tr('**Your current cash balance:** SAR :amount', '**رصيدك النقدي الحالي:** SAR :amount', ['amount' => number_format($this->cashBalance, 2)]),
+                $this->tr('**Deadline:** :date', '**تاريخ الاستحقاق:** :date', ['date' => $deadlineFormatted]),
+                $this->tr('**Your current cash balance:** SAR :balance', '**رصيدك النقدي الحالي:** SAR :balance', ['balance' => number_format($this->cashBalance, 2)]),
             ])),
             $vars
         );
@@ -155,6 +159,9 @@ class ContributionDueNotification extends Notification
     {
         $sufficient = $this->cashBalance >= $this->amount;
         $icon = $sufficient ? '🔔' : '⚠️';
+        $locale = method_exists($notifiable, 'preferredLocale') ? $notifiable->preferredLocale() : app()->getLocale();
+        $locale = in_array($locale, ['ar', 'en'], true) ? $locale : 'en';
+        $deadlineFormatted = $this->deadline->copy()->locale($locale)->translatedFormat('d F Y');
 
         return $this->tr(
             "{$icon} *FundFlow – Contribution Due*\n\nDear :name,\n\nYour contribution for *:period* is due.\n\n*Amount:* SAR :amount\n*Deadline:* :date\n*Cash Balance:* SAR :balance\n\n:url",
@@ -163,7 +170,7 @@ class ContributionDueNotification extends Notification
                 'name' => $notifiable->name,
                 'period' => $this->periodLabel(),
                 'amount' => number_format($this->amount, 2),
-                'date' => $this->deadline->format('d F Y'),
+                'date' => $deadlineFormatted,
                 'balance' => number_format($this->cashBalance, 2),
                 'url' => url('/member'),
             ],

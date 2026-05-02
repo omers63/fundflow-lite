@@ -29,22 +29,26 @@ class SetLocale
 
     public function handle(Request $request, Closure $next): Response
     {
-        $sessionLocale = $request->session()->get('locale');
-        $userLocale = $request->user()?->preferred_locale;
+        $user = $request->user();
 
-        $locale = $sessionLocale ?: $userLocale;
+        if ($user !== null) {
+            $locale = $user->preferredLocale();
+        } else {
+            $sessionLocale = $request->session()->get('locale');
+            $locale = $sessionLocale;
 
-        if (! is_string($locale) || $locale === '') {
-            $routeName = $request->route()?->getName();
+            if (!is_string($locale) || $locale === '') {
+                $routeName = $request->route()?->getName();
 
-            if (is_string($routeName) && in_array($routeName, self::PUBLIC_ROUTES, true)) {
-                $locale = 'ar';
-            } else {
-                $locale = config('app.locale', 'en');
+                if (is_string($routeName) && in_array($routeName, self::PUBLIC_ROUTES, true)) {
+                    $locale = 'ar';
+                } else {
+                    $locale = config('app.locale', 'en');
+                }
             }
         }
 
-        if (! in_array($locale, self::SUPPORTED, true)) {
+        if (!in_array($locale, self::SUPPORTED, true)) {
             $locale = config('app.locale', 'en');
         }
 

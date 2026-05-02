@@ -1,5 +1,6 @@
 <x-mail::message>
-    {{-- Greeting --}}
+    {{-- Output flush left: indented Markdown becomes code blocks; avoid raw <br> (shows as text after Markdown parse)
+    --}}
     @if (!empty($greeting))
         # {{ $greeting }}
     @else
@@ -35,7 +36,7 @@
 
     @endforeach
 
-    {{-- Salutation --}}
+    {{-- Salutation (two lines; Markdown renders as separate paragraphs — no <br>) --}}
     @if (!empty($salutation))
         {{ $salutation }}
     @else
@@ -48,7 +49,8 @@
                 config('app.name', 'FundFlow')
             );
         @endphp
-        @lang('Regards,')<br>
+        @lang('Regards,')
+
         {{ $signatureLine }}
     @endif
 

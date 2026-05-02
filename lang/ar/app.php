@@ -185,6 +185,11 @@ return [
 
     // بوابة العضو
     'member.my_profile' => 'ملفي الشخصي',
+    'member.edit_profile' => 'تعديل الملف الشخصي',
+    'member.edit_profile_subheading' => 'حدّث الاسم وبيانات الاتصال واللغة والصورة وكلمة المرور ورقم التعريف للوالد.',
+    'member.profile_edit_section' => 'بيانات الملف الشخصي',
+    'member.preferred_language' => 'اللغة المفضّلة',
+    'member.preferred_language_helper' => 'تُستخدم للبوابة والبريد والإشعارات بعد تسجيل الدخول. يمكنك تغيير لغة الصفحة العامة قبل الدخول.',
     'member.download_certificate' => 'تنزيل الشهادة',
     'member.update_phone' => 'تحديث رقم الجوال',
     'member.phone_helper' => 'يُستخدم هذا الرقم لإشعارات الرسائل القصيرة وواتساب.',

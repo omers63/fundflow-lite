@@ -10,27 +10,45 @@ class Setting extends Model
 {
     use SoftDeletes;
 
+    /** Bump prefix when caching semantics change (invalidates stale cache entries). */
+    private const CACHE_KEY_PREFIX = 'setting:v2:';
+
     protected $fillable = ['key', 'value', 'label', 'group'];
 
     protected static function booted(): void
     {
         static::deleted(function (Setting $setting): void {
-            Cache::forget("setting:{$setting->key}");
+            Cache::forget(self::CACHE_KEY_PREFIX . $setting->key);
         });
 
         static::restored(function (Setting $setting): void {
-            Cache::forget("setting:{$setting->key}");
+            Cache::forget(self::CACHE_KEY_PREFIX . $setting->key);
         });
     }
 
-    /** Get a setting value with an optional default. */
+    /**
+     * Get a setting value with an optional default.
+     *
+     * Absent keys are not cached: callers often pass a dynamic default (e.g. per-recipient email text).
+     * Caching the first default would freeze that value for all later lookups until TTL.
+     */
     public static function get(string $key, mixed $default = null): mixed
     {
-        return Cache::remember("setting:{$key}", 3600, function () use ($key, $default) {
-            $setting = static::where('key', $key)->first();
+        $cacheKey = self::CACHE_KEY_PREFIX . $key;
 
-            return $setting ? $setting->value : $default;
-        });
+        if (Cache::has($cacheKey)) {
+            return Cache::get($cacheKey);
+        }
+
+        $setting = static::where('key', $key)->first();
+
+        if ($setting === null) {
+            return $default;
+        }
+
+        Cache::put($cacheKey, $setting->value, 3600);
+
+        return $setting->value;
     }
 
     /** Set a setting value and flush its cache. */
@@ -47,7 +65,7 @@ class Setting extends Model
             static::create(['key' => $key, 'value' => $value]);
         }
 
-        Cache::forget("setting:{$key}");
+        Cache::forget(self::CACHE_KEY_PREFIX . $key);
     }
 
     /** Typed helpers for loan settings. */
@@ -264,10 +282,10 @@ class Setting extends Model
      * the settings page and the notification resolver.
      */
     public const COMM_CHANNELS = [
-        'in_app' => ['label' => 'In-App Inbox',   'icon' => 'heroicon-o-bell',        'desc' => 'Notifications inside the member portal. Disabling this will silence all in-app alerts.'],
-        'email' => ['label' => 'Email',           'icon' => 'heroicon-o-envelope',    'desc' => 'Delivery via the configured SMTP/mail driver.'],
-        'sms' => ['label' => 'SMS',             'icon' => 'heroicon-o-device-phone-mobile', 'desc' => 'Text messages via Twilio SMS. Requires Twilio credentials.'],
-        'whatsapp' => ['label' => 'WhatsApp',        'icon' => 'heroicon-o-chat-bubble-left-right', 'desc' => 'WhatsApp messages via Twilio. Requires a verified WhatsApp sender number.'],
+        'in_app' => ['label' => 'In-App Inbox', 'icon' => 'heroicon-o-bell', 'desc' => 'Notifications inside the member portal. Disabling this will silence all in-app alerts.'],
+        'email' => ['label' => 'Email', 'icon' => 'heroicon-o-envelope', 'desc' => 'Delivery via the configured SMTP/mail driver.'],
+        'sms' => ['label' => 'SMS', 'icon' => 'heroicon-o-device-phone-mobile', 'desc' => 'Text messages via Twilio SMS. Requires Twilio credentials.'],
+        'whatsapp' => ['label' => 'WhatsApp', 'icon' => 'heroicon-o-chat-bubble-left-right', 'desc' => 'WhatsApp messages via Twilio. Requires a verified WhatsApp sender number.'],
     ];
 
     /** True when the given channel is enabled system-wide. Default: all enabled. */
@@ -284,7 +302,7 @@ class Setting extends Model
     {
         return array_values(array_filter(
             array_keys(self::COMM_CHANNELS),
-            fn (string $ch) => static::commChannelEnabled($ch),
+            fn(string $ch) => static::commChannelEnabled($ch),
         ));
     }
 

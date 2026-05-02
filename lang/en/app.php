@@ -179,6 +179,11 @@ return [
 
     // Member area
     'member.my_profile' => 'My Profile',
+    'member.edit_profile' => 'Edit profile',
+    'member.edit_profile_subheading' => 'Update your name, contact details, language, avatar, password, and parent PIN.',
+    'member.profile_edit_section' => 'Profile details',
+    'member.preferred_language' => 'Preferred language',
+    'member.preferred_language_helper' => 'Used for the portal, emails, and notifications after you sign in. You can still switch language on public pages before logging in.',
     'member.download_certificate' => 'Download Certificate',
     'member.update_phone' => 'Update Phone',
     'member.phone_helper' => 'Used for SMS and WhatsApp notifications.',

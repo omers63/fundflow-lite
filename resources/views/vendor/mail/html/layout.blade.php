@@ -5,7 +5,17 @@
     $isRtl = $locale === 'ar';
     $dir = $isRtl ? 'rtl' : 'ltr';
     $textAlign = $isRtl ? 'right' : 'left';
-    $renderedSlot = Illuminate\Mail\Markdown::parse($slot);
+    /*
+     * Blade often indents <table> lines from mail components. CommonMark treats 4+ spaces as
+     * an indented code block, so raw HTML appears as visible text. Trim lines that start with HTML.
+     */
+    $normalizedSlot = collect(preg_split('/\r\n|\r|\n/', (string) $slot))->map(function (string $line): string {
+        $trimmed = ltrim($line);
+
+        return ($trimmed !== '' && str_starts_with($trimmed, '<')) ? $trimmed : $line;
+    })->implode("\n");
+
+    $renderedSlot = Illuminate\Mail\Markdown::parse($normalizedSlot);
     $renderedSubcopy = $subcopy ?? '';
 
     if ($isRtl) {

@@ -3,17 +3,19 @@
 namespace App\Models;
 
 use Filament\Models\Contracts\FilamentUser;
+use Filament\Models\Contracts\HasAvatar;
 use Filament\Panel;
 use Illuminate\Database\Eloquent\Factories\HasFactory;
 use Illuminate\Database\Eloquent\Relations\HasOne;
 use Illuminate\Database\Eloquent\SoftDeletes;
 use Illuminate\Foundation\Auth\User as Authenticatable;
 use Illuminate\Notifications\Notifiable;
+use Illuminate\Support\Facades\Storage;
 use Illuminate\Contracts\Translation\HasLocalePreference;
 use Spatie\Permission\Models\Role;
 use Spatie\Permission\Traits\HasRoles;
 
-class User extends Authenticatable implements FilamentUser, HasLocalePreference
+class User extends Authenticatable implements FilamentUser, HasAvatar, HasLocalePreference
 {
     use HasFactory, Notifiable, HasRoles, SoftDeletes;
 
@@ -126,5 +128,53 @@ class User extends Authenticatable implements FilamentUser, HasLocalePreference
         return in_array($this->preferred_locale, ['ar', 'en'], true)
             ? $this->preferred_locale
             : config('app.locale', 'en');
+    }
+
+    /**
+     * Normalize a path for the `public` disk (strip duplicate `storage/` / `public/` prefixes).
+     */
+    public static function normalizePublicDiskRelativePath(?string $raw): ?string
+    {
+        if (!filled($raw)) {
+            return null;
+        }
+
+        $path = str_replace('\\', '/', ltrim((string) $raw, '/'));
+        while (str_starts_with($path, 'storage/')) {
+            $path = substr($path, strlen('storage/'));
+        }
+        if (str_starts_with($path, 'public/')) {
+            $path = substr($path, strlen('public/'));
+        }
+
+        return filled($path) ? $path : null;
+    }
+
+    /**
+     * Public URL for the stored avatar file (handles redundant `storage/` prefixes in DB).
+     * Uses the public disk URL so it stays consistent with Filament file URLs and `APP_URL`.
+     */
+    public function avatarPublicUrl(): ?string
+    {
+        if (!filled($this->avatar_path)) {
+            return null;
+        }
+
+        $raw = (string) $this->avatar_path;
+        if (str_starts_with($raw, 'http://') || str_starts_with($raw, 'https://')) {
+            return $raw;
+        }
+
+        $path = self::normalizePublicDiskRelativePath($raw);
+        if ($path === null) {
+            return null;
+        }
+
+        return Storage::disk('public')->url($path);
+    }
+
+    public function getFilamentAvatarUrl(): ?string
+    {
+        return $this->avatarPublicUrl();
     }
 }
