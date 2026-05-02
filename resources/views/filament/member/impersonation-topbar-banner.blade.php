@@ -10,19 +10,4 @@
             {{ __('Impersonating: :name', ['name' => $name ?: __('Member')]) }}
         </span>
     </div>
-
-    <script>
-        (function () {
-            const markTopbar = () => {
-                const banner = document.querySelector('.ff-impersonation-banner');
-                const topbar = banner?.closest('.fi-topbar');
-                if (topbar) {
-                    topbar.classList.add('ff-impersonation-topbar');
-                }
-            };
-
-            markTopbar();
-            document.addEventListener('livewire:navigated', markTopbar, { once: true });
-        })();
-    </script>
 @endif

@@ -48,6 +48,11 @@ class AdminPanelProvider extends PanelProvider
                 scopes: AdminLogin::class,
             )
             ->renderHook(
+                PanelsRenderHook::AUTH_LOGIN_FORM_AFTER,
+                fn(): \Illuminate\Contracts\View\View => view('filament.admin.auth.login-public-links'),
+                scopes: AdminLogin::class,
+            )
+            ->renderHook(
                 PanelsRenderHook::STYLES_AFTER,
                 fn(): \Illuminate\Contracts\View\View => view('filament.admin.auth.login-security-styles'),
                 scopes: AdminLogin::class,

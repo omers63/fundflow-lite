@@ -32,9 +32,15 @@ class MemberPanelProvider extends PanelProvider
             ->sidebarCollapsibleOnDesktop()
             ->sidebarFullyCollapsibleOnDesktop()
             ->brandName(fn(): string => app()->getLocale() === 'ar' ? 'فندفلو — بوابة العضو' : __('app.brand.member'))
+            ->disabledErrorNotification(419)
+            ->disabledErrorNotification(401)
             ->renderHook(
                 PanelsRenderHook::TOPBAR_START,
                 fn(): \Illuminate\Contracts\View\View => view('filament.member.impersonation-topbar-banner'),
+            )
+            ->renderHook(
+                PanelsRenderHook::BODY_END,
+                fn(): \Illuminate\Contracts\View\View => view('filament.member.livewire-session-recovery'),
             )
             ->databaseNotifications()
             ->databaseNotificationsPolling('30s')

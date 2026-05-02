@@ -56,7 +56,7 @@
 
 /* ─── Impersonation banner ──────────────────────────────────────────────── */
 
-.fi-topbar.ff-impersonation-topbar {
+.fi-topbar:has(.ff-impersonation-banner) {
     position: relative;
     background: linear-gradient(
         120deg,
@@ -70,7 +70,7 @@
     animation: ff-impersonation-roll 5s linear infinite, ff-impersonation-topbar-flash 1.4s ease-in-out infinite;
 }
 
-.fi-topbar.ff-impersonation-topbar * {
+.fi-topbar:has(.ff-impersonation-banner) * {
     color: #fff7ed;
 }
 
