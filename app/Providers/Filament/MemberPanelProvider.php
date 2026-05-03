@@ -60,7 +60,6 @@ class MemberPanelProvider extends PanelProvider
             ->navigationGroups([
                 'my_finance' => NavigationGroup::make()->label(fn(): string => __('app.nav.group.my_finance')),
                 'loans' => NavigationGroup::make()->label(fn(): string => __('app.nav.group.loans')),
-                'account' => NavigationGroup::make()->label(fn(): string => __('app.nav.group.account')),
                 'settings' => NavigationGroup::make()->label(fn(): string => __('app.nav.group.settings')),
             ])
             ->viteTheme('resources/css/filament/member/theme.css')

@@ -47,7 +47,7 @@ class MyDependentsResource extends Resource
 
     public static function getNavigationGroup(): ?string
     {
-        return 'account';
+        return 'my_finance';
     }
 
     public static function shouldRegisterNavigation(): bool

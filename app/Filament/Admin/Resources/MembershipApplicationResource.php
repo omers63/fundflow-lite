@@ -54,7 +54,7 @@ class MembershipApplicationResource extends Resource
 
     public static function getNavigationLabel(): string
     {
-        return __('Membership Applications');
+        return __('Applications');
     }
 
     public static function getNavigationGroup(): ?string

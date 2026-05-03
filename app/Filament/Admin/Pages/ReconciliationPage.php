@@ -13,7 +13,6 @@ use Filament\Forms\Components\TextInput;
 use Filament\Forms\Components\Toggle;
 use Filament\Notifications\Notification;
 use Filament\Pages\Page;
-use Illuminate\Http\Response;
 use Livewire\Attributes\Url;
 use Symfony\Component\HttpFoundation\StreamedResponse;
 
@@ -190,7 +189,7 @@ class ReconciliationPage extends Page
         );
     }
 
-    public function downloadPdf(?int $id = null): Response
+    public function downloadPdf(?int $id = null): StreamedResponse
     {
         $this->authorizeExport();
         $id ??= $this->selectedSnapshotId;

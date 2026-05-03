@@ -4,18 +4,28 @@ namespace App\Services;
 
 use App\Models\ReconciliationSnapshot;
 use Barryvdh\DomPDF\Facade\Pdf;
-use Illuminate\Http\Response;
+use Symfony\Component\HttpFoundation\StreamedResponse;
 
 class ReconciliationPdfService
 {
-    public function download(ReconciliationSnapshot $snapshot): Response
+    /**
+     * Livewire only triggers file downloads for {@see StreamedResponse} / BinaryFileResponse — DomPDF's
+     * {@see Pdf::download()} returns a plain Response, so wire:click never receives a download effect.
+     */
+    public function download(ReconciliationSnapshot $snapshot): StreamedResponse
     {
         $filename = 'reconciliation-snapshot-' . $snapshot->id . '-' . $snapshot->as_of->format('Y-m-d-His') . '.pdf';
 
-        $pdf = Pdf::loadView('pdf.reconciliation-snapshot', [
-            'snapshot' => $snapshot,
-        ])->setPaper('a4', 'portrait');
-
-        return $pdf->download($filename);
+        return response()->streamDownload(
+            function () use ($snapshot): void {
+                echo Pdf::loadView('pdf.reconciliation-snapshot', [
+                    'snapshot' => $snapshot,
+                ])
+                    ->setPaper('a4', 'portrait')
+                    ->output();
+            },
+            $filename,
+            ['Content-Type' => 'application/pdf'],
+        );
     }
 }

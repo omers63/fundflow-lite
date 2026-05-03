@@ -637,7 +637,7 @@ class LoanResource extends Resource
                 }
 
                 // Pre-posting balance: semantic member vs. master split and installment count only.
-                // Ledger: full disbursement still debits master + mirrors the same amount on member fund.
+                // Ledger posting includes master+member-fund debits and member-cash credit payout.
                 $memberFundBalanceBefore = (float) ($record->member->fundAccount()?->balance ?? 0);
 
                 // Create the disbursement record (portions filled by AccountingService)

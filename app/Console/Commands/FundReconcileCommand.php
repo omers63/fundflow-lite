@@ -54,6 +54,14 @@ class FundReconcileCommand extends Command
         $this->line('Ledger mismatches: ' . $report['checks']['ledger_balances']['mismatch_count']);
         $this->line('Unposted bank rows: ' . $report['pipeline']['bank_unposted_count']);
 
+        foreach ($report['coverage_matrix'] ?? [] as $row) {
+            $pairs = [];
+            foreach ($row['checks'] ?? [] as $c) {
+                $pairs[] = (($c['key'] ?? '?') . '=' . ($c['severity'] ?? '?'));
+            }
+            $this->line('Coverage: ' . ($row['flow'] ?? '?') . ' → ' . implode(', ', $pairs));
+        }
+
         if (!$this->option('no-store')) {
             $snap = $service->persistSnapshot($report, null);
             $this->line('Snapshot #' . $snap->id . ' stored.');

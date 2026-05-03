@@ -14,6 +14,7 @@ use Filament\Notifications\Notification as FilamentNotification;
 use Filament\Tables\Columns\Column;
 use Filament\Tables\Enums\FiltersLayout;
 use Filament\Tables\Table;
+use Illuminate\Contracts\Routing\ResponseFactory as ResponseFactoryContract;
 use Illuminate\Support\ServiceProvider;
 
 class AppServiceProvider extends ServiceProvider
@@ -22,6 +23,10 @@ class AppServiceProvider extends ServiceProvider
     {
         $this->app->bind(LogoutResponseContract::class, FilamentLogoutResponse::class);
         $this->app->bind(FilamentNotification::class, DatabaseBellNotification::class);
+
+        $this->app->singleton(ResponseFactoryContract::class, function ($app) {
+            return new \App\Http\ResponseFactory($app['view'], $app['redirect']);
+        });
     }
 
     public function boot(): void

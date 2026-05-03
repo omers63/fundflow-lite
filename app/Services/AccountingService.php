@@ -436,7 +436,8 @@ class AccountingService
      * Post a loan disbursement funded by master fund and mirrored on member fund:
      *  - Master fund account is debited for the full loan amount.
      *  - Member fund account is debited for the same amount as a mirror entry.
-     *  - Loan account records the total outstanding.
+     *  - Loan account is debited for total outstanding principal.
+     *  - Member cash account is credited for payout to the member.
      *  - Loan model records master_portion = amount, member_portion = 0.
      */
     public function postLoanDisbursement(Loan $loan): void
@@ -449,6 +450,9 @@ class AccountingService
         $memberFund = Account::where('type', Account::TYPE_MEMBER_FUND)
             ->where('member_id', $member->id)
             ->firstOrFail();
+        $memberCash = Account::where('type', Account::TYPE_MEMBER_CASH)
+            ->where('member_id', $member->id)
+            ->firstOrFail();
 
         $totalAmount = (float) $loan->amount_approved;
         $memberPortion = 0.0;
@@ -456,7 +460,7 @@ class AccountingService
 
         $description = "Loan #{$loan->id} disbursement – {$member->user->name}";
 
-        DB::transaction(function () use ($loan, $member, $masterFund, $memberFund, $loanAccount, $description, $totalAmount, $memberPortion, $masterPortion) {
+        DB::transaction(function () use ($loan, $member, $masterFund, $memberFund, $memberCash, $loanAccount, $description, $totalAmount, $memberPortion, $masterPortion) {
             // Re-read master fund inside the lock to prevent negative balance
             $masterFund = Account::query()->lockForUpdate()->findOrFail($masterFund->id);
             if ($masterPortion > 0 && (float) $masterFund->balance < $masterPortion) {
@@ -470,6 +474,8 @@ class AccountingService
             $this->postEntry($memberFund, $masterPortion, 'debit', $description.' (member mirror)', $loan, $member->id);
             // Loan account tracks total outstanding
             $this->postEntry($loanAccount, $totalAmount, 'debit', $description, $loan, $member->id);
+            // Cash payout to the borrower.
+            $this->postEntry($memberCash, $totalAmount, 'credit', $description.' (cash payout)', $loan, $member->id);
 
             // Snapshot portions onto the loan record
             $loan->update([
@@ -484,7 +490,8 @@ class AccountingService
      * Post a **partial** loan disbursement.
      *
      * The full tranche is debited from the master fund and the **same amount** is mirrored on the
-     * member fund account (operational / ledger symmetry). Member vs. master **split** used for
+     * member fund account (operational / ledger symmetry), then credited to member cash as payout.
+     * Member vs. master **split** used for
      * installment count and loan `member_portion` / `master_portion` is computed separately from
      * the member’s fund balance **before** disbursement (see admin disburse flow), not from these lines.
      *
@@ -508,8 +515,11 @@ class AccountingService
         $memberFund = Account::where('type', Account::TYPE_MEMBER_FUND)
             ->where('member_id', $member->id)
             ->firstOrFail();
+        $memberCash = Account::where('type', Account::TYPE_MEMBER_CASH)
+            ->where('member_id', $member->id)
+            ->firstOrFail();
 
-        DB::transaction(function () use ($loan, $member, $memberFund, $loanAccount, $amount, $disbursementRecord) {
+        DB::transaction(function () use ($loan, $member, $memberFund, $memberCash, $loanAccount, $amount, $disbursementRecord) {
             // Lock both accounts to prevent races
             $memberFund = Account::query()->lockForUpdate()->findOrFail($memberFund->id);
             $masterFund = Account::query()->lockForUpdate()->findOrFail(Account::masterFund()->id);
@@ -531,6 +541,7 @@ class AccountingService
             $this->postEntry($masterFund, $masterPortion, 'debit', $label.' (master funded)', $loan, $member->id);
             $this->postEntry($memberFund, $masterPortion, 'debit', $label.' (member mirror)', $loan, $member->id);
             $this->postEntry($loanAccount, $amount, 'debit', $label, $loan, $member->id);
+            $this->postEntry($memberCash, $amount, 'credit', $label.' (cash payout)', $loan, $member->id);
 
             // Snapshot portions on the disbursement record
             $disbursementRecord->update([
@@ -570,9 +581,13 @@ class AccountingService
             ->where('member_id', $member->id)
             ->firstOrFail();
 
+        $memberCash = Account::where('type', Account::TYPE_MEMBER_CASH)
+            ->where('member_id', $member->id)
+            ->firstOrFail();
+
         $description = "Loan #{$loan->id} disbursement (import) – {$member->user->name}";
 
-        DB::transaction(function () use ($loan, $member, $masterFund, $memberFund, $loanAccount, $description, $totalAmount, $memberPortion, $masterPortion) {
+        DB::transaction(function () use ($loan, $member, $masterFund, $memberFund, $memberCash, $loanAccount, $description, $totalAmount, $memberPortion, $masterPortion) {
             if ($memberPortion > 0) {
                 $this->postEntry($memberFund, $memberPortion, 'debit', $description.' (member portion)', $loan, $member->id);
             }
@@ -580,6 +595,7 @@ class AccountingService
                 $this->postEntry($masterFund, $masterPortion, 'debit', $description.' (fund portion)', $loan, $member->id);
             }
             $this->postEntry($loanAccount, $totalAmount, 'debit', $description, $loan, $member->id);
+            $this->postEntry($memberCash, $totalAmount, 'credit', $description.' (cash payout)', $loan, $member->id);
 
             $loan->update([
                 'member_portion' => $memberPortion,
@@ -771,6 +787,53 @@ class AccountingService
         DB::transaction(function () use ($parent, $dependent, $parentCash, $dependentCash, $amount, $debitDesc, $creditDesc) {
             $this->postEntry($parentCash, $amount, 'debit', $debitDesc, $parent, $parent->id);
             $this->postEntry($dependentCash, $amount, 'credit', $creditDesc, $dependent, $dependent->id);
+        });
+    }
+
+    /**
+     * Transfer funds from one member's cash account to another member's cash account.
+     *
+     * @throws \InvalidArgumentException
+     * @throws \RuntimeException
+     */
+    public function transferMemberCash(
+        Member $from,
+        Member $to,
+        float $amount,
+        string $note = '',
+    ): void {
+        if ($from->id === $to->id) {
+            throw new \InvalidArgumentException('You cannot transfer to your own account.');
+        }
+
+        if ($amount <= 0) {
+            throw new \InvalidArgumentException('Transfer amount must be greater than zero.');
+        }
+
+        $this->ensureMemberAccounts($from);
+        $this->ensureMemberAccounts($to);
+
+        $fromCash = Account::where('type', Account::TYPE_MEMBER_CASH)
+            ->where('member_id', $from->id)
+            ->firstOrFail();
+
+        $toCash = Account::where('type', Account::TYPE_MEMBER_CASH)
+            ->where('member_id', $to->id)
+            ->firstOrFail();
+
+        if ((float) $fromCash->balance + 0.00001 < $amount) {
+            throw new \RuntimeException(
+                "Insufficient balance in {$from->user->name}'s Cash Account. ".
+                'Available: SAR '.number_format((float) $fromCash->balance, 2)
+            );
+        }
+
+        $debitDesc = trim("Transfer to {$to->user->name} cash account".($note ? " — {$note}" : ''));
+        $creditDesc = trim("Transfer from {$from->user->name} cash account".($note ? " — {$note}" : ''));
+
+        DB::transaction(function () use ($from, $to, $fromCash, $toCash, $amount, $debitDesc, $creditDesc) {
+            $this->postEntry($fromCash, $amount, 'debit', $debitDesc, $from, $from->id);
+            $this->postEntry($toCash, $amount, 'credit', $creditDesc, $to, $to->id);
         });
     }
 

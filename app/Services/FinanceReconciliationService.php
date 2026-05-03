@@ -7,6 +7,10 @@ use App\Models\AccountTransaction;
 use App\Models\BankTransaction;
 use App\Models\Contribution;
 use App\Models\Loan;
+use App\Models\LoanInstallment;
+use App\Models\Member;
+use App\Models\MembershipApplication;
+use App\Models\MemberSubscriptionFee;
 use App\Models\ReconciliationSnapshot;
 use App\Models\Setting;
 use App\Models\SmsTransaction;
@@ -31,7 +35,15 @@ class FinanceReconciliationService
      * - declared_bank_date (string|null): informational (Y-m-d).
      * - bank_mismatch_treat_as_critical (bool): if true, book vs stated variance is critical; else warning.
      *
-     * @return array{meta: array, verdict: array, checks: array, pipeline: array, period_metrics: array, summary: array}
+     * @return array{
+     *   meta: array,
+     *   verdict: array,
+     *   checks: array,
+     *   coverage_matrix: list<array{flow: string, checks: list<array{key: string, severity: string}>}>,
+     *   pipeline: array,
+     *   period_metrics: array,
+     *   summary: array
+     * }
      */
     public function buildReport(
         string $mode,
@@ -178,7 +190,7 @@ class FinanceReconciliationService
             'master_fund_balance' => $masterFund ? round((float) $masterFund->balance, 2) : null,
             'sum_member_fund' => round($sumMemberFund, 2),
             'fund_delta' => $fundDelta !== null ? round((float) $masterFund->balance - $sumMemberFund, 2) : null,
-            'note' => 'Member-only cash debits (repayments) and guarantor fund debits intentionally break strict parity; treat as hygiene, not hard failure.',
+            'note' => 'Member cash debits (repayments / transfers), guarantor fund debits, and loan disbursement cash credits can break strict parity; treat as hygiene, not hard failure.',
         ];
 
         // --- 3b) Bank statement vs master_cash book (optional) ---
@@ -374,6 +386,227 @@ class FinanceReconciliationService
             'issues_truncated' => count($memberPortalPostingIssues) > 100,
         ];
 
+        // --- 3e) Bank transaction posting integrity (all posted rows) ---
+        $bankPostingIssues = [];
+        $bankPostedCount = 0;
+
+        BankTransaction::query()
+            ->whereNull('deleted_at')
+            ->whereNotNull('posted_at')
+            ->where(function ($q): void {
+                $q->whereNull('is_duplicate')->orWhere('is_duplicate', false);
+            })
+            ->with('loanDisbursement')
+            ->orderBy('id')
+            ->chunkById(200, function ($rows) use (&$bankPostingIssues, &$bankPostedCount, $bankTxMorph, $masterCashId): void {
+                foreach ($rows as $tx) {
+                    if (!$tx instanceof BankTransaction) {
+                        continue;
+                    }
+
+                    $bankPostedCount++;
+                    $entryType = $tx->transaction_type === 'credit' ? 'credit' : 'debit';
+
+                    $lines = AccountTransaction::query()
+                        ->where('source_type', $bankTxMorph)
+                        ->where('source_id', $tx->id)
+                        ->whereNull('deleted_at')
+                        ->get();
+
+                    $masterLine = $masterCashId
+                        ? $lines->first(fn(AccountTransaction $l) => (int) $l->account_id === (int) $masterCashId)
+                        : null;
+
+                    if ($masterLine === null) {
+                        $bankPostingIssues[] = [
+                            'bank_transaction_id' => $tx->id,
+                            'issue' => 'missing master cash ledger line',
+                        ];
+                    } elseif (
+                        $masterLine->entry_type !== $entryType
+                        || abs((float) $masterLine->amount - (float) $tx->amount) > self::AMOUNT_TOLERANCE
+                    ) {
+                        $bankPostingIssues[] = [
+                            'bank_transaction_id' => $tx->id,
+                            'issue' => 'master cash ledger line amount/type mismatch',
+                            'ledger_entry_type' => $masterLine->entry_type,
+                            'ledger_amount' => (float) $masterLine->amount,
+                            'tx_type' => $tx->transaction_type,
+                            'tx_amount' => (float) $tx->amount,
+                        ];
+                    }
+
+                    if ($tx->member_id !== null) {
+                        $memberCashLine = AccountTransaction::query()
+                            ->where('source_type', $bankTxMorph)
+                            ->where('source_id', $tx->id)
+                            ->whereNull('deleted_at')
+                            ->where('member_id', $tx->member_id)
+                            ->whereHas('account', fn($q) => $q
+                                ->where('type', Account::TYPE_MEMBER_CASH)
+                                ->where('member_id', $tx->member_id))
+                            ->first();
+
+                        if ($memberCashLine === null) {
+                            $bankPostingIssues[] = [
+                                'bank_transaction_id' => $tx->id,
+                                'issue' => 'missing member cash mirror line',
+                                'member_id' => $tx->member_id,
+                            ];
+                        } elseif (
+                            $memberCashLine->entry_type !== $entryType
+                            || abs((float) $memberCashLine->amount - (float) $tx->amount) > self::AMOUNT_TOLERANCE
+                        ) {
+                            $bankPostingIssues[] = [
+                                'bank_transaction_id' => $tx->id,
+                                'issue' => 'member cash mirror line amount/type mismatch',
+                                'member_id' => $tx->member_id,
+                                'ledger_entry_type' => $memberCashLine->entry_type,
+                                'ledger_amount' => (float) $memberCashLine->amount,
+                                'tx_type' => $tx->transaction_type,
+                                'tx_amount' => (float) $tx->amount,
+                            ];
+                        }
+                    }
+
+                    if ($tx->transaction_type === 'debit') {
+                        if ($tx->member_id === null) {
+                            $bankPostingIssues[] = [
+                                'bank_transaction_id' => $tx->id,
+                                'issue' => 'debit bank transaction is missing member_id',
+                            ];
+                        }
+
+                        if ($tx->loan_disbursement_id === null) {
+                            $bankPostingIssues[] = [
+                                'bank_transaction_id' => $tx->id,
+                                'issue' => 'debit bank transaction is missing loan_disbursement_id',
+                            ];
+                        } elseif (
+                            ($tx->loanDisbursement?->loan_id !== null)
+                            && ($tx->loan_id !== null)
+                            && ((int) $tx->loanDisbursement->loan_id !== (int) $tx->loan_id)
+                        ) {
+                            $bankPostingIssues[] = [
+                                'bank_transaction_id' => $tx->id,
+                                'issue' => 'loan_id does not match referenced loan disbursement',
+                                'loan_id' => $tx->loan_id,
+                                'loan_disbursement_loan_id' => $tx->loanDisbursement?->loan_id,
+                            ];
+                        }
+                    }
+                }
+            });
+
+        if ($bankPostingIssues !== []) {
+            $incrementCritical();
+        }
+
+        $checks['bank_transaction_posting_integrity'] = [
+            'label' => 'Bank transactions — posted ledger legs integrity',
+            'severity' => $bankPostingIssues === [] ? 'ok' : 'critical',
+            'transactions_checked' => $bankPostedCount,
+            'issue_count' => count($bankPostingIssues),
+            'issues' => array_slice($bankPostingIssues, 0, 120),
+            'issues_truncated' => count($bankPostingIssues) > 120,
+        ];
+
+        // --- 3f) SMS transaction posting integrity ---
+        $smsPostingIssues = [];
+        $smsPostedCount = 0;
+        $smsMorph = SmsTransaction::class;
+
+        SmsTransaction::query()
+            ->whereNull('deleted_at')
+            ->whereNotNull('posted_at')
+            ->where(function ($q): void {
+                $q->whereNull('is_duplicate')->orWhere('is_duplicate', false);
+            })
+            ->orderBy('id')
+            ->chunkById(200, function ($rows) use (&$smsPostingIssues, &$smsPostedCount, $smsMorph, $masterCashId): void {
+                foreach ($rows as $tx) {
+                    if (!$tx instanceof SmsTransaction) {
+                        continue;
+                    }
+
+                    $smsPostedCount++;
+                    $entryType = $tx->transaction_type === 'credit' ? 'credit' : 'debit';
+
+                    if ($tx->member_id === null) {
+                        $smsPostingIssues[] = [
+                            'sms_transaction_id' => $tx->id,
+                            'issue' => 'posted SMS transaction is missing member_id',
+                        ];
+                        continue;
+                    }
+
+                    $lines = AccountTransaction::query()
+                        ->where('source_type', $smsMorph)
+                        ->where('source_id', $tx->id)
+                        ->whereNull('deleted_at')
+                        ->get();
+
+                    $masterLine = $masterCashId
+                        ? $lines->first(fn(AccountTransaction $l) => (int) $l->account_id === (int) $masterCashId)
+                        : null;
+
+                    if ($masterLine === null) {
+                        $smsPostingIssues[] = [
+                            'sms_transaction_id' => $tx->id,
+                            'issue' => 'missing master cash ledger line',
+                        ];
+                    } elseif (
+                        $masterLine->entry_type !== $entryType
+                        || abs((float) $masterLine->amount - (float) $tx->amount) > self::AMOUNT_TOLERANCE
+                    ) {
+                        $smsPostingIssues[] = [
+                            'sms_transaction_id' => $tx->id,
+                            'issue' => 'master cash ledger line amount/type mismatch',
+                        ];
+                    }
+
+                    $memberCashLine = AccountTransaction::query()
+                        ->where('source_type', $smsMorph)
+                        ->where('source_id', $tx->id)
+                        ->whereNull('deleted_at')
+                        ->where('member_id', $tx->member_id)
+                        ->whereHas('account', fn($q) => $q
+                            ->where('type', Account::TYPE_MEMBER_CASH)
+                            ->where('member_id', $tx->member_id))
+                        ->first();
+
+                    if ($memberCashLine === null) {
+                        $smsPostingIssues[] = [
+                            'sms_transaction_id' => $tx->id,
+                            'issue' => 'missing member cash mirror line',
+                            'member_id' => $tx->member_id,
+                        ];
+                    } elseif (
+                        $memberCashLine->entry_type !== $entryType
+                        || abs((float) $memberCashLine->amount - (float) $tx->amount) > self::AMOUNT_TOLERANCE
+                    ) {
+                        $smsPostingIssues[] = [
+                            'sms_transaction_id' => $tx->id,
+                            'issue' => 'member cash mirror line amount/type mismatch',
+                            'member_id' => $tx->member_id,
+                        ];
+                    }
+                }
+            });
+
+        if ($smsPostingIssues !== []) {
+            $incrementCritical();
+        }
+
+        $checks['sms_transaction_posting_integrity'] = [
+            'label' => 'SMS transactions — posted ledger legs integrity',
+            'severity' => $smsPostingIssues === [] ? 'ok' : 'critical',
+            'transactions_checked' => $smsPostedCount,
+            'issue_count' => count($smsPostingIssues),
+            'issues' => array_slice($smsPostingIssues, 0, 120),
+            'issues_truncated' => count($smsPostingIssues) > 120,
+        ];
+
         // --- 4) Active loans: installment schedule vs loan ledger ---
         $activeLoanMismatches = [];
         Loan::query()
@@ -463,6 +696,472 @@ class FinanceReconciliationService
             'mismatches' => array_slice($approvedLoanMismatches, 0, 100),
             'mismatches_truncated' => count($approvedLoanMismatches) > 100,
             'note' => 'Before installments exist, loan account outstanding should match amount_disbursed; once installments exist, compare to remaining installment total.',
+        ];
+
+        // --- 4c) Loan disbursement cash payout leg integrity ---
+        $loanCashPayoutMismatches = [];
+        Loan::query()
+            ->whereIn('status', ['approved', 'active', 'completed', 'early_settled'])
+            ->where('amount_disbursed', '>', 0)
+            ->with(['member.user'])
+            ->chunkById(100, function ($loans) use (&$loanCashPayoutMismatches): void {
+                foreach ($loans as $loan) {
+                    if (!$loan instanceof Loan || !$loan->member_id) {
+                        continue;
+                    }
+
+                    $memberCashCredits = (float) AccountTransaction::query()
+                        ->where('source_type', Loan::class)
+                        ->where('source_id', $loan->id)
+                        ->where('entry_type', 'credit')
+                        ->whereNull('deleted_at')
+                        ->where('member_id', $loan->member_id)
+                        ->whereHas('account', fn($q) => $q
+                            ->where('type', Account::TYPE_MEMBER_CASH)
+                            ->where('member_id', $loan->member_id))
+                        ->sum('amount');
+
+                    $expected = (float) $loan->amount_disbursed;
+                    if (abs($memberCashCredits - $expected) > self::AMOUNT_TOLERANCE) {
+                        $loanCashPayoutMismatches[] = [
+                            'loan_id' => $loan->id,
+                            'member' => $loan->member?->user?->name,
+                            'status' => $loan->status,
+                            'amount_disbursed' => round($expected, 2),
+                            'member_cash_credits_from_loan' => round($memberCashCredits, 2),
+                            'delta' => round($memberCashCredits - $expected, 2),
+                        ];
+                    }
+                }
+            });
+
+        if ($loanCashPayoutMismatches !== []) {
+            $incrementCritical();
+        }
+
+        $checks['loan_disbursement_cash_payout_integrity'] = [
+            'label' => 'Loan disbursements — member cash payout credit leg present',
+            'severity' => $loanCashPayoutMismatches === [] ? 'ok' : 'critical',
+            'mismatch_count' => count($loanCashPayoutMismatches),
+            'mismatches' => array_slice($loanCashPayoutMismatches, 0, 100),
+            'mismatches_truncated' => count($loanCashPayoutMismatches) > 100,
+            'note' => 'Expected member cash credits sourced from Loan should equal loans.amount_disbursed.',
+        ];
+
+        // --- 4d) Contribution posting flow integrity (all expected legs by type) ---
+        $contributionFlowIssues = [];
+        Contribution::query()
+            ->whereNull('deleted_at')
+            ->with('member')
+            ->orderBy('id')
+            ->chunkById(200, function ($rows) use (&$contributionFlowIssues, $masterFund, $masterCash): void {
+                foreach ($rows as $contribution) {
+                    if (!$contribution instanceof Contribution) {
+                        continue;
+                    }
+
+                    $memberId = (int) $contribution->member_id;
+                    $amount = (float) $contribution->amount;
+                    $lateFee = (float) ($contribution->late_fee_amount ?? 0);
+                    $contribMorph = Contribution::class;
+
+                    $masterFundCredits = (float) AccountTransaction::query()
+                        ->where('source_type', $contribMorph)
+                        ->where('source_id', $contribution->id)
+                        ->where('entry_type', 'credit')
+                        ->whereNull('deleted_at')
+                        ->where('account_id', $masterFund?->id)
+                        ->sum('amount');
+
+                    if ($masterFund === null || abs($masterFundCredits - $amount) > self::AMOUNT_TOLERANCE) {
+                        $contributionFlowIssues[] = [
+                            'contribution_id' => $contribution->id,
+                            'issue' => 'master fund credit leg missing/mismatch',
+                            'expected' => round($amount, 2),
+                            'actual' => round($masterFundCredits, 2),
+                        ];
+                    }
+
+                    $memberFundCredits = (float) AccountTransaction::query()
+                        ->where('source_type', $contribMorph)
+                        ->where('source_id', $contribution->id)
+                        ->where('entry_type', 'credit')
+                        ->whereNull('deleted_at')
+                        ->where('member_id', $memberId)
+                        ->whereHas('account', fn($q) => $q
+                            ->where('type', Account::TYPE_MEMBER_FUND)
+                            ->where('member_id', $memberId))
+                        ->sum('amount');
+
+                    if (abs($memberFundCredits - $amount) > self::AMOUNT_TOLERANCE) {
+                        $contributionFlowIssues[] = [
+                            'contribution_id' => $contribution->id,
+                            'issue' => 'member fund credit leg missing/mismatch',
+                            'expected' => round($amount, 2),
+                            'actual' => round($memberFundCredits, 2),
+                            'member_id' => $memberId,
+                        ];
+                    }
+
+                    if ((string) $contribution->payment_method === Contribution::PAYMENT_METHOD_CASH_ACCOUNT) {
+                        $expectedCashDebit = $amount + max(0.0, $lateFee);
+                        $memberCashDebits = (float) AccountTransaction::query()
+                            ->where('source_type', $contribMorph)
+                            ->where('source_id', $contribution->id)
+                            ->where('entry_type', 'debit')
+                            ->whereNull('deleted_at')
+                            ->where('member_id', $memberId)
+                            ->whereHas('account', fn($q) => $q
+                                ->where('type', Account::TYPE_MEMBER_CASH)
+                                ->where('member_id', $memberId))
+                            ->sum('amount');
+
+                        if (abs($memberCashDebits - $expectedCashDebit) > self::AMOUNT_TOLERANCE) {
+                            $contributionFlowIssues[] = [
+                                'contribution_id' => $contribution->id,
+                                'issue' => 'member cash debit leg missing/mismatch for cash_account contribution',
+                                'expected' => round($expectedCashDebit, 2),
+                                'actual' => round($memberCashDebits, 2),
+                                'member_id' => $memberId,
+                            ];
+                        }
+                    }
+
+                    if ($contribution->is_late && $lateFee > self::AMOUNT_TOLERANCE) {
+                        $masterCashCredits = (float) AccountTransaction::query()
+                            ->where('source_type', $contribMorph)
+                            ->where('source_id', $contribution->id)
+                            ->where('entry_type', 'credit')
+                            ->whereNull('deleted_at')
+                            ->where('account_id', $masterCash?->id)
+                            ->sum('amount');
+
+                        if ($masterCash === null || abs($masterCashCredits - $lateFee) > self::AMOUNT_TOLERANCE) {
+                            $contributionFlowIssues[] = [
+                                'contribution_id' => $contribution->id,
+                                'issue' => 'late-fee master cash credit missing/mismatch',
+                                'expected' => round($lateFee, 2),
+                                'actual' => round($masterCashCredits, 2),
+                            ];
+                        }
+                    }
+                }
+            });
+
+        if ($contributionFlowIssues !== []) {
+            $incrementCritical();
+        }
+
+        $checks['contribution_flow_integrity'] = [
+            'label' => 'Contributions — full posting legs integrity by payment type',
+            'severity' => $contributionFlowIssues === [] ? 'ok' : 'critical',
+            'issue_count' => count($contributionFlowIssues),
+            'issues' => array_slice($contributionFlowIssues, 0, 120),
+            'issues_truncated' => count($contributionFlowIssues) > 120,
+        ];
+
+        // --- 4e) Membership application fee posting integrity ---
+        $membershipFeeIssues = [];
+        MembershipApplication::query()
+            ->whereNull('deleted_at')
+            ->whereNotNull('membership_fee_posted_at')
+            ->where('membership_fee_amount', '>', 0)
+            ->orderBy('id')
+            ->chunkById(200, function ($rows) use (&$membershipFeeIssues, $masterCash): void {
+                foreach ($rows as $application) {
+                    if (!$application instanceof MembershipApplication) {
+                        continue;
+                    }
+
+                    $expected = (float) $application->membership_fee_amount;
+                    $actual = (float) AccountTransaction::query()
+                        ->where('source_type', MembershipApplication::class)
+                        ->where('source_id', $application->id)
+                        ->where('entry_type', 'credit')
+                        ->whereNull('deleted_at')
+                        ->where('account_id', $masterCash?->id)
+                        ->sum('amount');
+
+                    if ($masterCash === null || abs($actual - $expected) > self::AMOUNT_TOLERANCE) {
+                        $membershipFeeIssues[] = [
+                            'membership_application_id' => $application->id,
+                            'issue' => 'master cash membership-fee credit missing/mismatch',
+                            'expected' => round($expected, 2),
+                            'actual' => round($actual, 2),
+                        ];
+                    }
+                }
+            });
+
+        if ($membershipFeeIssues !== []) {
+            $incrementCritical();
+        }
+
+        $checks['membership_application_fee_integrity'] = [
+            'label' => 'Membership application fees — master cash credit integrity',
+            'severity' => $membershipFeeIssues === [] ? 'ok' : 'critical',
+            'issue_count' => count($membershipFeeIssues),
+            'issues' => array_slice($membershipFeeIssues, 0, 100),
+            'issues_truncated' => count($membershipFeeIssues) > 100,
+        ];
+
+        // --- 4f) Subscription fee posting integrity ---
+        $subscriptionFeeIssues = [];
+        MemberSubscriptionFee::query()
+            ->whereNull('deleted_at')
+            ->where('amount', '>', 0)
+            ->orderBy('id')
+            ->chunkById(200, function ($rows) use (&$subscriptionFeeIssues, $masterCash): void {
+                foreach ($rows as $fee) {
+                    if (!$fee instanceof MemberSubscriptionFee) {
+                        continue;
+                    }
+
+                    $expected = (float) $fee->amount;
+                    $actual = (float) AccountTransaction::query()
+                        ->where('source_type', MemberSubscriptionFee::class)
+                        ->where('source_id', $fee->id)
+                        ->where('entry_type', 'credit')
+                        ->whereNull('deleted_at')
+                        ->where('account_id', $masterCash?->id)
+                        ->sum('amount');
+
+                    if ($masterCash === null || abs($actual - $expected) > self::AMOUNT_TOLERANCE) {
+                        $subscriptionFeeIssues[] = [
+                            'subscription_fee_id' => $fee->id,
+                            'issue' => 'master cash subscription-fee credit missing/mismatch',
+                            'expected' => round($expected, 2),
+                            'actual' => round($actual, 2),
+                        ];
+                    }
+                }
+            });
+
+        if ($subscriptionFeeIssues !== []) {
+            $incrementCritical();
+        }
+
+        $checks['subscription_fee_integrity'] = [
+            'label' => 'Subscription fees — master cash credit integrity',
+            'severity' => $subscriptionFeeIssues === [] ? 'ok' : 'critical',
+            'issue_count' => count($subscriptionFeeIssues),
+            'issues' => array_slice($subscriptionFeeIssues, 0, 100),
+            'issues_truncated' => count($subscriptionFeeIssues) > 100,
+        ];
+
+        // --- 4g) Loan installment posting integrity (repayment + borrower/guarantor legs) ---
+        $loanInstallmentFlowIssues = [];
+        $masterFundId = $masterFund?->id;
+        $masterCashId = $masterCash?->id;
+
+        LoanInstallment::query()
+            ->whereNull('deleted_at')
+            ->where(function ($q): void {
+                $q->where('status', 'paid')->orWhere('paid_by_guarantor', true);
+            })
+            ->with('loan')
+            ->orderBy('id')
+            ->chunkById(200, function ($rows) use (&$loanInstallmentFlowIssues, $masterFundId, $masterCashId): void {
+                foreach ($rows as $installment) {
+                    if (!$installment instanceof LoanInstallment || !$installment->loan) {
+                        continue;
+                    }
+
+                    $sourceType = LoanInstallment::class;
+                    $sourceId = (int) $installment->id;
+                    $amount = (float) $installment->amount;
+                    $lateFee = (float) ($installment->late_fee_amount ?? 0);
+                    $borrowerId = (int) ($installment->loan->member_id ?? 0);
+                    $guarantorId = (int) ($installment->loan->guarantor_member_id ?? 0);
+
+                    $masterFundCredits = (float) AccountTransaction::query()
+                        ->where('source_type', $sourceType)
+                        ->where('source_id', $sourceId)
+                        ->where('entry_type', 'credit')
+                        ->whereNull('deleted_at')
+                        ->where('account_id', $masterFundId)
+                        ->sum('amount');
+                    if ($masterFundId === null || abs($masterFundCredits - $amount) > self::AMOUNT_TOLERANCE) {
+                        $loanInstallmentFlowIssues[] = [
+                            'installment_id' => $sourceId,
+                            'loan_id' => $installment->loan_id,
+                            'issue' => 'master fund credit leg missing/mismatch',
+                            'expected' => round($amount, 2),
+                            'actual' => round($masterFundCredits, 2),
+                        ];
+                    }
+
+                    $memberFundCredits = (float) AccountTransaction::query()
+                        ->where('source_type', $sourceType)
+                        ->where('source_id', $sourceId)
+                        ->where('entry_type', 'credit')
+                        ->whereNull('deleted_at')
+                        ->where('member_id', $borrowerId)
+                        ->whereHas('account', fn($q) => $q
+                            ->where('type', Account::TYPE_MEMBER_FUND)
+                            ->where('member_id', $borrowerId))
+                        ->sum('amount');
+                    if (abs($memberFundCredits - $amount) > self::AMOUNT_TOLERANCE) {
+                        $loanInstallmentFlowIssues[] = [
+                            'installment_id' => $sourceId,
+                            'loan_id' => $installment->loan_id,
+                            'issue' => 'borrower member fund credit leg missing/mismatch',
+                            'expected' => round($amount, 2),
+                            'actual' => round($memberFundCredits, 2),
+                            'member_id' => $borrowerId,
+                        ];
+                    }
+
+                    $loanAccountCredits = (float) AccountTransaction::query()
+                        ->where('source_type', $sourceType)
+                        ->where('source_id', $sourceId)
+                        ->where('entry_type', 'credit')
+                        ->whereNull('deleted_at')
+                        ->whereHas('account', fn($q) => $q
+                            ->where('type', Account::TYPE_LOAN)
+                            ->where('loan_id', $installment->loan_id))
+                        ->sum('amount');
+                    if (abs($loanAccountCredits - $amount) > self::AMOUNT_TOLERANCE) {
+                        $loanInstallmentFlowIssues[] = [
+                            'installment_id' => $sourceId,
+                            'loan_id' => $installment->loan_id,
+                            'issue' => 'loan account credit leg missing/mismatch',
+                            'expected' => round($amount, 2),
+                            'actual' => round($loanAccountCredits, 2),
+                        ];
+                    }
+
+                    if ($installment->is_late && $lateFee > self::AMOUNT_TOLERANCE) {
+                        $lateFeeMasterCashCredits = (float) AccountTransaction::query()
+                            ->where('source_type', $sourceType)
+                            ->where('source_id', $sourceId)
+                            ->where('entry_type', 'credit')
+                            ->whereNull('deleted_at')
+                            ->where('account_id', $masterCashId)
+                            ->sum('amount');
+
+                        if ($masterCashId === null || abs($lateFeeMasterCashCredits - $lateFee) > self::AMOUNT_TOLERANCE) {
+                            $loanInstallmentFlowIssues[] = [
+                                'installment_id' => $sourceId,
+                                'loan_id' => $installment->loan_id,
+                                'issue' => 'late-fee master cash credit missing/mismatch',
+                                'expected' => round($lateFee, 2),
+                                'actual' => round($lateFeeMasterCashCredits, 2),
+                            ];
+                        }
+                    }
+
+                    if ((bool) $installment->paid_by_guarantor) {
+                        $guarantorFundDebits = (float) AccountTransaction::query()
+                            ->where('source_type', $sourceType)
+                            ->where('source_id', $sourceId)
+                            ->where('entry_type', 'debit')
+                            ->whereNull('deleted_at')
+                            ->where('member_id', $guarantorId)
+                            ->whereHas('account', fn($q) => $q
+                                ->where('type', Account::TYPE_MEMBER_FUND)
+                                ->where('member_id', $guarantorId))
+                            ->sum('amount');
+
+                        if ($guarantorId <= 0 || abs($guarantorFundDebits - $amount) > self::AMOUNT_TOLERANCE) {
+                            $loanInstallmentFlowIssues[] = [
+                                'installment_id' => $sourceId,
+                                'loan_id' => $installment->loan_id,
+                                'issue' => 'guarantor fund debit missing/mismatch',
+                                'expected' => round($amount, 2),
+                                'actual' => round($guarantorFundDebits, 2),
+                                'guarantor_member_id' => $guarantorId ?: null,
+                            ];
+                        }
+                    } else {
+                        $expectedCashDebit = $amount + max(0.0, $lateFee);
+                        $borrowerCashDebits = (float) AccountTransaction::query()
+                            ->where('source_type', $sourceType)
+                            ->where('source_id', $sourceId)
+                            ->where('entry_type', 'debit')
+                            ->whereNull('deleted_at')
+                            ->where('member_id', $borrowerId)
+                            ->whereHas('account', fn($q) => $q
+                                ->where('type', Account::TYPE_MEMBER_CASH)
+                                ->where('member_id', $borrowerId))
+                            ->sum('amount');
+
+                        if (abs($borrowerCashDebits - $expectedCashDebit) > self::AMOUNT_TOLERANCE) {
+                            $loanInstallmentFlowIssues[] = [
+                                'installment_id' => $sourceId,
+                                'loan_id' => $installment->loan_id,
+                                'issue' => 'borrower cash debit missing/mismatch',
+                                'expected' => round($expectedCashDebit, 2),
+                                'actual' => round($borrowerCashDebits, 2),
+                                'member_id' => $borrowerId,
+                            ];
+                        }
+                    }
+                }
+            });
+
+        if ($loanInstallmentFlowIssues !== []) {
+            $incrementCritical();
+        }
+
+        $checks['loan_installment_flow_integrity'] = [
+            'label' => 'Loan installments — repayment and cash/guarantor legs integrity',
+            'severity' => $loanInstallmentFlowIssues === [] ? 'ok' : 'critical',
+            'issue_count' => count($loanInstallmentFlowIssues),
+            'issues' => array_slice($loanInstallmentFlowIssues, 0, 120),
+            'issues_truncated' => count($loanInstallmentFlowIssues) > 120,
+        ];
+
+        // --- 4h) Member cash transfer integrity (member-sourced transfer rows) ---
+        $memberTransferIssues = [];
+        $memberTransferGroupRows = AccountTransaction::query()
+            ->where('source_type', Member::class)
+            ->whereNull('deleted_at')
+            ->whereHas('account', fn($q) => $q->where('type', Account::TYPE_MEMBER_CASH))
+            ->where(function ($q): void {
+                $q->where('description', 'like', 'Transfer to % cash account%')
+                    ->orWhere('description', 'like', 'Transfer from % cash account%');
+            })
+            ->get(['id', 'amount', 'entry_type', 'transacted_at']);
+
+        $groupedTransfers = $memberTransferGroupRows->groupBy(function ($row): string {
+            $ts = optional($row->transacted_at)?->format('Y-m-d H:i:s') ?? 'na';
+
+            return $ts . '|' . number_format((float) $row->amount, 2, '.', '');
+        });
+
+        foreach ($groupedTransfers as $groupKey => $rows) {
+            $creditSum = (float) $rows->where('entry_type', 'credit')->sum('amount');
+            $debitSum = (float) $rows->where('entry_type', 'debit')->sum('amount');
+
+            if (
+                abs($creditSum - $debitSum) > self::AMOUNT_TOLERANCE
+                || $rows->where('entry_type', 'credit')->count() === 0
+                || $rows->where('entry_type', 'debit')->count() === 0
+            ) {
+                $memberTransferIssues[] = [
+                    'group' => $groupKey,
+                    'rows' => $rows->pluck('id')->all(),
+                    'credit_sum' => round($creditSum, 2),
+                    'debit_sum' => round($debitSum, 2),
+                    'row_count' => $rows->count(),
+                    'issue' => 'cash transfer group does not net to zero with both debit and credit legs',
+                ];
+            }
+        }
+
+        if ($memberTransferIssues !== []) {
+            $incrementCritical();
+        }
+
+        $checks['member_cash_transfer_integrity'] = [
+            'label' => 'Member cash transfers — paired debit/credit integrity',
+            'severity' => $memberTransferIssues === [] ? 'ok' : 'critical',
+            'group_count' => $groupedTransfers->count(),
+            'issue_count' => count($memberTransferIssues),
+            'issues' => array_slice($memberTransferIssues, 0, 80),
+            'issues_truncated' => count($memberTransferIssues) > 80,
+            'note' => 'Groups by timestamp+amount for transfer descriptions and expects equal debit/credit totals.',
         ];
 
         // --- 5) Orphan loan accounts ---
@@ -564,20 +1263,59 @@ class FinanceReconciliationService
                 'global_trial' => $checks['global_trial']['severity'],
                 'bank_statement_vs_book' => $checks['bank_statement_vs_book']['severity'],
                 'contributions_ledger' => $checks['contributions_ledger']['severity'],
+                'contribution_flow_integrity' => $checks['contribution_flow_integrity']['severity'],
+                'membership_application_fee_integrity' => $checks['membership_application_fee_integrity']['severity'],
+                'subscription_fee_integrity' => $checks['subscription_fee_integrity']['severity'],
                 'member_portal_posting_integrity' => $checks['member_portal_posting_integrity']['severity'],
+                'bank_transaction_posting_integrity' => $checks['bank_transaction_posting_integrity']['severity'],
+                'sms_transaction_posting_integrity' => $checks['sms_transaction_posting_integrity']['severity'],
+                'loan_installment_flow_integrity' => $checks['loan_installment_flow_integrity']['severity'],
+                'member_cash_transfer_integrity' => $checks['member_cash_transfer_integrity']['severity'],
                 'orphan_loan_accounts' => $checks['orphan_loan_accounts']['severity'],
                 'paired_control_totals' => $checks['paired_control_totals']['severity'],
                 'active_loans' => $checks['active_loans_schedule_vs_ledger']['severity'],
                 'approved_loans' => $checks['approved_loans_disbursement_vs_ledger']['severity'],
+                'loan_disbursement_cash_payout_integrity' => $checks['loan_disbursement_cash_payout_integrity']['severity'],
             ],
             'pipeline' => $pipeline,
             'as_of' => $meta['as_of'],
+        ];
+
+        $checkSeverity = static function (string $key) use ($checks): string {
+            return (string) ($checks[$key]['severity'] ?? 'unknown');
+        };
+        $covRow = static function (string $flow, array $keys) use ($checkSeverity): array {
+            return [
+                'flow' => $flow,
+                'checks' => array_map(
+                    fn(string $k): array => ['key' => $k, 'severity' => $checkSeverity($k)],
+                    $keys,
+                ),
+            ];
+        };
+
+        $coverage_matrix = [
+            $covRow('Book-wide: stored balance vs ledger; trial balance; paired control totals', ['ledger_balances', 'global_trial', 'paired_control_totals']),
+            $covRow('Master cash vs declared bank / statement balance (optional)', ['bank_statement_vs_book']),
+            $covRow('Bank import rows → ledger posting hygiene', ['bank_transaction_posting_integrity']),
+            $covRow('SMS import rows → ledger posting hygiene', ['sms_transaction_posting_integrity']),
+            $covRow('Member portal “post funds” → ledger', ['member_portal_posting_integrity']),
+            $covRow('Contribution cycle: rows vs member fund + master fund legs', ['contribution_flow_integrity']),
+            $covRow('Contributions: master fund credits & per-row ledger presence', ['contributions_ledger']),
+            $covRow('Membership application fee → master cash', ['membership_application_fee_integrity']),
+            $covRow('Subscription fee → master cash', ['subscription_fee_integrity']),
+            $covRow('Loan disbursement: cash payout to member vs approved loan', ['loan_disbursement_cash_payout_integrity', 'approved_loans_disbursement_vs_ledger']),
+            $covRow('Active loans: schedule vs loan ledger', ['active_loans_schedule_vs_ledger']),
+            $covRow('Loan installments / repayments — paired flow', ['loan_installment_flow_integrity']),
+            $covRow('Member cash transfers — debit/credit pairing', ['member_cash_transfer_integrity']),
+            $covRow('Loan-type accounts missing a loan row', ['orphan_loan_accounts']),
         ];
 
         return [
             'meta' => $meta,
             'verdict' => $verdict,
             'checks' => $checks,
+            'coverage_matrix' => $coverage_matrix,
             'pipeline' => $pipeline,
             'period_metrics' => $periodMetrics,
             'summary' => $summary,
