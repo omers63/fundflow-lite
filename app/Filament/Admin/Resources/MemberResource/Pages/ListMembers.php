@@ -3,10 +3,11 @@
 namespace App\Filament\Admin\Resources\MemberResource\Pages;
 
 use App\Filament\Admin\Resources\MemberResource;
+use App\Filament\Admin\Widgets\MemberStatsWidget;
 use App\Models\Account;
 use App\Models\Member;
 use App\Services\MemberImportService;
-use App\Filament\Admin\Widgets\MemberStatsWidget;
+use App\Support\FilamentStoredUploadPath;
 use Filament\Actions\Action;
 use Filament\Actions\CreateAction;
 use Filament\Forms;
@@ -38,10 +39,17 @@ class ListMembers extends ListRecords
                     return response()->streamDownload(function () {
                         $handle = fopen('php://output', 'w');
                         fputcsv($handle, [
-                            'member_number', 'name', 'email', 'phone', 'status',
-                            'joined_at', 'monthly_contribution_amount',
-                            'cash_balance', 'fund_balance',
-                            'late_contributions_count', 'late_repayment_count',
+                            'member_number',
+                            'name',
+                            'email',
+                            'phone',
+                            'status',
+                            'joined_at',
+                            'monthly_contribution_amount',
+                            'cash_balance',
+                            'fund_balance',
+                            'late_contributions_count',
+                            'late_repayment_count',
                         ]);
 
                         Member::with('user')
@@ -76,47 +84,51 @@ class ListMembers extends ListRecords
                 ->modalHeading(__('Import members from CSV'))
                 ->modalDescription(new HtmlString(
                     '<div class="space-y-3 text-sm">' .
-                        '<div class="rounded-lg border border-blue-200 bg-blue-50/80 p-3 text-xs dark:border-blue-500/30 dark:bg-blue-500/10">' .
-                            '<p class="font-semibold text-blue-900 dark:text-blue-200 mb-1">' . e(__('Need a starter file?')) . '</p>' .
-                            '<p class="text-blue-900/90 dark:text-blue-100/90">' .
-                                e(__('Download a ready sample with 20 varied rows (including optional fields): ')) .
-                                '<a href="' . route('downloads.member-import-sample') . '" class="font-semibold text-blue-700 underline hover:text-blue-600 dark:text-blue-300 dark:hover:text-blue-200">members-import-sample-20.csv</a>' .
-                            '</p>' .
-                        '</div>' .
-                        '<div class="rounded-lg border border-gray-200 dark:border-gray-700 overflow-hidden">' .
-                            '<table class="w-full text-xs">' .
-                                '<tbody class="divide-y divide-gray-100 dark:divide-gray-800">' .
-                                    '<tr>' .
-                                        '<td class="px-3 py-2 font-semibold text-gray-700 dark:text-gray-200 w-44 bg-gray-50 dark:bg-gray-900/30">' . e(__('CSV format')) . '</td>' .
-                                        '<td class="px-3 py-2 text-gray-600 dark:text-gray-300">' . e(__('First row must be headers.')) . '</td>' .
-                                    '</tr>' .
-                                    '<tr>' .
-                                        '<td class="px-3 py-2 font-semibold text-gray-700 dark:text-gray-200 bg-gray-50 dark:bg-gray-900/30">' . e(__('Required fields')) . '</td>' .
-                                        '<td class="px-3 py-2 text-gray-600 dark:text-gray-300">' . e(__('email (always), name (required for new members only).')) . '</td>' .
-                                    '</tr>' .
-                                    '<tr>' .
-                                        '<td class="px-3 py-2 font-semibold text-gray-700 dark:text-gray-200 bg-gray-50 dark:bg-gray-900/30">' . e(__('Optional fields')) . '</td>' .
-                                        '<td class="px-3 py-2 text-gray-600 dark:text-gray-300">' . e(__('password, phone, joined_at, status, monthly_contribution_amount, parent_member_number, cash_balance, fund_balance.')) . '</td>' .
-                                    '</tr>' .
-                                    '<tr>' .
-                                        '<td class="px-3 py-2 font-semibold text-gray-700 dark:text-gray-200 bg-gray-50 dark:bg-gray-900/30">' . e(__('Balance rules')) . '</td>' .
-                                        '<td class="px-3 py-2 text-gray-600 dark:text-gray-300">' . e(__('cash_balance must be >= 0. fund_balance may be negative (paired debit on master + member fund).')) . '</td>' .
-                                    '</tr>' .
-                                    '<tr>' .
-                                        '<td class="px-3 py-2 font-semibold text-gray-700 dark:text-gray-200 bg-gray-50 dark:bg-gray-900/30">' . e(__('Existing email')) . '</td>' .
-                                        '<td class="px-3 py-2 text-gray-600 dark:text-gray-300">' . e(__('If user already has a member, only cash/fund adjustments are applied; other columns are ignored. Requires Update:Member. If no member record exists, import fails for that row.')) . '</td>' .
-                                    '</tr>' .
-                                    '<tr>' .
-                                        '<td class="px-3 py-2 font-semibold text-gray-700 dark:text-gray-200 bg-gray-50 dark:bg-gray-900/30">' . e(__('New member')) . '</td>' .
-                                        '<td class="px-3 py-2 text-gray-600 dark:text-gray-300">' . e(__('Requires Create:Member. Place parent rows before dependents.')) . '</td>' .
-                                    '</tr>' .
-                                    '<tr>' .
-                                        '<td class="px-3 py-2 font-semibold text-gray-700 dark:text-gray-200 bg-gray-50 dark:bg-gray-900/30">' . e(__('Allowed values')) . '</td>' .
-                                        '<td class="px-3 py-2 text-gray-600 dark:text-gray-300">' . e(__('status: active, suspended, delinquent, terminated. monthly_contribution_amount: 500 to 3000 in steps of 500.')) . '</td>' .
-                                    '</tr>' .
-                                '</tbody>' .
-                            '</table>' .
-                        '</div>' .
+                    '<div class="rounded-lg border border-blue-200 bg-blue-50/80 p-3 text-xs dark:border-blue-500/30 dark:bg-blue-500/10">' .
+                    '<p class="font-semibold text-blue-900 dark:text-blue-200 mb-1">' . e(__('Need a starter file?')) . '</p>' .
+                    '<p class="text-blue-900/90 dark:text-blue-100/90">' .
+                    e(__('Download a ready sample with 20 varied rows (including optional fields): ')) .
+                    '<a href="' . route('downloads.member-import-sample') . '" class="font-semibold text-blue-700 underline hover:text-blue-600 dark:text-blue-300 dark:hover:text-blue-200">members-import-sample-20.csv</a>' .
+                    '</p>' .
+                    '</div>' .
+                    '<div class="rounded-lg border border-gray-200 dark:border-gray-700 overflow-hidden">' .
+                    '<table class="w-full text-xs">' .
+                    '<tbody class="divide-y divide-gray-100 dark:divide-gray-800">' .
+                    '<tr>' .
+                    '<td class="px-3 py-2 font-semibold text-gray-700 dark:text-gray-200 w-44 bg-gray-50 dark:bg-gray-900/30">' . e(__('CSV format')) . '</td>' .
+                    '<td class="px-3 py-2 text-gray-600 dark:text-gray-300">' . e(__('First row must be headers.')) . '</td>' .
+                    '</tr>' .
+                    '<tr>' .
+                    '<td class="px-3 py-2 font-semibold text-gray-700 dark:text-gray-200 bg-gray-50 dark:bg-gray-900/30">' . e(__('Required fields')) . '</td>' .
+                    '<td class="px-3 py-2 text-gray-600 dark:text-gray-300">' . e(__('email (always), name (required for new members only).')) . '</td>' .
+                    '</tr>' .
+                    '<tr>' .
+                    '<td class="px-3 py-2 font-semibold text-gray-700 dark:text-gray-200 bg-gray-50 dark:bg-gray-900/30">' . e(__('Optional fields')) . '</td>' .
+                    '<td class="px-3 py-2 text-gray-600 dark:text-gray-300">' . e(__('password, phone, joined_at, status, monthly_contribution_amount, parent_member_number, cash_balance, fund_balance, contribution_month, contribution_year, contribution_paid_at.')) . '</td>' .
+                    '</tr>' .
+                    '<tr>' .
+                    '<td class="px-3 py-2 font-semibold text-gray-700 dark:text-gray-200 bg-gray-50 dark:bg-gray-900/30">' . e(__('Imported contribution rows')) . '</td>' .
+                    '<td class="px-3 py-2 text-gray-600 dark:text-gray-300">' . e(__('When fund_balance is positive, the importer also creates one contribution history row so it appears in the Contributions tab. Defaults: contribution_month=current month, contribution_year=current year, contribution_paid_at=now.')) . '</td>' .
+                    '</tr>' .
+                    '<tr>' .
+                    '<td class="px-3 py-2 font-semibold text-gray-700 dark:text-gray-200 bg-gray-50 dark:bg-gray-900/30">' . e(__('Balance rules')) . '</td>' .
+                    '<td class="px-3 py-2 text-gray-600 dark:text-gray-300">' . e(__('cash_balance must be >= 0. fund_balance may be negative (paired debit on master + member fund).')) . '</td>' .
+                    '</tr>' .
+                    '<tr>' .
+                    '<td class="px-3 py-2 font-semibold text-gray-700 dark:text-gray-200 bg-gray-50 dark:bg-gray-900/30">' . e(__('Existing email')) . '</td>' .
+                    '<td class="px-3 py-2 text-gray-600 dark:text-gray-300">' . e(__('If user already has a member, only cash/fund adjustments are applied; other columns are ignored. Requires Update:Member. If no member record exists, import fails for that row.')) . '</td>' .
+                    '</tr>' .
+                    '<tr>' .
+                    '<td class="px-3 py-2 font-semibold text-gray-700 dark:text-gray-200 bg-gray-50 dark:bg-gray-900/30">' . e(__('New member')) . '</td>' .
+                    '<td class="px-3 py-2 text-gray-600 dark:text-gray-300">' . e(__('Requires Create:Member. Place parent rows before dependents.')) . '</td>' .
+                    '</tr>' .
+                    '<tr>' .
+                    '<td class="px-3 py-2 font-semibold text-gray-700 dark:text-gray-200 bg-gray-50 dark:bg-gray-900/30">' . e(__('Allowed values')) . '</td>' .
+                    '<td class="px-3 py-2 text-gray-600 dark:text-gray-300">' . e(__('status: active, suspended, delinquent, terminated. monthly_contribution_amount: 500 to 3000 in steps of 500.')) . '</td>' .
+                    '</tr>' .
+                    '</tbody>' .
+                    '</table>' .
+                    '</div>' .
                     '</div>'
                 ))
                 ->modalWidth('2xl')
@@ -136,13 +148,27 @@ class ListMembers extends ListRecords
                         ->helperText(__('Used when the password column is empty or shorter than 8 characters. Members should change it after first login.')),
                 ])
                 ->action(function (array $data, Component $livewire): void {
-                    $relative = $data['csv_file'];
+                    $relative = FilamentStoredUploadPath::toRelativePath($data['csv_file'] ?? null);
+                    if ($relative === null) {
+                        Notification::make()
+                            ->title(__('Import failed'))
+                            ->body(__('No uploaded CSV file was received. Please re-select the file and try again.'))
+                            ->danger()
+                            ->persistent()
+                            ->send();
+
+                        return;
+                    }
+
                     $fullPath = Storage::disk('local')->path($relative);
 
                     try {
                         $result = app(MemberImportService::class)->import($fullPath, $data['default_password']);
                     } finally {
-                        Storage::disk('local')->delete($relative);
+                        try {
+                            Storage::disk('local')->delete($relative);
+                        } catch (\Throwable) {
+                        }
                     }
 
                     $body = __('Created: :created · Updated (balances): :updated · Skipped: :skipped · Failed: :failed', [

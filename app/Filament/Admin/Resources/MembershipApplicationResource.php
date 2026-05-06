@@ -11,8 +11,8 @@ use App\Notifications\MembershipApprovedNotification;
 use App\Notifications\MembershipRejectedNotification;
 use App\Services\AccountingService;
 use App\Services\MemberNumberService;
-use App\Support\StorageFilename;
 use App\Support\PhoneDisplay;
+use App\Support\StorageFilename;
 use Filament\Actions\Action;
 use Filament\Actions\ActionGroup;
 use Filament\Actions\BulkAction;
@@ -39,8 +39,8 @@ use Illuminate\Database\Eloquent\Builder;
 use Illuminate\Database\Eloquent\Collection as EloquentCollection;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Support\HtmlString;
-use Livewire\Features\SupportFileUploads\TemporaryUploadedFile;
 use Livewire\Component;
+use Livewire\Features\SupportFileUploads\TemporaryUploadedFile;
 
 class MembershipApplicationResource extends Resource
 {
@@ -277,7 +277,7 @@ class MembershipApplicationResource extends Resource
                     ->searchable(),
                 Tables\Columns\TextColumn::make('mobile_phone')
                     ->label(__('Mobile'))
-                    ->formatStateUsing(fn(?string $state): \Illuminate\Support\HtmlString => PhoneDisplay::toHtml($state)),
+                    ->formatStateUsing(fn(?string $state): HtmlString => PhoneDisplay::toHtml($state)),
                 Tables\Columns\TextColumn::make('application_type')
                     ->label(__('Type'))
                     ->formatStateUsing(function (?string $state): string {
@@ -376,7 +376,18 @@ class MembershipApplicationResource extends Resource
                         ->modalHeading(__('Approve Membership Application'))
                         ->modalDescription(__('Are you sure you want to approve this application? The applicant will be notified via email, SMS, and WhatsApp.'))
                         ->action(function (MembershipApplication $record, Component $livewire) {
-                            $memberNumber = static::approvePendingApplication($record);
+                            $memberNumber = DB::transaction(function () use ($record): string {
+                                /** @var MembershipApplication|null $fresh */
+                                $fresh = MembershipApplication::query()->whereKey($record->getKey())->lockForUpdate()->first();
+                                if ($fresh === null) {
+                                    throw new \RuntimeException('Application not found.');
+                                }
+                                if ($fresh->status !== 'pending') {
+                                    return (string) ($fresh->user?->member?->member_number ?? '—');
+                                }
+
+                                return static::approvePendingApplication($fresh);
+                            }, 5);
 
                             Notification::make()
                                 ->title(__('Application Approved'))
@@ -399,7 +410,15 @@ class MembershipApplicationResource extends Resource
                                 ->placeholder(__('Please provide a reason for rejecting this application...')),
                         ])
                         ->action(function (MembershipApplication $record, array $data, Component $livewire) {
-                            static::rejectPendingApplication($record, $data['rejection_reason']);
+                            DB::transaction(function () use ($record, $data): void {
+                                /** @var MembershipApplication|null $fresh */
+                                $fresh = MembershipApplication::query()->whereKey($record->getKey())->lockForUpdate()->first();
+                                if ($fresh === null || $fresh->status !== 'pending') {
+                                    return;
+                                }
+
+                                static::rejectPendingApplication($fresh, $data['rejection_reason']);
+                            }, 5);
 
                             Notification::make()
                                 ->title(__('Application Rejected'))
@@ -444,7 +463,7 @@ class MembershipApplicationResource extends Resource
                                             return;
                                         }
                                         static::approvePendingApplication($fresh);
-                                    });
+                                    }, 5);
                                     if ($record->fresh()->status === 'approved') {
                                         $approved++;
                                     }
@@ -497,7 +516,7 @@ class MembershipApplicationResource extends Resource
                                             return;
                                         }
                                         static::rejectPendingApplication($fresh, $reason);
-                                    });
+                                    }, 5);
                                     if ($record->fresh()->status === 'rejected') {
                                         $rejected++;
                                     }
@@ -588,7 +607,7 @@ class MembershipApplicationResource extends Resource
     {
         $record->loadMissing('user', 'parentMember.user');
 
-        $memberNumber = app(MemberNumberService::class)->generate();
+        $existingMember = Member::query()->where('user_id', $record->user_id)->first();
 
         $record->update([
             'status' => 'approved',
@@ -597,6 +616,23 @@ class MembershipApplicationResource extends Resource
         ]);
 
         $record->user->update(['status' => 'approved']);
+
+        if ($existingMember !== null) {
+            app(AccountingService::class)->ensureMemberAccounts($existingMember);
+
+            try {
+                $record->user->notify(
+                    (new MembershipApprovedNotification($existingMember->member_number))
+                        ->locale($record->user->preferredLocale())
+                );
+            } catch (\Throwable $e) {
+                // notifications are best-effort
+            }
+
+            return $existingMember->member_number;
+        }
+
+        $memberNumber = app(MemberNumberService::class)->generate();
 
         $parent = $record->parentMember;
         $householdEmail = $parent?->household_email ?: $parent?->user?->email ?: $record->user?->email;

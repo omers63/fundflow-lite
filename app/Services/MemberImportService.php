@@ -2,6 +2,7 @@
 
 namespace App\Services;
 
+use App\Models\Contribution;
 use App\Models\Member;
 use App\Models\User;
 use Carbon\Carbon;
@@ -18,10 +19,10 @@ class MemberImportService
      *
      * Required columns: name, email
      * Optional: password, phone, joined_at, status, monthly_contribution_amount, parent_member_number,
+     * contribution_month, contribution_year, contribution_paid_at,
      * cash_balance (SAR >= 0), fund_balance (SAR; may be negative — paired debit/credit with master fund).
      *
-     * If the email already exists: updates balances only when cash_balance > 0 or fund_balance ≠ 0;
-     * requires an existing Member and Update:Member permission. Other columns are ignored for that row.
+     * Same email may appear on multiple rows (family profiles). Each row creates a new user + member profile.
      *
      * Per-row password overrides the default when present and at least 8 characters (new members only).
      *
@@ -88,7 +89,7 @@ class MemberImportService
     }
 
     /**
-     * @return 'created'|'updated'|'skipped'
+     * @return 'created'
      */
     private function importRow(array $row, string $defaultPassword): string
     {
@@ -107,27 +108,6 @@ class MemberImportService
         $cashBalance = $this->parseCashBalance($this->cell($row, 'cash_balance'), 'cash_balance');
         $fundBalance = $this->parseFundBalance($this->cell($row, 'fund_balance'), 'fund_balance');
 
-        $existingUser = User::where('email', $email)->first();
-
-        if ($existingUser !== null) {
-            $member = $existingUser->member;
-            if ($member === null) {
-                throw new \InvalidArgumentException("User exists but has no member record: {$email}");
-            }
-
-            Gate::authorize('update', $member);
-
-            if ($cashBalance <= 0 && abs($fundBalance) < 0.00001) {
-                return 'skipped';
-            }
-
-            DB::transaction(function () use ($member, $cashBalance, $fundBalance) {
-                app(AccountingService::class)->applyImportedBalanceAdjustments($member, $cashBalance, $fundBalance);
-            });
-
-            return 'updated';
-        }
-
         if ($name === '') {
             throw new \InvalidArgumentException('name is required for new members.');
         }
@@ -142,20 +122,14 @@ class MemberImportService
         $status = $this->normalizeStatus($this->cell($row, 'status'));
         $contribution = $this->parseContribution($this->cell($row, 'monthly_contribution_amount'));
 
-        $parentId = null;
-        $parentNumber = $this->nullableCell($row, 'parent_member_number');
-        if ($parentNumber !== null && $parentNumber !== '') {
-            $parent = Member::where('member_number', $parentNumber)->first();
-            if (!$parent) {
-                throw new \InvalidArgumentException("Parent member number not found: {$parentNumber}");
-            }
-            if ($parent->parent_id !== null) {
-                throw new \InvalidArgumentException("Parent {$parentNumber} is not an independent member (has a sponsor).");
-            }
-            $parentId = $parent->id;
-        }
+        $parent = $this->resolveParent($row);
+        $parentId = $parent?->id;
 
-        DB::transaction(function () use ($name, $email, $phone, $plain, $joinedAt, $status, $contribution, $parentId, $cashBalance, $fundBalance) {
+        $contributionMonth = $this->parseContributionMonth($this->cell($row, 'contribution_month')) ?? (int) now()->month;
+        $contributionYear = $this->parseContributionYear($this->cell($row, 'contribution_year')) ?? (int) now()->year;
+        $contributionPaidAt = $this->parseDateTime($this->cell($row, 'contribution_paid_at')) ?? now();
+
+        DB::transaction(function () use ($name, $email, $phone, $plain, $joinedAt, $status, $contribution, $parentId, $parent, $cashBalance, $fundBalance, $contributionMonth, $contributionYear, $contributionPaidAt) {
             $user = User::create([
                 'name' => $name,
                 'email' => $email,
@@ -166,9 +140,11 @@ class MemberImportService
             ]);
 
             $memberNumber = app(MemberNumberService::class)->generate();
+            $householdEmail = $parent?->household_email ?: $parent?->user?->email ?: $email;
 
             $member = Member::create([
                 'user_id' => $user->id,
+                'household_email' => $householdEmail,
                 'member_number' => $memberNumber,
                 'joined_at' => $joinedAt,
                 'status' => $status,
@@ -179,6 +155,22 @@ class MemberImportService
             app(AccountingService::class)->ensureMemberAccounts($member);
 
             app(AccountingService::class)->applyImportedBalanceAdjustments($member, $cashBalance, $fundBalance);
+
+            // Mirror positive imported fund amounts into contribution history so they appear in the member Contributions tab.
+            if ($fundBalance > 0 && !Contribution::activePeriodExists((int) $member->id, $contributionMonth, $contributionYear)) {
+                Contribution::create([
+                    'member_id' => $member->id,
+                    'month' => $contributionMonth,
+                    'year' => $contributionYear,
+                    'amount' => round($fundBalance, 2),
+                    'paid_at' => $contributionPaidAt,
+                    'payment_method' => Contribution::PAYMENT_METHOD_ADMIN,
+                    'reference_number' => null,
+                    'notes' => 'Imported from member CSV fund_balance',
+                    'is_late' => false,
+                    'late_fee_amount' => null,
+                ]);
+            }
         });
 
         return 'created';
@@ -258,6 +250,53 @@ class MemberImportService
         }
     }
 
+    private function parseDateTime(string $value): ?Carbon
+    {
+        if ($value === '') {
+            return null;
+        }
+
+        try {
+            return Carbon::parse($value);
+        } catch (Throwable) {
+            throw new \InvalidArgumentException("Invalid contribution_paid_at: {$value}");
+        }
+    }
+
+    private function parseContributionMonth(string $value): ?int
+    {
+        if ($value === '') {
+            return null;
+        }
+
+        if (ctype_digit($value)) {
+            $m = (int) $value;
+            if ($m >= 1 && $m <= 12) {
+                return $m;
+            }
+        }
+
+        throw new \InvalidArgumentException("contribution_month must be 1–12 (got: {$value})");
+    }
+
+    private function parseContributionYear(string $value): ?int
+    {
+        if ($value === '') {
+            return null;
+        }
+
+        if (!ctype_digit($value)) {
+            throw new \InvalidArgumentException("contribution_year must be numeric (got: {$value})");
+        }
+
+        $y = (int) $value;
+        if ($y < 2000 || $y > 2100) {
+            throw new \InvalidArgumentException("contribution_year must be between 2000 and 2100 (got: {$value})");
+        }
+
+        return $y;
+    }
+
     private function normalizeStatus(string $value): string
     {
         $v = strtolower($value);
@@ -324,5 +363,26 @@ class MemberImportService
         }
 
         return round((float) $value, 2);
+    }
+
+    /**
+     * @param  array<string, string>  $row
+     */
+    private function resolveParent(array $row): ?Member
+    {
+        $parentNumber = $this->nullableCell($row, 'parent_member_number');
+        if ($parentNumber === null || $parentNumber === '') {
+            return null;
+        }
+
+        $parent = Member::where('member_number', $parentNumber)->first();
+        if (!$parent) {
+            throw new \InvalidArgumentException("Parent member number not found: {$parentNumber}");
+        }
+        if ($parent->parent_id !== null) {
+            throw new \InvalidArgumentException("Parent {$parentNumber} is not an independent member (has a sponsor).");
+        }
+
+        return $parent;
     }
 }

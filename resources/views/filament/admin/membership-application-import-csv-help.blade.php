@@ -16,6 +16,7 @@
         <p>
             {!! __('Use a UTF-8 CSV with a <strong class="text-gray-950 dark:text-white">header row</strong>.') !!}
             {{ __('Column names must match exactly; order can be anything.') }}
+            {{ __('Comma, semicolon (common Excel exports), or tab-separated rows are detected automatically from the header.') }}
         </p>
     </div>
 
@@ -33,16 +34,9 @@
             <tbody class="divide-y divide-gray-100 dark:divide-white/10">
                 @foreach ([
                     'name' => __('Applicant full name'),
-                    'email' => __('Login email (must be unique for a new user)'),
-                    'national_id' => __('National / ID number'),
-                    'date_of_birth' => __('Date of birth (example: YYYY-MM-DD)'),
-                    'city' => __('City'),
-                    'address' => __('Full address (quote if it contains commas)'),
+                    'email' => __('Login email; repeat the same email on additional rows for dependents (one account, multiple applications)'),
                     'mobile_phone' => __('Mobile number (used for SMS / WhatsApp)'),
-                    'bank_account_number' => __('Bank account number'),
                     'iban' => __('IBAN'),
-                    'next_of_kin_name' => __('Next of kin full name'),
-                    'next_of_kin_phone' => __('Next of kin phone number'),
                 ] as $col => $hint)
                     <tr>
                         <td class="px-3 py-2 align-top">
@@ -68,11 +62,18 @@
             </thead>
             <tbody class="divide-y divide-gray-100 dark:divide-white/10">
                 @foreach ([
+                    'national_id' => __('National / ID number'),
+                    'date_of_birth' => __('Date of birth (YYYY-MM-DD); omit if unknown'),
+                    'city' => __('City'),
+                    'address' => __('Full address (quote if it contains commas)'),
+                    'bank_account_number' => __('Bank account number'),
+                    'next_of_kin_name' => __('Next of kin full name'),
+                    'next_of_kin_phone' => __('Next of kin phone number'),
                     'password' => __('If 8+ characters, overrides the default password provided in the modal'),
                     'application_type' => __('new, resume, or renew (blank defaults to new)'),
                     'gender' => __('male, female, other'),
                     'marital_status' => __('single, married, divorced, widowed, other'),
-                    'membership_date' => __('Membership date'),
+                    'membership_date' => __('Membership date (YYYY-MM-DD, DD/MM/YYYY, etc.)'),
                     'home_phone' => __('Home phone'),
                     'work_phone' => __('Work phone'),
                     'work_place' => __('Work place'),
@@ -103,8 +104,8 @@
                     <td class="px-3 py-2">{!! __('Empty or short <code class="font-mono text-[11px]">password</code> uses the default password set in this modal.') !!}</td>
                 </tr>
                 <tr>
-                    <td class="px-3 py-2 font-semibold text-gray-700 dark:text-gray-200">{{ __('Existing application') }}</td>
-                    <td class="px-3 py-2">{!! __('If email already has a membership application, the row is <strong class="text-gray-800 dark:text-gray-200">skipped</strong>.') !!}</td>
+                    <td class="px-3 py-2 font-semibold text-gray-700 dark:text-gray-200">{{ __('Duplicate email') }}</td>
+                    <td class="px-3 py-2">{!! __('If email already exists for a <strong class="text-gray-800 dark:text-gray-200">non-member</strong> login, each row creates <strong class="text-gray-800 dark:text-gray-200">another</strong> pending application (e.g. dependents sharing one account). Only the <strong class="text-gray-800 dark:text-gray-200">first</strong> row creates the user; later rows ignore <code class="font-mono text-[11px]">password</code>.') !!}</td>
                 </tr>
                 <tr>
                     <td class="px-3 py-2 font-semibold text-gray-700 dark:text-gray-200">{{ __('Existing member') }}</td>

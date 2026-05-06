@@ -5,6 +5,7 @@ namespace App\Filament\Admin\Resources\MembershipApplicationResource\Pages;
 use App\Filament\Admin\Resources\MembershipApplicationResource;
 use App\Filament\Admin\Widgets\ApplicationStatsWidget;
 use App\Services\MembershipApplicationImportService;
+use App\Support\FilamentStoredUploadPath;
 use Filament\Actions\Action;
 use Filament\Actions\CreateAction;
 use Filament\Forms;
@@ -49,79 +50,81 @@ class ListMembershipApplications extends ListRecords
                         ->helperText(__('Used when the password column is empty or shorter than 8 characters. Applicants should change it after first login.')),
                 ])
                 ->action(function (array $data, Component $livewire): void {
-                    // With stored files (default), Filament returns a path relative to the local disk — same as member CSV import.
-                    $relative = $data['csv_file'] ?? null;
-                    if (is_array($relative)) {
-                        $relative = $relative[0] ?? null;
-                    }
+                    $mounted = collect($livewire->mountedActions ?? [])->last();
+                    $mountedData = is_array($mounted) ? ($mounted['data'] ?? []) : [];
 
-                    if (!is_string($relative) || trim($relative) === '') {
-                        logger()->warning('Applications import: missing or invalid csv_file path', [
-                            'payload_type' => gettype($data['csv_file'] ?? null),
-                            'payload_keys' => is_array($data) ? array_keys($data) : [],
-                        ]);
-
-                        Notification::make()
-                            ->title(__('Import failed'))
-                            ->body(__('No uploaded CSV file was received. Please re-select the file and try again.'))
-                            ->danger()
-                            ->send();
-
-                        return;
-                    }
-
-                    $fullPath = Storage::disk('local')->path($relative);
-
-                    if (!is_file($fullPath)) {
-                        logger()->warning('Applications import: stored file path does not exist', [
-                            'relative' => $relative,
-                            'full_path' => $fullPath,
-                        ]);
-
-                        Notification::make()
-                            ->title(__('Import failed'))
-                            ->body(__('Uploaded file could not be found on server. Please upload again and try again.'))
-                            ->danger()
-                            ->send();
-
-                        return;
-                    }
+                    $csvRaw = $data['csv_file'] ?? $mountedData['csv_file'] ?? null;
+                    $defaultPassword = (string) (filled($data['default_password'] ?? null)
+                        ? $data['default_password']
+                        : ($mountedData['default_password'] ?? ''));
 
                     try {
-                        $result = app(MembershipApplicationImportService::class)->import($fullPath, $data['default_password']);
+                        $resolved = FilamentStoredUploadPath::tryResolveReadableCsvToAbsolutePath($csvRaw);
+
+                        if ($resolved === null) {
+                            $this->sendImportNotification(
+                                Notification::make()
+                                    ->title(__('Import failed'))
+                                    ->body(__('No readable CSV file was found. Re-upload the file, wait until it finishes uploading, then submit.'))
+                                    ->danger()
+                                    ->persistent()
+                            );
+
+                            return;
+                        }
+
+                        $fullPath = $resolved['absolutePath'];
+                        $deleteRelative = $resolved['relativePathForDeletion'];
+
+                        try {
+                            $result = app(MembershipApplicationImportService::class)->import($fullPath, $defaultPassword);
+                        } finally {
+                            if ($deleteRelative !== null) {
+                                try {
+                                    Storage::disk('local')->delete($deleteRelative);
+                                } catch (\Throwable) {
+                                }
+                            }
+                        }
+
+                        $body = __('Created: :created · Skipped: :skipped · Failed: :failed', [
+                            'created' => $result['created'],
+                            'skipped' => $result['skipped'],
+                            'failed' => $result['failed'],
+                        ]);
+
+                        if ($result['errors'] !== []) {
+                            $previewLines = array_slice($result['errors'], 0, 6);
+                            $preview = implode("\n", $previewLines);
+                            if (count($result['errors']) > 6) {
+                                $preview .= "\n… " . __('and :count more (see storage/logs/laravel.log)', [
+                                    'count' => count($result['errors']) - 6,
+                                ]);
+                            }
+                            $body .= "\n\n" . $preview;
+                        }
+
+                        $livewire->resetTable();
+                        MembershipApplicationResource::dispatchApplicationStatsRefresh($livewire);
+
+                        $this->sendImportNotification(
+                            Notification::make()
+                                ->title(__('Application import finished'))
+                                ->body(new HtmlString(nl2br(e($body))))
+                                ->color($result['failed'] > 0 || $result['errors'] !== [] ? 'warning' : 'success')
+                                ->persistent()
+                        );
                     } catch (\Throwable $e) {
                         report($e);
 
-                        Notification::make()
-                            ->title(__('Import failed'))
-                            ->body($e->getMessage())
-                            ->danger()
-                            ->persistent()
-                            ->send();
-
-                        return;
-                    } finally {
-                        Storage::disk('local')->delete($relative);
+                        $this->sendImportNotification(
+                            Notification::make()
+                                ->title(__('Import failed'))
+                                ->body($e->getMessage() !== '' ? $e->getMessage() : __('An unexpected error occurred during import.'))
+                                ->danger()
+                                ->persistent()
+                        );
                     }
-
-                    $body = "Created: {$result['created']} · Skipped: {$result['skipped']} · Failed: {$result['failed']}";
-
-                    if ($result['errors'] !== []) {
-                        $preview = implode("\n", array_slice($result['errors'], 0, 8));
-                        if (count($result['errors']) > 8) {
-                            $preview .= "\n… and " . (count($result['errors']) - 8) . ' more';
-                        }
-                        $body .= "\n\n" . $preview;
-                    }
-
-                    Notification::make()
-                        ->title(__('Application import finished'))
-                        ->body($body)
-                        ->color($result['failed'] > 0 || $result['errors'] !== [] ? 'warning' : 'success')
-                        ->persistent()
-                        ->send();
-
-                    MembershipApplicationResource::dispatchApplicationStatsRefresh($livewire);
                 }),
             CreateAction::make()
                 ->label(__('New Application'))
@@ -144,5 +147,18 @@ class ListMembershipApplications extends ListRecords
     public function getSubheading(): ?string
     {
         return __('Review new membership applications, track approval rates, and manage the onboarding pipeline.');
+    }
+
+    /**
+     * Session flash is easy to miss after Livewire refreshes the table; database notifications match the admin panel bell.
+     */
+    private function sendImportNotification(Notification $notification): void
+    {
+        $notification->send();
+
+        $user = auth()->user();
+        if ($user !== null) {
+            $notification->sendToDatabase($user);
+        }
     }
 }

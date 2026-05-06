@@ -18,6 +18,7 @@ use Filament\Resources\RelationManagers\RelationManager;
 use Filament\Schemas\Schema;
 use Filament\Tables;
 use Filament\Tables\Table;
+use Illuminate\Database\Eloquent\Model;
 use Livewire\Component;
 
 class ContributionsRelationManager extends RelationManager
@@ -28,7 +29,7 @@ class ContributionsRelationManager extends RelationManager
 
     protected static ?string $title = null;
 
-    public static function getTitle(\Illuminate\Database\Eloquent\Model $ownerRecord, string $pageClass): string
+    public static function getTitle(Model $ownerRecord, string $pageClass): string
     {
         return __('Contributions');
     }
@@ -60,18 +61,18 @@ class ContributionsRelationManager extends RelationManager
                 Tables\Columns\TextColumn::make('month')
                     ->label(__('Month'))
                     ->formatStateUsing(
-                        fn ($state) => Carbon::create(null, (int) $state, 1)->locale(app()->getLocale())->translatedFormat('F')
+                        fn($state) => Carbon::create(null, (int) $state, 1)->locale(app()->getLocale())->translatedFormat('F')
                     )
                     ->toggleable(),
                 Tables\Columns\TextColumn::make('amount')->label(__('Amount'))->money('SAR')->toggleable(),
                 Tables\Columns\BadgeColumn::make('payment_method')
                     ->label(__('Source'))
-                    ->formatStateUsing(fn (?string $state): string => Contribution::paymentMethodLabel($state))
+                    ->formatStateUsing(fn(?string $state): string => Contribution::paymentMethodLabel($state))
                     ->toggleable(),
                 Tables\Columns\TextColumn::make('reference_number')->label(__('Reference number'))->placeholder(__('—'))->toggleable(),
                 Tables\Columns\TextColumn::make('paid_at')->label(__('Paid On'))
                     ->formatStateUsing(
-                        fn ($state): string => $state ? Carbon::parse($state)->locale(app()->getLocale())->translatedFormat('d M Y') : __('—')
+                        fn($state): string => $state ? Carbon::parse($state)->locale(app()->getLocale())->translatedFormat('d M Y') : __('—')
                     )
                     ->sortable()
                     ->toggleable(),
@@ -90,16 +91,16 @@ class ContributionsRelationManager extends RelationManager
                     ->options(array_combine(
                         range(1, 12),
                         array_map(
-                            fn ($m) => Carbon::create(null, $m, 1)->locale(app()->getLocale())->translatedFormat('F'),
+                            fn($m) => Carbon::create(null, $m, 1)->locale(app()->getLocale())->translatedFormat('F'),
                             range(1, 12)
                         )
                     )),
                 Tables\Filters\Filter::make('year')
-                    ->schema([Forms\Components\TextInput::make('year')->numeric()->default(now()->year)])
-                    ->query(fn ($query, $data) => ($data['year'] ?? null) ? $query->where('year', $data['year']) : $query),
+                    ->schema([Forms\Components\TextInput::make('year')->numeric()])
+                    ->query(fn($query, $data) => ($data['year'] ?? null) ? $query->where('year', $data['year']) : $query),
                 Tables\Filters\SelectFilter::make('payment_method')
                     ->label(__('Source'))
-                    ->options(fn (): array => Contribution::paymentMethodOptions()),
+                    ->options(fn(): array => Contribution::paymentMethodOptions()),
                 Tables\Filters\TernaryFilter::make('is_late')
                     ->label(__('Late payment'))
                     ->trueLabel(__('Late only'))
@@ -112,8 +113,8 @@ class ContributionsRelationManager extends RelationManager
                     ->columns(2)
                     ->query(function ($query, array $data) {
                         return $query
-                            ->when($data['paid_from'] ?? null, fn ($q) => $q->whereDate('paid_at', '>=', $data['paid_from']))
-                            ->when($data['paid_until'] ?? null, fn ($q) => $q->whereDate('paid_at', '<=', $data['paid_until']));
+                            ->when($data['paid_from'] ?? null, fn($q) => $q->whereDate('paid_at', '>=', $data['paid_from']))
+                            ->when($data['paid_until'] ?? null, fn($q) => $q->whereDate('paid_at', '<=', $data['paid_until']));
                     }),
                 Tables\Filters\Filter::make('amount')
                     ->schema([
@@ -123,8 +124,8 @@ class ContributionsRelationManager extends RelationManager
                     ->columns(2)
                     ->query(function ($query, array $data) {
                         return $query
-                            ->when(filled($data['amount_min'] ?? null), fn ($q) => $q->where('amount', '>=', $data['amount_min']))
-                            ->when(filled($data['amount_max'] ?? null), fn ($q) => $q->where('amount', '<=', $data['amount_max']));
+                            ->when(filled($data['amount_min'] ?? null), fn($q) => $q->where('amount', '>=', $data['amount_min']))
+                            ->when(filled($data['amount_max'] ?? null), fn($q) => $q->where('amount', '<=', $data['amount_max']));
                     }),
             ])
             ->recordActions([

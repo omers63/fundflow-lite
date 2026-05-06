@@ -8,6 +8,7 @@ use App\Models\Contribution;
 use App\Models\Member;
 use App\Services\ContributionCycleService;
 use App\Services\ContributionImportService;
+use App\Support\FilamentStoredUploadPath;
 use Carbon\Carbon;
 use Closure;
 use Filament\Actions\Action;
@@ -76,7 +77,7 @@ class ContributionResource extends Resource
         return $schema->schema([
             Forms\Components\Select::make('member_id')
                 ->label(__('Member'))
-                ->options(fn () => Member::with('user')
+                ->options(fn() => Member::with('user')
                     ->get()
                     ->pluck('user.name', 'id')
                     ->prepend('-- Select Member --', ''))
@@ -103,11 +104,11 @@ class ContributionResource extends Resource
                 ->required()
                 ->minValue(0)
                 ->readOnlyOn('create')
-                ->helperText(fn (string $operation): ?string => $operation === 'create'
+                ->helperText(fn(string $operation): ?string => $operation === 'create'
                     ? 'Filled from the member\'s monthly contribution amount.'
                     : null),
             Forms\Components\Select::make('month')
-                ->options(array_combine(range(1, 12), array_map(fn ($m) => date('F', mktime(0, 0, 0, $m, 1)), range(1, 12))))
+                ->options(array_combine(range(1, 12), array_map(fn($m) => date('F', mktime(0, 0, 0, $m, 1)), range(1, 12))))
                 ->required(),
             Forms\Components\TextInput::make('year')
                 ->numeric()
@@ -118,7 +119,7 @@ class ContributionResource extends Resource
                         $memberId = $get('member_id');
                         $month = $get('month');
 
-                        if (! filled($memberId) || ! filled($month) || ! filled($value)) {
+                        if (!filled($memberId) || !filled($month) || !filled($value)) {
                             return;
                         }
 
@@ -126,7 +127,7 @@ class ContributionResource extends Resource
                             ? (int) $record->getKey()
                             : null;
 
-                        if (! Contribution::activePeriodExists((int) $memberId, (int) $month, (int) $value, $exceptId)) {
+                        if (!Contribution::activePeriodExists((int) $memberId, (int) $month, (int) $value, $exceptId)) {
                             return;
                         }
 
@@ -145,7 +146,7 @@ class ContributionResource extends Resource
                 ->numeric()
                 ->prefix('SAR')
                 ->nullable()
-                ->visible(fn (Get $get): bool => (bool) $get('is_late'))
+                ->visible(fn(Get $get): bool => (bool) $get('is_late'))
                 ->helperText(__('Credited to master cash only (not master fund). Leave empty to use the configured default when saving.')),
             Forms\Components\TextInput::make('reference_number')
                 ->label(__('Reference #'))
@@ -171,9 +172,15 @@ class ContributionResource extends Resource
                         return response()->streamDownload(function () {
                             $handle = fopen('php://output', 'w');
                             fputcsv($handle, [
-                                'id', 'member_number', 'member_name',
-                                'month', 'year', 'period',
-                                'amount', 'is_late', 'recorded_at',
+                                'id',
+                                'member_number',
+                                'member_name',
+                                'month',
+                                'year',
+                                'period',
+                                'amount',
+                                'is_late',
+                                'recorded_at',
                             ]);
 
                             Contribution::with('member.user')
@@ -201,51 +208,51 @@ class ContributionResource extends Resource
                     ->label(__('app.action.import_contributions'))
                     ->icon('heroicon-o-arrow-up-tray')
                     ->color('success')
-                    ->visible(fn (): bool => static::canCreate())
+                    ->visible(fn(): bool => static::canCreate())
                     ->modalHeading(__('app.contribution.import.heading'))
                     ->modalDescription(new HtmlString(
                         '<div class="space-y-3 text-sm">' .
-                            '<div class="rounded-lg border border-blue-200 bg-blue-50/80 p-3 text-xs dark:border-blue-500/30 dark:bg-blue-500/10">' .
-                                '<p class="font-semibold text-blue-900 dark:text-blue-200 mb-1">' . e(__('app.ui.need_starter_file')) . '</p>' .
-                                '<p class="text-blue-900/90 dark:text-blue-100/90">' .
-                                    e(__('Download a ready sample with common formats (numeric and month-name values): ')) .
-                                    '<a href="' . route('downloads.contribution-import-sample') . '" class="font-semibold text-blue-700 underline hover:text-blue-600 dark:text-blue-300 dark:hover:text-blue-200">contributions-import-sample-15.csv</a>' .
-                                '</p>' .
-                            '</div>' .
-                            '<div class="rounded-lg border border-gray-200 dark:border-gray-700 overflow-hidden">' .
-                                '<table class="w-full text-xs">' .
-                                    '<tbody class="divide-y divide-gray-100 dark:divide-gray-800">' .
-                                        '<tr>' .
-                                            '<td class="px-3 py-2 font-semibold text-gray-700 dark:text-gray-200 w-44 bg-gray-50 dark:bg-gray-900/30">' . e(__('app.ui.csv_format')) . '</td>' .
-                                            '<td class="px-3 py-2 text-gray-600 dark:text-gray-300">' . e(__('app.ui.first_row_headers')) . '</td>' .
-                                        '</tr>' .
-                                        '<tr>' .
-                                            '<td class="px-3 py-2 font-semibold text-gray-700 dark:text-gray-200 bg-gray-50 dark:bg-gray-900/30">' . e(__('app.ui.member_identifier')) . '</td>' .
-                                            '<td class="px-3 py-2 text-gray-600 dark:text-gray-300">' . e(__('app.contribution.import.member_identifier_help')) . '</td>' .
-                                        '</tr>' .
-                                        '<tr>' .
-                                            '<td class="px-3 py-2 font-semibold text-gray-700 dark:text-gray-200 bg-gray-50 dark:bg-gray-900/30">' . e(__('Required fields')) . '</td>' .
-                                            '<td class="px-3 py-2 text-gray-600 dark:text-gray-300">' . e(__('month, year, amount.')) . '</td>' .
-                                        '</tr>' .
-                                        '<tr>' .
-                                            '<td class="px-3 py-2 font-semibold text-gray-700 dark:text-gray-200 bg-gray-50 dark:bg-gray-900/30">' . e(__('Month value')) . '</td>' .
-                                            '<td class="px-3 py-2 text-gray-600 dark:text-gray-300">' . e(__('Use 1-12 or a month name (e.g. January).')) . '</td>' .
-                                        '</tr>' .
-                                        '<tr>' .
-                                            '<td class="px-3 py-2 font-semibold text-gray-700 dark:text-gray-200 bg-gray-50 dark:bg-gray-900/30">' . e(__('Optional fields')) . '</td>' .
-                                            '<td class="px-3 py-2 text-gray-600 dark:text-gray-300">' . e(__('paid_at, reference_number, notes, is_late, late_fee_amount, payment_method.')) . '</td>' .
-                                        '</tr>' .
-                                        '<tr>' .
-                                            '<td class="px-3 py-2 font-semibold text-gray-700 dark:text-gray-200 bg-gray-50 dark:bg-gray-900/30">' . e(__('Late values')) . '</td>' .
-                                            '<td class="px-3 py-2 text-gray-600 dark:text-gray-300">' . e(__('is_late accepts 0/1 or yes/no. If late and fee is blank, system default is applied.')) . '</td>' .
-                                        '</tr>' .
-                                        '<tr>' .
-                                            '<td class="px-3 py-2 font-semibold text-gray-700 dark:text-gray-200 bg-gray-50 dark:bg-gray-900/30">' . e(__('Payment method')) . '</td>' .
-                                            '<td class="px-3 py-2 text-gray-600 dark:text-gray-300">' . e(__('Allowed: :methods. Leave blank for admin entry.', ['methods' => implode(', ', array_keys(Contribution::paymentMethodOptions()))])) . '</td>' .
-                                        '</tr>' .
-                                    '</tbody>' .
-                                '</table>' .
-                            '</div>' .
+                        '<div class="rounded-lg border border-blue-200 bg-blue-50/80 p-3 text-xs dark:border-blue-500/30 dark:bg-blue-500/10">' .
+                        '<p class="font-semibold text-blue-900 dark:text-blue-200 mb-1">' . e(__('app.ui.need_starter_file')) . '</p>' .
+                        '<p class="text-blue-900/90 dark:text-blue-100/90">' .
+                        e(__('Download a ready sample with common formats (numeric and month-name values): ')) .
+                        '<a href="' . route('downloads.contribution-import-sample') . '" class="font-semibold text-blue-700 underline hover:text-blue-600 dark:text-blue-300 dark:hover:text-blue-200">contributions-import-sample-15.csv</a>' .
+                        '</p>' .
+                        '</div>' .
+                        '<div class="rounded-lg border border-gray-200 dark:border-gray-700 overflow-hidden">' .
+                        '<table class="w-full text-xs">' .
+                        '<tbody class="divide-y divide-gray-100 dark:divide-gray-800">' .
+                        '<tr>' .
+                        '<td class="px-3 py-2 font-semibold text-gray-700 dark:text-gray-200 w-44 bg-gray-50 dark:bg-gray-900/30">' . e(__('app.ui.csv_format')) . '</td>' .
+                        '<td class="px-3 py-2 text-gray-600 dark:text-gray-300">' . e(__('app.ui.first_row_headers')) . '</td>' .
+                        '</tr>' .
+                        '<tr>' .
+                        '<td class="px-3 py-2 font-semibold text-gray-700 dark:text-gray-200 bg-gray-50 dark:bg-gray-900/30">' . e(__('app.ui.member_identifier')) . '</td>' .
+                        '<td class="px-3 py-2 text-gray-600 dark:text-gray-300">' . e(__('app.contribution.import.member_identifier_help')) . '</td>' .
+                        '</tr>' .
+                        '<tr>' .
+                        '<td class="px-3 py-2 font-semibold text-gray-700 dark:text-gray-200 bg-gray-50 dark:bg-gray-900/30">' . e(__('Required fields')) . '</td>' .
+                        '<td class="px-3 py-2 text-gray-600 dark:text-gray-300">' . e(__('month, year, amount.')) . '</td>' .
+                        '</tr>' .
+                        '<tr>' .
+                        '<td class="px-3 py-2 font-semibold text-gray-700 dark:text-gray-200 bg-gray-50 dark:bg-gray-900/30">' . e(__('Month value')) . '</td>' .
+                        '<td class="px-3 py-2 text-gray-600 dark:text-gray-300">' . e(__('Use 1-12 or a month name (e.g. January).')) . '</td>' .
+                        '</tr>' .
+                        '<tr>' .
+                        '<td class="px-3 py-2 font-semibold text-gray-700 dark:text-gray-200 bg-gray-50 dark:bg-gray-900/30">' . e(__('Optional fields')) . '</td>' .
+                        '<td class="px-3 py-2 text-gray-600 dark:text-gray-300">' . e(__('paid_at, reference_number, notes, is_late, late_fee_amount, payment_method.')) . '</td>' .
+                        '</tr>' .
+                        '<tr>' .
+                        '<td class="px-3 py-2 font-semibold text-gray-700 dark:text-gray-200 bg-gray-50 dark:bg-gray-900/30">' . e(__('Late values')) . '</td>' .
+                        '<td class="px-3 py-2 text-gray-600 dark:text-gray-300">' . e(__('is_late accepts 0/1 or yes/no. If late and fee is blank, system default is applied.')) . '</td>' .
+                        '</tr>' .
+                        '<tr>' .
+                        '<td class="px-3 py-2 font-semibold text-gray-700 dark:text-gray-200 bg-gray-50 dark:bg-gray-900/30">' . e(__('Payment method')) . '</td>' .
+                        '<td class="px-3 py-2 text-gray-600 dark:text-gray-300">' . e(__('Allowed: :methods. Leave blank for admin entry.', ['methods' => implode(', ', array_keys(Contribution::paymentMethodOptions()))])) . '</td>' .
+                        '</tr>' .
+                        '</tbody>' .
+                        '</table>' .
+                        '</div>' .
                         '</div>'
                     ))
                     ->modalWidth('2xl')
@@ -258,13 +265,27 @@ class ContributionResource extends Resource
                             ->required(),
                     ])
                     ->action(function (array $data, Component $livewire): void {
-                        $relative = $data['csv_file'];
+                        $relative = FilamentStoredUploadPath::toRelativePath($data['csv_file'] ?? null);
+                        if ($relative === null) {
+                            Notification::make()
+                                ->title(__('Import failed'))
+                                ->body(__('No uploaded CSV file was received. Please re-select the file and try again.'))
+                                ->danger()
+                                ->persistent()
+                                ->send();
+
+                            return;
+                        }
+
                         $fullPath = Storage::disk('local')->path($relative);
 
                         try {
                             $result = app(ContributionImportService::class)->import($fullPath);
                         } finally {
-                            Storage::disk('local')->delete($relative);
+                            try {
+                                Storage::disk('local')->delete($relative);
+                            } catch (\Throwable) {
+                            }
                         }
 
                         $body = __('Created: :created · Skipped: :skipped · Failed: :failed', [
@@ -276,9 +297,9 @@ class ContributionResource extends Resource
                         if ($result['errors'] !== []) {
                             $preview = implode("\n", array_slice($result['errors'], 0, 8));
                             if (count($result['errors']) > 8) {
-                                $preview .= "\n… and ".(count($result['errors']) - 8).' more';
+                                $preview .= "\n… and " . (count($result['errors']) - 8) . ' more';
                             }
-                            $body .= "\n\n".$preview;
+                            $body .= "\n\n" . $preview;
                         }
 
                         Notification::make()
@@ -291,16 +312,16 @@ class ContributionResource extends Resource
                         static::dispatchContributionStatsRefresh($livewire);
                     }),
                 CreateAction::make()
-                    ->label(__('app.action.new').' '.__('app.resource.contribution'))
+                    ->label(__('app.action.new') . ' ' . __('app.resource.contribution'))
                     ->icon('heroicon-o-plus-circle')
                     ->modalWidth('2xl')
                     ->createAnother(false)
                     ->mutateDataUsing(function (array $data): array {
                         $data['payment_method'] = Contribution::PAYMENT_METHOD_ADMIN;
-                        if (! empty($data['is_late'])) {
+                        if (!empty($data['is_late'])) {
                             $raw = $data['late_fee_amount'] ?? null;
                             if ($raw === null || $raw === '') {
-                                $at = ! empty($data['paid_at']) ? Carbon::parse($data['paid_at']) : now();
+                                $at = !empty($data['paid_at']) ? Carbon::parse($data['paid_at']) : now();
                                 $fee = app(ContributionCycleService::class)->lateFeeForContributionPeriod(
                                     (int) $data['month'],
                                     (int) $data['year'],
@@ -317,7 +338,7 @@ class ContributionResource extends Resource
                     ->after(function (Component $livewire): void {
                         static::dispatchContributionStatsRefresh($livewire);
                     })
-                    ->visible(fn (): bool => static::canCreate()),
+                    ->visible(fn(): bool => static::canCreate()),
             ])
             ->columns([
                 Tables\Columns\TextColumn::make('member.member_number')
@@ -334,7 +355,7 @@ class ContributionResource extends Resource
                     ->sortable()
                     ->toggleable(),
                 Tables\Columns\TextColumn::make('month')
-                    ->formatStateUsing(fn ($state) => date('F', mktime(0, 0, 0, $state, 1)))
+                    ->formatStateUsing(fn($state) => date('F', mktime(0, 0, 0, $state, 1)))
                     ->toggleable(),
                 Tables\Columns\TextColumn::make('year')
                     ->sortable()
@@ -342,7 +363,7 @@ class ContributionResource extends Resource
                 Tables\Columns\TextColumn::make('payment_method')
                     ->label(__('Source'))
                     ->badge()
-                    ->formatStateUsing(fn (?string $state): string => Contribution::paymentMethodLabel($state))
+                    ->formatStateUsing(fn(?string $state): string => Contribution::paymentMethodLabel($state))
                     ->toggleable(),
                 Tables\Columns\TextColumn::make('paid_at')
                     ->dateTime('d M Y')
@@ -367,24 +388,24 @@ class ContributionResource extends Resource
                 Tables\Filters\SelectFilter::make('member_id')
                     ->label(__('Member'))
                     ->searchable()
-                    ->options(fn () => Member::with('user')->orderBy('member_number')->get()
-                        ->mapWithKeys(fn (Member $m) => [$m->id => "{$m->member_number} – {$m->user->name}"])),
+                    ->options(fn() => Member::with('user')->orderBy('member_number')->get()
+                        ->mapWithKeys(fn(Member $m) => [$m->id => "{$m->member_number} – {$m->user->name}"])),
                 Tables\Filters\SelectFilter::make('month')
                     ->options(array_combine(
                         range(1, 12),
                         array_map(
-                            fn ($m) => \Carbon\Carbon::create(null, $m, 1)
+                            fn($m) => Carbon::create(null, $m, 1)
                                 ->locale(app()->getLocale())
                                 ->translatedFormat('F'),
                             range(1, 12)
                         )
                     )),
                 Tables\Filters\Filter::make('year')
-                    ->schema([Forms\Components\TextInput::make('year')->numeric()->default(now()->year)])
-                    ->query(fn ($query, $data) => $data['year'] ? $query->where('year', $data['year']) : $query),
+                    ->schema([Forms\Components\TextInput::make('year')->numeric()])
+                    ->query(fn($query, $data) => $data['year'] ? $query->where('year', $data['year']) : $query),
                 Tables\Filters\SelectFilter::make('payment_method')
                     ->label(__('Source'))
-                    ->options(fn (): array => Contribution::paymentMethodOptions()),
+                    ->options(fn(): array => Contribution::paymentMethodOptions()),
                 Tables\Filters\TernaryFilter::make('is_late')
                     ->label(__('Late payment'))
                     ->trueLabel(__('Late only'))
@@ -397,8 +418,8 @@ class ContributionResource extends Resource
                     ->columns(2)
                     ->query(function ($query, array $data) {
                         return $query
-                            ->when($data['paid_from'] ?? null, fn ($q) => $q->whereDate('paid_at', '>=', $data['paid_from']))
-                            ->when($data['paid_until'] ?? null, fn ($q) => $q->whereDate('paid_at', '<=', $data['paid_until']));
+                            ->when($data['paid_from'] ?? null, fn($q) => $q->whereDate('paid_at', '>=', $data['paid_from']))
+                            ->when($data['paid_until'] ?? null, fn($q) => $q->whereDate('paid_at', '<=', $data['paid_until']));
                     }),
                 Tables\Filters\Filter::make('amount')
                     ->schema([
@@ -408,8 +429,8 @@ class ContributionResource extends Resource
                     ->columns(2)
                     ->query(function ($query, array $data) {
                         return $query
-                            ->when(filled($data['amount_min'] ?? null), fn ($q) => $q->where('amount', '>=', $data['amount_min']))
-                            ->when(filled($data['amount_max'] ?? null), fn ($q) => $q->where('amount', '<=', $data['amount_max']));
+                            ->when(filled($data['amount_min'] ?? null), fn($q) => $q->where('amount', '>=', $data['amount_min']))
+                            ->when(filled($data['amount_max'] ?? null), fn($q) => $q->where('amount', '<=', $data['amount_max']));
                     }),
                 TrashedFilter::make(),
             ])
@@ -430,7 +451,7 @@ class ContributionResource extends Resource
             ])
             ->recordUrl(null)
             ->recordAction(function (Model $record): ?string {
-                if (! $record instanceof Contribution) {
+                if (!$record instanceof Contribution) {
                     return null;
                 }
 
@@ -477,7 +498,7 @@ class ContributionResource extends Resource
         );
 
         $livewire->js(
-            'setTimeout(() => window.Livewire.getByName('.$targetName.').forEach(w => w.$refresh()), 0)'
+            'setTimeout(() => window.Livewire.getByName(' . $targetName . ').forEach(w => w.$refresh()), 0)'
         );
     }
 }
