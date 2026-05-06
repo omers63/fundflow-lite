@@ -34,7 +34,7 @@
             <tbody class="divide-y divide-gray-100 dark:divide-white/10">
                 @foreach ([
                     'name' => __('Applicant full name'),
-                    'email' => __('Login email; repeat the same email on additional rows for dependents (one account, multiple applications)'),
+                    'email' => __('Login email; duplicate emails are allowed and grouped as one family (first row parent, later rows dependents)'),
                     'mobile_phone' => __('Mobile number (used for SMS / WhatsApp)'),
                     'iban' => __('IBAN'),
                 ] as $col => $hint)
@@ -105,11 +105,7 @@
                 </tr>
                 <tr>
                     <td class="px-3 py-2 font-semibold text-gray-700 dark:text-gray-200">{{ __('Duplicate email') }}</td>
-                    <td class="px-3 py-2">{!! __('If email already exists for a <strong class="text-gray-800 dark:text-gray-200">non-member</strong> login, each row creates <strong class="text-gray-800 dark:text-gray-200">another</strong> pending application (e.g. dependents sharing one account). Only the <strong class="text-gray-800 dark:text-gray-200">first</strong> row creates the user; later rows ignore <code class="font-mono text-[11px]">password</code>.') !!}</td>
-                </tr>
-                <tr>
-                    <td class="px-3 py-2 font-semibold text-gray-700 dark:text-gray-200">{{ __('Existing member') }}</td>
-                    <td class="px-3 py-2">{!! __('If email belongs to an existing member, the row <strong class="text-gray-800 dark:text-gray-200">fails</strong> with an error.') !!}</td>
+                    <td class="px-3 py-2">{!! __('Each row creates a <strong class="text-gray-800 dark:text-gray-200">new user profile + pending application</strong>. For matching emails, the first row is treated as the family parent and later rows are tagged as dependents (<code class="font-mono text-[11px]">submitted_by_user_id</code> links to the first row user).') !!}</td>
                 </tr>
             </tbody>
         </table>

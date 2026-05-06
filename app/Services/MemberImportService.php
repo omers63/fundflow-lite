@@ -22,7 +22,8 @@ class MemberImportService
      * contribution_month, contribution_year, contribution_paid_at,
      * cash_balance (SAR >= 0), fund_balance (SAR; may be negative — paired debit/credit with master fund).
      *
-     * Same email may appear on multiple rows (family profiles). Each row creates a new user + member profile.
+     * Same email may appear on multiple rows (family profiles). First row becomes the parent profile; later rows
+     * with that email are created as dependents of the first one.
      *
      * Per-row password overrides the default when present and at least 8 characters (new members only).
      *
@@ -60,11 +61,14 @@ class MemberImportService
 
         $lineBase = 2;
 
+        /** @var array<string, Member> $familyParentByEmail */
+        $familyParentByEmail = [];
+
         foreach ($rows as $index => $row) {
             $lineNumber = $lineBase + $index;
 
             try {
-                $result = $this->importRow($row, $defaultPassword);
+                $result = $this->importRow($row, $defaultPassword, $familyParentByEmail);
 
                 if ($result === 'created') {
                     $created++;
@@ -91,7 +95,7 @@ class MemberImportService
     /**
      * @return 'created'
      */
-    private function importRow(array $row, string $defaultPassword): string
+    private function importRow(array $row, string $defaultPassword, array &$familyParentByEmail): string
     {
         $name = $this->cell($row, 'name');
         $email = strtolower($this->cell($row, 'email'));
@@ -123,13 +127,16 @@ class MemberImportService
         $contribution = $this->parseContribution($this->cell($row, 'monthly_contribution_amount'));
 
         $parent = $this->resolveParent($row);
+        if ($parent === null && isset($familyParentByEmail[$email])) {
+            $parent = $familyParentByEmail[$email];
+        }
         $parentId = $parent?->id;
 
         $contributionMonth = $this->parseContributionMonth($this->cell($row, 'contribution_month')) ?? (int) now()->month;
         $contributionYear = $this->parseContributionYear($this->cell($row, 'contribution_year')) ?? (int) now()->year;
         $contributionPaidAt = $this->parseDateTime($this->cell($row, 'contribution_paid_at')) ?? now();
 
-        DB::transaction(function () use ($name, $email, $phone, $plain, $joinedAt, $status, $contribution, $parentId, $parent, $cashBalance, $fundBalance, $contributionMonth, $contributionYear, $contributionPaidAt) {
+        DB::transaction(function () use ($name, $email, $phone, $plain, $joinedAt, $status, $contribution, $parentId, $parent, $cashBalance, $fundBalance, $contributionMonth, $contributionYear, $contributionPaidAt, &$familyParentByEmail) {
             $user = User::create([
                 'name' => $name,
                 'email' => $email,
@@ -170,6 +177,10 @@ class MemberImportService
                     'is_late' => false,
                     'late_fee_amount' => null,
                 ]);
+            }
+
+            if (!isset($familyParentByEmail[$email])) {
+                $familyParentByEmail[$email] = $member;
             }
         });
 

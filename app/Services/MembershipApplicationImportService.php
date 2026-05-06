@@ -21,8 +21,8 @@ class MembershipApplicationImportService
      * password (≥8 chars overrides default on first row only), application_type, gender, marital_status, membership_date,
      * home_phone, work_phone, work_place, residency_place, occupation, employer, monthly_income
      *
-     * Same email may appear on multiple rows (shared login / family profiles): each row creates a new user profile
-     * and a pending application row, even when the email repeats.
+     * Same email may appear on multiple rows (family profiles): first row is treated as the household parent and
+     * later rows with that email are tagged as dependents (submitted_by_user_id points to the first row's user).
      *
      * @return array{created: int, skipped: int, failed: int, errors: array<int, string>}
      */
@@ -57,11 +57,14 @@ class MembershipApplicationImportService
 
         $lineBase = 2;
 
+        /** @var array<string, int> $familyParentUserIdByEmail */
+        $familyParentUserIdByEmail = [];
+
         foreach ($rows as $index => $row) {
             $lineNumber = $lineBase + $index;
 
             try {
-                $this->importRow($row, $defaultPassword);
+                $this->importRow($row, $defaultPassword, $familyParentUserIdByEmail);
                 $created++;
             } catch (Throwable $e) {
                 $failed++;
@@ -77,7 +80,7 @@ class MembershipApplicationImportService
         ];
     }
 
-    private function importRow(array $row, string $defaultPassword): void
+    private function importRow(array $row, string $defaultPassword, array &$familyParentUserIdByEmail): void
     {
         $name = trim((string) $this->cell($row, 'name'));
         $email = strtolower($this->cell($row, 'email'));
@@ -102,7 +105,9 @@ class MembershipApplicationImportService
 
         $mobile = (string) $attrs['mobile_phone'];
 
-        DB::transaction(function () use ($name, $email, $mobile, $plain, $attrs): void {
+        $parentUserId = $familyParentUserIdByEmail[$email] ?? null;
+
+        DB::transaction(function () use ($name, $email, $mobile, $plain, $attrs, $parentUserId, &$familyParentUserIdByEmail): void {
             $user = User::create([
                 'name' => $name,
                 'email' => $email,
@@ -114,7 +119,12 @@ class MembershipApplicationImportService
 
             MembershipApplication::create(array_merge($attrs, [
                 'user_id' => $user->id,
+                'submitted_by_user_id' => $parentUserId,
             ]));
+
+            if (!isset($familyParentUserIdByEmail[$email])) {
+                $familyParentUserIdByEmail[$email] = (int) $user->id;
+            }
         });
     }
 

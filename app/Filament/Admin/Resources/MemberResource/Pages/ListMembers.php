@@ -63,7 +63,7 @@ class ListMembers extends ListRecords
                                     $m->user?->email,
                                     $m->user?->phone,
                                     $m->status,
-                                    $m->joined_at?->toDateString(),
+                                    $m->joined_at instanceof \DateTimeInterface ? $m->joined_at->format('Y-m-d') : $m->joined_at,
                                     $m->monthly_contribution_amount,
                                     number_format((float) $m->cash_balance, 2, '.', ''),
                                     number_format((float) $m->fund_balance, 2, '.', ''),
@@ -115,12 +115,12 @@ class ListMembers extends ListRecords
                     '<td class="px-3 py-2 text-gray-600 dark:text-gray-300">' . e(__('cash_balance must be >= 0. fund_balance may be negative (paired debit on master + member fund).')) . '</td>' .
                     '</tr>' .
                     '<tr>' .
-                    '<td class="px-3 py-2 font-semibold text-gray-700 dark:text-gray-200 bg-gray-50 dark:bg-gray-900/30">' . e(__('Existing email')) . '</td>' .
-                    '<td class="px-3 py-2 text-gray-600 dark:text-gray-300">' . e(__('If user already has a member, only cash/fund adjustments are applied; other columns are ignored. Requires Update:Member. If no member record exists, import fails for that row.')) . '</td>' .
+                    '<td class="px-3 py-2 font-semibold text-gray-700 dark:text-gray-200 bg-gray-50 dark:bg-gray-900/30">' . e(__('Duplicate email handling')) . '</td>' .
+                    '<td class="px-3 py-2 text-gray-600 dark:text-gray-300">' . e(__('Each row creates a new user + member profile. For matching emails, the first encountered row becomes the parent member and later rows are imported as dependents in the same family.')) . '</td>' .
                     '</tr>' .
                     '<tr>' .
                     '<td class="px-3 py-2 font-semibold text-gray-700 dark:text-gray-200 bg-gray-50 dark:bg-gray-900/30">' . e(__('New member')) . '</td>' .
-                    '<td class="px-3 py-2 text-gray-600 dark:text-gray-300">' . e(__('Requires Create:Member. Place parent rows before dependents.')) . '</td>' .
+                    '<td class="px-3 py-2 text-gray-600 dark:text-gray-300">' . e(__('Requires Create:Member. You can still use parent_member_number to explicitly set/override the parent for a row.')) . '</td>' .
                     '</tr>' .
                     '<tr>' .
                     '<td class="px-3 py-2 font-semibold text-gray-700 dark:text-gray-200 bg-gray-50 dark:bg-gray-900/30">' . e(__('Allowed values')) . '</td>' .
