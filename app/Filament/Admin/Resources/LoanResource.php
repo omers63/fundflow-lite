@@ -43,6 +43,8 @@ use Filament\Notifications\Notification;
 use Filament\Resources\Pages\EditRecord;
 use Filament\Resources\Resource;
 use Filament\Schemas\Components\Section;
+use Filament\Schemas\Components\Tabs;
+use Filament\Schemas\Components\Tabs\Tab;
 use Filament\Schemas\Components\Utilities\Get;
 use Filament\Schemas\Schema;
 use Filament\Support\Enums\FontWeight;
@@ -107,90 +109,99 @@ class LoanResource extends Resource
     public static function form(Schema $schema): Schema
     {
         return $schema->schema([
-            Section::make('Loan Request')->schema([
-                Forms\Components\Select::make('member_id')
-                    ->label(__('Member'))
-                    ->options(fn() => Member::active()->with('user')->get()
-                        ->mapWithKeys(fn($m) => [$m->id => "{$m->member_number} – {$m->user->name}"]))
-                    ->searchable()->required()->live(),
+            Tabs::make('loan_tabs')
+                ->tabs([
+                    Tab::make(__('Loan request'))
+                        ->schema([
+                            Forms\Components\Select::make('member_id')
+                                ->label(__('Member'))
+                                ->options(fn() => Member::active()->with('user')->get()
+                                    ->mapWithKeys(fn($m) => [$m->id => "{$m->member_number} – {$m->user->name}"]))
+                                ->searchable()->required()->live(),
 
-                Forms\Components\Placeholder::make('member_eligibility')
-                    ->label(__('Member Eligibility'))
-                    ->content(function ($get) {
-                        $memberId = $get('member_id');
-                        if (!$memberId) {
-                            return __('— Select a member to see their eligibility status.');
-                        }
-                        $member = Member::with('accounts')->find($memberId);
-                        if (!$member) {
-                            return '—';
-                        }
-                        $svc = app(LoanEligibilityService::class);
-                        $ctx = $svc->context($member);
-                        if ($ctx['eligible']) {
-                            return __('Eligible | Fund balance: SAR :fund | Max loan: SAR :max', [
-                                'fund' => number_format($ctx['fund_balance'], 2),
-                                'max' => number_format($ctx['max_loan_amount']),
-                            ]);
-                        }
+                            Forms\Components\Placeholder::make('member_eligibility')
+                                ->label(__('Member Eligibility'))
+                                ->content(function ($get) {
+                                    $memberId = $get('member_id');
+                                    if (!$memberId) {
+                                        return __('— Select a member to see their eligibility status.');
+                                    }
+                                    $member = Member::with('accounts')->find($memberId);
+                                    if (!$member) {
+                                        return '—';
+                                    }
+                                    $svc = app(LoanEligibilityService::class);
+                                    $ctx = $svc->context($member);
+                                    if ($ctx['eligible']) {
+                                        return __('Eligible | Fund balance: SAR :fund | Max loan: SAR :max', [
+                                            'fund' => number_format($ctx['fund_balance'], 2),
+                                            'max' => number_format($ctx['max_loan_amount']),
+                                        ]);
+                                    }
 
-                        return __('Not eligible: :reason', ['reason' => $ctx['reason']]);
-                    }),
+                                    return __('Not eligible: :reason', ['reason' => $ctx['reason']]);
+                                }),
 
-                Forms\Components\TextInput::make('amount_requested')
-                    ->label(__('Requested Amount (SAR)'))
-                    ->numeric()->prefix('SAR')->required()
-                    ->minValue(1000)
-                    ->maxValue(function ($get) {
-                        $memberId = $get('member_id');
-                        if (!$memberId) {
-                            return null; // uncapped until a member is selected
-                        }
-                        $member = Member::with('accounts')->find($memberId);
-                        if (!$member) {
-                            return null;
-                        }
-                        return app(LoanEligibilityService::class)->maxLoanAmount($member);
-                    })
-                    ->helperText(function ($get) {
-                        $memberId = $get('member_id');
-                        if (!$memberId) {
-                            return __('Select a member first to see the maximum loan amount.');
-                        }
-                        $member = Member::with('accounts')->find($memberId);
-                        if (!$member) {
-                            return null;
-                        }
-                        $max = app(LoanEligibilityService::class)->maxLoanAmount($member);
-                        $fundBal = (float) ($member->fundAccount()?->balance ?? 0);
-                        return __('Max: SAR :max (2x fund balance of SAR :fund)', [
-                            'max' => number_format($max),
-                            'fund' => number_format($fundBal),
-                        ]);
-                    }),
-                Forms\Components\DatePicker::make('applied_at')
-                    ->label(__('Request Date'))
-                    ->default(now()->toDateString())
-                    ->required(),
-                Forms\Components\Toggle::make('is_emergency')
-                    ->label(__('Emergency Loan'))
-                    ->helperText(__('Assigns this loan to the Emergency fund tier upon approval.'))
-                    ->default(false),
-                Forms\Components\Textarea::make('purpose')->required()->columnSpanFull(),
-            ])->columns(2),
-
-            Section::make('Guarantor & Witnesses')->schema([
-                Forms\Components\Select::make('guarantor_member_id')
-                    ->label(__('Guarantor Member'))
-                    ->options(fn() => Member::active()->with('user')->get()
-                        ->mapWithKeys(fn($m) => [$m->id => "{$m->member_number} – {$m->user->name}"]))
-                    ->searchable()->nullable()
-                    ->helperText(__('Must be an active member with income.')),
-                Forms\Components\TextInput::make('witness1_name')->label(__('Witness 1 — Name'))->maxLength(255),
-                Forms\Components\TextInput::make('witness1_phone')->label(__('Witness 1 — Phone'))->tel()->maxLength(50),
-                Forms\Components\TextInput::make('witness2_name')->label(__('Witness 2 — Name'))->maxLength(255),
-                Forms\Components\TextInput::make('witness2_phone')->label(__('Witness 2 — Phone'))->tel()->maxLength(50),
-            ])->columns(2),
+                            Forms\Components\TextInput::make('amount_requested')
+                                ->label(__('Requested Amount (SAR)'))
+                                ->numeric()->prefix('SAR')->required()
+                                ->minValue(1000)
+                                ->maxValue(function ($get) {
+                                    $memberId = $get('member_id');
+                                    if (!$memberId) {
+                                        return null; // uncapped until a member is selected
+                                    }
+                                    $member = Member::with('accounts')->find($memberId);
+                                    if (!$member) {
+                                        return null;
+                                    }
+                                    return app(LoanEligibilityService::class)->maxLoanAmount($member);
+                                })
+                                ->helperText(function ($get) {
+                                    $memberId = $get('member_id');
+                                    if (!$memberId) {
+                                        return __('Select a member first to see the maximum loan amount.');
+                                    }
+                                    $member = Member::with('accounts')->find($memberId);
+                                    if (!$member) {
+                                        return null;
+                                    }
+                                    $max = app(LoanEligibilityService::class)->maxLoanAmount($member);
+                                    $fundBal = (float) ($member->fundAccount()?->balance ?? 0);
+                                    return __('Max: SAR :max (2x fund balance of SAR :fund)', [
+                                        'max' => number_format($max),
+                                        'fund' => number_format($fundBal),
+                                    ]);
+                                }),
+                            Forms\Components\DatePicker::make('applied_at')
+                                ->label(__('Request Date'))
+                                ->default(now()->toDateString())
+                                ->required(),
+                            Forms\Components\Toggle::make('is_emergency')
+                                ->label(__('Emergency Loan'))
+                                ->helperText(__('Assigns this loan to the Emergency fund tier upon approval.'))
+                                ->default(false),
+                            Forms\Components\Toggle::make('has_grace_cycle')
+                                ->label(__('Apply one-cycle grace period before first installment'))
+                                ->helperText(__('If enabled, repayment starts one contribution cycle later after disbursement.'))
+                                ->default(true),
+                            Forms\Components\Textarea::make('purpose')->required()->columnSpanFull(),
+                        ])->columns(2),
+                    Tab::make(__('Guarantor & witnesses'))
+                        ->schema([
+                            Forms\Components\Select::make('guarantor_member_id')
+                                ->label(__('Guarantor Member'))
+                                ->options(fn() => Member::active()->with('user')->get()
+                                    ->mapWithKeys(fn($m) => [$m->id => "{$m->member_number} – {$m->user->name}"]))
+                                ->searchable()->nullable()
+                                ->helperText(__('Must be an active member with income.')),
+                            Forms\Components\TextInput::make('witness1_name')->label(__('Witness 1 — Name'))->maxLength(255),
+                            Forms\Components\TextInput::make('witness1_phone')->label(__('Witness 1 — Phone'))->tel()->maxLength(50),
+                            Forms\Components\TextInput::make('witness2_name')->label(__('Witness 2 — Name'))->maxLength(255),
+                            Forms\Components\TextInput::make('witness2_phone')->label(__('Witness 2 — Phone'))->tel()->maxLength(50),
+                        ])->columns(2),
+                ])
+                ->columnSpanFull(),
         ]);
     }
 
@@ -258,6 +269,8 @@ class LoanResource extends Resource
             ->fillForm(fn(Loan $r) => [
                 'amount_approved' => $r->amount_requested,
                 'is_emergency' => $r->is_emergency,
+                'has_grace_cycle' => $r->has_grace_cycle ?? true,
+                'approved_at' => now(),
             ])
             ->schema(fn(Loan $record) => [
                 Forms\Components\TextInput::make('amount_approved')
@@ -275,6 +288,16 @@ class LoanResource extends Resource
                     ->live()
                     ->helperText(__('Emergency loans bypass the standard loan-tier queue and are assigned to the Emergency fund tier.'))
                     ->default(false),
+                Forms\Components\DateTimePicker::make('approved_at')
+                    ->label(__('Approval Date'))
+                    ->seconds(false)
+                    ->native(false)
+                    ->required()
+                    ->helperText(__('Override the approval timestamp used on this loan and notifications.')),
+                Forms\Components\Toggle::make('has_grace_cycle')
+                    ->label(__('Apply one-cycle grace period before first installment'))
+                    ->helperText(__('Controls whether repayment starts one cycle later after disbursement.'))
+                    ->default(true),
 
                 Forms\Components\Placeholder::make('repayment_preview')
                     ->label(__('Loan Schedule & Tier Assignment'))
@@ -382,6 +405,8 @@ class LoanResource extends Resource
             ->action(function (Loan $record, array $data, Component $livewire) {
                 $amount = (float) $data['amount_approved'];
                 $isEmergency = (bool) ($data['is_emergency'] ?? false);
+                $hasGraceCycle = (bool) ($data['has_grace_cycle'] ?? true);
+                $approvedAt = isset($data['approved_at']) ? Carbon::parse((string) $data['approved_at']) : now();
                 $threshold = Setting::loanSettlementThreshold();
 
                 // Same principal for tier assignment and installment count (must match approve modal preview).
@@ -423,9 +448,10 @@ class LoanResource extends Resource
                     'loan_tier_id' => $loanTier->id,
                     'fund_tier_id' => $fundTier->id,
                     'queue_position' => null,
-                    'approved_at' => now(),
+                    'approved_at' => $approvedAt,
                     'approved_by_id' => auth()->id(),
                     'settlement_threshold' => $threshold,
+                    'has_grace_cycle' => $hasGraceCycle,
                 ]);
 
                 LoanQueueOrderingService::resequenceFundTier($fundTier->id);
@@ -439,7 +465,7 @@ class LoanResource extends Resource
                     $record->member->user->notify(new LoanApprovedNotification(
                         amount: $amount,
                         installments: $count,
-                        dueDate: now()->addMonths($count)->format('d M Y')
+                        dueDate: $approvedAt->copy()->addMonths($count)->format('d M Y')
                     ));
                 } catch (\Throwable) {
                 }
@@ -596,6 +622,14 @@ class LoanResource extends Resource
                         ->nullable()
                         ->rows(2)
                         ->columnSpanFull(),
+                    Forms\Components\DateTimePicker::make('disbursed_at')
+                        ->label(__('Disbursement Date'))
+                        ->seconds(false)
+                        ->native(false)
+                        ->default(now())
+                        ->required()
+                        ->helperText(__('Override the timestamp for this disbursement posting and schedule start.'))
+                        ->columnSpanFull(),
                 ];
             })
             ->action(function (Loan $record, array $data, Component $livewire) {
@@ -603,6 +637,7 @@ class LoanResource extends Resource
                 $amount = (float) ($data['amount'] ?? 0);
                 $notes = $data['notes'] ?? null;
                 $force = (bool) ($data['force'] ?? false);
+                $disbursedAt = isset($data['disbursed_at']) ? Carbon::parse((string) $data['disbursed_at']) : now();
                 $remaining = $record->remainingToDisburse();
                 $fundTier = $record->fundTier;
                 $declaredCap = $fundTier ? max(0.0, (float) $fundTier->allocated_amount) : $remaining;
@@ -646,13 +681,13 @@ class LoanResource extends Resource
                     'amount' => $amount,
                     'member_portion' => 0,
                     'master_portion' => 0,
-                    'disbursed_at' => now(),
+                    'disbursed_at' => $disbursedAt,
                     'disbursed_by_id' => auth()->id(),
                     'notes' => $notes,
                 ]);
 
                 try {
-                    app(AccountingService::class)->postPartialLoanDisbursement($record, $amount, $disbursement);
+                    app(AccountingService::class)->postPartialLoanDisbursement($record, $amount, $disbursement, $disbursedAt);
                 } catch (\Throwable $e) {
                     $disbursement->delete();
                     Notification::make()->title(__('Disbursement failed'))->body($e->getMessage())->danger()->send();
@@ -665,12 +700,11 @@ class LoanResource extends Resource
 
                 if ($record->isFullyDisbursed()) {
                     // Full disbursement — activate loan and build repayment schedule
-                    $disbursedAt = now();
                     $minInstall = (float) ($record->loanTier?->min_monthly_installment ?? 1000);
                     $threshold = (float) $record->settlement_threshold;
                     $count = Loan::computeInstallmentsCount($amountApproved, $memberFundBalanceBefore, $minInstall, $threshold);
 
-                    $exemption = Loan::computeExemptionAndFirstRepayment($disbursedAt);
+                    $exemption = Loan::computeExemptionAndFirstRepayment($disbursedAt, (bool) $record->has_grace_cycle);
                     $exemption = Loan::adjustFirstRepaymentIfContributionAlreadyMade($record->member, $exemption);
 
                     DB::transaction(function () use ($record, $disbursedAt, $exemption, $count, $minInstall, $amountApproved, $memberFundBalanceBefore) {
@@ -765,6 +799,17 @@ class LoanResource extends Resource
                         ? __('SAR :amount/mo', ['amount' => number_format($r->loanTier->min_monthly_installment)])
                         : null)
                     ->toggleable(),
+                Tables\Columns\IconColumn::make('has_grace_cycle')
+                    ->label(__('Grace'))
+                    ->boolean()
+                    ->trueIcon('heroicon-o-check-circle')
+                    ->falseIcon('heroicon-o-x-circle')
+                    ->trueColor('success')
+                    ->falseColor('gray')
+                    ->tooltip(fn(Loan $r) => $r->has_grace_cycle
+                        ? __('One-cycle grace enabled')
+                        : __('No grace cycle'))
+                    ->toggleable(),
                 Tables\Columns\TextColumn::make('status')->badge()
                     ->color(fn(string $state) => match ($state) {
                         'pending' => 'warning',
@@ -805,6 +850,14 @@ class LoanResource extends Resource
                         ->mapWithKeys(fn(Member $m) => [$m->id => "{$m->member_number} – {$m->user->name}"])),
                 Tables\Filters\TernaryFilter::make('is_emergency')
                     ->label(__('Emergency')),
+                Tables\Filters\TernaryFilter::make('has_grace_cycle')
+                    ->label(__('Grace cycle'))
+                    ->trueLabel(__('Grace enabled'))
+                    ->falseLabel(__('No grace cycle'))
+                    ->queries(
+                        true: fn($q) => $q->where('has_grace_cycle', true),
+                        false: fn($q) => $q->where('has_grace_cycle', false),
+                    ),
                 Tables\Filters\TernaryFilter::make('disbursed')
                     ->label(__('Disbursed'))
                     ->trueLabel(__('Disbursed'))
@@ -1084,144 +1137,147 @@ class LoanResource extends Resource
     public static function infolist(Schema $schema): Schema
     {
         return $schema
-            ->columns(2)
             ->components([
-                Section::make('Loan request')
-                    ->icon('heroicon-o-banknotes')
-                    ->schema([
-                        TextEntry::make('borrower')
-                            ->label(__('Member'))
-                            ->state(fn(Loan $record): ?string => $record->member
-                                ? "{$record->member->member_number} – {$record->member->user->name}"
-                                : null)
-                            ->url(function (Loan $record): ?string {
-                                $member = $record->member;
-                                if ($member === null || !MemberResource::canView($member)) {
-                                    return null;
-                                }
+                Tabs::make('loan_view_tabs')
+                    ->tabs([
+                        Tab::make(__('Loan request'))
+                            ->schema([
+                                TextEntry::make('borrower')
+                                    ->label(__('Member'))
+                                    ->state(fn(Loan $record): ?string => $record->member
+                                        ? "{$record->member->member_number} – {$record->member->user->name}"
+                                        : null)
+                                    ->url(function (Loan $record): ?string {
+                                        $member = $record->member;
+                                        if ($member === null || !MemberResource::canView($member)) {
+                                            return null;
+                                        }
 
-                                return MemberResource::getUrl('view', ['record' => $member]);
-                            })
-                            ->color('primary')
-                            ->weight(FontWeight::Medium),
-                        TextEntry::make('member_eligibility')
-                            ->label(__('Member eligibility'))
-                            ->state(function (Loan $record): string {
-                                $member = $record->member;
-                                if ($member === null) {
-                                    return '—';
-                                }
-                                $ctx = app(LoanEligibilityService::class)->context($member);
-                                if ($ctx['eligible']) {
-                                    return __('Eligible | Fund balance: SAR :fund | Max loan: SAR :max', [
-                                        'fund' => number_format($ctx['fund_balance'], 2),
-                                        'max' => number_format($ctx['max_loan_amount']),
-                                    ]);
-                                }
+                                        return MemberResource::getUrl('view', ['record' => $member]);
+                                    })
+                                    ->color('primary')
+                                    ->weight(FontWeight::Medium),
+                                TextEntry::make('member_eligibility')
+                                    ->label(__('Member eligibility'))
+                                    ->state(function (Loan $record): string {
+                                        $member = $record->member;
+                                        if ($member === null) {
+                                            return '—';
+                                        }
+                                        $ctx = app(LoanEligibilityService::class)->context($member);
+                                        if ($ctx['eligible']) {
+                                            return __('Eligible | Fund balance: SAR :fund | Max loan: SAR :max', [
+                                                'fund' => number_format($ctx['fund_balance'], 2),
+                                                'max' => number_format($ctx['max_loan_amount']),
+                                            ]);
+                                        }
 
-                                return __('Not eligible: :reason', ['reason' => $ctx['reason']]);
-                            })
-                            ->columnSpanFull(),
-                        TextEntry::make('status')
-                            ->badge()
-                            ->color(fn(string $state): string => match ($state) {
-                                'pending' => 'warning',
-                                'approved' => 'info',
-                                'active' => 'success',
-                                'completed' => 'gray',
-                                'early_settled' => 'success',
-                                'rejected' => 'danger',
-                                'cancelled' => 'gray',
-                                default => 'gray',
-                            }),
-                        TextEntry::make('amount_requested')
-                            ->label(__('Requested amount'))
-                            ->money('SAR'),
-                        TextEntry::make('amount_approved')
-                            ->label(__('Approved amount'))
-                            ->money('SAR')
-                            ->placeholder(__('—')),
-                        TextEntry::make('installments_count')
-                            ->label(__('Installments (months)')),
-                        TextEntry::make('is_emergency')
-                            ->label(__('Emergency loan'))
-                            ->formatStateUsing(fn(?bool $state): string => $state ? __('Yes') : __('No')),
-                        TextEntry::make('purpose')
-                            ->columnSpanFull(),
-                    ])->columns(2),
-                Section::make('Fund & schedule')
-                    ->icon('heroicon-o-calendar-days')
-                    ->schema([
-                        TextEntry::make('loanTier.label')
-                            ->label(__('Loan tier'))
-                            ->placeholder(__('—')),
-                        TextEntry::make('fundTier.label')
-                            ->label(__('Fund tier'))
-                            ->placeholder(__('—')),
-                        TextEntry::make('queue_position')
-                            ->label(__('Queue #'))
-                            ->placeholder(__('—')),
-                        TextEntry::make('applied_at')
-                            ->dateTime('d M Y H:i'),
-                        TextEntry::make('approved_at')
-                            ->dateTime('d M Y H:i')
-                            ->placeholder(__('—')),
-                        TextEntry::make('disbursed_at')
-                            ->dateTime('d M Y H:i')
-                            ->placeholder(__('—')),
-                        TextEntry::make('due_date')
-                            ->date('d M Y')
-                            ->placeholder(__('—')),
-                        TextEntry::make('settled_at')
-                            ->dateTime('d M Y H:i')
-                            ->placeholder(__('—')),
-                        TextEntry::make('member_portion')
-                            ->label(__('Member portion'))
-                            ->money('SAR')
-                            ->placeholder(__('—')),
-                        TextEntry::make('master_portion')
-                            ->label(__('Master / fund portion'))
-                            ->money('SAR')
-                            ->placeholder(__('—')),
-                        TextEntry::make('repaid_to_master')
-                            ->label(__('Repaid (master track)'))
-                            ->money('SAR'),
-                    ])->columns(2)
-                    ->collapsible(),
-                Section::make('Guarantor & witnesses')
-                    ->icon('heroicon-o-user-group')
-                    ->schema([
-                        TextEntry::make('guarantor_display')
-                            ->label(__('Guarantor'))
-                            ->state(fn(Loan $record): ?string => $record->guarantor
-                                ? "{$record->guarantor->member_number} – {$record->guarantor->user->name}"
-                                : null)
-                            ->url(function (Loan $record): ?string {
-                                $guarantor = $record->guarantor;
-                                if ($guarantor === null || !MemberResource::canView($guarantor)) {
-                                    return null;
-                                }
+                                        return __('Not eligible: :reason', ['reason' => $ctx['reason']]);
+                                    })
+                                    ->columnSpanFull(),
+                                TextEntry::make('status')
+                                    ->badge()
+                                    ->color(fn(string $state): string => match ($state) {
+                                        'pending' => 'warning',
+                                        'approved' => 'info',
+                                        'active' => 'success',
+                                        'completed' => 'gray',
+                                        'early_settled' => 'success',
+                                        'rejected' => 'danger',
+                                        'cancelled' => 'gray',
+                                        default => 'gray',
+                                    }),
+                                TextEntry::make('amount_requested')
+                                    ->label(__('Requested amount'))
+                                    ->money('SAR'),
+                                TextEntry::make('amount_approved')
+                                    ->label(__('Approved amount'))
+                                    ->money('SAR')
+                                    ->placeholder(__('—')),
+                                TextEntry::make('installments_count')
+                                    ->label(__('Installments (months)')),
+                                TextEntry::make('is_emergency')
+                                    ->label(__('Emergency loan'))
+                                    ->formatStateUsing(fn(?bool $state): string => $state ? __('Yes') : __('No')),
+                                TextEntry::make('purpose')
+                                    ->columnSpanFull(),
+                            ])->columns(2),
+                        Tab::make(__('Fund & schedule'))
+                            ->schema([
+                                TextEntry::make('loanTier.label')
+                                    ->label(__('Loan tier'))
+                                    ->placeholder(__('—')),
+                                TextEntry::make('fundTier.label')
+                                    ->label(__('Fund tier'))
+                                    ->placeholder(__('—')),
+                                TextEntry::make('queue_position')
+                                    ->label(__('Queue #'))
+                                    ->placeholder(__('—')),
+                                TextEntry::make('applied_at')
+                                    ->dateTime('d M Y H:i'),
+                                TextEntry::make('approved_at')
+                                    ->dateTime('d M Y H:i')
+                                    ->placeholder(__('—')),
+                                TextEntry::make('disbursed_at')
+                                    ->dateTime('d M Y H:i')
+                                    ->placeholder(__('—')),
+                                TextEntry::make('has_grace_cycle')
+                                    ->label(__('One-cycle grace period'))
+                                    ->formatStateUsing(fn(?bool $state): string => $state ? __('Yes') : __('No')),
+                                TextEntry::make('due_date')
+                                    ->label(__('Projected loan completion date'))
+                                    ->date('d M Y')
+                                    ->placeholder(__('—')),
+                                TextEntry::make('settled_at')
+                                    ->dateTime('d M Y H:i')
+                                    ->placeholder(__('—')),
+                                TextEntry::make('member_portion')
+                                    ->label(__('Member portion'))
+                                    ->money('SAR')
+                                    ->placeholder(__('—')),
+                                TextEntry::make('master_portion')
+                                    ->label(__('Master / fund portion'))
+                                    ->money('SAR')
+                                    ->placeholder(__('—')),
+                                TextEntry::make('repaid_to_master')
+                                    ->label(__('Repaid (master track)'))
+                                    ->money('SAR'),
+                            ])->columns(2),
+                        Tab::make(__('Guarantor & witnesses'))
+                            ->schema([
+                                TextEntry::make('guarantor_display')
+                                    ->label(__('Guarantor'))
+                                    ->state(fn(Loan $record): ?string => $record->guarantor
+                                        ? "{$record->guarantor->member_number} – {$record->guarantor->user->name}"
+                                        : null)
+                                    ->url(function (Loan $record): ?string {
+                                        $guarantor = $record->guarantor;
+                                        if ($guarantor === null || !MemberResource::canView($guarantor)) {
+                                            return null;
+                                        }
 
-                                return MemberResource::getUrl('view', ['record' => $guarantor]);
-                            })
-                            ->color('primary')
-                            ->weight(FontWeight::Medium)
-                            ->placeholder(__('—')),
-                        TextEntry::make('witness1_name')
-                            ->label(__('Witness 1 — name'))
-                            ->placeholder(__('—')),
-                        TextEntry::make('witness1_phone')
-                            ->label(__('Witness 1 — phone'))
-                            ->placeholder(__('—'))
-                            ->formatStateUsing(fn(?string $state): \Illuminate\Support\HtmlString => PhoneDisplay::toHtml($state)),
-                        TextEntry::make('witness2_name')
-                            ->label(__('Witness 2 — name'))
-                            ->placeholder(__('—')),
-                        TextEntry::make('witness2_phone')
-                            ->label(__('Witness 2 — phone'))
-                            ->placeholder(__('—'))
-                            ->formatStateUsing(fn(?string $state): \Illuminate\Support\HtmlString => PhoneDisplay::toHtml($state)),
-                    ])->columns(2),
+                                        return MemberResource::getUrl('view', ['record' => $guarantor]);
+                                    })
+                                    ->color('primary')
+                                    ->weight(FontWeight::Medium)
+                                    ->placeholder(__('—')),
+                                TextEntry::make('witness1_name')
+                                    ->label(__('Witness 1 — name'))
+                                    ->placeholder(__('—')),
+                                TextEntry::make('witness1_phone')
+                                    ->label(__('Witness 1 — phone'))
+                                    ->placeholder(__('—'))
+                                    ->formatStateUsing(fn(?string $state): \Illuminate\Support\HtmlString => PhoneDisplay::toHtml($state)),
+                                TextEntry::make('witness2_name')
+                                    ->label(__('Witness 2 — name'))
+                                    ->placeholder(__('—')),
+                                TextEntry::make('witness2_phone')
+                                    ->label(__('Witness 2 — phone'))
+                                    ->placeholder(__('—'))
+                                    ->formatStateUsing(fn(?string $state): \Illuminate\Support\HtmlString => PhoneDisplay::toHtml($state)),
+                            ])->columns(2),
+                    ])
+                    ->columnSpanFull(),
             ]);
     }
 

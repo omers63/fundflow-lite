@@ -528,6 +528,7 @@ class AccountingService
         Loan $loan,
         float $amount,
         LoanDisbursement $disbursementRecord,
+        ?CarbonInterface $disbursedAt = null,
     ): void {
         $member = $loan->member;
         $this->ensureMemberAccounts($member);
@@ -540,7 +541,7 @@ class AccountingService
             ->where('member_id', $member->id)
             ->firstOrFail();
 
-        DB::transaction(function () use ($loan, $member, $memberFund, $memberCash, $loanAccount, $amount, $disbursementRecord) {
+        DB::transaction(function () use ($loan, $member, $memberFund, $memberCash, $loanAccount, $amount, $disbursementRecord, $disbursedAt) {
             // Lock both accounts to prevent races
             $memberFund = Account::query()->lockForUpdate()->findOrFail($memberFund->id);
             $masterFund = Account::query()->lockForUpdate()->findOrFail(Account::masterFund()->id);
@@ -559,10 +560,11 @@ class AccountingService
             $seq = $loan->disbursements()->count(); // 0-based before this one
             $label = "Loan #{$loan->id} disbursement (#{$seq}) – {$member->user->name}";
 
-            $this->postEntry($masterFund, $masterPortion, 'debit', $label . ' (master funded)', $loan, $member->id);
-            $this->postEntry($memberFund, $masterPortion, 'debit', $label . ' (member mirror)', $loan, $member->id);
-            $this->postEntry($loanAccount, $amount, 'debit', $label, $loan, $member->id);
-            $this->postEntry($memberCash, $amount, 'credit', $label . ' (cash payout)', $loan, $member->id);
+            $postedAt = $disbursedAt ?? now();
+            $this->postEntry($masterFund, $masterPortion, 'debit', $label . ' (master funded)', $loan, $member->id, $postedAt);
+            $this->postEntry($memberFund, $masterPortion, 'debit', $label . ' (member mirror)', $loan, $member->id, $postedAt);
+            $this->postEntry($loanAccount, $amount, 'debit', $label, $loan, $member->id, $postedAt);
+            $this->postEntry($memberCash, $amount, 'credit', $label . ' (cash payout)', $loan, $member->id, $postedAt);
 
             // Snapshot portions on the disbursement record
             $disbursementRecord->update([

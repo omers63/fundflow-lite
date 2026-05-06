@@ -605,7 +605,7 @@ class MembershipApplicationResource extends Resource
      */
     public static function approvePendingApplication(MembershipApplication $record): string
     {
-        $record->loadMissing('user', 'parentMember.user');
+        $record->loadMissing('user', 'parentMember.user', 'submittedBy.member');
 
         $existingMember = Member::query()->where('user_id', $record->user_id)->first();
 
@@ -635,6 +635,11 @@ class MembershipApplicationResource extends Resource
         $memberNumber = app(MemberNumberService::class)->generate();
 
         $parent = $record->parentMember;
+        if ($parent === null && $record->submittedBy?->member !== null) {
+            // Imported duplicate-email applications use submitted_by_user_id to mark the first row as family parent.
+            $candidateParent = $record->submittedBy->member;
+            $parent = $candidateParent->parent_id === null ? $candidateParent : null;
+        }
         $householdEmail = $parent?->household_email ?: $parent?->user?->email ?: $record->user?->email;
 
         $member = Member::create([

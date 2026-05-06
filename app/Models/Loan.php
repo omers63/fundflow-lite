@@ -31,6 +31,7 @@ class Loan extends Model
         'approved_at',
         'approved_by_id',
         'disbursed_at',
+        'has_grace_cycle',
         'settled_at',
         'due_date',
         'guarantor_member_id',
@@ -67,6 +68,7 @@ class Loan extends Model
             'applied_at' => 'datetime',
             'approved_at' => 'datetime',
             'disbursed_at' => 'datetime',
+            'has_grace_cycle' => 'boolean',
             'settled_at' => 'datetime',
             'guarantor_released_at' => 'datetime',
             'guarantor_liability_transferred_at' => 'datetime',
@@ -300,23 +302,27 @@ class Loan extends Model
      * scheduled for the **following** calendar month after the initial repayment anchor (so the
      * first due date does not fall in the same cycle window as the exemption).
      */
-    public static function computeExemptionAndFirstRepayment(Carbon $disbursedAt): array
+    public static function computeExemptionAndFirstRepayment(Carbon $disbursedAt, bool $hasGraceCycle = true): array
     {
         $cutoffDay = max(1, Setting::contributionCycleStartDay() - 1);
 
         if ($disbursedAt->day <= $cutoffDay) {
-            $exempted = $disbursedAt->copy()->subMonthNoOverflow();
             $first = $disbursedAt->copy();
         } else {
-            $exempted = $disbursedAt->copy();
             $first = $disbursedAt->copy()->addMonthNoOverflow();
         }
 
-        $first = $first->copy()->addMonthNoOverflow();
+        $exempted = null;
+        if ($hasGraceCycle) {
+            $exempted = $disbursedAt->day <= $cutoffDay
+                ? $disbursedAt->copy()->subMonthNoOverflow()
+                : $disbursedAt->copy();
+            $first = $first->copy()->addMonthNoOverflow();
+        }
 
         return [
-            'exempted_month' => (int) $exempted->month,
-            'exempted_year' => (int) $exempted->year,
+            'exempted_month' => $exempted ? (int) $exempted->month : null,
+            'exempted_year' => $exempted ? (int) $exempted->year : null,
             'first_repayment_month' => (int) $first->month,
             'first_repayment_year' => (int) $first->year,
         ];

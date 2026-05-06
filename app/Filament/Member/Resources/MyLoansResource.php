@@ -313,6 +313,10 @@ class MyLoansResource extends Resource
                                 ->label(__('Request as Emergency Loan'))
                                 ->helperText(__('Emergency requests are reviewed with priority and funded from the Emergency tier. Use only for genuine urgent needs.'))
                                 ->default(false),
+                            Forms\Components\Toggle::make('has_grace_cycle')
+                                ->label(__('Apply one-cycle grace period before first installment'))
+                                ->helperText(__('If enabled, repayment starts one contribution cycle later after disbursement.'))
+                                ->default(true),
 
                             Forms\Components\Textarea::make('purpose')
                                 ->label(__('Purpose of Loan'))->required()->rows(3)->columnSpanFull(),
@@ -394,6 +398,7 @@ class MyLoansResource extends Resource
                             'purpose' => $data['purpose'],
                             'installments_count' => 0, // computed at approval
                             'is_emergency' => (bool) ($data['is_emergency'] ?? false),
+                            'has_grace_cycle' => (bool) ($data['has_grace_cycle'] ?? true),
                             'guarantor_member_id' => $data['guarantor_member_id'],
                             'witness1_name' => $data['witness1_name'],
                             'witness1_phone' => $data['witness1_phone'] ?? null,
