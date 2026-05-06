@@ -17,12 +17,16 @@ class Contribution extends Model
     /** Monthly cycle / member cash deduction before fund credit. */
     public const PAYMENT_METHOD_CASH_ACCOUNT = 'cash_account';
 
+    /** Import flow: explicit cash-to-fund posting chain using paid_at as ledger timestamp. */
+    public const PAYMENT_METHOD_IMPORT_CSV = 'import_csv';
+
     /** @return array<string, string> */
     public static function paymentMethodOptions(): array
     {
         return [
             'cash_account' => 'Cash account (cycle)',
             'admin' => 'Admin entry',
+            'import_csv' => 'CSV import',
             'cash' => 'Cash',
             'bank_transfer' => 'Bank Transfer',
             'online' => 'Online',

@@ -11,6 +11,7 @@ use App\Models\LoanDisbursement;
 use App\Models\LoanInstallment;
 use App\Models\Member;
 use App\Models\MembershipApplication;
+use App\Models\MemberSubscriptionFee;
 use App\Models\SmsTransaction;
 use App\Models\User;
 use Carbon\CarbonInterface;
@@ -188,15 +189,15 @@ class AccountingService
 
         $loan = null;
         if ($tx->transaction_type === 'debit') {
-            if (! $member) {
+            if (!$member) {
                 throw new \InvalidArgumentException('Member is required when posting a debit bank transaction.');
             }
-            if (! $loanDisbursement) {
+            if (!$loanDisbursement) {
                 throw new \InvalidArgumentException('A loan disbursement record is required when posting a debit bank transaction.');
             }
             $loanDisbursement->loadMissing('loan.member');
             $loan = $loanDisbursement->loan;
-            if (! $loan) {
+            if (!$loan) {
                 throw new \InvalidArgumentException('Loan disbursement is missing its loan.');
             }
             if ((int) $loan->member_id !== (int) $member->id) {
@@ -245,7 +246,7 @@ class AccountingService
      */
     public function mirrorBankCreditToMemberCash(BankTransaction $tx, Member $member, ?AccountTransaction $masterLedgerLine = null): void
     {
-        if (! $this->canMirrorBankCreditToMemberCash($tx)) {
+        if (!$this->canMirrorBankCreditToMemberCash($tx)) {
             throw new \InvalidArgumentException('This bank transaction cannot be mirrored to member cash.');
         }
 
@@ -262,8 +263,10 @@ class AccountingService
             if ((int) $masterLedgerLine->account_id !== (int) $masterCash->id) {
                 throw new \InvalidArgumentException('Ledger line must belong to the master cash account.');
             }
-            if ($masterLedgerLine->source_type !== $tx->getMorphClass()
-                || (int) $masterLedgerLine->source_id !== (int) $tx->getKey()) {
+            if (
+                $masterLedgerLine->source_type !== $tx->getMorphClass()
+                || (int) $masterLedgerLine->source_id !== (int) $tx->getKey()
+            ) {
                 throw new \InvalidArgumentException('Ledger line does not match this bank transaction.');
             }
             $masterLine = $masterLedgerLine;
@@ -304,7 +307,7 @@ class AccountingService
             return false;
         }
 
-        if (! $tx->isPosted()) {
+        if (!$tx->isPosted()) {
             return false;
         }
 
@@ -324,7 +327,7 @@ class AccountingService
         return AccountTransaction::query()
             ->where('source_type', $tx->getMorphClass())
             ->where('source_id', $tx->getKey())
-            ->whereHas('account', fn ($q) => $q->where('type', Account::TYPE_MEMBER_CASH))
+            ->whereHas('account', fn($q) => $q->where('type', Account::TYPE_MEMBER_CASH))
             ->exists();
     }
 
@@ -376,14 +379,14 @@ class AccountingService
     {
         DB::transaction(function () use ($contribution) {
             $lateFee = (float) ($contribution->late_fee_amount ?? 0);
-
-            if ($contribution->payment_method === Contribution::PAYMENT_METHOD_CASH_ACCOUNT) {
-                $this->debitMemberCashForContribution($contribution, $lateFee);
-            }
+            $postedAt = $contribution->paid_at ?? now();
 
             $member = $contribution->member;
             $this->ensureMemberAccounts($member);
 
+            $memberCash = Account::where('type', Account::TYPE_MEMBER_CASH)
+                ->where('member_id', $member->id)
+                ->firstOrFail();
             $masterFund = Account::masterFund();
             $memberFund = Account::where('type', Account::TYPE_MEMBER_FUND)
                 ->where('member_id', $member->id)
@@ -395,8 +398,24 @@ class AccountingService
                 $contribution->year ?? ''
             );
 
-            $this->postEntry($masterFund, (float) $contribution->amount, 'credit', $description, $contribution, $member->id);
-            $this->postEntry($memberFund, (float) $contribution->amount, 'credit', $description, $contribution, $member->id);
+            if ($contribution->payment_method === Contribution::PAYMENT_METHOD_IMPORT_CSV) {
+                // Import posting sequence:
+                // 1) credit member cash
+                // 2) debit member cash
+                // 3) credit master fund
+                // 4) credit member fund mirror
+                $this->postEntry($memberCash, (float) $contribution->amount, 'credit', "Contribution import cash top-up – {$description}", $contribution, $member->id, $postedAt);
+                $this->postEntry($memberCash, (float) $contribution->amount, 'debit', "Contribution deduction – {$description}", $contribution, $member->id, $postedAt);
+                $this->postEntry($masterFund, (float) $contribution->amount, 'credit', $description, $contribution, $member->id, $postedAt);
+                $this->postEntry($memberFund, (float) $contribution->amount, 'credit', "{$description} (member mirror)", $contribution, $member->id, $postedAt);
+            } else {
+                if ($contribution->payment_method === Contribution::PAYMENT_METHOD_CASH_ACCOUNT) {
+                    $this->debitMemberCashForContribution($contribution, $lateFee, $postedAt);
+                }
+
+                $this->postEntry($masterFund, (float) $contribution->amount, 'credit', $description, $contribution, $member->id, $postedAt);
+                $this->postEntry($memberFund, (float) $contribution->amount, 'credit', $description, $contribution, $member->id, $postedAt);
+            }
 
             if ($contribution->is_late && $lateFee > 0.00001) {
                 $monthName = $contribution->month
@@ -404,7 +423,7 @@ class AccountingService
                     : '';
                 $label = $member->user->name ?? 'Member';
                 $lateDesc = "Contribution late fee – {$monthName} {$contribution->year} – {$label}";
-                $this->postLateFeeCreditToMasterCash($lateFee, $lateDesc, $contribution, $member->id);
+                $this->postLateFeeCreditToMasterCash($lateFee, $lateDesc, $contribution, $member->id, $postedAt);
             }
         });
     }
@@ -413,7 +432,7 @@ class AccountingService
      * Debit member cash for a contribution cycle payment (source = the contribution row).
      * When the contribution is late and carries a late fee, $lateFeeExtra is included in the same debit (bundled transfer).
      */
-    public function debitMemberCashForContribution(Contribution $contribution, float $lateFeeExtra = 0.0): void
+    public function debitMemberCashForContribution(Contribution $contribution, float $lateFeeExtra = 0.0, ?CarbonInterface $postedAt = null): void
     {
         $member = $contribution->member;
         $member->loadMissing('user');
@@ -425,11 +444,11 @@ class AccountingService
         $monthName = date('F', mktime(0, 0, 0, (int) $contribution->month, 1));
         $description = "Contribution deduction – {$monthName} {$contribution->year}";
         if ($lateFeeExtra > 0.00001) {
-            $description .= ' (incl. late fee SAR '.number_format($lateFeeExtra, 2).')';
+            $description .= ' (incl. late fee SAR ' . number_format($lateFeeExtra, 2) . ')';
         }
 
         $total = (float) $contribution->amount + $lateFeeExtra;
-        $this->postEntry($cashAccount, $total, 'debit', $description, $contribution, $member->id);
+        $this->postEntry($cashAccount, $total, 'debit', $description, $contribution, $member->id, $postedAt ?? $contribution->paid_at ?? now());
     }
 
     /**
@@ -465,17 +484,17 @@ class AccountingService
             $masterFund = Account::query()->lockForUpdate()->findOrFail($masterFund->id);
             if ($masterPortion > 0 && (float) $masterFund->balance < $masterPortion) {
                 throw new \RuntimeException(
-                    'Insufficient master fund balance. Available: SAR '.number_format((float) $masterFund->balance, 2)
-                    .', required: SAR '.number_format($masterPortion, 2).'.'
+                    'Insufficient master fund balance. Available: SAR ' . number_format((float) $masterFund->balance, 2)
+                    . ', required: SAR ' . number_format($masterPortion, 2) . '.'
                 );
             }
             // Master-funded loan disbursement mirrored on member fund account.
-            $this->postEntry($masterFund, $masterPortion, 'debit', $description.' (master funded)', $loan, $member->id);
-            $this->postEntry($memberFund, $masterPortion, 'debit', $description.' (member mirror)', $loan, $member->id);
+            $this->postEntry($masterFund, $masterPortion, 'debit', $description . ' (master funded)', $loan, $member->id);
+            $this->postEntry($memberFund, $masterPortion, 'debit', $description . ' (member mirror)', $loan, $member->id);
             // Loan account tracks total outstanding
             $this->postEntry($loanAccount, $totalAmount, 'debit', $description, $loan, $member->id);
             // Cash payout to the borrower.
-            $this->postEntry($memberCash, $totalAmount, 'credit', $description.' (cash payout)', $loan, $member->id);
+            $this->postEntry($memberCash, $totalAmount, 'credit', $description . ' (cash payout)', $loan, $member->id);
 
             // Snapshot portions onto the loan record
             $loan->update([
@@ -530,18 +549,18 @@ class AccountingService
             if ($masterPortion > 0 && (float) $masterFund->balance < $masterPortion) {
                 throw new \RuntimeException(
                     'Insufficient master fund balance. Available: SAR '
-                    .number_format((float) $masterFund->balance, 2)
-                    .', required: SAR '.number_format($masterPortion, 2).'.'
+                    . number_format((float) $masterFund->balance, 2)
+                    . ', required: SAR ' . number_format($masterPortion, 2) . '.'
                 );
             }
 
             $seq = $loan->disbursements()->count(); // 0-based before this one
             $label = "Loan #{$loan->id} disbursement (#{$seq}) – {$member->user->name}";
 
-            $this->postEntry($masterFund, $masterPortion, 'debit', $label.' (master funded)', $loan, $member->id);
-            $this->postEntry($memberFund, $masterPortion, 'debit', $label.' (member mirror)', $loan, $member->id);
+            $this->postEntry($masterFund, $masterPortion, 'debit', $label . ' (master funded)', $loan, $member->id);
+            $this->postEntry($memberFund, $masterPortion, 'debit', $label . ' (member mirror)', $loan, $member->id);
             $this->postEntry($loanAccount, $amount, 'debit', $label, $loan, $member->id);
-            $this->postEntry($memberCash, $amount, 'credit', $label.' (cash payout)', $loan, $member->id);
+            $this->postEntry($memberCash, $amount, 'credit', $label . ' (cash payout)', $loan, $member->id);
 
             // Snapshot portions on the disbursement record
             $disbursementRecord->update([
@@ -589,13 +608,13 @@ class AccountingService
 
         DB::transaction(function () use ($loan, $member, $masterFund, $memberFund, $memberCash, $loanAccount, $description, $totalAmount, $memberPortion, $masterPortion) {
             if ($memberPortion > 0) {
-                $this->postEntry($memberFund, $memberPortion, 'debit', $description.' (member portion)', $loan, $member->id);
+                $this->postEntry($memberFund, $memberPortion, 'debit', $description . ' (member portion)', $loan, $member->id);
             }
             if ($masterPortion > 0) {
-                $this->postEntry($masterFund, $masterPortion, 'debit', $description.' (fund portion)', $loan, $member->id);
+                $this->postEntry($masterFund, $masterPortion, 'debit', $description . ' (fund portion)', $loan, $member->id);
             }
             $this->postEntry($loanAccount, $totalAmount, 'debit', $description, $loan, $member->id);
-            $this->postEntry($memberCash, $totalAmount, 'credit', $description.' (cash payout)', $loan, $member->id);
+            $this->postEntry($memberCash, $totalAmount, 'credit', $description . ' (cash payout)', $loan, $member->id);
 
             $loan->update([
                 'member_portion' => $memberPortion,
@@ -621,7 +640,7 @@ class AccountingService
             ->where('loan_id', $loan->id)
             ->first();
 
-        if (! $loanAccount) {
+        if (!$loanAccount) {
             $loanAccount = $this->ensureLoanAccount($loan);
         }
 
@@ -658,7 +677,7 @@ class AccountingService
             ->where('loan_id', $loan->id)
             ->first();
 
-        if (! $loanAccount) {
+        if (!$loanAccount) {
             $loanAccount = $this->ensureLoanAccount($loan);
         }
 
@@ -712,7 +731,7 @@ class AccountingService
             $installment->loan->installments_count
         );
         if ($lateFee > 0.00001) {
-            $description .= ' (incl. late fee SAR '.number_format($lateFee, 2).')';
+            $description .= ' (incl. late fee SAR ' . number_format($lateFee, 2) . ')';
         }
 
         $total = (float) $installment->amount + $lateFee;
@@ -776,13 +795,13 @@ class AccountingService
 
         if ((float) $parentCash->balance < $amount) {
             throw new \RuntimeException(
-                "Insufficient balance in {$parent->user->name}'s Cash Account. ".
-                'Available: SAR '.number_format((float) $parentCash->balance, 2)
+                "Insufficient balance in {$parent->user->name}'s Cash Account. " .
+                'Available: SAR ' . number_format((float) $parentCash->balance, 2)
             );
         }
 
-        $debitDesc = trim("Transfer to {$dependent->user->name}'s cash account".($note ? " — {$note}" : ''));
-        $creditDesc = trim("Transfer from {$parent->user->name}'s cash account".($note ? " — {$note}" : ''));
+        $debitDesc = trim("Transfer to {$dependent->user->name}'s cash account" . ($note ? " — {$note}" : ''));
+        $creditDesc = trim("Transfer from {$parent->user->name}'s cash account" . ($note ? " — {$note}" : ''));
 
         DB::transaction(function () use ($parent, $dependent, $parentCash, $dependentCash, $amount, $debitDesc, $creditDesc) {
             $this->postEntry($parentCash, $amount, 'debit', $debitDesc, $parent, $parent->id);
@@ -823,13 +842,13 @@ class AccountingService
 
         if ((float) $fromCash->balance + 0.00001 < $amount) {
             throw new \RuntimeException(
-                "Insufficient balance in {$from->user->name}'s Cash Account. ".
-                'Available: SAR '.number_format((float) $fromCash->balance, 2)
+                "Insufficient balance in {$from->user->name}'s Cash Account. " .
+                'Available: SAR ' . number_format((float) $fromCash->balance, 2)
             );
         }
 
-        $debitDesc = trim("Transfer to {$to->user->name} cash account".($note ? " — {$note}" : ''));
-        $creditDesc = trim("Transfer from {$from->user->name} cash account".($note ? " — {$note}" : ''));
+        $debitDesc = trim("Transfer to {$to->user->name} cash account" . ($note ? " — {$note}" : ''));
+        $creditDesc = trim("Transfer from {$from->user->name} cash account" . ($note ? " — {$note}" : ''));
 
         DB::transaction(function () use ($from, $to, $fromCash, $toCash, $amount, $debitDesc, $creditDesc) {
             $this->postEntry($fromCash, $amount, 'debit', $debitDesc, $from, $from->id);
@@ -888,7 +907,7 @@ class AccountingService
      */
     public function reverseBankTransactionPosting(BankTransaction $tx): void
     {
-        if (! $tx->isPosted()) {
+        if (!$tx->isPosted()) {
             return;
         }
 
@@ -918,7 +937,7 @@ class AccountingService
      */
     public function reverseSmsTransactionPosting(SmsTransaction $tx): void
     {
-        if (! $tx->isPosted()) {
+        if (!$tx->isPosted()) {
             return;
         }
 
@@ -1064,7 +1083,7 @@ class AccountingService
         }
 
         $entryType = (string) ($data['entry_type'] ?? $entry->entry_type);
-        if (! in_array($entryType, ['credit', 'debit'], true)) {
+        if (!in_array($entryType, ['credit', 'debit'], true)) {
             throw new \InvalidArgumentException('Entry type must be credit or debit.');
         }
 
@@ -1074,7 +1093,7 @@ class AccountingService
         }
 
         $transactedAt = $data['transacted_at'] ?? $entry->transacted_at;
-        if (! $transactedAt instanceof CarbonInterface) {
+        if (!$transactedAt instanceof CarbonInterface) {
             $transactedAt = Carbon::parse($transactedAt);
         }
 
@@ -1139,7 +1158,7 @@ class AccountingService
         if ($amount <= 0) {
             throw new \InvalidArgumentException('Amount must be greater than zero.');
         }
-        if (! in_array($entryType, ['credit', 'debit'], true)) {
+        if (!in_array($entryType, ['credit', 'debit'], true)) {
             throw new \InvalidArgumentException('Entry type must be credit or debit.');
         }
 
@@ -1150,7 +1169,7 @@ class AccountingService
 
         $memberId = $memberId ?? $account->member_id;
 
-        if ($transactedAt !== null && ! $transactedAt instanceof CarbonInterface) {
+        if ($transactedAt !== null && !$transactedAt instanceof CarbonInterface) {
             $transactedAt = Carbon::parse($transactedAt);
         }
 
@@ -1179,7 +1198,7 @@ class AccountingService
     public function createReversalEntry(
         AccountTransaction $original,
         string $reason,
-        ?\Illuminate\Support\Carbon $at = null,
+        ?Carbon $at = null,
     ): AccountTransaction {
         if ($original->trashed()) {
             throw new \InvalidArgumentException('Cannot reverse a deleted (soft-deleted) entry. Restore it first.');
@@ -1191,7 +1210,7 @@ class AccountingService
         }
 
         return DB::transaction(function () use ($original, $trimmed, $at) {
-            $account     = Account::query()->lockForUpdate()->findOrFail($original->account_id);
+            $account = Account::query()->lockForUpdate()->findOrFail($original->account_id);
             $counterType = $original->entry_type === 'credit' ? 'debit' : 'credit';
             $description = 'Reversal of #' . $original->id . ': '
                 . ($original->description ?? '—')
@@ -1213,7 +1232,7 @@ class AccountingService
             // Overwrite source to point at the original AccountTransaction so it is queryable.
             $entry->update([
                 'source_type' => (new AccountTransaction)->getMorphClass(),
-                'source_id'   => $original->id,
+                'source_id' => $original->id,
             ]);
 
             return $entry->fresh();
@@ -1227,12 +1246,12 @@ class AccountingService
      * Useful when a single business event (e.g. a Contribution posting) created
      * multiple ledger lines across accounts and all legs need to be unwound.
      *
-     * @return int  Number of counter-entries created.
+     * @return int Number of counter-entries created.
      */
     public function createFullSourceReversal(
         AccountTransaction $anyEntry,
         string $reason,
-        ?\Illuminate\Support\Carbon $at = null,
+        ?Carbon $at = null,
     ): int {
         if (blank($anyEntry->source_type) || blank($anyEntry->source_id)) {
             throw new \InvalidArgumentException('This entry has no source reference — use single-entry reversal instead.');
@@ -1306,16 +1325,16 @@ class AccountingService
 
         foreach ($parts as $i => $part) {
             if (($part['amount'] ?? 0) <= 0) {
-                throw new \InvalidArgumentException("Part #" . ($i + 1) . " must have a positive amount.");
+                throw new \InvalidArgumentException('Part #' . ($i + 1) . ' must have a positive amount.');
             }
             if (empty(trim($part['description'] ?? ''))) {
-                throw new \InvalidArgumentException("Part #" . ($i + 1) . " requires a description.");
+                throw new \InvalidArgumentException('Part #' . ($i + 1) . ' requires a description.');
             }
         }
 
         DB::transaction(function () use ($original, $parts) {
-            $account        = Account::query()->lockForUpdate()->findOrFail($original->account_id);
-            $originalAt     = $original->transacted_at ?? now();
+            $account = Account::query()->lockForUpdate()->findOrFail($original->account_id);
+            $originalAt = $original->transacted_at ?? now();
             $originalMember = $original->member_id;
 
             // Reverse the original entry.
@@ -1350,7 +1369,7 @@ class AccountingService
         float $amount,
         string $description,
         ?Member $member = null,
-        ?\Illuminate\Support\Carbon $at = null,
+        ?Carbon $at = null,
     ): void {
         if ($memberCash->type !== Account::TYPE_MEMBER_CASH) {
             throw new \InvalidArgumentException('Refund can only be posted to a member cash account.');
@@ -1370,10 +1389,10 @@ class AccountingService
         }
 
         DB::transaction(function () use ($memberCash, $amount, $trimmed, $member, $at) {
-            $member     = $member ?? $memberCash->member;
-            $memberId   = $member?->id ?? $memberCash->member_id;
+            $member = $member ?? $memberCash->member;
+            $memberId = $member?->id ?? $memberCash->member_id;
             $masterCash = Account::masterCash();
-            $source     = User::query()->findOrFail(auth()->id() ?? 1);
+            $source = User::query()->findOrFail(auth()->id() ?? 1);
             $refundDesc = 'Refund — ' . ($member?->user?->name ?? 'Member') . ' — ' . $trimmed;
             $transactedAt = $at ?? now();
 
@@ -1395,13 +1414,13 @@ class AccountingService
      * Credit master cash for an annual subscription fee and link the ledger entry
      * back to the MemberSubscriptionFee record.
      */
-    public function postSubscriptionFeeToMasterCash(\App\Models\MemberSubscriptionFee $fee): void
+    public function postSubscriptionFeeToMasterCash(MemberSubscriptionFee $fee): void
     {
         $fee->loadMissing('member.user');
         $member = $fee->member;
 
         $masterCash = Account::masterCash();
-        $label      = $member->user?->name ?? 'Member';
+        $label = $member->user?->name ?? 'Member';
         $description = "Annual Subscription Fee {$fee->year} — {$label}";
 
         DB::transaction(function () use ($masterCash, $fee, $description, $member) {
@@ -1428,13 +1447,14 @@ class AccountingService
         string $description,
         Model $source,
         ?int $memberId,
+        ?CarbonInterface $transactedAt = null,
     ): void {
         if ($amount <= 0.00001) {
             return;
         }
 
         $masterCash = Account::masterCash();
-        $this->postEntry($masterCash, $amount, 'credit', $description, $source, $memberId);
+        $this->postEntry($masterCash, $amount, 'credit', $description, $source, $memberId, $transactedAt ?? now());
     }
 
     // =========================================================================
