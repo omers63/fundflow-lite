@@ -141,7 +141,7 @@ class ContributionImportService
     {
         $idRaw = $this->cell($row, 'member_id');
         if ($idRaw !== '') {
-            if (!ctype_digit($idRaw)) {
+            if (! ctype_digit($idRaw)) {
                 throw new \InvalidArgumentException('member_id must be a positive integer.');
             }
 
@@ -166,7 +166,7 @@ class ContributionImportService
         $nationalIdRaw = $this->cell($row, 'national_id');
         if ($nationalIdRaw !== '') {
             $members = Member::query()
-                ->whereHas('membershipApplications', fn($q) => $q->where('national_id', $nationalIdRaw))
+                ->whereHas('membershipApplications', fn ($q) => $q->where('national_id', $nationalIdRaw))
                 ->get();
 
             if ($members->isEmpty()) {
@@ -189,7 +189,7 @@ class ContributionImportService
 
         if ($nameRaw !== '') {
             $members = Member::query()
-                ->whereHas('user', fn($q) => $q->whereRaw('LOWER(name) = ?', [mb_strtolower($nameRaw)]))
+                ->whereHas('user', fn ($q) => $q->whereRaw('LOWER(name) = ?', [mb_strtolower($nameRaw)]))
                 ->with('user')
                 ->get();
 
@@ -239,7 +239,7 @@ class ContributionImportService
 
     private function parseYear(string $value): int
     {
-        if ($value === '' || !ctype_digit($value)) {
+        if ($value === '' || ! ctype_digit($value)) {
             throw new \InvalidArgumentException('year must be a four-digit integer.');
         }
 
@@ -254,7 +254,7 @@ class ContributionImportService
 
     private function parseAmount(string $value): float
     {
-        if ($value === '' || !is_numeric($value)) {
+        if ($value === '' || ! is_numeric($value)) {
             throw new \InvalidArgumentException('amount is required and must be numeric.');
         }
 
@@ -315,7 +315,7 @@ class ContributionImportService
         }
 
         throw new \InvalidArgumentException(
-            'payment_method must be one of: ' . implode(', ', array_keys($options)) . " (got: {$value})"
+            'payment_method must be one of: '.implode(', ', array_keys($options))." (got: {$value})"
         );
     }
 
@@ -335,7 +335,7 @@ class ContributionImportService
         }
 
         $lines = preg_split('/\r\n|\r|\n/', $content);
-        $lines = array_values(array_filter($lines, fn($l) => trim((string) $l) !== ''));
+        $lines = array_values(array_filter($lines, fn ($l) => trim((string) $l) !== ''));
 
         if (count($lines) < 2) {
             return [];
@@ -343,7 +343,7 @@ class ContributionImportService
 
         $headerLine = array_shift($lines);
         $headers = str_getcsv((string) $headerLine);
-        $headers = array_map(fn($h) => strtolower(trim((string) $h)), $headers);
+        $headers = array_map(fn ($h) => strtolower(trim((string) $h)), $headers);
 
         $rows = [];
 

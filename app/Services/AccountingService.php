@@ -400,11 +400,13 @@ class AccountingService
 
             if ($contribution->payment_method === Contribution::PAYMENT_METHOD_IMPORT_CSV) {
                 // Import posting sequence:
-                // 1) credit member cash
-                // 2) debit member cash
-                // 3) credit master fund
-                // 4) credit member fund mirror
-                $this->postEntry($memberCash, (float) $contribution->amount, 'credit', "Contribution import cash top-up – {$description}", $contribution, $member->id, $postedAt);
+                // 1) credit master cash (receipt)
+                // 2) transfer to member cash: debit master cash, credit member cash
+                // 3) move to fund: debit member cash, credit master fund, credit member fund mirror
+                $masterCash = Account::masterCash();
+                $this->postEntry($masterCash, (float) $contribution->amount, 'credit', "Contribution import receipt – {$description}", $contribution, $member->id, $postedAt);
+                $this->postEntry($masterCash, (float) $contribution->amount, 'debit', "Contribution import transfer to member cash – {$description}", $contribution, $member->id, $postedAt);
+                $this->postEntry($memberCash, (float) $contribution->amount, 'credit', "Contribution import transfer from master cash – {$description}", $contribution, $member->id, $postedAt);
                 $this->postEntry($memberCash, (float) $contribution->amount, 'debit', "Contribution deduction – {$description}", $contribution, $member->id, $postedAt);
                 $this->postEntry($masterFund, (float) $contribution->amount, 'credit', $description, $contribution, $member->id, $postedAt);
                 $this->postEntry($memberFund, (float) $contribution->amount, 'credit', "{$description} (member mirror)", $contribution, $member->id, $postedAt);
