@@ -5,6 +5,7 @@ namespace App\Observers;
 use App\Models\Contribution;
 use App\Models\Member;
 use App\Services\AccountingService;
+use Illuminate\Database\QueryException;
 use Throwable;
 
 class ContributionObserver
@@ -16,7 +17,9 @@ class ContributionObserver
     public function deleting(Contribution $contribution): void
     {
         try {
-            $this->accounting->reverseContributionPosting($contribution);
+            $this->runWithSqliteLockRetry(
+                fn() => $this->accounting->reverseContributionPosting($contribution)
+            );
         } catch (Throwable $e) {
             logger()->error('ContributionObserver: failed to reverse contribution ledger', [
                 'contribution_id' => $contribution->id,
@@ -35,7 +38,9 @@ class ContributionObserver
     public function restored(Contribution $contribution): void
     {
         try {
-            $this->accounting->postContribution($contribution);
+            $this->runWithSqliteLockRetry(
+                fn() => $this->accounting->postContribution($contribution)
+            );
         } catch (Throwable $e) {
             logger()->error('ContributionObserver: failed to re-post contribution after restore', [
                 'contribution_id' => $contribution->id,
@@ -54,7 +59,9 @@ class ContributionObserver
     public function created(Contribution $contribution): void
     {
         try {
-            $this->accounting->postContribution($contribution);
+            $this->runWithSqliteLockRetry(
+                fn() => $this->accounting->postContribution($contribution)
+            );
         } catch (Throwable $e) {
             // Best-effort: log but do not block contribution creation
             logger()->error('ContributionObserver: failed to post contribution', [
@@ -90,5 +97,28 @@ class ContributionObserver
         }
 
         Member::query()->whereKey($memberId)->first()?->refreshLateContributionStats();
+    }
+
+    private function runWithSqliteLockRetry(callable $callback, int $maxAttempts = 5): void
+    {
+        $attempt = 0;
+
+        beginning:
+        try {
+            $callback();
+
+            return;
+        } catch (QueryException $e) {
+            $attempt++;
+            $isLocked = str_contains(strtolower($e->getMessage()), 'database is locked');
+
+            if (!$isLocked || $attempt >= $maxAttempts) {
+                throw $e;
+            }
+
+            // SQLite lock contention during bulk imports: short linear backoff and retry.
+            usleep(100000 * $attempt);
+            goto beginning;
+        }
     }
 }

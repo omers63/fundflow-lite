@@ -4241,3 +4241,73 @@ Sends full-disbursement notification
 Important distinction
 
 The member_portion / master_portion used for loan semantics is finalized on activation, based on member fund balance before activation logic; the per-tranche ledger still posts master debit + member mirror for operational consistency.
+--------------------------------------------------
+Suggest a good way to import loan repayments as part of contribution import process.
+Best approach: treat repayment import as a linked side-effect of contribution import, but keep accounting posting through the existing repayment service so you don’t duplicate logic.
+
+Recommended Design
+Add optional repayment columns to contribution CSV:
+repayment_amount (or apply_repayment boolean)
+optional repayment_paid_at (fallback to contribution paid_at)
+Import flow per row (single DB transaction):
+Post contribution as you already do.
+If repayment is requested, call a dedicated repayment importer method that:
+finds member’s active loan
+finds due installment(s) by cycle/date
+applies repayment through LoanRepaymentService / AccountingService (not raw DB updates)
+Support 2 repayment modes:
+Cycle mode (default): repay current open-cycle installment only
+Amount mode: repay by amount across oldest unpaid installments first
+Why this is safest
+Reuses your existing repayment logic (late fees, cash checks, observer postings, notifications).
+Prevents ledger drift from “manual mark paid” style updates.
+Keeps contribution and repayment posting atomic per row.
+CSV + UX suggestion
+Keep it explicit, not implicit:
+Don’t auto-deduct loan repayment from every contribution row.
+Require repayment_amount > 0 (or apply_repayment=1) to trigger repayment.
+Return row-level result fields in import summary:
+contribution_posted
+repayment_applied / skipped / insufficient_cash / no_active_loan
+applied installment numbers and late fee amount
+Validation/guardrails
+If repayment requested but no active loan: warn and skip repayment (don’t fail whole row unless strict mode).
+If insufficient cash for repayment after contribution posting:
+either skip repayment with warning (recommended default), or fail row in strict mode.
+Idempotency key per row (file + line + member + period) to avoid duplicate repayments on re-import.
+If you want, I can draft the exact CSV schema and a concrete import algorithm aligned to your current Contribution + LoanRepaymentService structure.
+
+But I don't know which is contribution and which is Repayment.
+
+Then the best pattern is: import one “payment amount” and auto-allocate it by rules instead of asking CSV users to split it.
+
+Practical rule set (recommended)
+For each row with total_paid:
+
+Apply to due loan repayment first (oldest due installment, with late fee policy).
+Remaining amount goes to contribution for the target cycle.
+Any leftover goes to member cash as unallocated credit (or flagged exception).
+This removes ambiguity for operators.
+
+Why this works
+Staff only enters what they know: “member paid X”.
+System decides split consistently.
+Accounting stays aligned with existing repayment/contribution posting logic.
+Minimal CSV fields
+member_identifier (member number/email/national id)
+total_paid
+paid_at
+optional cycle_month, cycle_year
+optional reference, notes
+No separate contribution/repayment columns needed.
+
+Important controls
+Add an import option:
+allocation_mode = repayment_first (default)
+(optional later: contribution_first)
+Preview before posting:
+show per row: repayment part, contribution part, leftover.
+Keep row-level statuses:
+applied, partial, insufficient, no_active_loan, no_contribution_due.
+If you want, I can design the exact allocation algorithm with your current loan cycle + contribution cycle behavior so edge cases (late fees, no active loan, already-paid contribution) are deterministic.
+
