@@ -273,7 +273,14 @@ class LoanImportService
                 'is_emergency' => $isEmergency,
             ]);
 
-            $accounting->postLoanDisbursementWithPortions($loan, $memberPortion, $masterPortion);
+            $accounting->postLoanDisbursementWithPortions(
+                $loan,
+                $memberPortion,
+                $masterPortion,
+                $disbursedAt,
+                null,
+                allowNegativeMasterFundBalance: true,
+            );
             $loan->refresh();
 
             if ($totalRepaid > 0) {

@@ -227,12 +227,8 @@ class ContributionResource extends Resource
                         '<td class="px-3 py-2 text-gray-600 dark:text-gray-300">' . e(__('app.ui.first_row_headers')) . '</td>' .
                         '</tr>' .
                         '<tr>' .
-                        '<td class="px-3 py-2 font-semibold text-gray-700 dark:text-gray-200 bg-gray-50 dark:bg-gray-900/30">' . e(__('app.ui.member_identifier')) . '</td>' .
-                        '<td class="px-3 py-2 text-gray-600 dark:text-gray-300">' . e(__('app.contribution.import.member_identifier_help')) . '</td>' .
-                        '</tr>' .
-                        '<tr>' .
                         '<td class="px-3 py-2 font-semibold text-gray-700 dark:text-gray-200 bg-gray-50 dark:bg-gray-900/30">' . e(__('Required fields')) . '</td>' .
-                        '<td class="px-3 py-2 text-gray-600 dark:text-gray-300">' . e(__('month, year, amount.')) . '</td>' .
+                        '<td class="px-3 py-2 text-gray-600 dark:text-gray-300">' . e(__('member name, month, year, amount.')) . '</td>' .
                         '</tr>' .
                         '<tr>' .
                         '<td class="px-3 py-2 font-semibold text-gray-700 dark:text-gray-200 bg-gray-50 dark:bg-gray-900/30">' . e(__('Month value')) . '</td>' .
@@ -240,23 +236,15 @@ class ContributionResource extends Resource
                         '</tr>' .
                         '<tr>' .
                         '<td class="px-3 py-2 font-semibold text-gray-700 dark:text-gray-200 bg-gray-50 dark:bg-gray-900/30">' . e(__('Optional fields')) . '</td>' .
-                        '<td class="px-3 py-2 text-gray-600 dark:text-gray-300">' . e(__('paid_at, reference_number, notes, is_late, late_fee_amount, payment_method, strict_mode.')) . '</td>' .
+                        '<td class="px-3 py-2 text-gray-600 dark:text-gray-300">' . e(__('paid_at, guarantor, check#.')) . '</td>' .
                         '</tr>' .
                         '<tr>' .
-                        '<td class="px-3 py-2 font-semibold text-gray-700 dark:text-gray-200 bg-gray-50 dark:bg-gray-900/30">' . e(__('Auto-allocation mode')) . '</td>' .
-                        '<td class="px-3 py-2 text-gray-600 dark:text-gray-300">' . e(__('When feature flag feature.auto_allocate_loan_repayment is enabled, amount is treated as total payment and allocated in order: loan repayment due (if any), then contribution for the same month/year, then optional unapplied cash credit.')) . '</td>' .
+                        '<td class="px-3 py-2 font-semibold text-gray-700 dark:text-gray-200 bg-gray-50 dark:bg-gray-900/30">' . e(__('Amount sign rules')) . '</td>' .
+                        '<td class="px-3 py-2 text-gray-600 dark:text-gray-300">' . e(__('Positive amount = contribution (or repayment if member has active imported loan). Negative amount = create/approve/disburse loan using guarantor and check#.')) . '</td>' .
                         '</tr>' .
                         '<tr>' .
-                        '<td class="px-3 py-2 font-semibold text-gray-700 dark:text-gray-200 bg-gray-50 dark:bg-gray-900/30">' . e(__('strict_mode')) . '</td>' .
-                        '<td class="px-3 py-2 text-gray-600 dark:text-gray-300">' . e(__('Optional per-row override (0/1 or yes/no). In strict mode, rows fail when payment cannot fully satisfy required allocation steps or leaves unapplied remainder when unapplied credits are disabled.')) . '</td>' .
-                        '</tr>' .
-                        '<tr>' .
-                        '<td class="px-3 py-2 font-semibold text-gray-700 dark:text-gray-200 bg-gray-50 dark:bg-gray-900/30">' . e(__('Late values')) . '</td>' .
-                        '<td class="px-3 py-2 text-gray-600 dark:text-gray-300">' . e(__('is_late accepts 0/1 or yes/no. If late and fee is blank, system default is applied.')) . '</td>' .
-                        '</tr>' .
-                        '<tr>' .
-                        '<td class="px-3 py-2 font-semibold text-gray-700 dark:text-gray-200 bg-gray-50 dark:bg-gray-900/30">' . e(__('Payment method')) . '</td>' .
-                        '<td class="px-3 py-2 text-gray-600 dark:text-gray-300">' . e(__('Allowed: :methods. Leave blank for admin entry.', ['methods' => implode(', ', array_keys(Contribution::paymentMethodOptions()))])) . '</td>' .
+                        '<td class="px-3 py-2 font-semibold text-gray-700 dark:text-gray-200 bg-gray-50 dark:bg-gray-900/30">' . e(__('Repayment routing')) . '</td>' .
+                        '<td class="px-3 py-2 text-gray-600 dark:text-gray-300">' . e(__('After a negative row for a member, following positive rows are treated as loan repayments until the loan is fully repaid; then rows revert to normal contributions.')) . '</td>' .
                         '</tr>' .
                         '</tbody>' .
                         '</table>' .
@@ -289,6 +277,15 @@ class ContributionResource extends Resource
 
                         try {
                             $result = app(ContributionImportService::class)->import($fullPath);
+                        } catch (\Throwable $e) {
+                            Notification::make()
+                                ->title(__('Import failed'))
+                                ->body($e->getMessage())
+                                ->danger()
+                                ->persistent()
+                                ->send();
+
+                            return;
                         } finally {
                             try {
                                 Storage::disk('local')->delete($relative);

@@ -219,7 +219,7 @@ class LoanRepaymentService
 
         DB::transaction(function () use ($member, $installment, $paidAt, $lateFee): void {
             $isLate = $lateFee > 0.00001;
-            $this->accounting->debitCashForRepayment($member, $installment, $lateFee);
+            $this->accounting->debitCashForRepayment($member, $installment, $lateFee, $paidAt);
             $installment->update([
                 'status' => 'paid',
                 'paid_at' => $paidAt,

@@ -86,6 +86,7 @@ class AccountingService
         $this->ensureMemberAccounts($member);
         $member->loadMissing('user');
 
+        $masterCash = Account::masterCash();
         $memberCash = Account::where('type', Account::TYPE_MEMBER_CASH)
             ->where('member_id', $member->id)
             ->firstOrFail();
@@ -461,7 +462,7 @@ class AccountingService
      *  - Member cash account is credited for payout to the member.
      *  - Loan model records master_portion = amount, member_portion = 0.
      */
-    public function postLoanDisbursement(Loan $loan): void
+    public function postLoanDisbursement(Loan $loan, bool $allowNegativeMasterFundBalance = false): void
     {
         $member = $loan->member;
         $this->ensureMemberAccounts($member);
@@ -471,6 +472,7 @@ class AccountingService
         $memberFund = Account::where('type', Account::TYPE_MEMBER_FUND)
             ->where('member_id', $member->id)
             ->firstOrFail();
+        $masterCash = Account::masterCash();
         $memberCash = Account::where('type', Account::TYPE_MEMBER_CASH)
             ->where('member_id', $member->id)
             ->firstOrFail();
@@ -481,10 +483,14 @@ class AccountingService
 
         $description = "Loan #{$loan->id} disbursement – {$member->user->name}";
 
-        DB::transaction(function () use ($loan, $member, $masterFund, $memberFund, $memberCash, $loanAccount, $description, $totalAmount, $memberPortion, $masterPortion) {
+        DB::transaction(function () use ($loan, $member, $masterFund, $memberFund, $masterCash, $memberCash, $loanAccount, $description, $totalAmount, $memberPortion, $masterPortion, $allowNegativeMasterFundBalance) {
             // Re-read master fund inside the lock to prevent negative balance
             $masterFund = Account::query()->lockForUpdate()->findOrFail($masterFund->id);
-            if ($masterPortion > 0 && (float) $masterFund->balance < $masterPortion) {
+            if (
+                !$allowNegativeMasterFundBalance
+                && $masterPortion > 0
+                && (float) $masterFund->balance < $masterPortion
+            ) {
                 throw new \RuntimeException(
                     'Insufficient master fund balance. Available: SAR ' . number_format((float) $masterFund->balance, 2)
                     . ', required: SAR ' . number_format($masterPortion, 2) . '.'
@@ -497,6 +503,10 @@ class AccountingService
             $this->postEntry($loanAccount, $totalAmount, 'debit', $description, $loan, $member->id);
             // Cash payout to the borrower.
             $this->postEntry($memberCash, $totalAmount, 'credit', $description . ' (cash payout)', $loan, $member->id);
+            // Cash-clearing sequence: member cash -> master cash -> check out.
+            $this->postEntry($memberCash, $totalAmount, 'debit', $description . ' (cash clearing to master cash)', $loan, $member->id);
+            $this->postEntry($masterCash, $totalAmount, 'credit', $description . ' (cash clearing from member cash)', $loan, $member->id);
+            $this->postEntry($masterCash, $totalAmount, 'debit', $description . ' (check disbursement out)', $loan, $member->id);
 
             // Snapshot portions onto the loan record
             $loan->update([
@@ -529,6 +539,7 @@ class AccountingService
         float $amount,
         LoanDisbursement $disbursementRecord,
         ?CarbonInterface $disbursedAt = null,
+        bool $allowNegativeMasterFundBalance = false,
     ): void {
         $member = $loan->member;
         $this->ensureMemberAccounts($member);
@@ -537,11 +548,12 @@ class AccountingService
         $memberFund = Account::where('type', Account::TYPE_MEMBER_FUND)
             ->where('member_id', $member->id)
             ->firstOrFail();
+        $masterCash = Account::masterCash();
         $memberCash = Account::where('type', Account::TYPE_MEMBER_CASH)
             ->where('member_id', $member->id)
             ->firstOrFail();
 
-        DB::transaction(function () use ($loan, $member, $memberFund, $memberCash, $loanAccount, $amount, $disbursementRecord, $disbursedAt) {
+        DB::transaction(function () use ($loan, $member, $memberFund, $masterCash, $memberCash, $loanAccount, $amount, $disbursementRecord, $disbursedAt, $allowNegativeMasterFundBalance) {
             // Lock both accounts to prevent races
             $memberFund = Account::query()->lockForUpdate()->findOrFail($memberFund->id);
             $masterFund = Account::query()->lockForUpdate()->findOrFail(Account::masterFund()->id);
@@ -549,7 +561,11 @@ class AccountingService
             $memberPortion = 0.0;
             $masterPortion = $amount;
 
-            if ($masterPortion > 0 && (float) $masterFund->balance < $masterPortion) {
+            if (
+                !$allowNegativeMasterFundBalance
+                && $masterPortion > 0
+                && (float) $masterFund->balance < $masterPortion
+            ) {
                 throw new \RuntimeException(
                     'Insufficient master fund balance. Available: SAR '
                     . number_format((float) $masterFund->balance, 2)
@@ -565,6 +581,9 @@ class AccountingService
             $this->postEntry($memberFund, $masterPortion, 'debit', $label . ' (member mirror)', $loan, $member->id, $postedAt);
             $this->postEntry($loanAccount, $amount, 'debit', $label, $loan, $member->id, $postedAt);
             $this->postEntry($memberCash, $amount, 'credit', $label . ' (cash payout)', $loan, $member->id, $postedAt);
+            $this->postEntry($memberCash, $amount, 'debit', $label . ' (cash clearing to master cash)', $loan, $member->id, $postedAt);
+            $this->postEntry($masterCash, $amount, 'credit', $label . ' (cash clearing from member cash)', $loan, $member->id, $postedAt);
+            $this->postEntry($masterCash, $amount, 'debit', $label . ' (check disbursement out)', $loan, $member->id, $postedAt);
 
             // Snapshot portions on the disbursement record
             $disbursementRecord->update([
@@ -581,8 +600,14 @@ class AccountingService
      * Post disbursement using explicit member/master portions (CSV / migration import).
      * Unlike {@see postLoanDisbursement}, portions are not derived from the member's current fund balance.
      */
-    public function postLoanDisbursementWithPortions(Loan $loan, float $memberPortion, float $masterPortion): void
-    {
+    public function postLoanDisbursementWithPortions(
+        Loan $loan,
+        float $memberPortion,
+        float $masterPortion,
+        ?CarbonInterface $postedAt = null,
+        ?string $descriptionSuffix = null,
+        bool $allowNegativeMasterFundBalance = false,
+    ): void {
         $totalAmount = round((float) $loan->amount_approved, 2);
         $sum = round($memberPortion + $masterPortion, 2);
         if (abs($sum - $totalAmount) > 0.02) {
@@ -604,25 +629,46 @@ class AccountingService
             ->where('member_id', $member->id)
             ->firstOrFail();
 
+        $masterCash = Account::masterCash();
         $memberCash = Account::where('type', Account::TYPE_MEMBER_CASH)
             ->where('member_id', $member->id)
             ->firstOrFail();
 
-        $description = "Loan #{$loan->id} disbursement (import) – {$member->user->name}";
+        $at = $postedAt ?? now();
+        $suffix = $descriptionSuffix !== null && trim($descriptionSuffix) !== ''
+            ? ' – ' . trim($descriptionSuffix)
+            : '';
+        $description = "Loan #{$loan->id} disbursement (import) – {$member->user->name}{$suffix}";
 
-        DB::transaction(function () use ($loan, $member, $masterFund, $memberFund, $memberCash, $loanAccount, $description, $totalAmount, $memberPortion, $masterPortion) {
+        DB::transaction(function () use ($loan, $member, $masterFund, $memberFund, $masterCash, $memberCash, $loanAccount, $description, $totalAmount, $memberPortion, $masterPortion, $at, $allowNegativeMasterFundBalance) {
+            $masterFundLocked = Account::query()->lockForUpdate()->findOrFail($masterFund->id);
+            if (
+                !$allowNegativeMasterFundBalance
+                && $masterPortion > 0.00001
+                && (float) $masterFundLocked->balance < $masterPortion
+            ) {
+                throw new \RuntimeException(
+                    'Insufficient master fund balance. Available: SAR ' . number_format((float) $masterFundLocked->balance, 2)
+                    . ', required: SAR ' . number_format($masterPortion, 2) . '.'
+                );
+            }
+
             if ($memberPortion > 0) {
-                $this->postEntry($memberFund, $memberPortion, 'debit', $description . ' (member portion)', $loan, $member->id);
+                $this->postEntry($memberFund, $memberPortion, 'debit', $description . ' (member portion)', $loan, $member->id, $at);
             }
             if ($masterPortion > 0) {
-                $this->postEntry($masterFund, $masterPortion, 'debit', $description . ' (fund portion)', $loan, $member->id);
+                $this->postEntry($masterFundLocked, $masterPortion, 'debit', $description . ' (fund portion)', $loan, $member->id, $at);
             }
-            $this->postEntry($loanAccount, $totalAmount, 'debit', $description, $loan, $member->id);
-            $this->postEntry($memberCash, $totalAmount, 'credit', $description . ' (cash payout)', $loan, $member->id);
+            $this->postEntry($loanAccount, $totalAmount, 'debit', $description, $loan, $member->id, $at);
+            $this->postEntry($memberCash, $totalAmount, 'credit', $description . ' (cash payout)', $loan, $member->id, $at);
+            $this->postEntry($memberCash, $totalAmount, 'debit', $description . ' (cash clearing to master cash)', $loan, $member->id, $at);
+            $this->postEntry($masterCash, $totalAmount, 'credit', $description . ' (cash clearing from member cash)', $loan, $member->id, $at);
+            $this->postEntry($masterCash, $totalAmount, 'debit', $description . ' (check disbursement out)', $loan, $member->id, $at);
 
             $loan->update([
                 'member_portion' => $memberPortion,
                 'master_portion' => $masterPortion,
+                'amount_disbursed' => $totalAmount,
             ]);
         });
     }
@@ -667,13 +713,21 @@ class AccountingService
     }
 
     /**
-     * Post a loan repayment to the master Fund Account (credit), the member's Fund Account (credit),
-     * and credit the loan's own account (reduces outstanding balance).
-     * Called automatically by LoanInstallmentObserver when status → paid.
+     * Credit master fund, member fund, and loan liability for a principal repayment; update repaid_to_master.
+     * Does not handle late fees — use {@see postLoanRepayment} for normal installment posting.
      */
-    public function postLoanRepayment(LoanInstallment $installment): void
-    {
-        $loan = $installment->loan;
+    public function postLoanPrincipalRepayment(
+        Loan $loan,
+        float $amount,
+        string $description,
+        Model $source,
+        int $memberId,
+        ?CarbonInterface $transactedAt = null,
+    ): void {
+        if ($amount <= 0.00001) {
+            return;
+        }
+
         $member = $loan->member;
         $this->ensureMemberAccounts($member);
 
@@ -690,21 +744,33 @@ class AccountingService
             ->where('member_id', $member->id)
             ->firstOrFail();
 
+        $at = $transactedAt ?? now();
+
+        $this->postEntry($masterFund, $amount, 'credit', $description, $source, $memberId, $at);
+        $this->postEntry($memberFund, $amount, 'credit', $description, $source, $memberId, $at);
+        $this->postEntry($loanAccount, $amount, 'credit', $description, $source, $memberId, $at);
+        $loan->increment('repaid_to_master', $amount);
+        $loan->refresh();
+        $loan->releaseGuarantorIfDue();
+    }
+
+    /**
+     * Post a loan repayment to the master Fund Account (credit), the member's Fund Account (credit),
+     * and credit the loan's own account (reduces outstanding balance).
+     * Called automatically by LoanInstallmentObserver when status → paid.
+     */
+    public function postLoanRepayment(LoanInstallment $installment): void
+    {
+        $loan = $installment->loan;
+        $member = $loan->member;
+        $this->ensureMemberAccounts($member);
+
         $description = "Loan #{$loan->id} repayment (installment #{$installment->installment_number}) – {$member->user->name}";
         $amount = (float) $installment->amount;
         $lateFee = (float) ($installment->late_fee_amount ?? 0);
 
-        DB::transaction(function () use ($installment, $loan, $member, $masterFund, $memberFund, $loanAccount, $description, $amount, $lateFee) {
-            // Fund and member fund both increase on every repayment
-            $this->postEntry($masterFund, $amount, 'credit', $description, $installment, $member->id);
-            $this->postEntry($memberFund, $amount, 'credit', $description, $installment, $member->id);
-            // Loan account: credit reduces outstanding balance
-            $this->postEntry($loanAccount, $amount, 'credit', $description, $installment, $member->id);
-
-            // Track how much has been credited back to the master fund (for guarantor release)
-            $loan->increment('repaid_to_master', $amount);
-            $loan->refresh();
-            $loan->releaseGuarantorIfDue();
+        DB::transaction(function () use ($installment, $loan, $member, $description, $amount, $lateFee) {
+            $this->postLoanPrincipalRepayment($loan, $amount, $description, $installment, $member->id, null);
 
             if ($installment->is_late && $lateFee > 0.00001) {
                 $lateDesc = "Loan repayment late fee – #{$loan->id} inst. {$installment->installment_number} – {$member->user->name}";
@@ -721,8 +787,12 @@ class AccountingService
      * Debit a member's Cash Account for a loan repayment installment (principal) plus optional late fee.
      * Called by LoanRepaymentService before marking the installment as paid.
      */
-    public function debitCashForRepayment(Member $member, LoanInstallment $installment, float $lateFee = 0.0): void
-    {
+    public function debitCashForRepayment(
+        Member $member,
+        LoanInstallment $installment,
+        float $lateFee = 0.0,
+        ?CarbonInterface $transactedAt = null,
+    ): void {
         $installment->loadMissing('loan');
         $cashAccount = Account::where('type', Account::TYPE_MEMBER_CASH)
             ->where('member_id', $member->id)
@@ -739,7 +809,36 @@ class AccountingService
         }
 
         $total = (float) $installment->amount + $lateFee;
-        $this->postEntry($cashAccount, $total, 'debit', $description, $installment, $member->id);
+        $at = $transactedAt ?? now();
+        $this->postEntry($cashAccount, $total, 'debit', $description, $installment, $member->id, $at);
+    }
+
+    /**
+     * Debit member cash for an arbitrary repayment principal amount (used by mixed CSV import partials).
+     */
+    public function debitMemberCashForLoanRepaymentAmount(
+        Member $member,
+        float $amount,
+        string $description,
+        Model $source,
+        ?CarbonInterface $transactedAt = null,
+    ): void {
+        if ($amount <= 0.00001) {
+            return;
+        }
+
+        $cashAccount = Account::where('type', Account::TYPE_MEMBER_CASH)
+            ->where('member_id', $member->id)
+            ->firstOrFail();
+        $this->postEntry(
+            $cashAccount,
+            $amount,
+            'debit',
+            $description,
+            $source,
+            $member->id,
+            $transactedAt ?? now()
+        );
     }
 
     /**

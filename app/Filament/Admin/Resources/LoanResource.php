@@ -1234,14 +1234,17 @@ class LoanResource extends Resource
                                 TextEntry::make('member_portion')
                                     ->label(__('Member portion'))
                                     ->money('SAR')
-                                    ->placeholder(__('—')),
+                                    ->placeholder(__('—'))
+                                    ->tooltip(__('app.loan.field.member_portion_hint')),
                                 TextEntry::make('master_portion')
                                     ->label(__('Master / fund portion'))
                                     ->money('SAR')
-                                    ->placeholder(__('—')),
+                                    ->placeholder(__('—'))
+                                    ->tooltip(__('app.loan.field.master_portion_hint')),
                                 TextEntry::make('repaid_to_master')
                                     ->label(__('Repaid (master track)'))
-                                    ->money('SAR'),
+                                    ->money('SAR')
+                                    ->tooltip(__('app.loan.field.repaid_to_master_hint')),
                             ])->columns(2),
                         Tab::make(__('Guarantor & witnesses'))
                             ->schema([

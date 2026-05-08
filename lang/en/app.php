@@ -157,6 +157,9 @@ return [
     'statement.not_notified' => 'Not yet notified',
     'loan.queue' => 'Loan Queue',
     'loan.list_subheading' => 'Track the full lifecycle of every loan — from application through disbursement to settlement.',
+    'loan.field.member_portion_hint' => 'Principal sourced from the member’s fund at disbursement (min of fund balance and loan amount). Paired with Master / fund portion so the two sum to the approved amount.',
+    'loan.field.master_portion_hint' => 'Principal sourced from the collective master fund. Repayments credited to the master fund count toward “Repaid (master track)” until this amount is covered (guarantor release track).',
+    'loan.field.repaid_to_master_hint' => 'Running total of principal repayments posted to the master fund for this loan. Compare to Master / fund portion to see how much of the fund-funded principal has been returned.',
 
     // Loans import/export help
     'loan.import.heading' => 'Import loans from CSV',
