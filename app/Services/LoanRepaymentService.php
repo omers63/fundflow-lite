@@ -10,6 +10,7 @@ use App\Notifications\LoanRepaymentAppliedNotification;
 use App\Notifications\LoanRepaymentDueNotification;
 use App\Support\DatabaseDialect;
 use Carbon\Carbon;
+use Carbon\CarbonInterface;
 use Illuminate\Support\Collection;
 use Illuminate\Support\Facades\DB;
 
@@ -142,7 +143,7 @@ class LoanRepaymentService
             return 'insufficient';
         }
 
-        DB::transaction(function () use ($loan, $installment, $member, $isLate, $lateFee) {
+        DB::transaction(function () use ($loan, $installment, $member, $amount, $isLate, $lateFee) {
             // 1. Debit member's cash account (installment + late fee when applicable)
             $this->accounting->debitCashForRepayment($member, $installment, $lateFee);
 
@@ -183,6 +184,49 @@ class LoanRepaymentService
         });
 
         $results['applied'][] = $loan;
+
+        return 'applied';
+    }
+
+    /**
+     * Apply one known installment as an imported repayment with an explicit payment timestamp.
+     *
+     * @return 'applied'|'insufficient'|'skipped'
+     */
+    public function applyImportedInstallmentPayment(
+        LoanInstallment $installment,
+        CarbonInterface $paidAt,
+        float $lateFee = 0.0,
+    ): string {
+        $installment->loadMissing('loan.member.user');
+        $loan = $installment->loan;
+        if (!$loan instanceof Loan || $installment->isPaid()) {
+            return 'skipped';
+        }
+
+        $member = $loan->member;
+        if (!$member instanceof Member) {
+            return 'skipped';
+        }
+
+        $cashAccount = Account::where('type', Account::TYPE_MEMBER_CASH)
+            ->where('member_id', $member->id)
+            ->first();
+        $required = (float) $installment->amount + max(0.0, $lateFee);
+        if (!$cashAccount || (float) $cashAccount->balance + 0.00001 < $required) {
+            return 'insufficient';
+        }
+
+        DB::transaction(function () use ($member, $installment, $paidAt, $lateFee): void {
+            $isLate = $lateFee > 0.00001;
+            $this->accounting->debitCashForRepayment($member, $installment, $lateFee);
+            $installment->update([
+                'status' => 'paid',
+                'paid_at' => $paidAt,
+                'is_late' => $isLate,
+                'late_fee_amount' => $isLate ? $lateFee : null,
+            ]);
+        });
 
         return 'applied';
     }
@@ -261,7 +305,7 @@ class LoanRepaymentService
             ])
             : __('Fund postings match the repayment run.');
 
-        return $base.' '.$note;
+        return $base . ' ' . $note;
     }
 
     /**

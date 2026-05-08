@@ -99,7 +99,7 @@ return [
     'action.new_loan' => 'قرض جديد',
     'action.import_loans' => 'استيراد القروض',
     'action.export_loans' => 'تصدير القروض',
-    'action.import_contributions' => 'استيراد المساهمات',
+    'action.import_contributions' => 'استيراد المساهمات/السداد',
     'action.export_contributions' => 'تصدير المساهمات',
 
     // طرق الدفع
@@ -168,7 +168,7 @@ return [
     'loan.import.heading' => 'استيراد القروض من CSV',
     'loan.import.sample_hint' => 'تحتاج ملفًا جاهزًا؟ نزّل: :filename',
     'loan.import.warning_opening_balances' => 'إذا كانت الأرصدة الافتتاحية تتضمن هذه القروض بالفعل، فإن استيراد صفوف المرحلة المحاسبية مرة أخرى سيؤدي إلى احتساب مزدوج ما لم تُعدّل الملف.',
-    'loan.import.member_columns_help' => 'استخدم معرّفًا واحدًا: member_number أو member_email أو national_id.',
+    'loan.import.member_columns_help' => 'استخدم معرّفًا واحدًا: member_number أو member_email أو national_id أو member_name (أو name). عند تكرار الأسماء استخدم رقم العضوية/البريد/الهوية الوطنية.',
     'loan.import.status_help' => 'loan_status: pending, approved, active, completed, early_settled. القيمة الفارغة تعني active.',
     'loan.import.amount_help' => 'amount_requested و amount_approved. حالة pending تحتاج amount_requested (أو amount_approved كبديل). حالات approved/active/closed تحتاج amount_approved.',
     'loan.import.disbursement_help' => 'يجب أن يساوي member_portion + master_portion قيمة amount_approved في حالات الصرف (active, completed, early_settled).',

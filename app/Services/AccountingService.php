@@ -742,6 +742,36 @@ class AccountingService
         $this->postEntry($cashAccount, $total, 'debit', $description, $installment, $member->id);
     }
 
+    /**
+     * Import helper: receive external payment into master cash, transfer to member cash.
+     * This funds subsequent repayment/contribution debit postings while preserving audit trail.
+     */
+    public function creditMemberCashFromImportReceipt(
+        Member $member,
+        float $amount,
+        string $description,
+        ?CarbonInterface $postedAt = null,
+    ): void {
+        if ($amount <= 0.00001) {
+            return;
+        }
+
+        $this->ensureMemberAccounts($member);
+
+        $masterCash = Account::masterCash();
+        $memberCash = Account::where('type', Account::TYPE_MEMBER_CASH)
+            ->where('member_id', $member->id)
+            ->firstOrFail();
+
+        $at = $postedAt ?? now();
+
+        DB::transaction(function () use ($member, $amount, $description, $masterCash, $memberCash, $at): void {
+            $this->postEntry($masterCash, $amount, 'credit', "{$description} (receipt)", $member, $member->id, $at);
+            $this->postEntry($masterCash, $amount, 'debit', "{$description} (transfer out)", $member, $member->id, $at);
+            $this->postEntry($memberCash, $amount, 'credit', "{$description} (transfer in)", $member, $member->id, $at);
+        });
+    }
+
     // =========================================================================
     // Guarantor fund debit (on member default)
     // =========================================================================

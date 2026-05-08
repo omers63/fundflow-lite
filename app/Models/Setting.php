@@ -94,6 +94,20 @@ class Setting extends Model
         return (int) static::get('loan.default_grace_cycles', 2);
     }
 
+    public static function autoAllocateLoanRepaymentImportEnabled(): bool
+    {
+        return (bool) static::get('feature.auto_allocate_loan_repayment', false);
+    }
+
+    public static function autoAllocateLoanRepaymentIdempotencyScope(): string
+    {
+        $scope = (string) static::get('feature.auto_allocate_loan_repayment.idempotency_scope', 'file_line_member_paid_at_total_paid');
+
+        return in_array($scope, ['file_line_member_paid_at_total_paid', 'member_paid_at_total_paid', 'none'], true)
+            ? $scope
+            : 'file_line_member_paid_at_total_paid';
+    }
+
     /**
      * Maximum membership applications (all statuses) allowed from the public apply flow.
      * Stored under historical key `membership.max_pending_public`. 0 means no limit.

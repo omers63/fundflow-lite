@@ -19,7 +19,7 @@ class LoanImportService
     /**
      * Import loans from a UTF-8 CSV with a header row.
      *
-     * Member lookup: provide one of member_email, member_number, or national_id.
+     * Member lookup: provide one of member_email, member_number, national_id, or member_name (or name).
      *
      * Column loan_status: pending | approved | active (default if omitted) | completed | early_settled
      *
@@ -319,9 +319,13 @@ class LoanImportService
         $email = strtolower($this->cell($row, 'member_email'));
         $number = $this->cell($row, 'member_number');
         $nationalId = $this->cell($row, 'national_id');
+        $memberName = $this->cell($row, 'member_name');
+        if ($memberName === '') {
+            $memberName = $this->cell($row, 'name');
+        }
 
-        if ($email === '' && $number === '' && $nationalId === '') {
-            throw new \InvalidArgumentException('Provide member_email, member_number, or national_id.');
+        if ($email === '' && $number === '' && $nationalId === '' && $memberName === '') {
+            throw new \InvalidArgumentException('Provide member_email, member_number, national_id, or member_name.');
         }
 
         if ($email !== '') {
@@ -343,7 +347,7 @@ class LoanImportService
         }
 
         $members = Member::query()
-            ->whereHas('membershipApplications', fn ($q) => $q->where('national_id', $nationalId))
+            ->whereHas('membershipApplications', fn($q) => $q->where('national_id', $nationalId))
             ->get();
 
         if ($members->isEmpty()) {
@@ -356,7 +360,26 @@ class LoanImportService
             );
         }
 
-        return $members->first();
+        if ($members->count() === 1) {
+            return $members->first();
+        }
+
+        $nameMatches = Member::query()
+            ->whereHas('user', fn($q) => $q->whereRaw('LOWER(name) = ?', [mb_strtolower($memberName)]))
+            ->with('user')
+            ->get();
+
+        if ($nameMatches->isEmpty()) {
+            throw new \InvalidArgumentException("No member found for member_name: {$memberName}");
+        }
+
+        if ($nameMatches->count() > 1) {
+            throw new \InvalidArgumentException(
+                "Multiple members found for member_name: {$memberName}. Use member_number, member_email, or national_id."
+            );
+        }
+
+        return $nameMatches->first();
     }
 
     private function parseLoanStatus(string $value): string

@@ -240,7 +240,15 @@ class ContributionResource extends Resource
                         '</tr>' .
                         '<tr>' .
                         '<td class="px-3 py-2 font-semibold text-gray-700 dark:text-gray-200 bg-gray-50 dark:bg-gray-900/30">' . e(__('Optional fields')) . '</td>' .
-                        '<td class="px-3 py-2 text-gray-600 dark:text-gray-300">' . e(__('paid_at, reference_number, notes, is_late, late_fee_amount, payment_method.')) . '</td>' .
+                        '<td class="px-3 py-2 text-gray-600 dark:text-gray-300">' . e(__('paid_at, reference_number, notes, is_late, late_fee_amount, payment_method, strict_mode.')) . '</td>' .
+                        '</tr>' .
+                        '<tr>' .
+                        '<td class="px-3 py-2 font-semibold text-gray-700 dark:text-gray-200 bg-gray-50 dark:bg-gray-900/30">' . e(__('Auto-allocation mode')) . '</td>' .
+                        '<td class="px-3 py-2 text-gray-600 dark:text-gray-300">' . e(__('When feature flag feature.auto_allocate_loan_repayment is enabled, amount is treated as total payment and allocated in order: loan repayment due (if any), then contribution for the same month/year, then optional unapplied cash credit.')) . '</td>' .
+                        '</tr>' .
+                        '<tr>' .
+                        '<td class="px-3 py-2 font-semibold text-gray-700 dark:text-gray-200 bg-gray-50 dark:bg-gray-900/30">' . e(__('strict_mode')) . '</td>' .
+                        '<td class="px-3 py-2 text-gray-600 dark:text-gray-300">' . e(__('Optional per-row override (0/1 or yes/no). In strict mode, rows fail when payment cannot fully satisfy required allocation steps or leaves unapplied remainder when unapplied credits are disabled.')) . '</td>' .
                         '</tr>' .
                         '<tr>' .
                         '<td class="px-3 py-2 font-semibold text-gray-700 dark:text-gray-200 bg-gray-50 dark:bg-gray-900/30">' . e(__('Late values')) . '</td>' .

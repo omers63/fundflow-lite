@@ -93,7 +93,7 @@ return [
     'action.new_loan' => 'New Loan',
     'action.import_loans' => 'Import Loans',
     'action.export_loans' => 'Export Loans',
-    'action.import_contributions' => 'Import Contributions',
+    'action.import_contributions' => 'Import Contributions/Repayments',
     'action.export_contributions' => 'Export Contributions',
 
     // Payment methods
@@ -162,7 +162,7 @@ return [
     'loan.import.heading' => 'Import loans from CSV',
     'loan.import.sample_hint' => 'Need a starter file? Download: :filename',
     'loan.import.warning_opening_balances' => 'If opening balances already include these loans, importing posted rows again will double-count ledger entries unless you adjust the file.',
-    'loan.import.member_columns_help' => 'Use one identifier: member_number, member_email, or national_id.',
+    'loan.import.member_columns_help' => 'Use one identifier: member_number, member_email, national_id, or member_name (or name). If names are duplicated, use number/email/national ID.',
     'loan.import.status_help' => 'loan_status: pending, approved, active, completed, early_settled. Blank defaults to active.',
     'loan.import.amount_help' => 'amount_requested and amount_approved. Pending needs requested amount (or approved amount as fallback). Approved/Active/Closed require amount_approved.',
     'loan.import.disbursement_help' => 'member_portion + master_portion must equal amount_approved for disbursed statuses (active, completed, early_settled).',

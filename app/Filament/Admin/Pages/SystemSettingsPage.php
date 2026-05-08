@@ -123,6 +123,10 @@ class SystemSettingsPage extends Page
                     'eligibility_months' => Setting::loanEligibilityMonths(),
                     'max_borrow_multiplier' => Setting::loanMaxBorrowMultiplier(),
                     'default_grace_cycles' => Setting::loanDefaultGraceCycles(),
+                    'auto_allocate_loan_repayment' => Setting::autoAllocateLoanRepaymentImportEnabled(),
+                    'auto_allocate_loan_repayment_strict_default' => (bool) Setting::get('feature.auto_allocate_loan_repayment.strict_mode_default', false),
+                    'auto_allocate_loan_repayment_allow_unapplied_credit' => (bool) Setting::get('feature.auto_allocate_loan_repayment.allow_unapplied_credit', true),
+                    'auto_allocate_loan_repayment_idempotency_scope' => (string) Setting::get('feature.auto_allocate_loan_repayment.idempotency_scope', 'file_line_member_paid_at_total_paid'),
                 ])
                 ->schema([
                     Section::make(__('Eligibility Rules'))->schema([
@@ -146,6 +150,29 @@ class SystemSettingsPage extends Page
                             ->numeric()->required()->minValue(1)->default(2)
                             ->helperText(__('Missed cycles before warning period ends and guarantor becomes liable.')),
                     ])->columns(2),
+                    Section::make(__('Import allocation rules'))->schema([
+                        Forms\Components\Toggle::make('auto_allocate_loan_repayment')
+                            ->label(__('Auto-allocate loan repayments during contribution import'))
+                            ->helperText(__('When enabled, imported contribution amount is treated as total payment and allocated as repayment first, then contribution, then remainder policy.'))
+                            ->default(false),
+                        Forms\Components\Toggle::make('auto_allocate_loan_repayment_strict_default')
+                            ->label(__('Strict mode default for auto-allocation'))
+                            ->helperText(__('If enabled, rows fail when payment cannot fully satisfy required allocation or leaves remainder while unapplied credits are disallowed.'))
+                            ->default(false),
+                        Forms\Components\Toggle::make('auto_allocate_loan_repayment_allow_unapplied_credit')
+                            ->label(__('Allow unapplied remainder as member cash credit'))
+                            ->helperText(__('If disabled, any leftover after repayment and contribution allocation fails the row (or strict mode behavior).'))
+                            ->default(true),
+                        Forms\Components\Select::make('auto_allocate_loan_repayment_idempotency_scope')
+                            ->label(__('Idempotency scope'))
+                            ->options([
+                                'file_line_member_paid_at_total_paid' => __('File + line + member + paid_at + total_paid'),
+                                'member_paid_at_total_paid' => __('Member + paid_at + total_paid'),
+                                'none' => __('Disabled'),
+                            ])
+                            ->default('file_line_member_paid_at_total_paid')
+                            ->required(),
+                    ])->columns(1),
                 ])
                 ->action(function (array $data): void {
                     Setting::set('loan.settlement_threshold_pct', $data['settlement_threshold_pct'] / 100);
@@ -153,8 +180,58 @@ class SystemSettingsPage extends Page
                     Setting::set('loan.eligibility_months', $data['eligibility_months']);
                     Setting::set('loan.max_borrow_multiplier', $data['max_borrow_multiplier']);
                     Setting::set('loan.default_grace_cycles', $data['default_grace_cycles']);
+                    Setting::set('feature.auto_allocate_loan_repayment', !empty($data['auto_allocate_loan_repayment']) ? '1' : '0');
+                    Setting::set('feature.auto_allocate_loan_repayment.strict_mode_default', !empty($data['auto_allocate_loan_repayment_strict_default']) ? '1' : '0');
+                    Setting::set('feature.auto_allocate_loan_repayment.allow_unapplied_credit', !empty($data['auto_allocate_loan_repayment_allow_unapplied_credit']) ? '1' : '0');
+                    Setting::set('feature.auto_allocate_loan_repayment.idempotency_scope', (string) ($data['auto_allocate_loan_repayment_idempotency_scope'] ?? 'file_line_member_paid_at_total_paid'));
 
                     Notification::make()->title(__('Loan settings saved.'))->success()->send();
+                }),
+            Action::make('save_import_allocation_settings')
+                ->label(__('Import allocation settings'))
+                ->icon('heroicon-o-adjustments-horizontal')
+                ->color('gray')
+                ->visible(fn(): bool => $this->activeTab === 'loans' && $this->loanSubTab === 'loan-rules')
+                ->fillForm([
+                    'auto_allocate_loan_repayment' => Setting::autoAllocateLoanRepaymentImportEnabled(),
+                    'auto_allocate_loan_repayment_strict_default' => (bool) Setting::get('feature.auto_allocate_loan_repayment.strict_mode_default', false),
+                    'auto_allocate_loan_repayment_allow_unapplied_credit' => (bool) Setting::get('feature.auto_allocate_loan_repayment.allow_unapplied_credit', true),
+                    'auto_allocate_loan_repayment_idempotency_scope' => (string) Setting::get('feature.auto_allocate_loan_repayment.idempotency_scope', 'file_line_member_paid_at_total_paid'),
+                ])
+                ->schema([
+                    Section::make(__('Contribution import auto-allocation'))
+                        ->description(__('Controls how contribution import automatically allocates one payment amount between loan repayments and contribution records.'))
+                        ->schema([
+                            Forms\Components\Toggle::make('auto_allocate_loan_repayment')
+                                ->label(__('Enable auto-allocation'))
+                                ->helperText(__('Treat imported amount as total payment and allocate: repayment due first, then contribution, then remainder policy.'))
+                                ->default(false),
+                            Forms\Components\Toggle::make('auto_allocate_loan_repayment_strict_default')
+                                ->label(__('Strict mode default'))
+                                ->helperText(__('Fail rows that cannot fully satisfy required allocation steps under current policy.'))
+                                ->default(false),
+                            Forms\Components\Toggle::make('auto_allocate_loan_repayment_allow_unapplied_credit')
+                                ->label(__('Allow unapplied remainder as member cash credit'))
+                                ->helperText(__('If disabled, leftover amount after allocations causes row failure (or strict-mode behavior).'))
+                                ->default(true),
+                            Forms\Components\Select::make('auto_allocate_loan_repayment_idempotency_scope')
+                                ->label(__('Idempotency scope'))
+                                ->options([
+                                    'file_line_member_paid_at_total_paid' => __('File + line + member + paid_at + total_paid'),
+                                    'member_paid_at_total_paid' => __('Member + paid_at + total_paid'),
+                                    'none' => __('Disabled'),
+                                ])
+                                ->default('file_line_member_paid_at_total_paid')
+                                ->required(),
+                        ]),
+                ])
+                ->action(function (array $data): void {
+                    Setting::set('feature.auto_allocate_loan_repayment', !empty($data['auto_allocate_loan_repayment']) ? '1' : '0');
+                    Setting::set('feature.auto_allocate_loan_repayment.strict_mode_default', !empty($data['auto_allocate_loan_repayment_strict_default']) ? '1' : '0');
+                    Setting::set('feature.auto_allocate_loan_repayment.allow_unapplied_credit', !empty($data['auto_allocate_loan_repayment_allow_unapplied_credit']) ? '1' : '0');
+                    Setting::set('feature.auto_allocate_loan_repayment.idempotency_scope', (string) ($data['auto_allocate_loan_repayment_idempotency_scope'] ?? 'file_line_member_paid_at_total_paid'));
+
+                    Notification::make()->title(__('Import allocation settings saved.'))->success()->send();
                 }),
             Action::make('save_cycle_settings')
                 ->label(__('Save cycle settings'))
