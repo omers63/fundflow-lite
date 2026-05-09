@@ -23,6 +23,7 @@ use App\Services\LoanImportService;
 use App\Services\LoanEarlySettlementService;
 use App\Services\LoanEligibilityService;
 use App\Services\LoanQueueOrderingService;
+use App\Support\FilamentTableSummaries;
 use App\Support\PhoneDisplay;
 use Carbon\Carbon;
 use Closure;
@@ -805,7 +806,11 @@ class LoanResource extends Resource
                 Tables\Columns\TextColumn::make('loanTier.label')->label(__('Tier'))->placeholder(__('—'))->toggleable(),
                 Tables\Columns\TextColumn::make('member.member_number')->label(__('Member #'))->searchable()->sortable()->toggleable(),
                 Tables\Columns\TextColumn::make('member.user.name')->label(__('Member'))->searchable()->toggleable(),
-                Tables\Columns\TextColumn::make('amount_requested')->label(__('Requested'))->money('SAR')->toggleable(),
+                Tables\Columns\TextColumn::make('amount_requested')
+                    ->label(__('Requested'))
+                    ->money('SAR')
+                    ->toggleable()
+                    ->summarize(FilamentTableSummaries::countSumAverageMoney()),
                 Tables\Columns\TextColumn::make('amount_approved')->label(__('Approved'))->money('SAR')->placeholder(__('—'))->toggleable(),
                 Tables\Columns\TextColumn::make('remaining_balance')
                     ->label(__('app.loan.table.remaining_balance'))

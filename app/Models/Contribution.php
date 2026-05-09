@@ -20,6 +20,9 @@ class Contribution extends Model
     /** Import flow: explicit cash-to-fund posting chain using paid_at as ledger timestamp. */
     public const PAYMENT_METHOD_IMPORT_CSV = 'import_csv';
 
+    /** Synthetic rows shown in contribution table for paid loan installments. */
+    public const PAYMENT_METHOD_LOAN_REPAYMENT = 'loan_repayment';
+
     /** @return array<string, string> */
     public static function paymentMethodOptions(): array
     {
@@ -27,6 +30,7 @@ class Contribution extends Model
             'cash_account' => 'Cash account (cycle)',
             'admin' => 'Admin entry',
             'import_csv' => 'CSV import',
+            'loan_repayment' => 'Loan repayment',
             'cash' => 'Cash',
             'bank_transfer' => 'Bank Transfer',
             'online' => 'Online',

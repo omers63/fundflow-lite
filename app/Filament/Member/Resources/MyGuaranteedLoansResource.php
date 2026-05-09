@@ -4,6 +4,7 @@ namespace App\Filament\Member\Resources;
 
 use App\Filament\Member\Resources\MyGuaranteedLoansResource\Pages;
 use App\Models\Loan;
+use App\Support\FilamentTableSummaries;
 use App\Models\Member;
 use Filament\Resources\Resource;
 use Filament\Schemas\Schema;
@@ -44,7 +45,7 @@ class MyGuaranteedLoansResource extends Resource
     public static function shouldRegisterNavigation(): bool
     {
         $member = Member::where('user_id', auth()->id())->first();
-        if (! $member) {
+        if (!$member) {
             return false;
         }
 
@@ -54,14 +55,14 @@ class MyGuaranteedLoansResource extends Resource
     public static function getNavigationBadge(): ?string
     {
         $member = Member::where('user_id', auth()->id())->first();
-        if (! $member) {
+        if (!$member) {
             return null;
         }
 
         // Badge = active guaranteed loans where borrower has overdue installments
         $count = Loan::where('guarantor_member_id', $member->id)
             ->where('status', 'active')
-            ->whereHas('installments', fn ($q) => $q->where('status', 'overdue'))
+            ->whereHas('installments', fn($q) => $q->where('status', 'overdue'))
             ->count();
 
         return $count > 0 ? (string) $count : null;
@@ -82,7 +83,7 @@ class MyGuaranteedLoansResource extends Resource
         $member = Member::where('user_id', auth()->id())->first();
 
         return $table
-            ->query(fn () => Loan::where('guarantor_member_id', $member?->id ?? 0)
+            ->query(fn() => Loan::where('guarantor_member_id', $member?->id ?? 0)
                 ->with(['member.user', 'loanTier', 'installments']))
             ->defaultSort('created_at', 'desc')
             ->columns([
@@ -101,7 +102,8 @@ class MyGuaranteedLoansResource extends Resource
                 Tables\Columns\TextColumn::make('amount_approved')
                     ->label(__('Approved'))
                     ->money('SAR')
-                    ->placeholder(__('—')),
+                    ->placeholder(__('—'))
+                    ->summarize(FilamentTableSummaries::countSumAverageMoney()),
                 Tables\Columns\TextColumn::make('installments_count')
                     ->label(__('Months'))
                     ->visibleFrom('lg')
@@ -109,7 +111,7 @@ class MyGuaranteedLoansResource extends Resource
                 Tables\Columns\TextColumn::make('status')
                     ->label(__('app.field.status'))
                     ->badge()
-                    ->formatStateUsing(fn (string $state): string => match ($state) {
+                    ->formatStateUsing(fn(string $state): string => match ($state) {
                         'pending' => __('Pending'),
                         'approved' => __('Approved'),
                         'active' => __('Active'),
@@ -119,7 +121,7 @@ class MyGuaranteedLoansResource extends Resource
                         'cancelled' => __('Cancelled'),
                         default => __(ucfirst(str_replace('_', ' ', $state))),
                     })
-                    ->color(fn (string $state) => match ($state) {
+                    ->color(fn(string $state) => match ($state) {
                         'pending' => 'warning',
                         'approved' => 'info',
                         'active' => 'success',
@@ -129,19 +131,19 @@ class MyGuaranteedLoansResource extends Resource
                     }),
                 Tables\Columns\TextColumn::make('overdue_installments_count')
                     ->label(__('Overdue'))
-                    ->getStateUsing(fn (Loan $r) => $r->installments
+                    ->getStateUsing(fn(Loan $r) => $r->installments
                         ->where('status', 'overdue')->count())
                     ->badge()
-                    ->color(fn ($state) => $state > 0 ? 'danger' : 'success'),
+                    ->color(fn($state) => $state > 0 ? 'danger' : 'success'),
                 Tables\Columns\TextColumn::make('late_repayment_count')
                     ->label(__('Late Total'))
                     ->visibleFrom('md')
                     ->badge()
-                    ->color(fn ($state) => $state > 0 ? 'warning' : 'success'),
+                    ->color(fn($state) => $state > 0 ? 'warning' : 'success'),
                 Tables\Columns\TextColumn::make('guarantor_liability_transferred_at')
                     ->label(__('Liability Transferred'))
                     ->visibleFrom('lg')
-                    ->formatStateUsing(fn ($state) => $state instanceof \Carbon\CarbonInterface
+                    ->formatStateUsing(fn($state) => $state instanceof \Carbon\CarbonInterface
                         ? $state->locale(app()->getLocale())->translatedFormat('d M Y')
                         : '')
                     ->placeholder(__('Not transferred'))

@@ -5,10 +5,13 @@ namespace App\Filament\Admin\Resources;
 use App\Filament\Admin\Resources\ContributionResource\Pages;
 use App\Filament\Admin\Widgets\ContributionStatsWidget;
 use App\Models\Contribution;
+use App\Models\LoanInstallment;
 use App\Models\Member;
 use App\Services\ContributionCycleService;
 use App\Services\ContributionImportService;
+use App\Support\DatabaseDialect;
 use App\Support\FilamentStoredUploadPath;
+use App\Support\FilamentTableSummaries;
 use Carbon\Carbon;
 use Closure;
 use Filament\Actions\Action;
@@ -35,6 +38,7 @@ use Filament\Tables\Table;
 use Illuminate\Database\Eloquent\Builder;
 use Illuminate\Database\Eloquent\Model;
 use Illuminate\Support\Facades\Storage;
+use Illuminate\Support\Facades\DB;
 use Illuminate\Support\HtmlString;
 use Livewire\Component;
 
@@ -163,8 +167,39 @@ class ContributionResource extends Resource
             ->striped()
             ->modifyQueryUsing(function ($query) {
                 $tableName = $query->getModel()->getTable();
+                $dueMonthSql = DatabaseDialect::monthExpression('loan_installments.due_date');
+                $dueYearSql = DatabaseDialect::yearExpression('loan_installments.due_date');
+                $notesSql = DatabaseDialect::isMysqlFamily()
+                    ? "CONCAT('Loan #', loans.id, ' installment #', loan_installments.installment_number)"
+                    : "'Loan #' || loans.id || ' installment #' || loan_installments.installment_number";
 
-                return $query
+                $contributionQuery = $query
+                    ->select("{$tableName}.*");
+
+                $repaymentQuery = LoanInstallment::query()
+                    ->withoutGlobalScope(\Illuminate\Database\Eloquent\SoftDeletingScope::class)
+                    ->join('loans', 'loans.id', '=', 'loan_installments.loan_id')
+                    ->where('loan_installments.status', 'paid')
+                    ->whereNull('loan_installments.deleted_at')
+                    ->selectRaw('(-loan_installments.id) as id')
+                    ->selectRaw('loans.member_id as member_id')
+                    ->selectRaw('loan_installments.amount as amount')
+                    ->selectRaw("{$dueMonthSql} as month")
+                    ->selectRaw("{$dueYearSql} as year")
+                    ->selectRaw('loan_installments.paid_at as paid_at')
+                    ->selectRaw("'" . Contribution::PAYMENT_METHOD_LOAN_REPAYMENT . "' as payment_method")
+                    ->selectRaw('NULL as reference_number')
+                    ->selectRaw("{$notesSql} as notes")
+                    ->selectRaw('loan_installments.created_at as created_at')
+                    ->selectRaw('loan_installments.updated_at as updated_at')
+                    ->selectRaw('loan_installments.is_late as is_late')
+                    ->selectRaw('NULL as deleted_at')
+                    ->selectRaw('loan_installments.late_fee_amount as late_fee_amount');
+
+                $combinedRows = $contributionQuery->unionAll($repaymentQuery);
+
+                return Contribution::query()
+                    ->fromSub($combinedRows->toBase(), $tableName)
                     ->select("{$tableName}.*")
                     ->selectRaw(
                         "SUM(amount) OVER (
@@ -181,8 +216,10 @@ class ContributionResource extends Resource
                     ->color('primary')
                     ->action(function () {
                         $filename = 'contributions-' . now()->format('Y-m-d') . '.csv';
+                        $dueMonthSql = DatabaseDialect::monthExpression('loan_installments.due_date');
+                        $dueYearSql = DatabaseDialect::yearExpression('loan_installments.due_date');
 
-                        return response()->streamDownload(function () {
+                        return response()->streamDownload(function () use ($dueMonthSql, $dueYearSql) {
                             $handle = fopen('php://output', 'w');
                             fputcsv($handle, [
                                 'id',
@@ -196,21 +233,51 @@ class ContributionResource extends Resource
                                 'recorded_at',
                             ]);
 
-                            Contribution::with('member.user')
+                            $contributionRows = DB::table('contributions')
+                                ->leftJoin('members', 'members.id', '=', 'contributions.member_id')
+                                ->leftJoin('users', 'users.id', '=', 'members.user_id')
+                                ->whereNull('contributions.deleted_at')
+                                ->selectRaw('contributions.id as id')
+                                ->selectRaw('members.member_number as member_number')
+                                ->selectRaw('users.name as member_name')
+                                ->selectRaw('contributions.month as month')
+                                ->selectRaw('contributions.year as year')
+                                ->selectRaw('contributions.amount as amount')
+                                ->selectRaw('contributions.is_late as is_late')
+                                ->selectRaw('contributions.created_at as created_at');
+
+                            $repaymentRows = DB::table('loan_installments')
+                                ->join('loans', 'loans.id', '=', 'loan_installments.loan_id')
+                                ->leftJoin('members', 'members.id', '=', 'loans.member_id')
+                                ->leftJoin('users', 'users.id', '=', 'members.user_id')
+                                ->where('loan_installments.status', 'paid')
+                                ->whereNull('loan_installments.deleted_at')
+                                ->selectRaw('(-loan_installments.id) as id')
+                                ->selectRaw('members.member_number as member_number')
+                                ->selectRaw('users.name as member_name')
+                                ->selectRaw("{$dueMonthSql} as month")
+                                ->selectRaw("{$dueYearSql} as year")
+                                ->selectRaw('loan_installments.amount as amount')
+                                ->selectRaw('loan_installments.is_late as is_late')
+                                ->selectRaw('loan_installments.created_at as created_at');
+
+                            DB::query()
+                                ->fromSub($contributionRows->unionAll($repaymentRows), 'rows')
                                 ->orderByDesc('year')
                                 ->orderByDesc('month')
                                 ->orderBy('id')
-                                ->each(function (Contribution $c) use ($handle) {
+                                ->cursor()
+                                ->each(function (object $row) use ($handle): void {
                                     fputcsv($handle, [
-                                        $c->id,
-                                        $c->member?->member_number,
-                                        $c->member?->user?->name,
-                                        $c->month,
-                                        $c->year,
-                                        date('F', mktime(0, 0, 0, $c->month, 1)) . ' ' . $c->year,
-                                        number_format((float) $c->amount, 2, '.', ''),
-                                        $c->is_late ? 'Yes' : 'No',
-                                        $c->created_at?->toDateTimeString(),
+                                        $row->id,
+                                        $row->member_number,
+                                        $row->member_name,
+                                        $row->month,
+                                        $row->year,
+                                        date('F', mktime(0, 0, 0, (int) $row->month, 1)) . ' ' . $row->year,
+                                        number_format((float) $row->amount, 2, '.', ''),
+                                        ((bool) $row->is_late) ? 'Yes' : 'No',
+                                        $row->created_at,
                                     ]);
                                 });
 
@@ -367,11 +434,22 @@ class ContributionResource extends Resource
                 Tables\Columns\TextColumn::make('member.user.name')
                     ->label(__('Member Name'))
                     ->searchable()
+                    ->sortable(query: function (Builder $query, string $direction): Builder {
+                        return $query->orderBy(
+                            Member::query()
+                                ->select('users.name')
+                                ->join('users', 'users.id', '=', 'members.user_id')
+                                ->whereColumn('members.id', 'contributions.member_id')
+                                ->limit(1),
+                            $direction,
+                        );
+                    })
                     ->toggleable(),
                 Tables\Columns\TextColumn::make('amount')
                     ->money('SAR')
                     ->sortable()
-                    ->toggleable(),
+                    ->toggleable()
+                    ->summarize(FilamentTableSummaries::countSumAverageMoney()),
                 Tables\Columns\TextColumn::make('running_balance')
                     ->label(__('Balance'))
                     ->money('SAR')
@@ -460,21 +538,30 @@ class ContributionResource extends Resource
             ->recordActions([
                 ActionGroup::make([
                     ViewAction::make()
+                        ->visible(fn(Contribution $record): bool => $record->payment_method !== Contribution::PAYMENT_METHOD_LOAN_REPAYMENT)
                         ->modalWidth('2xl'),
                     EditAction::make()
+                        ->visible(fn(Contribution $record): bool => $record->payment_method !== Contribution::PAYMENT_METHOD_LOAN_REPAYMENT)
                         ->modalWidth('2xl')
                         ->after(function (Component $livewire): void {
                             static::dispatchContributionStatsRefresh($livewire);
                         }),
                     DeleteAction::make()
+                        ->visible(fn(Contribution $record): bool => $record->payment_method !== Contribution::PAYMENT_METHOD_LOAN_REPAYMENT)
                         ->modalDescription(__('Soft-deletes this contribution and reverses its fund ledger postings (master + member fund). Restoring re-posts the contribution to the ledger.')),
-                    RestoreAction::make(),
-                    ForceDeleteAction::make(),
+                    RestoreAction::make()
+                        ->visible(fn(Contribution $record): bool => $record->payment_method !== Contribution::PAYMENT_METHOD_LOAN_REPAYMENT),
+                    ForceDeleteAction::make()
+                        ->visible(fn(Contribution $record): bool => $record->payment_method !== Contribution::PAYMENT_METHOD_LOAN_REPAYMENT),
                 ]),
             ])
             ->recordUrl(null)
             ->recordAction(function (Model $record): ?string {
                 if (!$record instanceof Contribution) {
+                    return null;
+                }
+
+                if ($record->payment_method === Contribution::PAYMENT_METHOD_LOAN_REPAYMENT) {
                     return null;
                 }
 

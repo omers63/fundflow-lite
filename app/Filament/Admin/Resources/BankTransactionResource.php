@@ -11,6 +11,7 @@ use App\Models\LoanDisbursement;
 use App\Models\LoanInstallment;
 use App\Models\Member;
 use App\Models\Setting;
+use App\Support\FilamentTableSummaries;
 use App\Services\AccountingService;
 use Filament\Actions\Action;
 use Filament\Actions\ActionGroup;
@@ -126,7 +127,8 @@ class BankTransactionResource extends Resource
                     ->money('SAR')
                     ->sortable()
                     ->color(fn(BankTransaction $record) => $record->transaction_type === 'credit' ? 'success' : 'danger')
-                    ->toggleable(),
+                    ->toggleable()
+                    ->summarize(FilamentTableSummaries::countSumAverageMoney()),
                 Tables\Columns\BadgeColumn::make('transaction_type')
                     ->label(__('Type'))
                     ->colors(['success' => 'credit', 'danger' => 'debit'])

@@ -7,6 +7,7 @@ use App\Models\FundTier;
 use App\Models\Loan;
 use App\Models\LoanTier;
 use App\Models\Member;
+use App\Support\FilamentTableSummaries;
 use App\Models\Setting;
 use App\Notifications\LoanCancelledNotification;
 use App\Notifications\LoanSubmittedNotification;
@@ -83,7 +84,10 @@ class MyLoansResource extends Resource
                     ->trueColor('danger'),
                 Tables\Columns\TextColumn::make('loanTier.label')->label(__('Tier'))->placeholder(__('—'))->visibleFrom('sm'),
                 Tables\Columns\TextColumn::make('queue_position')->label(__('Q#'))->placeholder(__('—'))->visibleFrom('lg'),
-                Tables\Columns\TextColumn::make('amount_requested')->label(__('Requested'))->money('SAR'),
+                Tables\Columns\TextColumn::make('amount_requested')
+                    ->label(__('Requested'))
+                    ->money('SAR')
+                    ->summarize(FilamentTableSummaries::countSumAverageMoney()),
                 Tables\Columns\TextColumn::make('amount_approved')->label(__('Approved'))->money('SAR')->placeholder(__('—'))->visibleFrom('sm'),
                 Tables\Columns\TextColumn::make('installments_count')
                     ->label(__('Months'))

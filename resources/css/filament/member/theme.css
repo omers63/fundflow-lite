@@ -63,6 +63,19 @@
     @apply text-xs font-semibold tracking-wide uppercase;
 }
 
+/* Summary row: Count, Sum, Average on one line per cell */
+.fi-ta-summary-row td.fi-ta-cell:not(.fi-ta-summary-row-heading-cell) {
+    @apply whitespace-nowrap;
+}
+
+.fi-ta-summary-row td.fi-ta-cell:not(.fi-ta-summary-row-heading-cell) .fi-ta-text-summary {
+    @apply inline-flex items-baseline gap-x-1.5 px-0 py-0 align-baseline;
+}
+
+.fi-ta-summary-row td.fi-ta-cell:not(.fi-ta-summary-row-heading-cell) .fi-ta-text-summary + .fi-ta-text-summary {
+    @apply ml-3;
+}
+
 /* ─── Stats overview cards ───────────────────────────────────────────────── */
 
 .fi-wi-stats-overview-stat {

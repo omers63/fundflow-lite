@@ -4,6 +4,7 @@ namespace App\Filament\Admin\Resources;
 
 use App\Filament\Admin\Resources\LoanTiersResource\Pages;
 use App\Models\LoanTier;
+use App\Support\FilamentTableSummaries;
 use Filament\Actions\ActionGroup;
 use Filament\Actions\DeleteAction;
 use Filament\Actions\EditAction;
@@ -78,10 +79,13 @@ class LoanTiersResource extends Resource
             ->columns([
                 Tables\Columns\TextColumn::make('tier_number')->label(__('Tier'))->sortable(),
                 Tables\Columns\TextColumn::make('label')->label(__('Label')),
-                Tables\Columns\TextColumn::make('min_amount')->label(__('Min Amount'))->money('SAR'),
+                Tables\Columns\TextColumn::make('min_amount')
+                    ->label(__('Min Amount'))
+                    ->money('SAR')
+                    ->summarize(FilamentTableSummaries::countSumAverageMoney()),
                 Tables\Columns\TextColumn::make('max_amount')->label(__('Max Amount'))->money('SAR'),
                 Tables\Columns\TextColumn::make('min_monthly_installment')->label(__('Min Installment/mo'))->money('SAR'),
-                Tables\Columns\TextColumn::make('active_loans_count')->label(__('Active Loans'))->getStateUsing(fn (LoanTier $r) => $r->active_loans_count),
+                Tables\Columns\TextColumn::make('active_loans_count')->label(__('Active Loans'))->getStateUsing(fn(LoanTier $r) => $r->active_loans_count),
                 Tables\Columns\IconColumn::make('is_active')->label(__('Active'))->boolean(),
             ])
             ->defaultSort('tier_number')
@@ -92,7 +96,7 @@ class LoanTiersResource extends Resource
             ->recordActions([
                 ActionGroup::make([
                     EditAction::make()
-                        ->schema(fn (Schema $schema): Schema => static::form($schema)),
+                        ->schema(fn(Schema $schema): Schema => static::form($schema)),
                     DeleteAction::make(),
                     RestoreAction::make(),
                     ForceDeleteAction::make(),

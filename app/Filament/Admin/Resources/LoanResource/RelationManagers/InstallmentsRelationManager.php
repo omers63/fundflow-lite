@@ -5,6 +5,7 @@ namespace App\Filament\Admin\Resources\LoanResource\RelationManagers;
 use App\Filament\Admin\Resources\LoanResource;
 use App\Models\Loan;
 use App\Models\LoanInstallment;
+use App\Support\FilamentTableSummaries;
 use Carbon\Carbon;
 use Filament\Actions\Action;
 use Filament\Actions\ActionGroup;
@@ -56,11 +57,12 @@ class InstallmentsRelationManager extends RelationManager
                 Tables\Columns\TextColumn::make('due_date')
                     ->label(__('Due Date'))
                     ->formatStateUsing(
-                        fn ($state): string => $state ? Carbon::parse($state)->locale(app()->getLocale())->translatedFormat('d M Y') : __('—')
+                        fn($state): string => $state ? Carbon::parse($state)->locale(app()->getLocale())->translatedFormat('d M Y') : __('—')
                     )
                     ->sortable(),
                 Tables\Columns\TextColumn::make('amount')
-                    ->money('SAR'),
+                    ->money('SAR')
+                    ->summarize(FilamentTableSummaries::countSumAverageMoney()),
                 Tables\Columns\BadgeColumn::make('status')
                     ->colors([
                         'success' => 'paid',
@@ -70,7 +72,7 @@ class InstallmentsRelationManager extends RelationManager
                 Tables\Columns\TextColumn::make('paid_at')
                     ->label(__('Paid On'))
                     ->formatStateUsing(
-                        fn ($state): string => $state ? Carbon::parse($state)->locale(app()->getLocale())->translatedFormat('d M Y H:i') : __('—')
+                        fn($state): string => $state ? Carbon::parse($state)->locale(app()->getLocale())->translatedFormat('d M Y H:i') : __('—')
                     )
                     ->placeholder(__('—')),
                 Tables\Columns\IconColumn::make('is_late')
@@ -89,7 +91,7 @@ class InstallmentsRelationManager extends RelationManager
                     $livewire->resetTable();
                     $livewire->dispatch('fundflow-refresh-loan-installments');
                 })
-                    ->record(fn (): Loan => $this->getOwnerRecord()),
+                    ->record(fn(): Loan => $this->getOwnerRecord()),
             ])
             ->filters([
                 Tables\Filters\SelectFilter::make('status')
@@ -106,8 +108,8 @@ class InstallmentsRelationManager extends RelationManager
                     ->columns(2)
                     ->query(function ($query, array $data) {
                         return $query
-                            ->when($data['from'] ?? null, fn ($q) => $q->whereDate('due_date', '>=', $data['from']))
-                            ->when($data['until'] ?? null, fn ($q) => $q->whereDate('due_date', '<=', $data['until']));
+                            ->when($data['from'] ?? null, fn($q) => $q->whereDate('due_date', '>=', $data['from']))
+                            ->when($data['until'] ?? null, fn($q) => $q->whereDate('due_date', '<=', $data['until']));
                     }),
                 Tables\Filters\Filter::make('amount')
                     ->schema([
@@ -117,8 +119,8 @@ class InstallmentsRelationManager extends RelationManager
                     ->columns(2)
                     ->query(function ($query, array $data) {
                         return $query
-                            ->when(filled($data['amount_min'] ?? null), fn ($q) => $q->where('amount', '>=', $data['amount_min']))
-                            ->when(filled($data['amount_max'] ?? null), fn ($q) => $q->where('amount', '<=', $data['amount_max']));
+                            ->when(filled($data['amount_min'] ?? null), fn($q) => $q->where('amount', '>=', $data['amount_min']))
+                            ->when(filled($data['amount_max'] ?? null), fn($q) => $q->where('amount', '<=', $data['amount_max']));
                     }),
                 Tables\Filters\Filter::make('paid_at')
                     ->schema([
@@ -128,8 +130,8 @@ class InstallmentsRelationManager extends RelationManager
                     ->columns(2)
                     ->query(function ($query, array $data) {
                         return $query
-                            ->when($data['from'] ?? null, fn ($q) => $q->whereDate('paid_at', '>=', $data['from']))
-                            ->when($data['until'] ?? null, fn ($q) => $q->whereDate('paid_at', '<=', $data['until']));
+                            ->when($data['from'] ?? null, fn($q) => $q->whereDate('paid_at', '>=', $data['from']))
+                            ->when($data['until'] ?? null, fn($q) => $q->whereDate('paid_at', '<=', $data['until']));
                     }),
             ])
             ->recordActions([
@@ -138,7 +140,7 @@ class InstallmentsRelationManager extends RelationManager
                         ->label(__('Mark Paid'))
                         ->icon('heroicon-o-check-circle')
                         ->color('success')
-                        ->visible(fn (LoanInstallment $record) => $record->status !== 'paid')
+                        ->visible(fn(LoanInstallment $record) => $record->status !== 'paid')
                         ->requiresConfirmation()
                         ->action(function (LoanInstallment $record) {
                             $record->update([
@@ -156,12 +158,12 @@ class InstallmentsRelationManager extends RelationManager
                         ->label(__('Waive Late Fee'))
                         ->icon('heroicon-o-x-circle')
                         ->color('warning')
-                        ->visible(fn (LoanInstallment $record) => $record->is_late
+                        ->visible(fn(LoanInstallment $record) => $record->is_late
                             && (float) $record->late_fee_amount > 0
                             && $record->status !== 'paid')
                         ->requiresConfirmation()
                         ->modalHeading(__('Waive Late Fee'))
-                        ->modalDescription(fn (LoanInstallment $record) => __('This will waive the SAR :amount late fee on installment #:installment. The base amount is still owed. This cannot be undone.', [
+                        ->modalDescription(fn(LoanInstallment $record) => __('This will waive the SAR :amount late fee on installment #:installment. The base amount is still owed. This cannot be undone.', [
                             'amount' => number_format((float) $record->late_fee_amount, 2),
                             'installment' => $record->installment_number,
                         ]))

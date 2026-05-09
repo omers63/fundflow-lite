@@ -7,6 +7,7 @@ use App\Models\Member;
 use App\Models\MonthlyStatement;
 use App\Models\Setting;
 use App\Services\MonthlyStatementService;
+use App\Support\FilamentTableSummaries;
 use Filament\Actions\Action;
 use Filament\Actions\ActionGroup;
 use Filament\Actions\DeleteAction;
@@ -62,8 +63,8 @@ class MonthlyStatementResource extends Resource
         return $schema->schema([
             Forms\Components\Select::make('member_id')
                 ->label(__('app.field.member'))
-                ->options(fn () => Member::with('user')->orderBy('member_number')->get()
-                    ->mapWithKeys(fn (Member $m) => [$m->id => "{$m->member_number} — {$m->user->name}"]))
+                ->options(fn() => Member::with('user')->orderBy('member_number')->get()
+                    ->mapWithKeys(fn(Member $m) => [$m->id => "{$m->member_number} — {$m->user->name}"]))
                 ->searchable()
                 ->required(),
             Forms\Components\TextInput::make('period')
@@ -101,7 +102,8 @@ class MonthlyStatementResource extends Resource
                 Tables\Columns\TextColumn::make('closing_balance')
                     ->label(__('app.field.closing_balance'))
                     ->money('SAR')
-                    ->weight('bold'),
+                    ->weight('bold')
+                    ->summarize(FilamentTableSummaries::countSumAverageMoney()),
                 Tables\Columns\TextColumn::make('generated_at')
                     ->label(__('app.action.generate'))
                     ->dateTime('d M Y')
@@ -113,30 +115,30 @@ class MonthlyStatementResource extends Resource
                     ->falseIcon('heroicon-o-clock')
                     ->trueColor('success')
                     ->falseColor('warning')
-                    ->getStateUsing(fn (MonthlyStatement $r) => $r->notified_at !== null),
+                    ->getStateUsing(fn(MonthlyStatement $r) => $r->notified_at !== null),
             ])
             ->defaultSort('period', 'desc')
             ->filters([
                 Tables\Filters\SelectFilter::make('member_id')
                     ->label(__('app.field.member'))
                     ->searchable()
-                    ->options(fn () => Member::with('user')->orderBy('member_number')->get()
-                        ->mapWithKeys(fn (Member $m) => [$m->id => "{$m->member_number} — {$m->user->name}"])),
+                    ->options(fn() => Member::with('user')->orderBy('member_number')->get()
+                        ->mapWithKeys(fn(Member $m) => [$m->id => "{$m->member_number} — {$m->user->name}"])),
                 Tables\Filters\Filter::make('period')
                     ->schema([Forms\Components\TextInput::make('period')->placeholder(__('YYYY-MM'))])
-                    ->query(fn ($query, $data) => $data['period'] ? $query->where('period', $data['period']) : $query),
+                    ->query(fn($query, $data) => $data['period'] ? $query->where('period', $data['period']) : $query),
                 Tables\Filters\SelectFilter::make('period_year')
                     ->label(__('app.field.year'))
                     ->options(array_combine(
                         range((int) now()->year, (int) now()->year - 15),
                         range((int) now()->year, (int) now()->year - 15)
                     ))
-                    ->query(fn ($query, array $data) => filled($data['value'] ?? null)
-                        ? $query->where('period', 'like', $data['value'].'-%')
+                    ->query(fn($query, array $data) => filled($data['value'] ?? null)
+                        ? $query->where('period', 'like', $data['value'] . '-%')
                         : $query),
                 Tables\Filters\Filter::make('not_notified')
                     ->label(__('app.statement.not_notified'))
-                    ->query(fn ($q) => $q->whereNull('notified_at')),
+                    ->query(fn($q) => $q->whereNull('notified_at')),
                 TrashedFilter::make(),
             ])
             ->headerActions([
@@ -167,7 +169,7 @@ class MonthlyStatementResource extends Resource
                         $count = app(MonthlyStatementService::class)->generateForAllMembers($period, $notify);
                         $msg = __('app.statement.generated_count', ['count' => $count, 'period' => $period]);
                         if ($notify) {
-                            $msg .= ' '.__('app.statement.notifications_sent');
+                            $msg .= ' ' . __('app.statement.notifications_sent');
                         }
                         Notification::make()->title($msg)->success()->send();
                     }),
@@ -189,8 +191,8 @@ class MonthlyStatementResource extends Resource
                         Forms\Components\Select::make('member_id')
                             ->label(__('app.statement.specific_member'))
                             ->searchable()
-                            ->options(fn () => Member::with('user')->orderBy('member_number')->get()
-                                ->mapWithKeys(fn (Member $m) => [$m->id => "{$m->member_number} — {$m->user->name}"]))
+                            ->options(fn() => Member::with('user')->orderBy('member_number')->get()
+                                ->mapWithKeys(fn(Member $m) => [$m->id => "{$m->member_number} — {$m->user->name}"]))
                             ->placeholder(__('app.statement.all_active_members')),
                     ])
                     ->action(function (array $data) {
@@ -200,7 +202,7 @@ class MonthlyStatementResource extends Resource
 
                         if ($data['member_id'] ?? null) {
                             $member = Member::find((int) $data['member_id']);
-                            if (! $member) {
+                            if (!$member) {
                                 Notification::make()->title(__('app.statement.member_not_found'))->danger()->send();
 
                                 return;
@@ -231,7 +233,7 @@ class MonthlyStatementResource extends Resource
                         ->label(__('app.action.download'))
                         ->icon('heroicon-o-arrow-down-tray')
                         ->color('gray')
-                        ->url(fn (MonthlyStatement $r) => route('admin.statement.pdf', $r))
+                        ->url(fn(MonthlyStatement $r) => route('admin.statement.pdf', $r))
                         ->openUrlInNewTab(),
 
                     // ── Send to member ────────────────────────────────────────
@@ -240,8 +242,8 @@ class MonthlyStatementResource extends Resource
                         ->icon('heroicon-o-envelope')
                         ->color('info')
                         ->requiresConfirmation()
-                        ->modalHeading(fn (MonthlyStatement $r) => __('Send statement to :name', ['name' => $r->member->user->name]))
-                        ->modalDescription(fn (MonthlyStatement $r) => __('This will email the statement PDF for :period to :email.', ['period' => $r->period_formatted, 'email' => $r->member->user->email]))
+                        ->modalHeading(fn(MonthlyStatement $r) => __('Send statement to :name', ['name' => $r->member->user->name]))
+                        ->modalDescription(fn(MonthlyStatement $r) => __('This will email the statement PDF for :period to :email.', ['period' => $r->period_formatted, 'email' => $r->member->user->email]))
                         ->action(function (MonthlyStatement $record) {
                             app(MonthlyStatementService::class)->sendNotification($record);
                             Notification::make()

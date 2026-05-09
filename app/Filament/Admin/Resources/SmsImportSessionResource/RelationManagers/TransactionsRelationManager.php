@@ -5,6 +5,7 @@ namespace App\Filament\Admin\Resources\SmsImportSessionResource\RelationManagers
 use App\Models\Member;
 use App\Models\SmsTransaction;
 use App\Services\AccountingService;
+use App\Support\FilamentTableSummaries;
 use Filament\Actions\Action;
 use Filament\Actions\ActionGroup;
 use Filament\Forms;
@@ -32,10 +33,10 @@ class TransactionsRelationManager extends RelationManager
 
     public function table(Table $table): Table
     {
-        $memberOptions = fn () => Member::with('user')
+        $memberOptions = fn() => Member::with('user')
             ->active()
             ->get()
-            ->mapWithKeys(fn ($m) => [$m->id => "{$m->member_number} – {$m->user->name}"]);
+            ->mapWithKeys(fn($m) => [$m->id => "{$m->member_number} – {$m->user->name}"]);
 
         return $table
             ->recordTitleAttribute('reference')
@@ -43,17 +44,19 @@ class TransactionsRelationManager extends RelationManager
             ->columns([
                 Tables\Columns\TextColumn::make('transaction_date')
                     ->label(__('Date'))->date('d M Y')->sortable(),
-                Tables\Columns\TextColumn::make('amount')->money('SAR')
-                    ->color(fn (SmsTransaction $r) => $r->transaction_type === 'credit' ? 'success' : 'danger'),
+                Tables\Columns\TextColumn::make('amount')
+                    ->money('SAR')
+                    ->color(fn(SmsTransaction $r) => $r->transaction_type === 'credit' ? 'success' : 'danger')
+                    ->summarize(FilamentTableSummaries::countSumAverageMoney()),
                 Tables\Columns\BadgeColumn::make('transaction_type')->label(__('Type'))
                     ->colors(['success' => 'credit', 'danger' => 'debit']),
                 Tables\Columns\TextColumn::make('reference')->placeholder(__('—')),
                 Tables\Columns\TextColumn::make('member.user.name')->label(__('Member'))->placeholder(__('—')),
                 Tables\Columns\TextColumn::make('raw_sms')->label(__('SMS'))->limit(50)
-                    ->tooltip(fn (SmsTransaction $r) => $r->raw_sms),
+                    ->tooltip(fn(SmsTransaction $r) => $r->raw_sms),
                 Tables\Columns\IconColumn::make('posted_at')->label(__('Posted'))
                     ->boolean()
-                    ->getStateUsing(fn (SmsTransaction $r) => $r->posted_at !== null)
+                    ->getStateUsing(fn(SmsTransaction $r) => $r->posted_at !== null)
                     ->trueIcon('heroicon-o-check-badge')->falseIcon('heroicon-o-clock')
                     ->trueColor('success')->falseColor('gray'),
                 Tables\Columns\IconColumn::make('is_duplicate')->label(__('Dup.'))
@@ -69,8 +72,8 @@ class TransactionsRelationManager extends RelationManager
                 Tables\Filters\TernaryFilter::make('posted')
                     ->trueLabel(__('Posted'))->falseLabel(__('Unposted'))->placeholder(__('All'))
                     ->queries(
-                        true: fn ($q) => $q->whereNotNull('posted_at'),
-                        false: fn ($q) => $q->whereNull('posted_at'),
+                        true: fn($q) => $q->whereNotNull('posted_at'),
+                        false: fn($q) => $q->whereNull('posted_at'),
                     ),
                 Tables\Filters\SelectFilter::make('member_id')
                     ->label(__('Member'))
@@ -84,8 +87,8 @@ class TransactionsRelationManager extends RelationManager
                     ->columns(2)
                     ->query(function ($query, array $data) {
                         return $query
-                            ->when($data['from'] ?? null, fn ($q) => $q->whereDate('transaction_date', '>=', $data['from']))
-                            ->when($data['until'] ?? null, fn ($q) => $q->whereDate('transaction_date', '<=', $data['until']));
+                            ->when($data['from'] ?? null, fn($q) => $q->whereDate('transaction_date', '>=', $data['from']))
+                            ->when($data['until'] ?? null, fn($q) => $q->whereDate('transaction_date', '<=', $data['until']));
                     }),
                 Tables\Filters\Filter::make('amount')
                     ->schema([
@@ -95,8 +98,8 @@ class TransactionsRelationManager extends RelationManager
                     ->columns(2)
                     ->query(function ($query, array $data) {
                         return $query
-                            ->when(filled($data['amount_min'] ?? null), fn ($q) => $q->where('amount', '>=', $data['amount_min']))
-                            ->when(filled($data['amount_max'] ?? null), fn ($q) => $q->where('amount', '<=', $data['amount_max']));
+                            ->when(filled($data['amount_min'] ?? null), fn($q) => $q->where('amount', '>=', $data['amount_min']))
+                            ->when(filled($data['amount_max'] ?? null), fn($q) => $q->where('amount', '<=', $data['amount_max']));
                     }),
             ])
             ->recordActions([
@@ -105,8 +108,8 @@ class TransactionsRelationManager extends RelationManager
                         ->label(__('Post to Cash'))
                         ->icon('heroicon-o-arrow-right-circle')
                         ->color('primary')
-                        ->visible(fn (SmsTransaction $r) => ! $r->isPosted())
-                        ->fillForm(fn (SmsTransaction $r) => ['member_id' => $r->member_id])
+                        ->visible(fn(SmsTransaction $r) => !$r->isPosted())
+                        ->fillForm(fn(SmsTransaction $r) => ['member_id' => $r->member_id])
                         ->schema([
                             Forms\Components\Select::make('member_id')
                                 ->label(__('Member'))

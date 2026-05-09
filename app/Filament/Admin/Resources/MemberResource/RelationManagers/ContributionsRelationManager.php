@@ -6,6 +6,7 @@ use App\Filament\Admin\Resources\ContributionResource;
 use App\Filament\Admin\Resources\MemberResource;
 use App\Filament\Admin\Resources\MemberResource\Concerns\InteractsWithMemberCycleHeaderActions;
 use App\Models\Contribution;
+use App\Support\FilamentTableSummaries;
 use Carbon\Carbon;
 use Filament\Actions\ActionGroup;
 use Filament\Actions\BulkActionGroup;
@@ -64,7 +65,11 @@ class ContributionsRelationManager extends RelationManager
                         fn($state) => Carbon::create(null, (int) $state, 1)->locale(app()->getLocale())->translatedFormat('F')
                     )
                     ->toggleable(),
-                Tables\Columns\TextColumn::make('amount')->label(__('Amount'))->money('SAR')->toggleable(),
+                Tables\Columns\TextColumn::make('amount')
+                    ->label(__('Amount'))
+                    ->money('SAR')
+                    ->toggleable()
+                    ->summarize(FilamentTableSummaries::countSumAverageMoney()),
                 Tables\Columns\BadgeColumn::make('payment_method')
                     ->label(__('Source'))
                     ->formatStateUsing(fn(?string $state): string => Contribution::paymentMethodLabel($state))

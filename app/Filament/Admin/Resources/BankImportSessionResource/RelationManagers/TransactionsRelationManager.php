@@ -7,6 +7,7 @@ use App\Models\Loan;
 use App\Models\LoanDisbursement;
 use App\Models\Member;
 use App\Services\AccountingService;
+use App\Support\FilamentTableSummaries;
 use Filament\Actions\Action;
 use Filament\Actions\ActionGroup;
 use Filament\Forms;
@@ -35,10 +36,10 @@ class TransactionsRelationManager extends RelationManager
 
     public function table(Table $table): Table
     {
-        $memberOptions = fn () => Member::with('user')
+        $memberOptions = fn() => Member::with('user')
             ->active()
             ->get()
-            ->mapWithKeys(fn ($m) => [$m->id => "{$m->member_number} – {$m->user->name}"]);
+            ->mapWithKeys(fn($m) => [$m->id => "{$m->member_number} – {$m->user->name}"]);
 
         return $table
             ->recordTitleAttribute('reference')
@@ -47,9 +48,11 @@ class TransactionsRelationManager extends RelationManager
                 Tables\Columns\TextColumn::make('transaction_date')
                     ->label(__('Date'))->date('d M Y')->sortable()
                     ->toggleable(),
-                Tables\Columns\TextColumn::make('amount')->money('SAR')
-                    ->color(fn (BankTransaction $r) => $r->transaction_type === 'credit' ? 'success' : 'danger')
-                    ->toggleable(),
+                Tables\Columns\TextColumn::make('amount')
+                    ->money('SAR')
+                    ->color(fn(BankTransaction $r) => $r->transaction_type === 'credit' ? 'success' : 'danger')
+                    ->toggleable()
+                    ->summarize(FilamentTableSummaries::countSumAverageMoney()),
                 Tables\Columns\BadgeColumn::make('transaction_type')->label(__('Type'))
                     ->colors(['success' => 'credit', 'danger' => 'debit'])
                     ->toggleable(),
@@ -61,7 +64,7 @@ class TransactionsRelationManager extends RelationManager
                     ->toggleable(),
                 Tables\Columns\IconColumn::make('posted_at')->label(__('Posted'))
                     ->boolean()
-                    ->getStateUsing(fn (BankTransaction $r) => $r->posted_at !== null)
+                    ->getStateUsing(fn(BankTransaction $r) => $r->posted_at !== null)
                     ->trueIcon('heroicon-o-check-badge')->falseIcon('heroicon-o-clock')
                     ->trueColor('success')->falseColor('gray')
                     ->toggleable(),
@@ -81,8 +84,8 @@ class TransactionsRelationManager extends RelationManager
                 Tables\Filters\TernaryFilter::make('posted')
                     ->trueLabel(__('Posted'))->falseLabel(__('Unposted'))->placeholder(__('All'))
                     ->queries(
-                        true: fn ($q) => $q->whereNotNull('posted_at'),
-                        false: fn ($q) => $q->whereNull('posted_at'),
+                        true: fn($q) => $q->whereNotNull('posted_at'),
+                        false: fn($q) => $q->whereNull('posted_at'),
                     ),
                 Tables\Filters\SelectFilter::make('member_id')
                     ->label(__('Member'))
@@ -96,8 +99,8 @@ class TransactionsRelationManager extends RelationManager
                     ->columns(2)
                     ->query(function ($query, array $data) {
                         return $query
-                            ->when($data['from'] ?? null, fn ($q) => $q->whereDate('transaction_date', '>=', $data['from']))
-                            ->when($data['until'] ?? null, fn ($q) => $q->whereDate('transaction_date', '<=', $data['until']));
+                            ->when($data['from'] ?? null, fn($q) => $q->whereDate('transaction_date', '>=', $data['from']))
+                            ->when($data['until'] ?? null, fn($q) => $q->whereDate('transaction_date', '<=', $data['until']));
                     }),
                 Tables\Filters\Filter::make('amount')
                     ->schema([
@@ -107,8 +110,8 @@ class TransactionsRelationManager extends RelationManager
                     ->columns(2)
                     ->query(function ($query, array $data) {
                         return $query
-                            ->when(filled($data['amount_min'] ?? null), fn ($q) => $q->where('amount', '>=', $data['amount_min']))
-                            ->when(filled($data['amount_max'] ?? null), fn ($q) => $q->where('amount', '<=', $data['amount_max']));
+                            ->when(filled($data['amount_min'] ?? null), fn($q) => $q->where('amount', '>=', $data['amount_min']))
+                            ->when(filled($data['amount_max'] ?? null), fn($q) => $q->where('amount', '<=', $data['amount_max']));
                     }),
             ])
             ->recordActions([
@@ -117,8 +120,8 @@ class TransactionsRelationManager extends RelationManager
                         ->label(__('Post to Cash'))
                         ->icon('heroicon-o-arrow-right-circle')
                         ->color('primary')
-                        ->visible(fn (BankTransaction $r) => ! $r->isPosted())
-                        ->schema(fn (BankTransaction $record) => [
+                        ->visible(fn(BankTransaction $r) => !$r->isPosted())
+                        ->schema(fn(BankTransaction $record) => [
                             Forms\Components\Select::make('member_id')
                                 ->label($record->transaction_type === 'debit' ? __('Member') : __('Member (optional)'))
                                 ->options($memberOptions)
@@ -131,12 +134,12 @@ class TransactionsRelationManager extends RelationManager
                                 }),
                             Forms\Components\Select::make('loan_id')
                                 ->label(__('Loan'))
-                                ->options(fn (Get $get) => Loan::query()
+                                ->options(fn(Get $get) => Loan::query()
                                     ->where('member_id', $get('member_id'))
                                     ->whereHas('disbursements')
                                     ->orderByDesc('id')
                                     ->get()
-                                    ->mapWithKeys(fn (Loan $loan) => [
+                                    ->mapWithKeys(fn(Loan $loan) => [
                                         $loan->id => sprintf(
                                             '#%d — SAR %s approved, SAR %s disbursed, %s',
                                             $loan->id,
@@ -148,17 +151,17 @@ class TransactionsRelationManager extends RelationManager
                                 ->searchable()
                                 ->preload()
                                 ->live()
-                                ->afterStateUpdated(fn ($set) => $set('loan_disbursement_id', null))
+                                ->afterStateUpdated(fn($set) => $set('loan_disbursement_id', null))
                                 ->visible($record->transaction_type === 'debit')
                                 ->required($record->transaction_type === 'debit'),
                             Forms\Components\Select::make('loan_disbursement_id')
                                 ->label(__('Loan disbursement payout'))
-                                ->options(fn (Get $get) => LoanDisbursement::query()
+                                ->options(fn(Get $get) => LoanDisbursement::query()
                                     ->where('loan_id', $get('loan_id'))
                                     ->orderByDesc('disbursed_at')
                                     ->orderByDesc('id')
                                     ->get()
-                                    ->mapWithKeys(fn (LoanDisbursement $d) => [
+                                    ->mapWithKeys(fn(LoanDisbursement $d) => [
                                         $d->id => sprintf(
                                             'SAR %s on %s — disbursement #%d',
                                             number_format((float) $d->amount, 2),
@@ -172,11 +175,11 @@ class TransactionsRelationManager extends RelationManager
                                 ->required($record->transaction_type === 'debit'),
                         ])
                         ->action(function (BankTransaction $record, array $data) {
-                            $member = ! empty($data['member_id']) ? Member::findOrFail($data['member_id']) : null;
-                            $disbursement = ! empty($data['loan_disbursement_id'])
+                            $member = !empty($data['member_id']) ? Member::findOrFail($data['member_id']) : null;
+                            $disbursement = !empty($data['loan_disbursement_id'])
                                 ? LoanDisbursement::query()->findOrFail($data['loan_disbursement_id'])
                                 : null;
-                            if ($disbursement && ! empty($data['loan_id']) && (int) $disbursement->loan_id !== (int) $data['loan_id']) {
+                            if ($disbursement && !empty($data['loan_id']) && (int) $disbursement->loan_id !== (int) $data['loan_id']) {
                                 throw new \InvalidArgumentException(__('Selected disbursement does not belong to the selected loan.'));
                             }
                             app(AccountingService::class)->postBankTransactionToCashWithOptionalMember($record, $member, $disbursement);

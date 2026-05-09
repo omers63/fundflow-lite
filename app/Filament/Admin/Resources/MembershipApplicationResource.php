@@ -11,6 +11,7 @@ use App\Notifications\MembershipApprovedNotification;
 use App\Notifications\MembershipRejectedNotification;
 use App\Services\AccountingService;
 use App\Services\MemberNumberService;
+use App\Support\FilamentTableSummaries;
 use App\Support\PhoneDisplay;
 use App\Support\StorageFilename;
 use Filament\Actions\Action;
@@ -291,9 +292,10 @@ class MembershipApplicationResource extends Resource
                     ->toggleable(),
                 Tables\Columns\TextColumn::make('membership_fee_amount')
                     ->label(__('App fee (SAR)'))
-                    ->numeric(decimalPlaces: 2)
+                    ->money('SAR')
                     ->placeholder(__('—'))
-                    ->toggleable(isToggledHiddenByDefault: true),
+                    ->toggleable(isToggledHiddenByDefault: true)
+                    ->summarize(FilamentTableSummaries::countSumAverageMoney()),
                 Tables\Columns\TextColumn::make('membership_fee_transfer_reference')
                     ->label(__('Fee transfer ref'))
                     ->limit(24)

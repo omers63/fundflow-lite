@@ -7,6 +7,7 @@ use App\Models\AccountTransaction;
 use App\Models\BankTransaction;
 use App\Models\Member;
 use App\Services\AccountingService;
+use App\Support\FilamentTableSummaries;
 use Filament\Actions\Action;
 use Filament\Actions\ActionGroup;
 use Filament\Actions\BulkAction;
@@ -403,7 +404,8 @@ class TransactionsRelationManager extends RelationManager
                     ->money('SAR')
                     ->sortable()
                     ->color(fn(AccountTransaction $r) => $r->entry_type === 'credit' ? 'success' : 'danger')
-                    ->toggleable(),
+                    ->toggleable()
+                    ->summarize(FilamentTableSummaries::countSumAverageMoney()),
                 Tables\Columns\TextColumn::make('running_balance')
                     ->label(__('Balance'))
                     ->money('SAR')

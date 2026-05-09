@@ -4,6 +4,7 @@ namespace App\Filament\Member\Resources;
 
 use App\Filament\Member\Resources\MyStatementsResource\Pages;
 use App\Models\MonthlyStatement;
+use App\Support\FilamentTableSummaries;
 use Filament\Actions\Action;
 use Filament\Actions\ActionGroup;
 use Filament\Forms;
@@ -44,7 +45,7 @@ class MyStatementsResource extends Resource
     public static function table(Table $table): Table
     {
         return $table
-            ->query(fn () => MonthlyStatement::whereHas('member', fn ($q) => $q->where('user_id', auth()->id())))
+            ->query(fn() => MonthlyStatement::whereHas('member', fn($q) => $q->where('user_id', auth()->id())))
             ->columns([
                 Tables\Columns\TextColumn::make('period')
                     ->label(__('app.field.period'))
@@ -64,10 +65,11 @@ class MyStatementsResource extends Resource
                 Tables\Columns\TextColumn::make('closing_balance')
                     ->label(__('Closing Balance'))
                     ->money('SAR')
-                    ->weight('bold'),
+                    ->weight('bold')
+                    ->summarize(FilamentTableSummaries::countSumAverageMoney()),
                 Tables\Columns\TextColumn::make('generated_at')
                     ->label(__('Generated'))
-                    ->formatStateUsing(fn ($state) => $state instanceof \Carbon\CarbonInterface
+                    ->formatStateUsing(fn($state) => $state instanceof \Carbon\CarbonInterface
                         ? $state->locale(app()->getLocale())->translatedFormat('d M Y')
                         : '')
                     ->visibleFrom('sm'),
@@ -76,16 +78,17 @@ class MyStatementsResource extends Resource
             ->filters([
                 Tables\Filters\Filter::make('period')
                     ->schema([Forms\Components\TextInput::make('period')->placeholder(__('YYYY-MM'))])
-                    ->query(fn ($query, $data) => ($data['period'] ?? null) ? $query->where('period', $data['period']) : $query),
+                    ->query(fn($query, $data) => ($data['period'] ?? null) ? $query->where('period', $data['period']) : $query),
                 Tables\Filters\SelectFilter::make('period_year')
                     ->label(__('Year'))
                     ->options(
                         collect(range((int) now()->year, (int) now()->year - 15))
-                            ->mapWithKeys(fn ($y) => [(string) $y => (string) $y])
+                            ->mapWithKeys(fn($y) => [(string) $y => (string) $y])
                             ->all()
                     )
-                    ->query(fn ($query, array $data) => filled($data['value'] ?? null)
-                        ? $query->where('period', 'like', $data['value'].'-%')
+                    ->query(
+                        fn($query, array $data) => filled($data['value'] ?? null)
+                        ? $query->where('period', 'like', $data['value'] . '-%')
                         : $query
                     ),
                 Tables\Filters\Filter::make('closing_balance')
@@ -96,8 +99,8 @@ class MyStatementsResource extends Resource
                     ->columns(2)
                     ->query(function ($query, array $data) {
                         return $query
-                            ->when(filled($data['min'] ?? null), fn ($q) => $q->where('closing_balance', '>=', $data['min']))
-                            ->when(filled($data['max'] ?? null), fn ($q) => $q->where('closing_balance', '<=', $data['max']));
+                            ->when(filled($data['min'] ?? null), fn($q) => $q->where('closing_balance', '>=', $data['min']))
+                            ->when(filled($data['max'] ?? null), fn($q) => $q->where('closing_balance', '<=', $data['max']));
                     }),
             ])
             ->recordActions([
@@ -106,7 +109,7 @@ class MyStatementsResource extends Resource
                         ->label(__('Download PDF'))
                         ->icon('heroicon-o-arrow-down-tray')
                         ->color('gray')
-                        ->url(fn (MonthlyStatement $record) => route('member.statement.pdf', $record))
+                        ->url(fn(MonthlyStatement $record) => route('member.statement.pdf', $record))
                         ->openUrlInNewTab(),
                 ])
                     ->icon('heroicon-m-ellipsis-vertical')

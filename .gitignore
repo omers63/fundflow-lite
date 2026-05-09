@@ -24,3 +24,12 @@ Homestead.json
 Homestead.yaml
 Thumbs.db
 composer.lock
+
+# Filament publishes every locale here; use package translations unless overridden.
+/lang/vendor/filament-tables/
+
+# Published Filament table blade overrides.
+/resources/views/vendor/filament-tables/
+
+# Published stubs are local scaffolding templates.
+/stubs/

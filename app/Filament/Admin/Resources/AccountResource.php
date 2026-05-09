@@ -5,6 +5,7 @@ namespace App\Filament\Admin\Resources;
 use App\Filament\Admin\Resources\AccountResource\Pages;
 use App\Filament\Admin\Resources\AccountResource\RelationManagers\TransactionsRelationManager;
 use App\Models\Account;
+use App\Support\FilamentTableSummaries;
 use App\Models\Member;
 use Filament\Actions\ActionGroup;
 use Filament\Actions\ViewAction;
@@ -78,7 +79,8 @@ class AccountResource extends Resource
                     ->sortable()
                     ->color(fn(Account $r) => (float) $r->balance >= 0 ? 'success' : 'danger')
                     ->weight(FontWeight::Bold)
-                    ->toggleable(),
+                    ->toggleable()
+                    ->summarize(FilamentTableSummaries::countSumAverageMoney()),
                 Tables\Columns\IconColumn::make('is_active')
                     ->label(__('Active'))
                     ->boolean()

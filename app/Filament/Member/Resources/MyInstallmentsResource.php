@@ -6,6 +6,7 @@ use App\Filament\Member\Resources\MyInstallmentsResource\Pages;
 use App\Models\Loan;
 use App\Models\LoanInstallment;
 use App\Models\Member;
+use App\Support\FilamentTableSummaries;
 use App\Services\LoanRepaymentService;
 use Filament\Actions\Action;
 use Filament\Actions\ActionGroup;
@@ -48,10 +49,10 @@ class MyInstallmentsResource extends Resource
     public static function getNavigationBadge(): ?string
     {
         $member = auth()->user()?->member;
-        if (! $member) {
+        if (!$member) {
             return null;
         }
-        $count = LoanInstallment::whereHas('loan', fn ($q) => $q->where('member_id', $member->id))
+        $count = LoanInstallment::whereHas('loan', fn($q) => $q->where('member_id', $member->id))
             ->where('status', 'overdue')
             ->count();
 
@@ -71,7 +72,7 @@ class MyInstallmentsResource extends Resource
 
                 return LoanInstallment::whereHas(
                     'loan',
-                    fn ($q) => $q->where('member_id', $member?->id ?? 0)
+                    fn($q) => $q->where('member_id', $member?->id ?? 0)
                 );
             })
             ->columns([
@@ -85,23 +86,24 @@ class MyInstallmentsResource extends Resource
                 Tables\Columns\TextColumn::make('amount')
                     ->label(__('app.field.amount'))
                     ->money('SAR')
-                    ->weight('bold'),
+                    ->weight('bold')
+                    ->summarize(FilamentTableSummaries::countSumAverageMoney()),
                 Tables\Columns\TextColumn::make('due_date')
                     ->label(__('app.field.due_date'))
-                    ->formatStateUsing(fn ($state) => $state instanceof \Carbon\CarbonInterface
+                    ->formatStateUsing(fn($state) => $state instanceof \Carbon\CarbonInterface
                         ? $state->locale(app()->getLocale())->translatedFormat('d M Y')
                         : '')
                     ->sortable(),
                 Tables\Columns\TextColumn::make('status')
                     ->label(__('app.field.status'))
                     ->badge()
-                    ->formatStateUsing(fn (string $state): string => match ($state) {
+                    ->formatStateUsing(fn(string $state): string => match ($state) {
                         'pending' => __('Pending'),
                         'paid' => __('Paid'),
                         'overdue' => __('Overdue'),
                         default => __(ucfirst($state)),
                     })
-                    ->color(fn (string $state) => match ($state) {
+                    ->color(fn(string $state) => match ($state) {
                         'pending' => 'warning',
                         'paid' => 'success',
                         'overdue' => 'danger',
@@ -110,7 +112,7 @@ class MyInstallmentsResource extends Resource
                 Tables\Columns\TextColumn::make('paid_at')
                     ->label(__('app.field.paid_at'))
                     ->visibleFrom('md')
-                    ->formatStateUsing(fn ($state) => $state instanceof \Carbon\CarbonInterface
+                    ->formatStateUsing(fn($state) => $state instanceof \Carbon\CarbonInterface
                         ? $state->locale(app()->getLocale())->translatedFormat('d M Y')
                         : '')
                     ->placeholder(__('—')),
@@ -130,13 +132,13 @@ class MyInstallmentsResource extends Resource
                         ->disabled(function () {
                             $member = Member::where('user_id', auth()->id())->first();
 
-                            return ! $member || app(LoanRepaymentService::class)->hasInsufficientCashForOpenPeriodRepayment($member);
+                            return !$member || app(LoanRepaymentService::class)->hasInsufficientCashForOpenPeriodRepayment($member);
                         })
                         ->requiresConfirmation()
                         ->modalHeading(__('Pay Your Loan Installment'))
                         ->modalDescription(function () {
                             $member = Member::where('user_id', auth()->id())->with('accounts')->first();
-                            if (! $member) {
+                            if (!$member) {
                                 return __('Member record not found.');
                             }
 
@@ -145,7 +147,7 @@ class MyInstallmentsResource extends Resource
                         ->modalSubmitActionLabel(__('Pay Now'))
                         ->action(function () {
                             $member = Member::where('user_id', auth()->id())->with(['user', 'accounts'])->first();
-                            if (! $member) {
+                            if (!$member) {
                                 Notification::make()->title(__('Member record not found'))->danger()->send();
 
                                 return;
@@ -167,12 +169,12 @@ class MyInstallmentsResource extends Resource
                     ->label(__('Loan'))
                     ->options(function () {
                         $member = auth()->user()?->member;
-                        if (! $member) {
+                        if (!$member) {
                             return [];
                         }
 
                         return Loan::query()->where('member_id', $member->id)->orderByDesc('id')->get()
-                            ->mapWithKeys(fn (Loan $l) => [$l->id => __('Loan #:id', ['id' => $l->id])]);
+                            ->mapWithKeys(fn(Loan $l) => [$l->id => __('Loan #:id', ['id' => $l->id])]);
                     }),
                 Tables\Filters\SelectFilter::make('status')
                     ->options([
@@ -188,8 +190,8 @@ class MyInstallmentsResource extends Resource
                     ->columns(2)
                     ->query(function ($query, array $data) {
                         return $query
-                            ->when($data['from'] ?? null, fn ($q) => $q->whereDate('due_date', '>=', $data['from']))
-                            ->when($data['until'] ?? null, fn ($q) => $q->whereDate('due_date', '<=', $data['until']));
+                            ->when($data['from'] ?? null, fn($q) => $q->whereDate('due_date', '>=', $data['from']))
+                            ->when($data['until'] ?? null, fn($q) => $q->whereDate('due_date', '<=', $data['until']));
                     }),
                 Tables\Filters\Filter::make('amount')
                     ->schema([
@@ -199,8 +201,8 @@ class MyInstallmentsResource extends Resource
                     ->columns(2)
                     ->query(function ($query, array $data) {
                         return $query
-                            ->when(filled($data['amount_min'] ?? null), fn ($q) => $q->where('amount', '>=', $data['amount_min']))
-                            ->when(filled($data['amount_max'] ?? null), fn ($q) => $q->where('amount', '<=', $data['amount_max']));
+                            ->when(filled($data['amount_min'] ?? null), fn($q) => $q->where('amount', '>=', $data['amount_min']))
+                            ->when(filled($data['amount_max'] ?? null), fn($q) => $q->where('amount', '<=', $data['amount_max']));
                     }),
                 Tables\Filters\Filter::make('paid_at')
                     ->schema([
@@ -210,8 +212,8 @@ class MyInstallmentsResource extends Resource
                     ->columns(2)
                     ->query(function ($query, array $data) {
                         return $query
-                            ->when($data['from'] ?? null, fn ($q) => $q->whereDate('paid_at', '>=', $data['from']))
-                            ->when($data['until'] ?? null, fn ($q) => $q->whereDate('paid_at', '<=', $data['until']));
+                            ->when($data['from'] ?? null, fn($q) => $q->whereDate('paid_at', '>=', $data['from']))
+                            ->when($data['until'] ?? null, fn($q) => $q->whereDate('paid_at', '<=', $data['until']));
                     }),
             ]);
     }

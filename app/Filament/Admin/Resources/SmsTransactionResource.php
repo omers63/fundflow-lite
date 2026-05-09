@@ -8,6 +8,7 @@ use App\Models\Member;
 use App\Models\SmsImportSession;
 use App\Models\SmsTransaction;
 use App\Services\AccountingService;
+use App\Support\FilamentTableSummaries;
 use Filament\Actions\Action;
 use Filament\Actions\ActionGroup;
 use Filament\Actions\BulkAction;
@@ -106,10 +107,10 @@ class SmsTransactionResource extends Resource
 
     public static function table(Table $table): Table
     {
-        $memberOptions = fn () => Member::with('user')
+        $memberOptions = fn() => Member::with('user')
             ->active()
             ->get()
-            ->mapWithKeys(fn ($m) => [$m->id => "{$m->member_number} – {$m->user->name}"]);
+            ->mapWithKeys(fn($m) => [$m->id => "{$m->member_number} – {$m->user->name}"]);
 
         return $table
             ->columns([
@@ -121,7 +122,8 @@ class SmsTransactionResource extends Resource
                     ->label(__('Amount'))
                     ->money('SAR')
                     ->sortable()
-                    ->color(fn (SmsTransaction $record) => $record->transaction_type === 'credit' ? 'success' : 'danger'),
+                    ->color(fn(SmsTransaction $record) => $record->transaction_type === 'credit' ? 'success' : 'danger')
+                    ->summarize(FilamentTableSummaries::countSumAverageMoney()),
                 Tables\Columns\BadgeColumn::make('transaction_type')
                     ->label(__('Type'))
                     ->colors(['success' => 'credit', 'danger' => 'debit']),
@@ -133,12 +135,12 @@ class SmsTransactionResource extends Resource
                 Tables\Columns\TextColumn::make('raw_sms')
                     ->label(__('SMS'))
                     ->limit(55)
-                    ->tooltip(fn (SmsTransaction $record) => $record->raw_sms)
+                    ->tooltip(fn(SmsTransaction $record) => $record->raw_sms)
                     ->searchable(),
                 Tables\Columns\IconColumn::make('posted_at')
                     ->label(__('Posted'))
                     ->boolean()
-                    ->getStateUsing(fn (SmsTransaction $r) => $r->posted_at !== null)
+                    ->getStateUsing(fn(SmsTransaction $r) => $r->posted_at !== null)
                     ->trueIcon('heroicon-o-check-badge')
                     ->falseIcon('heroicon-o-clock')
                     ->trueColor('success')
@@ -160,8 +162,8 @@ class SmsTransactionResource extends Resource
                     ->label(__('Import Session'))
                     ->options(
                         SmsImportSession::with('bank')->latest()->get()
-                            ->mapWithKeys(fn ($s) => [
-                                $s->id => ($s->bank?->name ?? __('No Bank')).' — '.$s->filename.' ('.$s->created_at->format('d M Y').')',
+                            ->mapWithKeys(fn($s) => [
+                                $s->id => ($s->bank?->name ?? __('No Bank')) . ' — ' . $s->filename . ' (' . $s->created_at->format('d M Y') . ')',
                             ])
                     ),
                 Tables\Filters\SelectFilter::make('transaction_type')
@@ -172,8 +174,8 @@ class SmsTransactionResource extends Resource
                     ->falseLabel(__('Unmatched only'))
                     ->placeholder(__('All'))
                     ->queries(
-                        true: fn ($q) => $q->whereNotNull('member_id'),
-                        false: fn ($q) => $q->whereNull('member_id'),
+                        true: fn($q) => $q->whereNotNull('member_id'),
+                        false: fn($q) => $q->whereNull('member_id'),
                     ),
                 Tables\Filters\TernaryFilter::make('posted')
                     ->label(__('Posting Status'))
@@ -181,8 +183,8 @@ class SmsTransactionResource extends Resource
                     ->falseLabel(__('Unposted only'))
                     ->placeholder(__('All'))
                     ->queries(
-                        true: fn ($q) => $q->whereNotNull('posted_at'),
-                        false: fn ($q) => $q->whereNull('posted_at'),
+                        true: fn($q) => $q->whereNotNull('posted_at'),
+                        false: fn($q) => $q->whereNull('posted_at'),
                     ),
                 Tables\Filters\TernaryFilter::make('is_duplicate')
                     ->label(__('Duplicates'))
@@ -194,9 +196,9 @@ class SmsTransactionResource extends Resource
                         Forms\Components\DatePicker::make('date_from')->label(__('From')),
                         Forms\Components\DatePicker::make('date_to')->label(__('To')),
                     ])
-                    ->query(fn ($query, $data) => $query
-                        ->when($data['date_from'], fn ($q, $v) => $q->whereDate('transaction_date', '>=', $v))
-                        ->when($data['date_to'], fn ($q, $v) => $q->whereDate('transaction_date', '<=', $v)))
+                    ->query(fn($query, $data) => $query
+                        ->when($data['date_from'], fn($q, $v) => $q->whereDate('transaction_date', '>=', $v))
+                        ->when($data['date_to'], fn($q, $v) => $q->whereDate('transaction_date', '<=', $v)))
                     ->columns(2),
                 Tables\Filters\SelectFilter::make('member_id')
                     ->label(__('Member'))
@@ -210,8 +212,8 @@ class SmsTransactionResource extends Resource
                     ->columns(2)
                     ->query(function ($query, array $data) {
                         return $query
-                            ->when(filled($data['amount_min'] ?? null), fn ($q) => $q->where('amount', '>=', $data['amount_min']))
-                            ->when(filled($data['amount_max'] ?? null), fn ($q) => $q->where('amount', '<=', $data['amount_max']));
+                            ->when(filled($data['amount_min'] ?? null), fn($q) => $q->where('amount', '>=', $data['amount_min']))
+                            ->when(filled($data['amount_max'] ?? null), fn($q) => $q->where('amount', '<=', $data['amount_max']));
                     }),
                 TrashedFilter::make(),
             ])
@@ -223,8 +225,8 @@ class SmsTransactionResource extends Resource
                         ->label(__('Post to Cash'))
                         ->icon('heroicon-o-arrow-right-circle')
                         ->color('primary')
-                        ->visible(fn (SmsTransaction $r) => ! $r->isPosted())
-                        ->fillForm(fn (SmsTransaction $r) => ['member_id' => $r->member_id])
+                        ->visible(fn(SmsTransaction $r) => !$r->isPosted())
+                        ->fillForm(fn(SmsTransaction $r) => ['member_id' => $r->member_id])
                         ->schema([
                             Forms\Components\Select::make('member_id')
                                 ->label(__('Post for Member'))
@@ -284,7 +286,7 @@ class SmsTransactionResource extends Resource
                             $skipped = 0;
 
                             foreach ($records as $tx) {
-                                if ($tx->isPosted() || ! $tx->member_id) {
+                                if ($tx->isPosted() || !$tx->member_id) {
                                     $skipped++;
 
                                     continue;

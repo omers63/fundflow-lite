@@ -6,6 +6,7 @@ use App\Filament\Member\Resources\MyAccountLedgerResource\Pages;
 use App\Models\Account;
 use App\Models\AccountTransaction;
 use App\Models\Member;
+use App\Support\FilamentTableSummaries;
 use Carbon\CarbonInterface;
 use Filament\Actions\Action;
 use Filament\Forms;
@@ -87,7 +88,8 @@ class MyAccountLedgerResource extends Resource
                 Tables\Columns\TextColumn::make('amount')
                     ->label(__('Amount (SAR)'))
                     ->money('SAR')
-                    ->weight('bold'),
+                    ->weight('bold')
+                    ->summarize(FilamentTableSummaries::countSumAverageMoney()),
                 Tables\Columns\TextColumn::make('description')
                     ->label(__('Description'))
                     ->visibleFrom('md')
