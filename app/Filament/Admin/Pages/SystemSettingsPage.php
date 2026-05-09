@@ -127,6 +127,7 @@ class SystemSettingsPage extends Page
                     'auto_allocate_loan_repayment_strict_default' => (bool) Setting::get('feature.auto_allocate_loan_repayment.strict_mode_default', false),
                     'auto_allocate_loan_repayment_allow_unapplied_credit' => (bool) Setting::get('feature.auto_allocate_loan_repayment.allow_unapplied_credit', true),
                     'auto_allocate_loan_repayment_idempotency_scope' => (string) Setting::get('feature.auto_allocate_loan_repayment.idempotency_scope', 'file_line_member_paid_at_total_paid'),
+                    'mixed_import_allow_partial_installment_repayment' => Setting::mixedImportAllowPartialInstallmentRepayment(),
                 ])
                 ->schema([
                     Section::make(__('Eligibility Rules'))->schema([
@@ -172,6 +173,10 @@ class SystemSettingsPage extends Page
                             ])
                             ->default('file_line_member_paid_at_total_paid')
                             ->required(),
+                        Forms\Components\Toggle::make('mixed_import_allow_partial_installment_repayment')
+                            ->label(__('Mixed CSV: allow partial installment repayment'))
+                            ->helperText(__('When off, each repayment row pays only whole installments in due order; amounts smaller than the next due installment remain as member cash only.'))
+                            ->default(false),
                     ])->columns(1),
                 ])
                 ->action(function (array $data): void {
@@ -184,6 +189,10 @@ class SystemSettingsPage extends Page
                     Setting::set('feature.auto_allocate_loan_repayment.strict_mode_default', !empty($data['auto_allocate_loan_repayment_strict_default']) ? '1' : '0');
                     Setting::set('feature.auto_allocate_loan_repayment.allow_unapplied_credit', !empty($data['auto_allocate_loan_repayment_allow_unapplied_credit']) ? '1' : '0');
                     Setting::set('feature.auto_allocate_loan_repayment.idempotency_scope', (string) ($data['auto_allocate_loan_repayment_idempotency_scope'] ?? 'file_line_member_paid_at_total_paid'));
+                    Setting::set(
+                        'feature.contribution_import_mixed.allow_partial_installment_repayment',
+                        !empty($data['mixed_import_allow_partial_installment_repayment']) ? '1' : '0'
+                    );
 
                     Notification::make()->title(__('Loan settings saved.'))->success()->send();
                 }),
@@ -197,6 +206,7 @@ class SystemSettingsPage extends Page
                     'auto_allocate_loan_repayment_strict_default' => (bool) Setting::get('feature.auto_allocate_loan_repayment.strict_mode_default', false),
                     'auto_allocate_loan_repayment_allow_unapplied_credit' => (bool) Setting::get('feature.auto_allocate_loan_repayment.allow_unapplied_credit', true),
                     'auto_allocate_loan_repayment_idempotency_scope' => (string) Setting::get('feature.auto_allocate_loan_repayment.idempotency_scope', 'file_line_member_paid_at_total_paid'),
+                    'mixed_import_allow_partial_installment_repayment' => Setting::mixedImportAllowPartialInstallmentRepayment(),
                 ])
                 ->schema([
                     Section::make(__('Contribution import auto-allocation'))
@@ -223,6 +233,10 @@ class SystemSettingsPage extends Page
                                 ])
                                 ->default('file_line_member_paid_at_total_paid')
                                 ->required(),
+                            Forms\Components\Toggle::make('mixed_import_allow_partial_installment_repayment')
+                                ->label(__('Mixed CSV: allow partial installment repayment'))
+                                ->helperText(__('When off, each repayment row pays only whole installments in due order; amounts smaller than the next due installment remain as member cash only.'))
+                                ->default(false),
                         ]),
                 ])
                 ->action(function (array $data): void {
@@ -230,6 +244,10 @@ class SystemSettingsPage extends Page
                     Setting::set('feature.auto_allocate_loan_repayment.strict_mode_default', !empty($data['auto_allocate_loan_repayment_strict_default']) ? '1' : '0');
                     Setting::set('feature.auto_allocate_loan_repayment.allow_unapplied_credit', !empty($data['auto_allocate_loan_repayment_allow_unapplied_credit']) ? '1' : '0');
                     Setting::set('feature.auto_allocate_loan_repayment.idempotency_scope', (string) ($data['auto_allocate_loan_repayment_idempotency_scope'] ?? 'file_line_member_paid_at_total_paid'));
+                    Setting::set(
+                        'feature.contribution_import_mixed.allow_partial_installment_repayment',
+                        !empty($data['mixed_import_allow_partial_installment_repayment']) ? '1' : '0'
+                    );
 
                     Notification::make()->title(__('Import allocation settings saved.'))->success()->send();
                 }),

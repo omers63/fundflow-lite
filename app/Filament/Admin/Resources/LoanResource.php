@@ -783,6 +783,15 @@ class LoanResource extends Resource
     public static function table(Table $table): Table
     {
         return $table
+            ->modifyQueryUsing(
+                fn(Builder $query) => $query->withSum(
+                    [
+                        'installments as remaining_balance' => fn($q) => $q
+                            ->whereIn('status', ['pending', 'overdue']),
+                    ],
+                    'amount',
+                )
+            )
             ->columns([
                 Tables\Columns\TextColumn::make('queue_position')->label(__('Q#'))->sortable()->placeholder(__('—'))->toggleable(),
                 Tables\Columns\IconColumn::make('is_emergency')
@@ -798,6 +807,12 @@ class LoanResource extends Resource
                 Tables\Columns\TextColumn::make('member.user.name')->label(__('Member'))->searchable()->toggleable(),
                 Tables\Columns\TextColumn::make('amount_requested')->label(__('Requested'))->money('SAR')->toggleable(),
                 Tables\Columns\TextColumn::make('amount_approved')->label(__('Approved'))->money('SAR')->placeholder(__('—'))->toggleable(),
+                Tables\Columns\TextColumn::make('remaining_balance')
+                    ->label(__('app.loan.table.remaining_balance'))
+                    ->money('SAR')
+                    ->placeholder(__('—'))
+                    ->tooltip(__('app.loan.table.remaining_balance_hint'))
+                    ->toggleable(),
                 Tables\Columns\TextColumn::make('installments_count')
                     ->label(__('Months'))
                     ->description(fn(Loan $r) => $r->loanTier

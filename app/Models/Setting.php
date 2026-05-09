@@ -109,6 +109,15 @@ class Setting extends Model
     }
 
     /**
+     * Mixed CSV import: allow a single row to partially pay an installment (reduce remaining due).
+     * When false, only full installments are applied in due order; shortfalls leave funds in member cash.
+     */
+    public static function mixedImportAllowPartialInstallmentRepayment(): bool
+    {
+        return (bool) static::get('feature.contribution_import_mixed.allow_partial_installment_repayment', false);
+    }
+
+    /**
      * Maximum membership applications (all statuses) allowed from the public apply flow.
      * Stored under historical key `membership.max_pending_public`. 0 means no limit.
      */

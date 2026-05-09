@@ -361,8 +361,13 @@ class ContributionImportService
 
     /**
      * Record the payment on the import path (master cash → member cash), then apply principal to
-     * pending installments in due order. Payments smaller than a scheduled installment reduce the
-     * installment’s remaining amount until it clears (import-only flexible allocation).
+     * pending installments in due order.
+     *
+     * When {@see Setting::mixedImportAllowPartialInstallmentRepayment()} is true, payments smaller than a
+     * scheduled installment reduce the installment’s remaining amount until it clears.
+     * When false, only full installments are paid; any amount short of the next full installment stays
+     * credited to member cash only (no installment row change).
+     *
      * Principal fund postings use {@see AccountingService::postLoanPrincipalRepayment}; completed
      * installments are marked paid without firing the observer to avoid double-posting.
      */
@@ -379,6 +384,7 @@ class ContributionImportService
 
         $loan->loadMissing('loanTier', 'member.user');
         $scheduledInstallmentAmount = (float) ($loan->loanTier?->min_monthly_installment ?? 0);
+        $allowPartial = Setting::mixedImportAllowPartialInstallmentRepayment();
 
         $accounting = app(AccountingService::class);
         $ref = trim($checkNumber);
@@ -401,7 +407,14 @@ class ContributionImportService
                 continue;
             }
 
-            $take = round(min($remaining, $need), 2);
+            if (!$allowPartial && $remaining + 0.00001 < $need) {
+                break;
+            }
+
+            $take = $allowPartial
+                ? round(min($remaining, $need), 2)
+                : $need;
+
             if ($take < 0.01) {
                 break;
             }
@@ -426,9 +439,27 @@ class ContributionImportService
             $loan->refresh();
 
             $remaining = round($remaining - $take, 2);
-            $newNeed = round($need - $take, 2);
 
-            if ($newNeed < 0.01) {
+            if ($allowPartial) {
+                $newNeed = round($need - $take, 2);
+
+                if ($newNeed < 0.01) {
+                    $displayAmount = $scheduledInstallmentAmount > 0.00001
+                        ? round($scheduledInstallmentAmount, 2)
+                        : round($need, 2);
+                    LoanInstallment::withoutEvents(function () use ($installment, $paidAt, $displayAmount): void {
+                        $installment->update([
+                            'status' => 'paid',
+                            'paid_at' => $paidAt,
+                            'is_late' => false,
+                            'late_fee_amount' => null,
+                            'amount' => $displayAmount,
+                        ]);
+                    });
+                } else {
+                    $installment->update(['amount' => $newNeed]);
+                }
+            } else {
                 $displayAmount = $scheduledInstallmentAmount > 0.00001
                     ? round($scheduledInstallmentAmount, 2)
                     : round($need, 2);
@@ -441,8 +472,6 @@ class ContributionImportService
                         'amount' => $displayAmount,
                     ]);
                 });
-            } else {
-                $installment->update(['amount' => $newNeed]);
             }
 
             if ($remaining < 0.01) {
