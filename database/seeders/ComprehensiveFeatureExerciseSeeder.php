@@ -337,6 +337,18 @@ class ComprehensiveFeatureExerciseSeeder extends Seeder
             ['slug' => 'master_fund'],
             ['name' => 'Fund Account', 'type' => Account::TYPE_MASTER_FUND, 'balance' => 0, 'is_active' => true]
         );
+        Account::firstOrCreate(
+            ['slug' => 'master_fees'],
+            ['name' => 'Fees Account', 'type' => Account::TYPE_MASTER_FEES, 'balance' => 0, 'is_active' => true]
+        );
+        Account::firstOrCreate(
+            ['slug' => 'master_investment_fund'],
+            ['name' => 'Investment Account', 'type' => Account::TYPE_MASTER_INVESTMENT_FUND, 'balance' => 0, 'is_active' => true]
+        );
+        Account::firstOrCreate(
+            ['slug' => 'master_expense_account'],
+            ['name' => 'Expense Account', 'type' => Account::TYPE_MASTER_EXPENSE_ACCOUNT, 'balance' => 0, 'is_active' => true]
+        );
 
         foreach ($members as $key => $member) {
             $cash = Account::updateOrCreate(

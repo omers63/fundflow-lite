@@ -19,12 +19,15 @@
                 <div class="flex items-center gap-1.5 mb-2">
                     <x-heroicon-o-banknotes class="w-4 h-4 text-primary-500" />
                     <p class="text-xs font-semibold uppercase tracking-wide text-gray-500 dark:text-gray-400">
-                        {{ __('Total Collected') }}</p>
+                        {{ __('Total Collected') }}
+                    </p>
                 </div>
                 <p class="text-2xl font-bold text-gray-900 dark:text-white">
-                    {{ \App\Support\UiNumber::sar($d['all_time_total']) }}</p>
+                    {{ \App\Support\UiNumber::sar($d['all_time_total']) }}
+                </p>
                 <p class="mt-0.5 text-xs text-gray-400">
-                    {{ __(':count payments all time', ['count' => number_format($d['all_time_count'])]) }}</p>
+                    {{ __(':count payments all time', ['count' => number_format($d['all_time_count'])]) }}
+                </p>
             </div>
         </div>
 
@@ -36,10 +39,12 @@
                 <div class="flex items-center gap-1.5 mb-2">
                     <x-heroicon-o-calendar-days class="w-4 h-4 text-emerald-500" />
                     <p class="text-xs font-semibold uppercase tracking-wide text-gray-500 dark:text-gray-400">
-                        {{ $d['this_month_label'] }}</p>
+                        {{ $d['this_month_label'] }}
+                    </p>
                 </div>
                 <p class="text-2xl font-bold text-gray-900 dark:text-white">
-                    {{ \App\Support\UiNumber::sar($d['this_month_total']) }}</p>
+                    {{ \App\Support\UiNumber::sar($d['this_month_total']) }}
+                </p>
                 <p class="mt-0.5 text-xs text-gray-400">
                     {{ __(':count of :total members', ['count' => $d['this_month_count'], 'total' => $d['active_members']]) }}
                 </p>
@@ -54,7 +59,8 @@
                 <div class="flex items-center gap-1.5 mb-2">
                     <x-heroicon-o-chart-pie class="w-4 h-4 {{ $compText($d['compliance_this']) }}" />
                     <p class="text-xs font-semibold uppercase tracking-wide text-gray-500 dark:text-gray-400">
-                        {{ __('Compliance (this mo.)') }}</p>
+                        {{ __('Compliance (this mo.)') }}
+                    </p>
                 </div>
                 <p class="text-2xl font-bold {{ $compText($d['compliance_this']) }}">{{ $d['compliance_this'] }}%</p>
                 <div class="mt-1.5 w-full rounded-full bg-gray-100 dark:bg-gray-700 h-1.5">
@@ -72,7 +78,8 @@
                 <div class="flex items-center gap-1.5 mb-2">
                     <x-heroicon-o-clock class="w-4 h-4 text-gray-400" />
                     <p class="text-xs font-semibold uppercase tracking-wide text-gray-500 dark:text-gray-400">
-                        {{ __('Compliance (prev. mo.)') }}</p>
+                        {{ __('Compliance (prev. mo.)') }}
+                    </p>
                 </div>
                 <p class="text-2xl font-bold {{ $compText($d['compliance_last']) }}">{{ $d['compliance_last'] }}%</p>
                 <p class="mt-0.5 text-xs text-gray-400">{{ $d['last_month_label'] }}</p>
@@ -90,11 +97,13 @@
                     <x-heroicon-o-exclamation-triangle
                         class="w-4 h-4 {{ $d['late_total'] > 0 ? 'text-amber-500' : 'text-emerald-500' }}" />
                     <p class="text-xs font-semibold uppercase tracking-wide text-gray-500 dark:text-gray-400">
-                        {{ __('Late Payments') }}</p>
+                        {{ __('Late Payments') }}
+                    </p>
                 </div>
                 <p
                     class="text-2xl font-bold {{ $d['late_total'] > 0 ? 'text-amber-600 dark:text-amber-400' : 'text-gray-900 dark:text-white' }}">
-                    {{ number_format($d['late_total']) }}</p>
+                    {{ number_format($d['late_total']) }}
+                </p>
                 <p class="mt-0.5 text-xs text-gray-400">{{ __('All-time late payments') }}</p>
             </div>
         </div>
@@ -108,7 +117,8 @@
             class="flex items-center gap-2 px-5 py-3 border-b border-gray-100 dark:border-gray-700 bg-gray-50 dark:bg-gray-800/70">
             <x-heroicon-o-arrow-trending-up class="w-4 h-4 text-gray-400" />
             <h4 class="text-xs font-semibold uppercase tracking-wide text-gray-500 dark:text-gray-400">
-                {{ __('6-Month Contribution Trend') }}</h4>
+                {{ __('6-Month Collection Trend') }}
+            </h4>
             <span class="ml-auto text-xs text-gray-400">{{ __('by compliance %') }}</span>
         </div>
         <div class="px-5 py-4">

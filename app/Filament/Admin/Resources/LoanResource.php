@@ -720,6 +720,11 @@ class LoanResource extends Resource
                             'master_portion' => $masterPortion,
                         ] + $exemption);
 
+                        try {
+                            app(AccountingService::class)->recognizeMemberPortionAgainstLoanPrincipal($record->fresh(), $disbursedAt);
+                        } catch (\Throwable) {
+                        }
+
                         $startDate = Carbon::create(
                             $exemption['first_repayment_year'],
                             $exemption['first_repayment_month'],

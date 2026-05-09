@@ -73,7 +73,8 @@ class LoanEligibilityService
     {
         $fundBal = (float) ($member->fundAccount()?->balance ?? 0);
         $multiplier = Setting::loanMaxBorrowMultiplier();
-        return $fundBal * $multiplier;
+
+        return max(0.0, $fundBal * $multiplier);
     }
 
     /**

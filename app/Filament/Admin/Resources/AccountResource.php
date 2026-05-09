@@ -103,6 +103,9 @@ class AccountResource extends Resource
                     ->options([
                         Account::TYPE_MASTER_CASH => __('Master Cash'),
                         Account::TYPE_MASTER_FUND => __('Master Fund'),
+                        Account::TYPE_MASTER_FEES => __('Master Fees'),
+                        Account::TYPE_MASTER_INVESTMENT_FUND => __('Master Investment'),
+                        Account::TYPE_MASTER_EXPENSE_ACCOUNT => __('Master Expense'),
                         Account::TYPE_MEMBER_CASH => __('Member Cash'),
                         Account::TYPE_MEMBER_FUND => __('Member Fund'),
                         Account::TYPE_LOAN => __('Loan'),

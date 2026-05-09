@@ -4311,3 +4311,55 @@ Keep row-level statuses:
 applied, partial, insufficient, no_active_loan, no_contribution_due.
 If you want, I can design the exact allocation algorithm with your current loan cycle + contribution cycle behavior so edge cases (late fees, no active loan, already-paid contribution) are deterministic.
 
+------------------------------
+Implemented the new Master Investment Fund and Master Expense Account concept end-to-end with accounting-safe flows and admin operations.
+
+What I added
+New master account types in Account:
+master_investment_fund
+master_expense_account
+New account finders:
+Account::masterInvestmentFund()
+Account::masterExpenseAccount()
+Labels/colors for both new account types.
+Migration to create both accounts if missing:
+database/migrations/2026_05_08_120000_add_master_investment_and_expense_accounts.php
+Seeder alignment so feature exercise data also creates both accounts.
+Accounting service (best-practice posting flows)
+Added dedicated service methods in AccountingService:
+
+fundReserveAccountFromMasterFund(...)
+
+Debit master fund
+Credit reserve account (investment/expense)
+disburseReserveAccountByCheck(...)
+
+Debit reserve account
+Credit master cash
+Debit master cash (check outflow)
+recordInvestmentReturn(...)
+
+Credit master cash (receipt)
+Debit master cash (transfer)
+Credit master investment fund (return booked)
+Also added strict guard assertReserveAccount(...) so only the two new reserve accounts can use these flows.
+
+Admin UI operations
+In AccountResource / TransactionsRelationManager, I added header actions (visible on the relevant account types):
+
+Fund from Master Fund (investment + expense)
+Disburse by Check (investment + expense)
+Record Investment Return (investment only)
+Each action posts through AccountingService, shows success/failure notifications, and refreshes ledger/widgets.
+
+Investment tracking visibility
+Enhanced AccountDetailWidget + its Blade view for investment accounts to show:
+
+Total Invested Out
+Total Returns In
+Net Return
+This gives quick visibility into “how much invested” and “what is the return”.
+
+All modified PHP files pass syntax checks.
+Next step to activate on your environment: run migrations (php artisan migrate), then open Accounts and use the new master account actions.
+

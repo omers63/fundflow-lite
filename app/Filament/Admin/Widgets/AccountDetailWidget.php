@@ -60,6 +60,7 @@ class AccountDetailWidget extends Widget
 
         $balance = (float) $record->balance;
         $isLoan = $record->type === Account::TYPE_LOAN;
+        $isInvestment = $record->type === Account::TYPE_MASTER_INVESTMENT_FUND;
         $outstanding = $isLoan ? max(0, -$balance) : 0;
 
         $since = Carbon::now()->subDays(30);
@@ -81,16 +82,31 @@ class AccountDetailWidget extends Widget
             ->limit(5)
             ->get();
 
+        $investmentStats = null;
+        if ($isInvestment) {
+            $investmentStats = AccountTransaction::query()
+                ->where('account_id', $record->id)
+                ->selectRaw("
+                    SUM(CASE WHEN entry_type = 'debit' AND description LIKE '%(to master cash)%' THEN amount ELSE 0 END) as invested_out,
+                    SUM(CASE WHEN entry_type = 'credit' AND description LIKE '%(investment return)%' THEN amount ELSE 0 END) as returns_in
+                ")
+                ->first();
+        }
+
         return [
             'record' => $record,
             'balance' => $balance,
             'outstanding' => $outstanding,
             'isLoan' => $isLoan,
+            'isInvestment' => $isInvestment,
             'credits30' => (float) ($stats30->credits ?? 0),
             'debits30' => (float) ($stats30->debits ?? 0),
             'txCount30' => (int) ($stats30->tx_count ?? 0),
             'totalTx' => (int) ($allTime->total_tx ?? 0),
             'recent' => $recent,
+            'investedOut' => (float) ($investmentStats->invested_out ?? 0),
+            'returnsIn' => (float) ($investmentStats->returns_in ?? 0),
+            'netReturn' => (float) (($investmentStats->returns_in ?? 0) - ($investmentStats->invested_out ?? 0)),
         ];
     }
 }

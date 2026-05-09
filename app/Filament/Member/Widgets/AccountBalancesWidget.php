@@ -4,6 +4,7 @@ namespace App\Filament\Member\Widgets;
 
 use App\Models\LoanInstallment;
 use App\Models\Setting;
+use App\Services\LoanEligibilityService;
 use Filament\Widgets\Widget;
 
 class AccountBalancesWidget extends Widget
@@ -45,7 +46,7 @@ class AccountBalancesWidget extends Widget
         $cashCovers = $cash >= $nextDue;
         $cashPct = $nextDue > 0 ? min(100, round($cash / $nextDue * 100)) : 100;
 
-        $maxBorrow = $fund * Setting::loanMaxBorrowMultiplier();
+        $maxBorrow = app(LoanEligibilityService::class)->maxLoanAmount($member);
         $loanMonths = Setting::loanEligibilityMonths();
         $loanStart = $member->loanEligibilityStartDate();
         $eligible = $loanStart !== null

@@ -89,12 +89,21 @@ class MemberRecordInsightsWidget extends Widget
         $lateRepayCount = (int) ($member->late_repayment_count ?? 0);
         $lateRepayAmount = (float) ($member->late_repayment_amount ?? 0);
 
-        $totalContributions = (float) Contribution::where('member_id', $member->id)->sum('amount');
-        $contribCount = Contribution::where('member_id', $member->id)->count();
+        $repaymentTotals = LoanInstallment::query()
+            ->whereHas('loan', fn($q) => $q->where('member_id', $member->id))
+            ->where('status', 'paid')
+            ->whereNotNull('paid_at')
+            ->selectRaw('COALESCE(SUM(amount + COALESCE(late_fee_amount, 0)), 0) as total, COUNT(*) as cnt')
+            ->first();
+
+        $totalContributions = (float) Contribution::where('member_id', $member->id)->sum('amount')
+            + (float) ($repaymentTotals->total ?? 0);
+        $contribCount = Contribution::where('member_id', $member->id)->count()
+            + (int) ($repaymentTotals->cnt ?? 0);
 
         $eligible = app(LoanEligibilityService::class)->isEligible($member);
 
-        $maxBorrow = $fundBalance * Setting::loanMaxBorrowMultiplier();
+        $maxBorrow = app(LoanEligibilityService::class)->maxLoanAmount($member);
 
         $nextInstallment = LoanInstallment::whereHas('loan', fn($q) => $q->where('member_id', $member->id))
             ->where('status', 'pending')

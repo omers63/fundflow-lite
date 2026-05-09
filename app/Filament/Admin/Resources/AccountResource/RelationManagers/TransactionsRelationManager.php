@@ -74,11 +74,11 @@ class TransactionsRelationManager extends RelationManager
             Forms\Components\Select::make('member_id')
                 ->label(__('Member tag'))
                 ->helperText(__('For master accounts only — ties this line to a member in filters and reports.'))
-                ->options(fn () => Member::query()->with('user')->orderBy('member_number')->get()
-                    ->mapWithKeys(fn (Member $m) => [$m->id => "{$m->member_number} – {$m->user->name}"]))
+                ->options(fn() => Member::query()->with('user')->orderBy('member_number')->get()
+                    ->mapWithKeys(fn(Member $m) => [$m->id => "{$m->member_number} – {$m->user->name}"]))
                 ->searchable()
                 ->placeholder(__('—'))
-                ->visible(fn () => $account->member_id === null),
+                ->visible(fn() => $account->member_id === null),
         ]);
     }
 
@@ -86,6 +86,19 @@ class TransactionsRelationManager extends RelationManager
     {
         return $table
             ->recordTitleAttribute('description')
+            ->modifyQueryUsing(function ($query) {
+                $table = $query->getModel()->getTable();
+
+                return $query
+                    ->select("{$table}.*")
+                    ->selectRaw(
+                        "SUM(CASE WHEN entry_type = 'credit' THEN amount ELSE -amount END) OVER (
+                            PARTITION BY account_id
+                            ORDER BY transacted_at ASC, id ASC
+                            ROWS BETWEEN UNBOUNDED PRECEDING AND CURRENT ROW
+                        ) as running_balance"
+                    );
+            })
             ->defaultSort('transacted_at', 'desc')
             ->striped()
             ->headerActions([
@@ -96,9 +109,9 @@ class TransactionsRelationManager extends RelationManager
                     ->modalHeading(__('Post credit entry'))
                     ->modalDescription(__('Adds a credit to this account only. If you need matching master and member lines, post each account separately or use the standard finance workflows.'))
                     ->modalSubmitActionLabel(__('Post credit'))
-                    ->authorize(fn () => auth()->user()?->can('update', $this->getOwnerRecord()) ?? false)
+                    ->authorize(fn() => auth()->user()?->can('update', $this->getOwnerRecord()) ?? false)
                     ->schema($this->manualLedgerEntryFormSchema())
-                    ->action(fn (array $data) => $this->postManualLedgerLineFromAction($data, 'credit')),
+                    ->action(fn(array $data) => $this->postManualLedgerLineFromAction($data, 'credit')),
                 Action::make('createLedgerDebit')
                     ->label(__('Debit'))
                     ->icon('heroicon-o-arrow-trending-down')
@@ -106,9 +119,9 @@ class TransactionsRelationManager extends RelationManager
                     ->modalHeading(__('Post debit entry'))
                     ->modalDescription(__('Adds a debit to this account only. If you need matching master and member lines, post each account separately or use the standard finance workflows.'))
                     ->modalSubmitActionLabel(__('Post debit'))
-                    ->authorize(fn () => auth()->user()?->can('update', $this->getOwnerRecord()) ?? false)
+                    ->authorize(fn() => auth()->user()?->can('update', $this->getOwnerRecord()) ?? false)
                     ->schema($this->manualLedgerEntryFormSchema())
-                    ->action(fn (array $data) => $this->postManualLedgerLineFromAction($data, 'debit')),
+                    ->action(fn(array $data) => $this->postManualLedgerLineFromAction($data, 'debit')),
                 // Refund — only visible on member cash accounts
                 Action::make('refundMemberCash')
                     ->label(__('Refund'))
@@ -117,8 +130,8 @@ class TransactionsRelationManager extends RelationManager
                     ->modalHeading(__('Post Refund'))
                     ->modalDescription(__('Debits both this member cash account and master cash — recording money returned to the member. The matching debit will appear on the next imported bank statement.'))
                     ->modalSubmitActionLabel(__('Post Refund'))
-                    ->visible(fn (): bool => $this->getOwnerRecord()->type === Account::TYPE_MEMBER_CASH)
-                    ->authorize(fn () => auth()->user()?->can('update', $this->getOwnerRecord()) ?? false)
+                    ->visible(fn(): bool => $this->getOwnerRecord()->type === Account::TYPE_MEMBER_CASH)
+                    ->authorize(fn() => auth()->user()?->can('update', $this->getOwnerRecord()) ?? false)
                     ->schema(function (): array {
                         $account = $this->getOwnerRecord();
                         $balance = (float) $account->balance;
@@ -174,11 +187,204 @@ class TransactionsRelationManager extends RelationManager
                         Notification::make()
                             ->title(__('Refund of SAR :amount posted for :name', [
                                 'amount' => number_format((float) $data['amount'], 2),
-                                'name'   => $account->member?->user?->name ?? __('Member'),
+                                'name' => $account->member?->user?->name ?? __('Member'),
                             ]))
                             ->success()
                             ->send();
 
+                        $this->resetTable();
+                        $this->dispatchAccountWidgetsRefresh();
+                    }),
+                Action::make('fundFromMasterFund')
+                    ->label(__('Fund from Master Fund'))
+                    ->icon('heroicon-o-arrow-down-circle')
+                    ->color('success')
+                    ->visible(fn(): bool => in_array($this->getOwnerRecord()->type, [
+                        Account::TYPE_MASTER_INVESTMENT_FUND,
+                        Account::TYPE_MASTER_EXPENSE_ACCOUNT,
+                    ], true))
+                    ->authorize(fn() => auth()->user()?->can('update', $this->getOwnerRecord()) ?? false)
+                    ->schema([
+                        Forms\Components\TextInput::make('amount')
+                            ->label(__('Amount (SAR)'))
+                            ->numeric()
+                            ->required()
+                            ->minValue(0.01)
+                            ->step(0.01),
+                        Forms\Components\Textarea::make('description')
+                            ->label(__('Description'))
+                            ->default(__('Reserve funding from master fund'))
+                            ->required()
+                            ->rows(2)
+                            ->maxLength(500),
+                        Forms\Components\DateTimePicker::make('transacted_at')
+                            ->label(__('Transaction date'))
+                            ->default(now())
+                            ->required()
+                            ->seconds(false),
+                    ])
+                    ->action(function (array $data): void {
+                        $account = $this->getOwnerRecord();
+                        try {
+                            app(AccountingService::class)->fundReserveAccountFromMasterFund(
+                                $account,
+                                (float) $data['amount'],
+                                (string) $data['description'],
+                                \Illuminate\Support\Carbon::parse((string) $data['transacted_at']),
+                            );
+                        } catch (\Throwable $e) {
+                            report($e);
+                            Notification::make()
+                                ->title(__('Funding failed'))
+                                ->body($e->getMessage())
+                                ->danger()
+                                ->send();
+                            throw new Halt;
+                        }
+
+                        Notification::make()->title(__('Funding posted'))->success()->send();
+                        $this->resetTable();
+                        $this->dispatchAccountWidgetsRefresh();
+                    }),
+                Action::make('disburseByCheck')
+                    ->label(__('Disburse by Check'))
+                    ->icon('heroicon-o-arrow-up-circle')
+                    ->color('warning')
+                    ->visible(fn(): bool => in_array($this->getOwnerRecord()->type, [
+                        Account::TYPE_MASTER_INVESTMENT_FUND,
+                        Account::TYPE_MASTER_EXPENSE_ACCOUNT,
+                    ], true))
+                    ->authorize(fn() => auth()->user()?->can('update', $this->getOwnerRecord()) ?? false)
+                    ->schema([
+                        Forms\Components\TextInput::make('amount')
+                            ->label(__('Amount (SAR)'))
+                            ->numeric()
+                            ->required()
+                            ->minValue(0.01)
+                            ->step(0.01),
+                        Forms\Components\Textarea::make('description')
+                            ->label(__('Description / check reference'))
+                            ->required()
+                            ->rows(2)
+                            ->maxLength(500),
+                        Forms\Components\DateTimePicker::make('transacted_at')
+                            ->label(__('Transaction date'))
+                            ->default(now())
+                            ->required()
+                            ->seconds(false),
+                    ])
+                    ->action(function (array $data): void {
+                        $account = $this->getOwnerRecord();
+                        try {
+                            app(AccountingService::class)->disburseReserveAccountByCheck(
+                                $account,
+                                (float) $data['amount'],
+                                (string) $data['description'],
+                                \Illuminate\Support\Carbon::parse((string) $data['transacted_at']),
+                            );
+                        } catch (\Throwable $e) {
+                            report($e);
+                            Notification::make()
+                                ->title(__('Disbursement failed'))
+                                ->body($e->getMessage())
+                                ->danger()
+                                ->send();
+                            throw new Halt;
+                        }
+
+                        Notification::make()->title(__('Disbursement posted'))->success()->send();
+                        $this->resetTable();
+                        $this->dispatchAccountWidgetsRefresh();
+                    }),
+                Action::make('recordInvestmentReturn')
+                    ->label(__('Record Investment Return'))
+                    ->icon('heroicon-o-arrow-path-rounded-square')
+                    ->color('info')
+                    ->visible(fn(): bool => $this->getOwnerRecord()->type === Account::TYPE_MASTER_INVESTMENT_FUND)
+                    ->authorize(fn() => auth()->user()?->can('update', $this->getOwnerRecord()) ?? false)
+                    ->schema([
+                        Forms\Components\TextInput::make('amount')
+                            ->label(__('Amount (SAR)'))
+                            ->numeric()
+                            ->required()
+                            ->minValue(0.01)
+                            ->step(0.01),
+                        Forms\Components\Textarea::make('description')
+                            ->label(__('Description'))
+                            ->default(__('Investment return'))
+                            ->required()
+                            ->rows(2)
+                            ->maxLength(500),
+                        Forms\Components\DateTimePicker::make('transacted_at')
+                            ->label(__('Transaction date'))
+                            ->default(now())
+                            ->required()
+                            ->seconds(false),
+                    ])
+                    ->action(function (array $data): void {
+                        try {
+                            app(AccountingService::class)->recordInvestmentReturn(
+                                (float) $data['amount'],
+                                (string) $data['description'],
+                                \Illuminate\Support\Carbon::parse((string) $data['transacted_at']),
+                            );
+                        } catch (\Throwable $e) {
+                            report($e);
+                            Notification::make()
+                                ->title(__('Return posting failed'))
+                                ->body($e->getMessage())
+                                ->danger()
+                                ->send();
+                            throw new Halt;
+                        }
+
+                        Notification::make()->title(__('Investment return recorded'))->success()->send();
+                        $this->resetTable();
+                        $this->dispatchAccountWidgetsRefresh();
+                    }),
+                Action::make('postFeesToMasterCash')
+                    ->label(__('Post Fees to Master Cash'))
+                    ->icon('heroicon-o-arrow-right-circle')
+                    ->color('primary')
+                    ->visible(fn(): bool => $this->getOwnerRecord()->type === Account::TYPE_MASTER_FEES)
+                    ->authorize(fn() => auth()->user()?->can('update', $this->getOwnerRecord()) ?? false)
+                    ->schema([
+                        Forms\Components\TextInput::make('amount')
+                            ->label(__('Amount (SAR)'))
+                            ->numeric()
+                            ->required()
+                            ->minValue(0.01)
+                            ->step(0.01),
+                        Forms\Components\Textarea::make('description')
+                            ->label(__('Description'))
+                            ->default(__('Fees transfer to master cash'))
+                            ->required()
+                            ->rows(2)
+                            ->maxLength(500),
+                        Forms\Components\DateTimePicker::make('transacted_at')
+                            ->label(__('Transaction date'))
+                            ->default(now())
+                            ->required()
+                            ->seconds(false),
+                    ])
+                    ->action(function (array $data): void {
+                        try {
+                            app(AccountingService::class)->postMasterFeesToMasterCash(
+                                (float) $data['amount'],
+                                (string) $data['description'],
+                                \Illuminate\Support\Carbon::parse((string) $data['transacted_at']),
+                            );
+                        } catch (\Throwable $e) {
+                            report($e);
+                            Notification::make()
+                                ->title(__('Post to cash failed'))
+                                ->body($e->getMessage())
+                                ->danger()
+                                ->send();
+                            throw new Halt;
+                        }
+
+                        Notification::make()->title(__('Posted from Master Fees to Master Cash'))->success()->send();
                         $this->resetTable();
                         $this->dispatchAccountWidgetsRefresh();
                     }),
@@ -196,7 +402,12 @@ class TransactionsRelationManager extends RelationManager
                 Tables\Columns\TextColumn::make('amount')
                     ->money('SAR')
                     ->sortable()
-                    ->color(fn (AccountTransaction $r) => $r->entry_type === 'credit' ? 'success' : 'danger')
+                    ->color(fn(AccountTransaction $r) => $r->entry_type === 'credit' ? 'success' : 'danger')
+                    ->toggleable(),
+                Tables\Columns\TextColumn::make('running_balance')
+                    ->label(__('Balance'))
+                    ->money('SAR')
+                    ->color(fn($state) => (float) $state >= 0 ? 'success' : 'danger')
                     ->toggleable(),
                 Tables\Columns\TextColumn::make('description')
                     ->formatStateUsing(function (AccountTransaction $record): string {
@@ -209,8 +420,9 @@ class TransactionsRelationManager extends RelationManager
                         return $desc;
                     })
                     ->limit(65)
-                    ->tooltip(fn (AccountTransaction $record): ?string => $record->description)
-                    ->color(fn (AccountTransaction $record): string =>
+                    ->tooltip(fn(AccountTransaction $record): ?string => $record->description)
+                    ->color(
+                        fn(AccountTransaction $record): string =>
                         $record->source_type === (new AccountTransaction)->getMorphClass() ? 'warning' : 'gray'
                     )
                     ->toggleable(),
@@ -221,10 +433,11 @@ class TransactionsRelationManager extends RelationManager
                     ->toggleable(),
                 Tables\Columns\TextColumn::make('source_type')
                     ->label(__('Source'))
-                    ->formatStateUsing(fn (AccountTransaction $record): string =>
+                    ->formatStateUsing(
+                        fn(AccountTransaction $record): string =>
                         $record->source_type === (new AccountTransaction)->getMorphClass()
-                            ? __('Reversal of #:id', ['id' => $record->source_id])
-                            : ($record->source_type ? class_basename($record->source_type) : __('—'))
+                        ? __('Reversal of #:id', ['id' => $record->source_id])
+                        : ($record->source_type ? class_basename($record->source_type) : __('—'))
                     )
                     ->toggleable(),
                 Tables\Columns\TextColumn::make('postedBy.name')
@@ -236,8 +449,8 @@ class TransactionsRelationManager extends RelationManager
                 Tables\Filters\SelectFilter::make('member_id')
                     ->label(__('Member'))
                     ->searchable()
-                    ->options(fn () => Member::with('user')->orderBy('member_number')->get()
-                        ->mapWithKeys(fn (Member $m) => [$m->id => "{$m->member_number} – {$m->user->name}"])),
+                    ->options(fn() => Member::with('user')->orderBy('member_number')->get()
+                        ->mapWithKeys(fn(Member $m) => [$m->id => "{$m->member_number} – {$m->user->name}"])),
                 Tables\Filters\SelectFilter::make('entry_type')
                     ->label(__('Type'))
                     ->options(['credit' => __('Credit'), 'debit' => __('Debit')]),
@@ -249,8 +462,8 @@ class TransactionsRelationManager extends RelationManager
                     ->columns(2)
                     ->query(function ($query, array $data) {
                         return $query
-                            ->when($data['from'] ?? null, fn ($q) => $q->where('transacted_at', '>=', $data['from']))
-                            ->when($data['until'] ?? null, fn ($q) => $q->where('transacted_at', '<=', $data['until']));
+                            ->when($data['from'] ?? null, fn($q) => $q->where('transacted_at', '>=', $data['from']))
+                            ->when($data['until'] ?? null, fn($q) => $q->where('transacted_at', '<=', $data['until']));
                     }),
                 Tables\Filters\SelectFilter::make('source_type')
                     ->label(__('Source type'))
@@ -271,8 +484,8 @@ class TransactionsRelationManager extends RelationManager
                     ->columns(2)
                     ->query(function ($query, array $data) {
                         return $query
-                            ->when(filled($data['amount_min'] ?? null), fn ($q) => $q->where('amount', '>=', $data['amount_min']))
-                            ->when(filled($data['amount_max'] ?? null), fn ($q) => $q->where('amount', '<=', $data['amount_max']));
+                            ->when(filled($data['amount_min'] ?? null), fn($q) => $q->where('amount', '>=', $data['amount_min']))
+                            ->when(filled($data['amount_max'] ?? null), fn($q) => $q->where('amount', '<=', $data['amount_max']));
                     }),
                 Tables\Filters\TrashedFilter::make(),
             ])
@@ -284,19 +497,20 @@ class TransactionsRelationManager extends RelationManager
                         ->icon('heroicon-o-scissors')
                         ->color('info')
                         ->modalHeading(__('Split Transaction'))
-                        ->modalDescription(fn (AccountTransaction $record): string => __(
+                        ->modalDescription(fn(AccountTransaction $record): string => __(
                             'Divide SAR :amount into labelled parts. Parts must sum to the original amount.',
                             ['amount' => number_format((float) $record->amount, 2)]
                         ))
                         ->modalSubmitActionLabel(__('Split into parts'))
                         ->modalWidth('3xl')
-                        ->visible(fn (AccountTransaction $record): bool =>
+                        ->visible(
+                            fn(AccountTransaction $record): bool =>
                             $this->getOwnerRecord()->type === Account::TYPE_MASTER_CASH
                             && $record->entry_type === 'credit'
                             && $record->trashed() === false
                         )
-                        ->authorize(fn (): bool => auth()->user()?->can('update', $this->getOwnerRecord()) ?? false)
-                        ->schema(fn (AccountTransaction $record): array => [
+                        ->authorize(fn(): bool => auth()->user()?->can('update', $this->getOwnerRecord()) ?? false)
+                        ->schema(fn(AccountTransaction $record): array => [
                             Forms\Components\Placeholder::make('original_info')
                                 ->label(__('Original entry'))
                                 ->content(new HtmlString(
@@ -315,19 +529,19 @@ class TransactionsRelationManager extends RelationManager
                                     Forms\Components\Select::make('category')
                                         ->label(__('Category'))
                                         ->options([
-                                            'contribution'        => __('Contribution'),
-                                            'late_fee'            => __('Late Fee'),
-                                            'membership_fee'      => __('Membership Fee'),
+                                            'contribution' => __('Contribution'),
+                                            'late_fee' => __('Late Fee'),
+                                            'membership_fee' => __('Membership Fee'),
                                             'annual_subscription' => __('Annual Subscription'),
-                                            'other'               => __('Other'),
+                                            'other' => __('Other'),
                                         ])
                                         ->required()
                                         ->reactive()
                                         ->afterStateUpdated(function ($state, callable $set): void {
                                             $labels = [
-                                                'contribution'        => __('Contribution'),
-                                                'late_fee'            => __('Late Fee'),
-                                                'membership_fee'      => __('Membership Fee'),
+                                                'contribution' => __('Contribution'),
+                                                'late_fee' => __('Late Fee'),
+                                                'membership_fee' => __('Membership Fee'),
                                                 'annual_subscription' => __('Annual Subscription Fee'),
                                             ];
                                             if (isset($labels[$state])) {
@@ -355,8 +569,8 @@ class TransactionsRelationManager extends RelationManager
                         ])
                         ->action(function (AccountTransaction $record, array $data): void {
                             $parts = collect($data['parts'] ?? [])
-                                ->map(fn ($p) => [
-                                    'amount'      => (float) ($p['amount'] ?? 0),
+                                ->map(fn($p) => [
+                                    'amount' => (float) ($p['amount'] ?? 0),
                                     'description' => trim($p['description'] ?? ''),
                                 ])
                                 ->all();
@@ -387,7 +601,7 @@ class TransactionsRelationManager extends RelationManager
                         ->icon('heroicon-o-arrow-uturn-left')
                         ->color('danger')
                         ->modalHeading(__('Create Reversal Entry'))
-                        ->modalDescription(fn (AccountTransaction $record): HtmlString => new HtmlString(
+                        ->modalDescription(fn(AccountTransaction $record): HtmlString => new HtmlString(
                             '<p class="text-sm text-gray-600 dark:text-gray-400 leading-relaxed">'
                             . __('Posts an equal-and-opposite counter-entry on the same account, leaving the original intact. Both entries remain in the audit trail.')
                             . '</p>'
@@ -399,9 +613,9 @@ class TransactionsRelationManager extends RelationManager
                             . '</div>'
                         ))
                         ->modalSubmitActionLabel(__('Post Reversal'))
-                        ->visible(fn (AccountTransaction $record): bool => ! $record->trashed())
-                        ->authorize(fn (): bool => auth()->user()?->can('update', $this->getOwnerRecord()) ?? false)
-                        ->schema(fn (AccountTransaction $record): array => [
+                        ->visible(fn(AccountTransaction $record): bool => !$record->trashed())
+                        ->authorize(fn(): bool => auth()->user()?->can('update', $this->getOwnerRecord()) ?? false)
+                        ->schema(fn(AccountTransaction $record): array => [
                             // Warning when this entry is itself a reversal
                             Forms\Components\Placeholder::make('already_reversal_warning')
                                 ->label('')
@@ -410,7 +624,7 @@ class TransactionsRelationManager extends RelationManager
                                     . '⚠ ' . __('This entry is itself a reversal. Reversing it again will create a new corrective entry.')
                                     . '</div>'
                                 ))
-                                ->visible(fn (): bool => app(AccountingService::class)->isReversalEntry($record)),
+                                ->visible(fn(): bool => app(AccountingService::class)->isReversalEntry($record)),
 
                             // Warning when a reversal already exists
                             Forms\Components\Placeholder::make('existing_reversal_warning')
@@ -420,7 +634,7 @@ class TransactionsRelationManager extends RelationManager
                                     . '⚠ ' . __('A reversal entry already exists for this row. You may still proceed to create an additional reversal.')
                                     . '</div>'
                                 ))
-                                ->visible(fn (): bool => app(AccountingService::class)->hasExistingReversal($record)),
+                                ->visible(fn(): bool => app(AccountingService::class)->hasExistingReversal($record)),
 
                             Forms\Components\Textarea::make('reason')
                                 ->label(__('Reason for reversal'))
@@ -437,14 +651,16 @@ class TransactionsRelationManager extends RelationManager
 
                             Forms\Components\Toggle::make('reverse_all_related')
                                 ->label(__('Reverse all related entries (same source)'))
-                                ->helperText(fn (): string => filled($record->source_type) && $record->source_type !== (new AccountTransaction)->getMorphClass()
+                                ->helperText(
+                                    fn(): string => filled($record->source_type) && $record->source_type !== (new AccountTransaction)->getMorphClass()
                                     ? __('Also reverses all other ledger lines that share the same source (:source #:id) across all accounts.', [
                                         'source' => class_basename($record->source_type),
-                                        'id'     => $record->source_id,
+                                        'id' => $record->source_id,
                                     ])
                                     : __('No siblings found — single-entry reversal only.')
                                 )
-                                ->visible(fn (): bool =>
+                                ->visible(
+                                    fn(): bool =>
                                     filled($record->source_type)
                                     && $record->source_type !== (new AccountTransaction)->getMorphClass()
                                 )
@@ -452,8 +668,8 @@ class TransactionsRelationManager extends RelationManager
                         ])
                         ->action(function (AccountTransaction $record, array $data): void {
                             $reason = (string) $data['reason'];
-                            $at     = \Illuminate\Support\Carbon::parse($data['transacted_at']);
-                            $svc    = app(AccountingService::class);
+                            $at = \Illuminate\Support\Carbon::parse($data['transacted_at']);
+                            $svc = app(AccountingService::class);
                             $reverseAll = (bool) ($data['reverse_all_related'] ?? false);
 
                             try {
@@ -468,7 +684,7 @@ class TransactionsRelationManager extends RelationManager
                                     Notification::make()
                                         ->title(__('Reversal entry posted'))
                                         ->body(__('Counter-entry for #:id created on :account', [
-                                            'id'      => $record->id,
+                                            'id' => $record->id,
                                             'account' => $this->getOwnerRecord()->name,
                                         ]))
                                         ->success()
@@ -496,20 +712,20 @@ class TransactionsRelationManager extends RelationManager
                             __('Creates the matching ledger line on the selected member’s Cash Account and links this bank import row. Only credits posted to master cash without a member can use this.')
                         )
                         ->modalSubmitActionLabel(__('Post to member'))
-                        ->visible(fn (AccountTransaction $record): bool => $this->ledgerEntryCanPostToMember($record))
-                        ->authorize(fn (): bool => auth()->user()?->can('update', $this->getOwnerRecord()) ?? false)
+                        ->visible(fn(AccountTransaction $record): bool => $this->ledgerEntryCanPostToMember($record))
+                        ->authorize(fn(): bool => auth()->user()?->can('update', $this->getOwnerRecord()) ?? false)
                         ->schema([
                             Forms\Components\Select::make('member_id')
                                 ->label(__('Member'))
-                                ->options(fn () => Member::query()->with('user')->orderBy('member_number')->get()
-                                    ->mapWithKeys(fn (Member $m) => [$m->id => "{$m->member_number} – {$m->user->name}"]))
+                                ->options(fn() => Member::query()->with('user')->orderBy('member_number')->get()
+                                    ->mapWithKeys(fn(Member $m) => [$m->id => "{$m->member_number} – {$m->user->name}"]))
                                 ->searchable()
                                 ->required(),
                         ])
                         ->action(function (AccountTransaction $record, array $data): void {
                             $record->loadMissing('source');
                             $source = $record->source;
-                            if (! $source instanceof BankTransaction) {
+                            if (!$source instanceof BankTransaction) {
                                 return;
                             }
 
@@ -543,9 +759,9 @@ class TransactionsRelationManager extends RelationManager
                         ->modalDescription(
                             __('Changes to amount or type adjust this account’s running balance. The linked source record is not changed here — use the relevant finance workflow if that must stay aligned.')
                         )
-                        ->authorize(fn (): bool => auth()->user()?->can('update', $this->getOwnerRecord()) ?? false)
+                        ->authorize(fn(): bool => auth()->user()?->can('update', $this->getOwnerRecord()) ?? false)
                         ->using(function (array $data, Model $record): void {
-                            if (! $record instanceof AccountTransaction) {
+                            if (!$record instanceof AccountTransaction) {
                                 return;
                             }
 
@@ -562,20 +778,20 @@ class TransactionsRelationManager extends RelationManager
                                 throw new Halt;
                             }
                         })
-                        ->after(fn () => $this->dispatchAccountWidgetsRefresh()),
+                        ->after(fn() => $this->dispatchAccountWidgetsRefresh()),
                     DeleteAction::make()
-                        ->authorize(fn () => auth()->user()?->can('update', $this->getOwnerRecord()) ?? false)
+                        ->authorize(fn() => auth()->user()?->can('update', $this->getOwnerRecord()) ?? false)
                         ->modalDescription(__('Reverses this line on the account balance and removes the row. If this was one leg of a paired posting, delete or adjust the other leg separately if needed.'))
                         ->using(function (AccountTransaction $record) {
                             app(AccountingService::class)->safeDeleteAccountTransaction($record);
 
                             return true;
                         })
-                        ->after(fn () => $this->dispatchAccountWidgetsRefresh()),
+                        ->after(fn() => $this->dispatchAccountWidgetsRefresh()),
                     ForceDeleteAction::make()
-                        ->authorize(fn () => auth()->user()?->can('update', $this->getOwnerRecord()) ?? false)
+                        ->authorize(fn() => auth()->user()?->can('update', $this->getOwnerRecord()) ?? false)
                         ->modalDescription(__('Permanently removes this ledger row from the database. Only use after a normal delete (balance already reversed).'))
-                        ->after(fn () => $this->dispatchAccountWidgetsRefresh()),
+                        ->after(fn() => $this->dispatchAccountWidgetsRefresh()),
                 ]),
             ])
             ->toolbarActions([
@@ -589,13 +805,13 @@ class TransactionsRelationManager extends RelationManager
                             __('Each selected row must be a master-cash ledger line for a bank credit not yet mirrored to a member. Other rows are skipped.')
                         )
                         ->modalSubmitActionLabel(__('Post to member'))
-                        ->visible(fn (): bool => $this->getOwnerRecord()->type === Account::TYPE_MASTER_CASH)
-                        ->authorize(fn (): bool => auth()->user()?->can('update', $this->getOwnerRecord()) ?? false)
+                        ->visible(fn(): bool => $this->getOwnerRecord()->type === Account::TYPE_MASTER_CASH)
+                        ->authorize(fn(): bool => auth()->user()?->can('update', $this->getOwnerRecord()) ?? false)
                         ->schema([
                             Forms\Components\Select::make('member_id')
                                 ->label(__('Member'))
-                                ->options(fn () => Member::query()->with('user')->orderBy('member_number')->get()
-                                    ->mapWithKeys(fn (Member $m) => [$m->id => "{$m->member_number} – {$m->user->name}"]))
+                                ->options(fn() => Member::query()->with('user')->orderBy('member_number')->get()
+                                    ->mapWithKeys(fn(Member $m) => [$m->id => "{$m->member_number} – {$m->user->name}"]))
                                 ->searchable()
                                 ->required(),
                         ])
@@ -607,12 +823,12 @@ class TransactionsRelationManager extends RelationManager
                             $failed = 0;
 
                             foreach ($records as $record) {
-                                if (! $record instanceof AccountTransaction) {
+                                if (!$record instanceof AccountTransaction) {
                                     continue;
                                 }
                                 $record->loadMissing('source');
                                 $source = $record->source;
-                                if (! $source instanceof BankTransaction || ! $accounting->canMirrorBankCreditToMemberCash($source)) {
+                                if (!$source instanceof BankTransaction || !$accounting->canMirrorBankCreditToMemberCash($source)) {
                                     $skipped++;
 
                                     continue;
@@ -628,7 +844,7 @@ class TransactionsRelationManager extends RelationManager
 
                             $body = __('Posted: :posted | Skipped: :skipped', ['posted' => $posted, 'skipped' => $skipped]);
                             if ($failed > 0) {
-                                $body .= ' '.__('| Failed: :failed (see logs)', ['failed' => $failed]);
+                                $body .= ' ' . __('| Failed: :failed (see logs)', ['failed' => $failed]);
                             }
 
                             $notification = Notification::make()
@@ -648,7 +864,7 @@ class TransactionsRelationManager extends RelationManager
                         })
                         ->deselectRecordsAfterCompletion(),
                     DeleteBulkAction::make()
-                        ->authorize(fn () => auth()->user()?->can('update', $this->getOwnerRecord()) ?? false)
+                        ->authorize(fn() => auth()->user()?->can('update', $this->getOwnerRecord()) ?? false)
                         ->modalDescription(__('Reverses each selected line on its account balance, then deletes it.'))
                         ->using(function (DeleteBulkAction $action, $records) {
                             $accounting = app(AccountingService::class);
@@ -661,10 +877,10 @@ class TransactionsRelationManager extends RelationManager
                                 }
                             }
                         })
-                        ->after(fn () => $this->dispatchAccountWidgetsRefresh()),
+                        ->after(fn() => $this->dispatchAccountWidgetsRefresh()),
                     ForceDeleteBulkAction::make()
-                        ->authorize(fn () => auth()->user()?->can('update', $this->getOwnerRecord()) ?? false)
-                        ->after(fn () => $this->dispatchAccountWidgetsRefresh()),
+                        ->authorize(fn() => auth()->user()?->can('update', $this->getOwnerRecord()) ?? false)
+                        ->after(fn() => $this->dispatchAccountWidgetsRefresh()),
                 ]),
             ])
             ->paginated([5, 10, 25, 50, 100]);
@@ -694,11 +910,11 @@ class TransactionsRelationManager extends RelationManager
             Forms\Components\Select::make('member_id')
                 ->label(__('Member tag'))
                 ->helperText(__('Optional for master accounts — used when filtering ledger lines by member. Member-owned accounts use their member automatically.'))
-                ->options(fn () => Member::query()->with('user')->orderBy('member_number')->get()
-                    ->mapWithKeys(fn (Member $m) => [$m->id => "{$m->member_number} – {$m->user->name}"]))
+                ->options(fn() => Member::query()->with('user')->orderBy('member_number')->get()
+                    ->mapWithKeys(fn(Member $m) => [$m->id => "{$m->member_number} – {$m->user->name}"]))
                 ->searchable()
                 ->placeholder(__('—'))
-                ->visible(fn () => $account->member_id === null),
+                ->visible(fn() => $account->member_id === null),
         ];
     }
 

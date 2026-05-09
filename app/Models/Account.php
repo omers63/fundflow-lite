@@ -13,6 +13,9 @@ class Account extends Model
 
     public const TYPE_MASTER_CASH = 'master_cash';
     public const TYPE_MASTER_FUND = 'master_fund';
+    public const TYPE_MASTER_FEES = 'master_fees';
+    public const TYPE_MASTER_INVESTMENT_FUND = 'master_investment_fund';
+    public const TYPE_MASTER_EXPENSE_ACCOUNT = 'master_expense_account';
     public const TYPE_MEMBER_CASH = 'member_cash';
     public const TYPE_MEMBER_FUND = 'member_fund';
     public const TYPE_LOAN = 'loan';
@@ -65,6 +68,21 @@ class Account extends Model
         return static::where('slug', 'master_fund')->firstOrFail();
     }
 
+    public static function masterFees(): self
+    {
+        return static::where('slug', 'master_fees')->firstOrFail();
+    }
+
+    public static function masterInvestmentFund(): self
+    {
+        return static::where('slug', 'master_investment_fund')->firstOrFail();
+    }
+
+    public static function masterExpenseAccount(): self
+    {
+        return static::where('slug', 'master_expense_account')->firstOrFail();
+    }
+
     // -----------------------------------------------------------------------
     // Helpers
     // -----------------------------------------------------------------------
@@ -80,6 +98,9 @@ class Account extends Model
         return match ($this->type) {
             self::TYPE_MASTER_CASH => 'info',
             self::TYPE_MASTER_FUND => 'success',
+            self::TYPE_MASTER_FEES => 'primary',
+            self::TYPE_MASTER_INVESTMENT_FUND => 'warning',
+            self::TYPE_MASTER_EXPENSE_ACCOUNT => 'danger',
             self::TYPE_MEMBER_CASH => 'primary',
             self::TYPE_MEMBER_FUND => 'success',
             self::TYPE_LOAN => 'warning',
@@ -92,6 +113,9 @@ class Account extends Model
         return match ($this->type) {
             self::TYPE_MASTER_CASH => 'Master Cash',
             self::TYPE_MASTER_FUND => 'Master Fund',
+            self::TYPE_MASTER_FEES => 'Master Fees',
+            self::TYPE_MASTER_INVESTMENT_FUND => 'Master Investment',
+            self::TYPE_MASTER_EXPENSE_ACCOUNT => 'Master Expense',
             self::TYPE_MEMBER_CASH => 'Member Cash',
             self::TYPE_MEMBER_FUND => 'Member Fund',
             self::TYPE_LOAN => 'Loan',

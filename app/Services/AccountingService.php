@@ -59,6 +59,143 @@ class AccountingService
     }
 
     // =========================================================================
+    // Master reserve accounts (investment / expense)
+    // =========================================================================
+
+    /**
+     * Fund one of the reserve master accounts from master fund.
+     */
+    public function fundReserveAccountFromMasterFund(
+        Account $reserveAccount,
+        float $amount,
+        string $description,
+        ?CarbonInterface $transactedAt = null,
+    ): void {
+        $this->assertReserveAccount($reserveAccount);
+        if ($amount <= 0.00001) {
+            throw new \InvalidArgumentException('Amount must be greater than zero.');
+        }
+
+        $masterFund = Account::masterFund();
+        $at = $transactedAt ?? now();
+        $desc = trim($description) !== '' ? $description : "Fund {$reserveAccount->name} from master fund";
+
+        DB::transaction(function () use ($masterFund, $reserveAccount, $amount, $desc, $at): void {
+            $this->postEntry($masterFund, $amount, 'debit', "{$desc} (master fund transfer)", $reserveAccount, null, $at);
+            $this->postEntry($reserveAccount, $amount, 'credit', "{$desc} (reserve funding)", $reserveAccount, null, $at);
+        });
+    }
+
+    /**
+     * Move funds out from a reserve account through master cash and register check outflow.
+     */
+    public function disburseReserveAccountByCheck(
+        Account $reserveAccount,
+        float $amount,
+        string $description,
+        ?CarbonInterface $transactedAt = null,
+    ): void {
+        $this->assertReserveAccount($reserveAccount);
+        if ($amount <= 0.00001) {
+            throw new \InvalidArgumentException('Amount must be greater than zero.');
+        }
+
+        $masterCash = Account::masterCash();
+        $at = $transactedAt ?? now();
+        $desc = trim($description) !== '' ? $description : "Disburse from {$reserveAccount->name}";
+
+        DB::transaction(function () use ($reserveAccount, $masterCash, $amount, $desc, $at): void {
+            $this->postEntry($reserveAccount, $amount, 'debit', "{$desc} (to master cash)", $reserveAccount, null, $at);
+            $this->postEntry($masterCash, $amount, 'credit', "{$desc} (from reserve)", $reserveAccount, null, $at);
+            $this->postEntry($masterCash, $amount, 'debit', "{$desc} (check out)", $reserveAccount, null, $at);
+        });
+    }
+
+    /**
+     * Record investment return received from external investor.
+     */
+    public function recordInvestmentReturn(
+        float $amount,
+        string $description,
+        ?CarbonInterface $transactedAt = null,
+    ): void {
+        if ($amount <= 0.00001) {
+            throw new \InvalidArgumentException('Amount must be greater than zero.');
+        }
+
+        $investment = Account::masterInvestmentFund();
+        $masterCash = Account::masterCash();
+        $at = $transactedAt ?? now();
+        $desc = trim($description) !== '' ? $description : 'Investment return received';
+
+        DB::transaction(function () use ($investment, $masterCash, $amount, $desc, $at): void {
+            $this->postEntry($masterCash, $amount, 'credit', "{$desc} (receipt)", $investment, null, $at);
+            $this->postEntry($masterCash, $amount, 'debit', "{$desc} (transfer to investment account)", $investment, null, $at);
+            $this->postEntry($investment, $amount, 'credit', "{$desc} (investment return)", $investment, null, $at);
+        });
+    }
+
+    /**
+     * Move already-collected fee cash into Master Fees (debit source, credit fees).
+     */
+    public function routeFeeToMasterFees(
+        Account $sourceAccount,
+        float $amount,
+        string $description,
+        Model $source,
+        ?int $memberId = null,
+        ?CarbonInterface $transactedAt = null,
+    ): void {
+        if ($amount <= 0.00001) {
+            return;
+        }
+
+        $masterFees = Account::masterFees();
+        $at = $transactedAt ?? now();
+        $desc = trim($description) !== '' ? $description : 'Route fee to Master Fees';
+
+        DB::transaction(function () use ($sourceAccount, $masterFees, $amount, $desc, $source, $memberId, $at): void {
+            $this->postEntry($sourceAccount, $amount, 'debit', "{$desc} (to Master Fees)", $source, $memberId, $at);
+            $this->postEntry($masterFees, $amount, 'credit', "{$desc} (fee reserve)", $source, $memberId, $at);
+        });
+    }
+
+    /**
+     * Post from Master Fees to Master Cash for payout staging.
+     */
+    public function postMasterFeesToMasterCash(
+        float $amount,
+        string $description,
+        ?CarbonInterface $transactedAt = null,
+    ): void {
+        if ($amount <= 0.00001) {
+            throw new \InvalidArgumentException('Amount must be greater than zero.');
+        }
+
+        $masterFees = Account::masterFees();
+        $masterCash = Account::masterCash();
+        $at = $transactedAt ?? now();
+        $desc = trim($description) !== '' ? $description : 'Transfer from Master Fees to Master Cash';
+
+        DB::transaction(function () use ($masterFees, $masterCash, $amount, $desc, $at): void {
+            $this->postEntry($masterFees, $amount, 'debit', "{$desc} (fees out)", $masterFees, null, $at);
+            $this->postEntry($masterCash, $amount, 'credit', "{$desc} (cash in)", $masterFees, null, $at);
+        });
+    }
+
+    private function assertReserveAccount(Account $account): void
+    {
+        if (
+            !in_array($account->type, [
+                Account::TYPE_MASTER_INVESTMENT_FUND,
+                Account::TYPE_MASTER_EXPENSE_ACCOUNT,
+            ], true)
+        ) {
+            throw new \InvalidArgumentException('Reserve account must be Master Investment Fund or Master Expense Account.');
+        }
+    }
+
+    // =========================================================================
     // Member CSV import — balance adjustments (paired with master accounts)
     // =========================================================================
 
@@ -151,6 +288,7 @@ class AccountingService
             $description = "Membership application fee — {$label} — ref {$ref}";
 
             $this->postEntry($masterCash, $amount, 'credit', $description, $application, null);
+            $this->routeFeeToMasterFees($masterCash, $amount, $description, $application, null, now());
 
             $application->update(['membership_fee_posted_at' => now()]);
         });
@@ -496,11 +634,11 @@ class AccountingService
                     . ', required: SAR ' . number_format($masterPortion, 2) . '.'
                 );
             }
+            // Loan principal outstanding, then fund movements (member portion on master-funded loans is zero).
+            $this->postEntry($loanAccount, $totalAmount, 'debit', $description, $loan, $member->id);
             // Master-funded loan disbursement mirrored on member fund account.
             $this->postEntry($masterFund, $masterPortion, 'debit', $description . ' (master funded)', $loan, $member->id);
             $this->postEntry($memberFund, $masterPortion, 'debit', $description . ' (member mirror)', $loan, $member->id);
-            // Loan account tracks total outstanding
-            $this->postEntry($loanAccount, $totalAmount, 'debit', $description, $loan, $member->id);
             // Cash payout to the borrower.
             $this->postEntry($memberCash, $totalAmount, 'credit', $description . ' (cash payout)', $loan, $member->id);
             // Cash-clearing sequence: member cash -> master cash -> check out.
@@ -577,9 +715,9 @@ class AccountingService
             $label = "Loan #{$loan->id} disbursement (#{$seq}) – {$member->user->name}";
 
             $postedAt = $disbursedAt ?? now();
+            $this->postEntry($loanAccount, $amount, 'debit', $label, $loan, $member->id, $postedAt);
             $this->postEntry($masterFund, $masterPortion, 'debit', $label . ' (master funded)', $loan, $member->id, $postedAt);
             $this->postEntry($memberFund, $masterPortion, 'debit', $label . ' (member mirror)', $loan, $member->id, $postedAt);
-            $this->postEntry($loanAccount, $amount, 'debit', $label, $loan, $member->id, $postedAt);
             $this->postEntry($memberCash, $amount, 'credit', $label . ' (cash payout)', $loan, $member->id, $postedAt);
             $this->postEntry($memberCash, $amount, 'debit', $label . ' (cash clearing to master cash)', $loan, $member->id, $postedAt);
             $this->postEntry($masterCash, $amount, 'credit', $label . ' (cash clearing from member cash)', $loan, $member->id, $postedAt);
@@ -599,6 +737,10 @@ class AccountingService
     /**
      * Post disbursement using explicit member/master portions (CSV / migration import).
      * Unlike {@see postLoanDisbursement}, portions are not derived from the member's current fund balance.
+     *
+     * Loan ledger: debit the loan for full principal, then credit the same loan account for the member
+     * portion so on-book outstanding matches the master-funded slice (repayments then clear to zero). Member
+     * and master funds are still debited the full amount. Cash clearing lines follow.
      */
     public function postLoanDisbursementWithPortions(
         Loan $loan,
@@ -607,6 +749,7 @@ class AccountingService
         ?CarbonInterface $postedAt = null,
         ?string $descriptionSuffix = null,
         bool $allowNegativeMasterFundBalance = false,
+        bool $mirrorFullFundDebits = false,
     ): void {
         $totalAmount = round((float) $loan->amount_approved, 2);
         $sum = round($memberPortion + $masterPortion, 2);
@@ -640,26 +783,37 @@ class AccountingService
             : '';
         $description = "Loan #{$loan->id} disbursement (import) – {$member->user->name}{$suffix}";
 
-        DB::transaction(function () use ($loan, $member, $masterFund, $memberFund, $masterCash, $memberCash, $loanAccount, $description, $totalAmount, $memberPortion, $masterPortion, $at, $allowNegativeMasterFundBalance) {
+        DB::transaction(function () use ($loan, $member, $masterFund, $memberFund, $masterCash, $memberCash, $loanAccount, $description, $totalAmount, $memberPortion, $masterPortion, $at, $allowNegativeMasterFundBalance, $mirrorFullFundDebits) {
             $masterFundLocked = Account::query()->lockForUpdate()->findOrFail($masterFund->id);
             if (
                 !$allowNegativeMasterFundBalance
-                && $masterPortion > 0.00001
-                && (float) $masterFundLocked->balance < $masterPortion
+                && $totalAmount > 0.00001
+                && (float) $masterFundLocked->balance < $totalAmount
             ) {
                 throw new \RuntimeException(
                     'Insufficient master fund balance. Available: SAR ' . number_format((float) $masterFundLocked->balance, 2)
-                    . ', required: SAR ' . number_format($masterPortion, 2) . '.'
+                    . ', required: SAR ' . number_format($totalAmount, 2) . '.'
                 );
             }
 
-            if ($memberPortion > 0) {
-                $this->postEntry($memberFund, $memberPortion, 'debit', $description . ' (member portion)', $loan, $member->id, $at);
-            }
-            if ($masterPortion > 0) {
-                $this->postEntry($masterFundLocked, $masterPortion, 'debit', $description . ' (fund portion)', $loan, $member->id, $at);
-            }
+            // Full principal drawn on the loan book, then apply the member-funded slice so balance
+            // tracks only what installments repay (avoids a residual negative balance when paid in full).
             $this->postEntry($loanAccount, $totalAmount, 'debit', $description, $loan, $member->id, $at);
+            if ($memberPortion > 0.00001) {
+                $this->postEntry($loanAccount, $memberPortion, 'credit', $description . ' (member portion applied to principal)', $loan, $member->id, $at);
+            }
+
+            if ($mirrorFullFundDebits) {
+                $this->postEntry($memberFund, $totalAmount, 'debit', $description . ' (full mirror on member fund)', $loan, $member->id, $at);
+                $this->postEntry($masterFundLocked, $totalAmount, 'debit', $description . ' (full debit on master fund)', $loan, $member->id, $at);
+            } else {
+                if ($memberPortion > 0.00001) {
+                    $this->postEntry($masterFundLocked, $memberPortion, 'debit', $description . ' (member portion shadow on master fund)', $loan, $member->id, $at);
+                }
+                if ($masterPortion > 0.00001) {
+                    $this->postEntry($masterFundLocked, $masterPortion, 'debit', $description . ' (fund portion)', $loan, $member->id, $at);
+                }
+            }
             $this->postEntry($memberCash, $totalAmount, 'credit', $description . ' (cash payout)', $loan, $member->id, $at);
             $this->postEntry($memberCash, $totalAmount, 'debit', $description . ' (cash clearing to master cash)', $loan, $member->id, $at);
             $this->postEntry($masterCash, $totalAmount, 'credit', $description . ' (cash clearing from member cash)', $loan, $member->id, $at);
@@ -670,6 +824,48 @@ class AccountingService
                 'master_portion' => $masterPortion,
                 'amount_disbursed' => $totalAmount,
             ]);
+        });
+    }
+
+    /**
+     * Credit the loan account by {@see Loan::$member_portion} so, after full repayment, the loan ledger
+     * returns to zero. Disbursement still debits member and master funds for the full principal; this entry
+     * only adjusts the loan book so it tracks the same slice that installments repay. Idempotent.
+     */
+    public function recognizeMemberPortionAgainstLoanPrincipal(Loan $loan, ?CarbonInterface $postedAt = null): void
+    {
+        $memberPortion = (float) ($loan->member_portion ?? 0);
+        if ($memberPortion <= 0.00001) {
+            return;
+        }
+
+        $loan->loadMissing('member.user');
+        $member = $loan->member;
+        $this->ensureMemberAccounts($member);
+        $loanAccount = $this->ensureLoanAccount($loan);
+
+        $marker = '(member portion applied to principal)';
+        $already = AccountTransaction::query()
+            ->where('account_id', $loanAccount->id)
+            ->where('source_type', $loan->getMorphClass())
+            ->where('source_id', $loan->getKey())
+            ->where('entry_type', 'credit')
+            ->where('description', 'like', '%' . $marker . '%')
+            ->exists();
+        if ($already) {
+            return;
+        }
+
+        $at = $postedAt ?? now();
+        $description = sprintf(
+            'Loan #%d disbursement – %s %s',
+            $loan->id,
+            $member->user->name ?? 'Member',
+            $marker
+        );
+
+        DB::transaction(function () use ($loan, $loanAccount, $member, $memberPortion, $description, $at): void {
+            $this->postEntry($loanAccount, $memberPortion, 'credit', $description, $loan, $member->id, $at);
         });
     }
 
@@ -1567,6 +1763,7 @@ class AccountingService
                 $member->id,
                 $fee->paid_at,
             );
+            $this->routeFeeToMasterFees($masterCash, (float) $fee->amount, $description, $fee, $member->id, $fee->paid_at);
 
             $fee->update(['account_transaction_id' => $entry->id]);
         });
@@ -1588,6 +1785,7 @@ class AccountingService
 
         $masterCash = Account::masterCash();
         $this->postEntry($masterCash, $amount, 'credit', $description, $source, $memberId, $transactedAt ?? now());
+        $this->routeFeeToMasterFees($masterCash, $amount, $description, $source, $memberId, $transactedAt ?? now());
     }
 
     // =========================================================================

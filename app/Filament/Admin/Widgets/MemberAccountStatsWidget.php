@@ -59,7 +59,7 @@ class MemberAccountStatsWidget extends Widget
 
         $eligible = app(LoanEligibilityService::class)->isEligible($member);
 
-        $maxBorrow = $fundBalance * Setting::loanMaxBorrowMultiplier();
+        $maxBorrow = app(LoanEligibilityService::class)->maxLoanAmount($member);
 
         $nextInstallment = LoanInstallment::whereHas('loan', fn($q) => $q->where('member_id', $member->id))
             ->where('status', 'pending')

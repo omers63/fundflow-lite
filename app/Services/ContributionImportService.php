@@ -267,6 +267,7 @@ class ContributionImportService
                 $paidAt,
                 $checkSuffix,
                 allowNegativeMasterFundBalance: true,
+                mirrorFullFundDebits: true,
             );
 
             $startDate = Carbon::create(

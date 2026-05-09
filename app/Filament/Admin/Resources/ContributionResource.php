@@ -161,6 +161,19 @@ class ContributionResource extends Resource
     {
         return $table
             ->striped()
+            ->modifyQueryUsing(function ($query) {
+                $tableName = $query->getModel()->getTable();
+
+                return $query
+                    ->select("{$tableName}.*")
+                    ->selectRaw(
+                        "SUM(amount) OVER (
+                            PARTITION BY member_id
+                            ORDER BY paid_at ASC, id ASC
+                            ROWS BETWEEN UNBOUNDED PRECEDING AND CURRENT ROW
+                        ) as running_balance"
+                    );
+            })
             ->headerActions([
                 Action::make('exportCsv')
                     ->label(__('Export Contributions'))
@@ -356,6 +369,11 @@ class ContributionResource extends Resource
                     ->searchable()
                     ->toggleable(),
                 Tables\Columns\TextColumn::make('amount')
+                    ->money('SAR')
+                    ->sortable()
+                    ->toggleable(),
+                Tables\Columns\TextColumn::make('running_balance')
+                    ->label(__('Balance'))
                     ->money('SAR')
                     ->sortable()
                     ->toggleable(),

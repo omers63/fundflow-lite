@@ -20,6 +20,7 @@ class AccountSummaryWidget extends Widget
     {
         $masterCash = (float) (Account::where('slug', 'master_cash')->value('balance') ?? 0);
         $masterFund = (float) (Account::where('slug', 'master_fund')->value('balance') ?? 0);
+        $masterFees = (float) (Account::where('slug', 'master_fees')->value('balance') ?? 0);
 
         $memberCashStats = Account::where('type', Account::TYPE_MEMBER_CASH)
             ->selectRaw('COUNT(*) as cnt, SUM(balance) as total')
@@ -53,7 +54,7 @@ class AccountSummaryWidget extends Widget
         $zeroBalanceCount = Member::active()
             ->whereHas(
                 'accounts',
-                fn ($q) => $q
+                fn($q) => $q
                     ->where('type', Account::TYPE_MEMBER_CASH)
                     ->where('balance', '<=', 0)
             )
@@ -62,6 +63,7 @@ class AccountSummaryWidget extends Widget
         return [
             'master_cash' => $masterCash,
             'master_fund' => $masterFund,
+            'master_fees' => $masterFees,
             'member_cash_total' => (float) ($memberCashStats->total ?? 0),
             'member_cash_count' => (int) ($memberCashStats->cnt ?? 0),
             'member_fund_total' => (float) ($memberFundStats->total ?? 0),
