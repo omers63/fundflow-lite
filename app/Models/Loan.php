@@ -56,10 +56,10 @@ class Loan extends Model
     protected function casts(): array
     {
         return [
-            'amount_requested'       => 'decimal:2',
-            'amount_approved'        => 'decimal:2',
-            'amount_disbursed'       => 'decimal:2',
-            'member_portion'         => 'decimal:2',
+            'amount_requested' => 'decimal:2',
+            'amount_approved' => 'decimal:2',
+            'amount_disbursed' => 'decimal:2',
+            'member_portion' => 'decimal:2',
             'master_portion' => 'decimal:2',
             'repaid_to_master' => 'decimal:2',
             'late_repayment_amount' => 'decimal:2',
@@ -149,10 +149,11 @@ class Loan extends Model
         return in_array($this->status, ['cancelled', 'rejected']);
     }
 
-    /** True when this loan exempts the member from monthly contributions. */
+    /** True when repayments are still due on this active loan (contributions are blocked for the member). */
     public function isExemptingContributions(): bool
     {
-        return in_array($this->status, ['approved', 'active']);
+        return $this->isActive()
+            && $this->installments()->whereIn('status', ['pending', 'overdue'])->exists();
     }
 
     /**
@@ -243,6 +244,38 @@ class Loan extends Model
         return $this->installments()->where('status', 'overdue')->exists();
     }
 
+    /**
+     * Mark active loan completed when all installments are paid.
+     */
+    public function syncPaidOffStatusFromInstallments(): void
+    {
+        if ($this->status !== 'active') {
+            return;
+        }
+
+        $hasInstallments = $this->installments()->exists();
+        if (!$hasInstallments) {
+            return;
+        }
+
+        $hasUnpaid = $this->installments()
+            ->whereIn('status', ['pending', 'overdue'])
+            ->exists();
+
+        if ($hasUnpaid) {
+            return;
+        }
+
+        $settledAt = $this->installments()
+            ->whereNotNull('paid_at')
+            ->max('paid_at');
+
+        $this->update([
+            'status' => 'completed',
+            'settled_at' => $settledAt ?? now(),
+        ]);
+    }
+
     // -----------------------------------------------------------------------
     // Repayment cycle: contribution exemption logic
     // -----------------------------------------------------------------------
@@ -298,9 +331,10 @@ class Loan extends Model
      * that day number in the month (e.g. day 5 when cycle starts on the 6th), exempt the previous
      * calendar month's contribution; otherwise exempt the current month.
      *
-     * The member may skip one contribution cycle; the first loan installment is therefore always
-     * scheduled for the **following** calendar month after the initial repayment anchor (so the
-     * first due date does not fall in the same cycle window as the exemption).
+     * With grace, first_repayment_* is the **calendar month of the installment due date** (e.g. 5th —
+     * the day after cutoff). Grace is stored as exempted_month/year (calendar month labeling the
+     * skipped cycle). Apply {@see finalizeExemptionForDisbursement()} after this so an existing
+     * contribution for the grace period shifts grace and first repayment together.
      */
     public static function computeExemptionAndFirstRepayment(Carbon $disbursedAt, bool $hasGraceCycle = true): array
     {
@@ -329,35 +363,94 @@ class Loan extends Model
     }
 
     /**
-     * If the member already has a contribution for the first scheduled repayment month/year,
-     * advance the first repayment month-by-month until a month without a contribution record
-     * is found (so installments align with cycles where a contribution is still due).
+     * True if the member has a non-deleted contribution for the given calendar month/year
+     * recorded on or before {@code $asOf} (uses paid_at when set, otherwise created_at).
      */
-    public static function adjustFirstRepaymentIfContributionAlreadyMade(Member $member, array $exemption): array
+    public static function memberHasContributionForCycleAsOf(int $memberId, int $month, int $year, Carbon $asOf): bool
     {
-        $m = (int) $exemption['first_repayment_month'];
-        $y = (int) $exemption['first_repayment_year'];
+        return Contribution::query()
+            ->where('member_id', $memberId)
+            ->where('month', $month)
+            ->where('year', $year)
+            ->where(function ($q) use ($asOf) {
+                $q->where('paid_at', '<=', $asOf)
+                    ->orWhere(function ($q2) use ($asOf) {
+                        $q2->whereNull('paid_at')->where('created_at', '<=', $asOf);
+                    });
+            })
+            ->exists();
+    }
+
+    /**
+     * After {@see computeExemptionAndFirstRepayment()}, align grace and first repayment with
+     * contributions already on file as of disbursement:
+     *
+     * 1. Grace (exempted month/year): if the member already contributed for that period on or
+     *    before disbursement, shift grace forward one calendar month and shift first repayment by
+     *    the same amount (repeat). For example, disburse 21 Sept — no Sept contribution: grace
+     *    Sept, first due 5 Nov. Sept contribution present before disbursement: grace Oct,
+     *    first due 5 Dec (installment day 5 uses the stored first_repayment calendar month).
+     *
+     * 2. First repayment month: if a contribution already exists for that calendar period as of
+     *    disbursement, advance only first repayment until an unoccupied month is found.
+     */
+    public static function finalizeExemptionForDisbursement(Member $member, array $exemption, Carbon $disbursedAt): array
+    {
+        $e = $exemption;
 
         for ($i = 0; $i < 24; $i++) {
-            $hasContribution = Contribution::query()
-                ->where('member_id', $member->id)
-                ->where('month', $m)
-                ->where('year', $y)
-                ->exists();
-
-            if (!$hasContribution) {
+            if ($e['exempted_month'] === null || $e['exempted_year'] === null) {
                 break;
             }
+            if (
+                !static::memberHasContributionForCycleAsOf(
+                    (int) $member->id,
+                    (int) $e['exempted_month'],
+                    (int) $e['exempted_year'],
+                    $disbursedAt,
+                )
+            ) {
+                break;
+            }
+            $e = static::shiftGraceAndFirstRepaymentOneMonth($e);
+        }
 
+        $m = (int) $e['first_repayment_month'];
+        $y = (int) $e['first_repayment_year'];
+
+        for ($i = 0; $i < 24; $i++) {
+            if (!static::memberHasContributionForCycleAsOf((int) $member->id, $m, $y, $disbursedAt)) {
+                break;
+            }
             $next = Carbon::create($y, $m, 1)->addMonthNoOverflow();
             $m = (int) $next->month;
             $y = (int) $next->year;
         }
 
         return [
-            ...$exemption,
+            ...$e,
             'first_repayment_month' => $m,
             'first_repayment_year' => $y,
+        ];
+    }
+
+    /**
+     * Advance grace (exempted) and first repayment together by one calendar month.
+     *
+     * @param  array{exempted_month: int|null, exempted_year: int|null, first_repayment_month: int, first_repayment_year: int}  $exemption
+     * @return array{exempted_month: int|null, exempted_year: int|null, first_repayment_month: int, first_repayment_year: int}
+     */
+    protected static function shiftGraceAndFirstRepaymentOneMonth(array $exemption): array
+    {
+        $exNext = Carbon::create((int) $exemption['exempted_year'], (int) $exemption['exempted_month'], 1)->addMonthNoOverflow();
+        $firstNext = Carbon::create((int) $exemption['first_repayment_year'], (int) $exemption['first_repayment_month'], 1)->addMonthNoOverflow();
+
+        return [
+            ...$exemption,
+            'exempted_month' => (int) $exNext->month,
+            'exempted_year' => (int) $exNext->year,
+            'first_repayment_month' => (int) $firstNext->month,
+            'first_repayment_year' => (int) $firstNext->year,
         ];
     }
 

@@ -3,18 +3,23 @@
 namespace App\Filament\Admin\Resources\LoanResource\RelationManagers;
 
 use App\Filament\Admin\Resources\LoanResource;
+use Filament\Resources\RelationManagers\RelationManager;
 use App\Models\Loan;
 use App\Models\LoanInstallment;
+use App\Services\AccountingService;
 use App\Support\FilamentTableSummaries;
 use Carbon\Carbon;
 use Filament\Actions\Action;
 use Filament\Actions\ActionGroup;
+use Filament\Actions\BulkAction;
 use Filament\Forms;
 use Filament\Notifications\Notification;
-use Filament\Resources\RelationManagers\RelationManager;
 use Filament\Schemas\Schema;
 use Filament\Tables;
 use Filament\Tables\Table;
+use Illuminate\Database\Eloquent\Collection;
+use Illuminate\Database\Eloquent\Model;
+use Illuminate\Support\Facades\DB;
 use Livewire\Attributes\On;
 use Livewire\Component;
 
@@ -24,7 +29,7 @@ class InstallmentsRelationManager extends RelationManager
 
     protected static ?string $title = null;
 
-    public static function getTitle(\Illuminate\Database\Eloquent\Model $ownerRecord, string $pageClass): string
+    public static function getTitle(Model $ownerRecord, string $pageClass): string
     {
         return __('Installments');
     }
@@ -141,15 +146,51 @@ class InstallmentsRelationManager extends RelationManager
                         ->icon('heroicon-o-check-circle')
                         ->color('success')
                         ->visible(fn(LoanInstallment $record) => $record->status !== 'paid')
-                        ->requiresConfirmation()
-                        ->action(function (LoanInstallment $record) {
-                            $record->update([
-                                'status' => 'paid',
-                                'paid_at' => now(),
-                            ]);
+                        ->form([
+                            Forms\Components\DateTimePicker::make('posting_date')
+                                ->label(__('Posting date'))
+                                ->seconds(false)
+                                ->default(now())
+                                ->required(),
+                            Forms\Components\Toggle::make('reflect_master_fund')
+                                ->label(__('Reflect in master fund account'))
+                                ->default(false),
+                            Forms\Components\Toggle::make('reflect_member_fund')
+                                ->label(__('Reflect in member fund account'))
+                                ->default(false),
+                            Forms\Components\Toggle::make('reflect_loan_account')
+                                ->label(__('Reflect in loan liability account'))
+                                ->default(true),
+                        ])
+                        ->action(function (LoanInstallment $record, array $data) {
+                            $postingDate = Carbon::parse((string) ($data['posting_date'] ?? now()));
+                            $reflectMasterFund = (bool) ($data['reflect_master_fund'] ?? false);
+                            $reflectMemberFund = (bool) ($data['reflect_member_fund'] ?? false);
+                            $reflectLoanAccount = (bool) ($data['reflect_loan_account'] ?? true);
+
+                            DB::transaction(function () use ($record, $postingDate, $reflectMasterFund, $reflectMemberFund, $reflectLoanAccount): void {
+                                // Skip observer auto-posting so we can apply selected ledgers only.
+                                $record->forceFill([
+                                    'status' => 'paid',
+                                    'paid_at' => $postingDate,
+                                ])->saveQuietly();
+
+                                if ($reflectMasterFund || $reflectMemberFund || $reflectLoanAccount) {
+                                    app(AccountingService::class)->postLoanRepaymentSelective(
+                                        $record->fresh(['loan.member.user']),
+                                        $reflectMasterFund,
+                                        $reflectMemberFund,
+                                        $reflectLoanAccount,
+                                        $postingDate,
+                                    );
+                                }
+
+                                $record->loan?->syncPaidOffStatusFromInstallments();
+                            });
 
                             Notification::make()
                                 ->title(__('Installment marked as paid'))
+                                ->body(__('Posting date saved. Only the ledger accounts you selected were updated.'))
                                 ->success()
                                 ->send();
                         }),
@@ -196,6 +237,74 @@ class InstallmentsRelationManager extends RelationManager
                                 ->send();
                         }),
                 ]),
+            ])
+            ->toolbarActions([
+                BulkAction::make('bulk_mark_paid')
+                    ->label(__('Mark Paid (Bulk)'))
+                    ->icon('heroicon-o-check-circle')
+                    ->color('success')
+                    ->deselectRecordsAfterCompletion()
+                    ->form([
+                        Forms\Components\DateTimePicker::make('posting_date')
+                            ->label(__('Posting date'))
+                            ->seconds(false)
+                            ->default(now())
+                            ->required(),
+                        Forms\Components\Toggle::make('reflect_master_fund')
+                            ->label(__('Reflect in master fund account'))
+                            ->default(false),
+                        Forms\Components\Toggle::make('reflect_member_fund')
+                            ->label(__('Reflect in member fund account'))
+                            ->default(false),
+                        Forms\Components\Toggle::make('reflect_loan_account')
+                            ->label(__('Reflect in loan liability account'))
+                            ->default(true),
+                    ])
+                    ->action(function (Collection $records, array $data): void {
+                        $postingDate = Carbon::parse((string) ($data['posting_date'] ?? now()));
+                        $reflectMasterFund = (bool) ($data['reflect_master_fund'] ?? false);
+                        $reflectMemberFund = (bool) ($data['reflect_member_fund'] ?? false);
+                        $reflectLoanAccount = (bool) ($data['reflect_loan_account'] ?? true);
+                        $processed = 0;
+                        $skipped = 0;
+
+                        /** @var LoanInstallment $record */
+                        foreach ($records as $record) {
+                            if ($record->status === 'paid') {
+                                $skipped++;
+                                continue;
+                            }
+
+                            DB::transaction(function () use ($record, $postingDate, $reflectMasterFund, $reflectMemberFund, $reflectLoanAccount): void {
+                                $record->forceFill([
+                                    'status' => 'paid',
+                                    'paid_at' => $postingDate,
+                                ])->saveQuietly();
+
+                                if ($reflectMasterFund || $reflectMemberFund || $reflectLoanAccount) {
+                                    app(AccountingService::class)->postLoanRepaymentSelective(
+                                        $record->fresh(['loan.member.user']),
+                                        $reflectMasterFund,
+                                        $reflectMemberFund,
+                                        $reflectLoanAccount,
+                                        $postingDate,
+                                    );
+                                }
+
+                                $record->loan?->syncPaidOffStatusFromInstallments();
+                            });
+                            $processed++;
+                        }
+
+                        Notification::make()
+                            ->title(__('Bulk mark paid complete'))
+                            ->body(__('Updated :processed installments. Skipped :skipped already paid.', [
+                                'processed' => $processed,
+                                'skipped' => $skipped,
+                            ]))
+                            ->success()
+                            ->send();
+                    }),
             ]);
     }
 }

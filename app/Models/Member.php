@@ -269,10 +269,17 @@ class Member extends Model
         return $this->loans()->whereIn('status', ['pending', 'approved', 'disbursed', 'active'])->exists();
     }
 
-    /** True if the member is currently exempt from contributions (active loan in progress). */
+    /**
+     * True while the member has an active loan with at least one pending or overdue installment.
+     * In that state contributions are not allowed; incoming funds stay in the member cash account.
+     */
     public function isExemptFromContributions(): bool
     {
-        return $this->loans()->whereIn('status', ['approved', 'disbursed', 'active'])->exists();
+        return Loan::query()
+            ->where('member_id', $this->id)
+            ->where('status', 'active')
+            ->whereHas('installments', fn($q) => $q->whereIn('status', ['pending', 'overdue']))
+            ->exists();
     }
 
     public function getCashBalanceAttribute(): float

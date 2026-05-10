@@ -25,7 +25,7 @@ class LoanImportService
      *
      * Pending: no ledger. amount_requested required (or use amount_approved as the requested amount). fund_tier / queue left empty.
      * Approved: no ledger. amount_approved required; tiers and queue like an approved (not yet disbursed) loan.
-     * Active: disbursed — member_portion + master_portion = amount_approved; ledger disbursement + optional bulk repayments for paid_installments_count.
+     * Active: disbursed — member_portion + master_portion = amount_approved (both may be omitted → 50/50 or fund-based per {@see Setting::importLoanBlankPortionsUseFiftyFiftySplit}; one may be omitted → derived from the other); ledger disbursement + optional bulk repayments for paid_installments_count.
      * Completed / early_settled: same ledger as active, but all installments are created as paid; bulk repayment uses total_amount_repaid if set, else installments_count × min_monthly_installment; status and settled_at updated at the end.
      *
      * @return array{created: int, failed: int, errors: array<int, string>}
@@ -185,8 +185,28 @@ class LoanImportService
             throw new \InvalidArgumentException('amount_approved must be positive.');
         }
 
-        $memberPortion = $this->parseMoney($this->cell($row, 'member_portion'), 'member_portion');
-        $masterPortion = $this->parseMoney($this->cell($row, 'master_portion'), 'master_portion');
+        $memberCell = $this->cell($row, 'member_portion');
+        $masterCell = $this->cell($row, 'master_portion');
+
+        if ($memberCell === '' && $masterCell === '') {
+            if (Setting::importLoanBlankPortionsUseFiftyFiftySplit()) {
+                $memberPortion = round($amount / 2, 2);
+                $masterPortion = round($amount - $memberPortion, 2);
+            } else {
+                $fundBal = (float) ($member->fundAccount()?->balance ?? 0);
+                $memberPortion = round(min(max(0.0, $fundBal), $amount), 2);
+                $masterPortion = round($amount - $memberPortion, 2);
+            }
+        } elseif ($memberCell === '') {
+            $masterPortion = $this->parseMoney($masterCell, 'master_portion');
+            $memberPortion = round($amount - $masterPortion, 2);
+        } elseif ($masterCell === '') {
+            $memberPortion = $this->parseMoney($memberCell, 'member_portion');
+            $masterPortion = round($amount - $memberPortion, 2);
+        } else {
+            $memberPortion = $this->parseMoney($memberCell, 'member_portion');
+            $masterPortion = $this->parseMoney($masterCell, 'master_portion');
+        }
 
         if ($memberPortion < 0 || $masterPortion < 0) {
             throw new \InvalidArgumentException('member_portion and master_portion cannot be negative.');
@@ -215,7 +235,7 @@ class LoanImportService
 
         $disbursedAt = $this->parseDisbursedAt($this->cell($row, 'disbursed_at'));
         $exemption = Loan::computeExemptionAndFirstRepayment($disbursedAt);
-        $exemption = Loan::adjustFirstRepaymentIfContributionAlreadyMade($member, $exemption);
+        $exemption = Loan::finalizeExemptionForDisbursement($member, $exemption, $disbursedAt);
 
         $purpose = $this->cell($row, 'purpose');
         if ($purpose === '') {
@@ -249,7 +269,7 @@ class LoanImportService
 
         $accounting = app(AccountingService::class);
 
-        DB::transaction(function () use ($member, $loanTier, $fundTier, $amount, $amountRequested, $purpose, $count, $disbursedAt, $exemption, $threshold, $isEmergency, $memberPortion, $masterPortion, $accounting, $paidCount, $minInstall, $totalRepaid, $terminalStatus, $settledAt, $appliedAt, $approvedAt, ) {
+        DB::transaction(function () use ($member, $loanTier, $fundTier, $amount, $amountRequested, $purpose, $count, $disbursedAt, $exemption, $threshold, $isEmergency, $memberPortion, $masterPortion, $accounting, $paidCount, $minInstall, $totalRepaid, $terminalStatus, $settledAt, $appliedAt, $approvedAt) {
             $loan = Loan::create([
                 'member_id' => $member->id,
                 'loan_tier_id' => $loanTier?->id,

@@ -32,13 +32,15 @@ use Filament\Notifications\Notification;
 use Filament\Resources\Resource;
 use Filament\Schemas\Components\Utilities\Get;
 use Filament\Schemas\Schema;
+use Filament\Support\Enums\Alignment;
 use Filament\Tables;
 use Filament\Tables\Filters\TrashedFilter;
 use Filament\Tables\Table;
 use Illuminate\Database\Eloquent\Builder;
 use Illuminate\Database\Eloquent\Model;
-use Illuminate\Support\Facades\Storage;
+use Illuminate\Database\Eloquent\SoftDeletingScope;
 use Illuminate\Support\Facades\DB;
+use Illuminate\Support\Facades\Storage;
 use Illuminate\Support\HtmlString;
 use Livewire\Component;
 
@@ -177,7 +179,7 @@ class ContributionResource extends Resource
                     ->select("{$tableName}.*");
 
                 $repaymentQuery = LoanInstallment::query()
-                    ->withoutGlobalScope(\Illuminate\Database\Eloquent\SoftDeletingScope::class)
+                    ->withoutGlobalScope(SoftDeletingScope::class)
                     ->join('loans', 'loans.id', '=', 'loan_installments.loan_id')
                     ->where('loan_installments.status', 'paid')
                     ->whereNull('loan_installments.deleted_at')
@@ -202,11 +204,11 @@ class ContributionResource extends Resource
                     ->fromSub($combinedRows->toBase(), $tableName)
                     ->select("{$tableName}.*")
                     ->selectRaw(
-                        "SUM(amount) OVER (
+                        'SUM(amount) OVER (
                             PARTITION BY member_id
                             ORDER BY paid_at ASC, id ASC
                             ROWS BETWEEN UNBOUNDED PRECEDING AND CURRENT ROW
-                        ) as running_balance"
+                        ) as running_balance'
                     );
             })
             ->headerActions([
@@ -324,7 +326,7 @@ class ContributionResource extends Resource
                         '</tr>' .
                         '<tr>' .
                         '<td class="px-3 py-2 font-semibold text-gray-700 dark:text-gray-200 bg-gray-50 dark:bg-gray-900/30">' . e(__('Repayment routing')) . '</td>' .
-                        '<td class="px-3 py-2 text-gray-600 dark:text-gray-300">' . e(__('After a negative row for a member, following positive rows are treated as loan repayments until the loan is fully repaid; then rows revert to normal contributions.')) . '</td>' .
+                        '<td class="px-3 py-2 text-gray-600 dark:text-gray-300">' . e(__('After a negative row for a member, following positive rows are treated as loan repayments until the loan is fully repaid: the row amount funds member cash once, then full installments are paid oldest-unpaid cycle first (late if overdue), then the CSV month/year cycle if affordable; surplus stays on member cash. A period cannot have both a contribution and a repayment on an active loan; then rows revert to normal contributions.')) . '</td>' .
                         '</tr>' .
                         '</tbody>' .
                         '</table>' .
@@ -428,11 +430,17 @@ class ContributionResource extends Resource
             ->columns([
                 Tables\Columns\TextColumn::make('member.member_number')
                     ->label(__('Member #'))
+                    ->wrap()
+                    ->extraHeaderAttributes(['style' => FilamentTableSummaries::memberNumberCellStyle()])
+                    ->extraCellAttributes(['style' => FilamentTableSummaries::memberNumberCellStyle()])
                     ->searchable()
                     ->sortable()
                     ->toggleable(),
                 Tables\Columns\TextColumn::make('member.user.name')
                     ->label(__('Member Name'))
+                    ->wrap()
+                    ->extraHeaderAttributes(['style' => FilamentTableSummaries::memberDisplayNameCellStyle()])
+                    ->extraCellAttributes(['style' => FilamentTableSummaries::memberDisplayNameCellStyle()])
                     ->searchable()
                     ->sortable(query: function (Builder $query, string $direction): Builder {
                         return $query->orderBy(
@@ -447,12 +455,22 @@ class ContributionResource extends Resource
                     ->toggleable(),
                 Tables\Columns\TextColumn::make('amount')
                     ->money('SAR')
+                    ->grow(false)
+                    ->width('6rem')
+                    ->extraHeaderAttributes(['style' => FilamentTableSummaries::narrowFixedCellStyle('6rem')])
+                    ->extraCellAttributes(['style' => FilamentTableSummaries::narrowFixedCellStyle('6rem')])
+                    ->alignment(Alignment::End)
                     ->sortable()
                     ->toggleable()
                     ->summarize(FilamentTableSummaries::countSumAverageMoney()),
                 Tables\Columns\TextColumn::make('running_balance')
                     ->label(__('Balance'))
                     ->money('SAR')
+                    ->grow(false)
+                    ->width('13rem')
+                    ->extraHeaderAttributes(['style' => FilamentTableSummaries::narrowFixedCellStyle('13rem')])
+                    ->extraCellAttributes(['style' => FilamentTableSummaries::narrowFixedCellStyle('13rem')])
+                    ->alignment(Alignment::End)
                     ->sortable()
                     ->toggleable(),
                 Tables\Columns\TextColumn::make('month')

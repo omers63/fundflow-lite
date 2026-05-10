@@ -6,6 +6,7 @@ namespace App\Filament\Admin\Resources;
 
 use App\Filament\Admin\Resources\MemberRequestResource\Pages;
 use App\Models\MemberRequest;
+use App\Support\FilamentTableSummaries;
 use App\Services\MemberRequestService;
 use Filament\Actions\Action;
 use Filament\Actions\ActionGroup;
@@ -78,10 +79,10 @@ class MemberRequestResource extends Resource
     public static function table(Table $table): Table
     {
         return $table
-            ->query(static fn (): Builder => MemberRequest::query())
+            ->query(static fn(): Builder => MemberRequest::query())
             ->summaries(false, false)
             ->modifyQueryUsing(
-                fn (Builder $q): Builder => $q->with([
+                fn(Builder $q): Builder => $q->with([
                     'requester.user',
                     'reviewedBy',
                 ])
@@ -89,24 +90,30 @@ class MemberRequestResource extends Resource
             ->columns([
                 Tables\Columns\TextColumn::make('requester.member_number')
                     ->label(__('Member #'))
+                    ->wrap()
+                    ->extraHeaderAttributes(['style' => FilamentTableSummaries::memberNumberCellStyle()])
+                    ->extraCellAttributes(['style' => FilamentTableSummaries::memberNumberCellStyle()])
                     ->sortable(),
                 Tables\Columns\TextColumn::make('requester.user.name')
                     ->label(__('Member'))
+                    ->wrap()
+                    ->extraHeaderAttributes(['style' => FilamentTableSummaries::memberDisplayNameCellStyle()])
+                    ->extraCellAttributes(['style' => FilamentTableSummaries::memberDisplayNameCellStyle()])
                     ->searchable()
                     ->sortable(),
                 Tables\Columns\TextColumn::make('type')
                     ->label(__('Type'))
                     ->badge()
-                    ->formatStateUsing(fn (string $state): string => MemberRequest::typeLabel($state)),
+                    ->formatStateUsing(fn(string $state): string => MemberRequest::typeLabel($state)),
                 Tables\Columns\TextColumn::make('details_display')
                     ->label(__('Details'))
-                    ->getStateUsing(fn (MemberRequest $record): string => $record->describePayload())
+                    ->getStateUsing(fn(MemberRequest $record): string => $record->describePayload())
                     ->wrap()
                     ->limit(80),
                 Tables\Columns\TextColumn::make('status')
                     ->label(__('Status'))
                     ->badge()
-                    ->color(fn (string $state): string => match ($state) {
+                    ->color(fn(string $state): string => match ($state) {
                         MemberRequest::STATUS_PENDING => 'warning',
                         MemberRequest::STATUS_APPROVED => 'success',
                         MemberRequest::STATUS_REJECTED => 'danger',
@@ -153,7 +160,7 @@ class MemberRequestResource extends Resource
                         ->modalHeading(__('Request payload'))
                         ->modalSubmitAction(false)
                         ->modalCancelActionLabel(__('Close'))
-                        ->modalContent(fn (MemberRequest $record): View => view(
+                        ->modalContent(fn(MemberRequest $record): View => view(
                             'filament.admin.components.member-request-payload',
                             ['record' => $record],
                         )),
@@ -161,7 +168,7 @@ class MemberRequestResource extends Resource
                         ->label(__('Approve'))
                         ->icon('heroicon-o-check-circle')
                         ->color('success')
-                        ->visible(fn (MemberRequest $record): bool => $record->isPending())
+                        ->visible(fn(MemberRequest $record): bool => $record->isPending())
                         ->requiresConfirmation()
                         ->modalHeading(__('Approve this request?'))
                         ->modalDescription(__('The change will be applied immediately for supported request types.'))
@@ -181,7 +188,7 @@ class MemberRequestResource extends Resource
                         ->label(__('Reject'))
                         ->icon('heroicon-o-x-circle')
                         ->color('danger')
-                        ->visible(fn (MemberRequest $record): bool => $record->isPending())
+                        ->visible(fn(MemberRequest $record): bool => $record->isPending())
                         ->schema([
                             Forms\Components\Textarea::make('admin_note')
                                 ->label(__('Note to member (optional)'))
@@ -212,7 +219,7 @@ class MemberRequestResource extends Resource
                         ->action(function (EloquentCollection $records): void {
                             $service = app(MemberRequestService::class);
                             $admin = auth()->user();
-                            $pending = $records->filter(fn (MemberRequest $r) => $r->isPending())->values();
+                            $pending = $records->filter(fn(MemberRequest $r) => $r->isPending())->values();
                             $skipped = $records->count() - $pending->count();
 
                             $approved = 0;
@@ -230,7 +237,7 @@ class MemberRequestResource extends Resource
                                 }
                             }
 
-                            $body = __('Approved').": {$approved}. ".__('Failed').": {$failed}. ".__('Skipped (not pending)').": {$skipped}.";
+                            $body = __('Approved') . ": {$approved}. " . __('Failed') . ": {$failed}. " . __('Skipped (not pending)') . ": {$skipped}.";
 
                             Notification::make()
                                 ->title(__('Bulk approve finished'))
@@ -256,7 +263,7 @@ class MemberRequestResource extends Resource
                             $service = app(MemberRequestService::class);
                             $admin = auth()->user();
                             $note = $data['admin_note'] ?? null;
-                            $pending = $records->filter(fn (MemberRequest $r) => $r->isPending())->values();
+                            $pending = $records->filter(fn(MemberRequest $r) => $r->isPending())->values();
                             $skipped = $records->count() - $pending->count();
 
                             $rejected = 0;
@@ -274,7 +281,7 @@ class MemberRequestResource extends Resource
                                 }
                             }
 
-                            $body = __('Rejected').": {$rejected}. ".__('Failed').": {$failed}. ".__('Skipped (not pending)').": {$skipped}.";
+                            $body = __('Rejected') . ": {$rejected}. " . __('Failed') . ": {$failed}. " . __('Skipped (not pending)') . ": {$skipped}.";
 
                             Notification::make()
                                 ->title(__('Bulk reject finished'))

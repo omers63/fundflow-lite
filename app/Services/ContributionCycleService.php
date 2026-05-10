@@ -773,7 +773,7 @@ class ContributionCycleService
         $notified = 0;
 
         Member::active()->with('user')->each(function (Member $member) use ($month, $year, $deadline, &$notified) {
-            // Skip if already contributed or has an active loan (exempt)
+            // Skip if already contributed or blocked from contributing (active loan + pending installments)
             $alreadyPaid = Contribution::where('member_id', $member->id)
                 ->where('month', $month)
                 ->where('year', $year)
@@ -848,7 +848,7 @@ class ContributionCycleService
             return 'already_contributed';
         }
 
-        // Members with an active/approved loan are exempt from contributions
+        // Members with pending/overdue installments on an active loan cannot contribute (cash stays put)
         if ($member->isExemptFromContributions()) {
             $results['skipped'][] = $member;
             return 'exempt';

@@ -52,7 +52,7 @@ class Contribution extends Model
             $member = Member::query()->find((int) $contribution->member_id);
             if ($member && $member->isExemptFromContributions()) {
                 throw ValidationException::withMessages([
-                    'member_id' => ['This member has an active loan and cannot make contributions until the loan is fully paid or settled early.'],
+                    'member_id' => ['This member has an active loan with pending repayments. Contributions are not applied; keep funds in the member cash account until installments are paid.'],
                 ]);
             }
 
@@ -68,6 +68,19 @@ class Contribution extends Model
                     (int) $contribution->year,
                 );
             }
+
+            if (
+                static::hasPaidScheduledLoanInstallmentOnActiveLoan(
+                    (int) $contribution->member_id,
+                    (int) $contribution->month,
+                    (int) $contribution->year,
+                )
+            ) {
+                throw static::scheduledRepaymentPrecludesContributionValidationException(
+                    (int) $contribution->month,
+                    (int) $contribution->year,
+                );
+            }
         });
 
         static::updating(function (Contribution $contribution): void {
@@ -75,7 +88,7 @@ class Contribution extends Model
                 $member = Member::query()->find((int) $contribution->member_id);
                 if ($member && $member->isExemptFromContributions()) {
                     throw ValidationException::withMessages([
-                        'member_id' => ['This member has an active loan and cannot make contributions until the loan is fully paid or settled early.'],
+                        'member_id' => ['This member has an active loan with pending repayments. Contributions are not applied; keep funds in the member cash account until installments are paid.'],
                     ]);
                 }
             }
@@ -93,6 +106,19 @@ class Contribution extends Model
                 )
             ) {
                 throw static::duplicateCycleValidationException(
+                    (int) $contribution->month,
+                    (int) $contribution->year,
+                );
+            }
+
+            if (
+                static::hasPaidScheduledLoanInstallmentOnActiveLoan(
+                    (int) $contribution->member_id,
+                    (int) $contribution->month,
+                    (int) $contribution->year,
+                )
+            ) {
+                throw static::scheduledRepaymentPrecludesContributionValidationException(
                     (int) $contribution->month,
                     (int) $contribution->year,
                 );
@@ -115,6 +141,46 @@ class Contribution extends Model
         return ValidationException::withMessages([
             'year' => [$message],
         ]);
+    }
+
+    /**
+     * True when a paid installment on an **active** loan falls in this calendar month/year (due_date).
+     * Used so a cycle cannot hold both a contribution and a scheduled loan repayment; early-settled /
+     * completed loans are ignored so members can contribute again in those calendar periods.
+     */
+    public static function hasPaidScheduledLoanInstallmentOnActiveLoan(int $memberId, int $month, int $year): bool
+    {
+        return LoanInstallment::query()
+            ->whereHas('loan', fn($q) => $q
+                ->where('member_id', $memberId)
+                ->where('status', 'active'))
+            ->where('status', 'paid')
+            ->whereYear('due_date', $year)
+            ->whereMonth('due_date', $month)
+            ->exists();
+    }
+
+    /** User-facing copy when a contribution would duplicate a cycle that already has a scheduled repayment. */
+    public static function scheduledRepaymentPrecludesContributionMessage(int $month, int $year): string
+    {
+        $period = date('F', mktime(0, 0, 0, $month, 1)) . ' ' . $year;
+
+        return "This member already has a loan repayment recorded for {$period} on an active loan. A cycle may have either a contribution or a repayment, not both.";
+    }
+
+    public static function scheduledRepaymentPrecludesContributionValidationException(int $month, int $year): ValidationException
+    {
+        return ValidationException::withMessages([
+            'year' => [static::scheduledRepaymentPrecludesContributionMessage($month, $year)],
+        ]);
+    }
+
+    /** Contribution already stored for this member/cycle — cannot apply a repayment for the same period. */
+    public static function contributionExistsBlocksRepaymentMessage(int $month, int $year): string
+    {
+        $period = date('F', mktime(0, 0, 0, $month, 1)) . ' ' . $year;
+
+        return "A contribution already exists for {$period}. Only one of contribution or loan repayment is allowed per cycle.";
     }
 
     /** Non-trashed row for the same member + calendar period (matches partial DB unique when present). */

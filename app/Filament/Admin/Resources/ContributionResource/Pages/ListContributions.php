@@ -5,8 +5,8 @@ namespace App\Filament\Admin\Resources\ContributionResource\Pages;
 use App\Filament\Admin\Pages\ContributionCyclePage;
 use App\Filament\Admin\Resources\ContributionResource;
 use App\Filament\Admin\Widgets\ContributionStatsWidget;
-use Filament\Actions;
 use Filament\Resources\Pages\ListRecords;
+use Filament\Actions;
 
 class ListContributions extends ListRecords
 {

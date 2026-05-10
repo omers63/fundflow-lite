@@ -23,6 +23,7 @@ class DatabaseSeeder extends Seeder
             ]
         );
 
+        $this->call(FiscalYearSeeder::class);
         $this->call(ReconciliationPermissionsSeeder::class);
         $this->call(AdminPanelPagePermissionsSeeder::class);
         $this->call(MemberPortalPermissionsSeeder::class);

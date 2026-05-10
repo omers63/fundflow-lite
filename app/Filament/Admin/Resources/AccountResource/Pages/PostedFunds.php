@@ -7,8 +7,11 @@ use App\Models\Account;
 use App\Models\BankTransaction;
 use App\Models\Member;
 use App\Services\ContributionCycleService;
+use App\Support\FilamentTableSummaries;
 use Filament\Actions\Action;
+use Filament\Forms\Components\DatePicker;
 use Filament\Resources\Pages\Page;
+use Filament\Support\Enums\Alignment;
 use Filament\Tables;
 use Filament\Tables\Columns\TextColumn;
 use Filament\Tables\Concerns\InteractsWithTable;
@@ -85,17 +88,26 @@ class PostedFunds extends Page implements HasTable
                     ->sortable(),
                 TextColumn::make('member.member_number')
                     ->label(__('Member #'))
+                    ->wrap()
+                    ->extraHeaderAttributes(['style' => FilamentTableSummaries::memberNumberCellStyle()])
+                    ->extraCellAttributes(['style' => FilamentTableSummaries::memberNumberCellStyle()])
                     ->searchable()
                     ->sortable()
                     ->placeholder(__('—')),
                 TextColumn::make('member.user.name')
                     ->label(__('Member'))
+                    ->wrap()
+                    ->extraHeaderAttributes(['style' => FilamentTableSummaries::memberDisplayNameCellStyle()])
+                    ->extraCellAttributes(['style' => FilamentTableSummaries::memberDisplayNameCellStyle()])
                     ->searchable()
                     ->sortable()
                     ->placeholder(__('—')),
                 TextColumn::make('amount')
                     ->label(__('Amount (SAR)'))
                     ->money('SAR')
+                    ->grow(false)
+                    ->width('8rem')
+                    ->alignment(Alignment::End)
                     ->sortable(),
                 TextColumn::make('posting_cycle')
                     ->label(__('Posting Cycle'))
@@ -185,8 +197,8 @@ class PostedFunds extends Page implements HasTable
                         ->mapWithKeys(fn(Member $m) => [$m->id => "{$m->member_number} – {$m->user->name}"])),
                 Tables\Filters\Filter::make('transaction_date')
                     ->schema([
-                        \Filament\Forms\Components\DatePicker::make('from')->label(__('From')),
-                        \Filament\Forms\Components\DatePicker::make('until')->label(__('Until')),
+                        DatePicker::make('from')->label(__('From')),
+                        DatePicker::make('until')->label(__('Until')),
                     ])
                     ->columns(2)
                     ->query(function (Builder $query, array $data): Builder {
@@ -199,4 +211,3 @@ class PostedFunds extends Page implements HasTable
             ->emptyStateDescription(__('Member portal posted funds will appear here once submitted.'));
     }
 }
-

@@ -5,8 +5,8 @@ declare(strict_types=1);
 namespace App\Filament\Admin\Resources\SupportRequestResource\Pages;
 
 use App\Filament\Admin\Resources\SupportRequestResource;
-use App\Models\SupportRequest;
 use Filament\Resources\Pages\ListRecords;
+use App\Models\SupportRequest;
 use Illuminate\Database\Eloquent\Builder;
 
 class ListSupportRequests extends ListRecords

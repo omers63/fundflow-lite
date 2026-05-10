@@ -89,12 +89,18 @@ class MyGuaranteedLoansResource extends Resource
             ->columns([
                 Tables\Columns\TextColumn::make('member.user.name')
                     ->label(__('Borrower'))
+                    ->wrap()
+                    ->extraHeaderAttributes(['style' => FilamentTableSummaries::memberDisplayNameCellStyle()])
+                    ->extraCellAttributes(['style' => FilamentTableSummaries::memberDisplayNameCellStyle()])
                     ->searchable()
                     ->sortable(),
                 Tables\Columns\TextColumn::make('member.member_number')
                     ->label(__('Member #'))
                     ->visibleFrom('md')
-                    ->placeholder(__('—')),
+                    ->placeholder(__('—'))
+                    ->wrap()
+                    ->extraHeaderAttributes(['style' => FilamentTableSummaries::memberNumberCellStyle()])
+                    ->extraCellAttributes(['style' => FilamentTableSummaries::memberNumberCellStyle()]),
                 Tables\Columns\TextColumn::make('loanTier.label')
                     ->label(__('Tier'))
                     ->visibleFrom('sm')

@@ -5,8 +5,8 @@ declare(strict_types=1);
 namespace App\Filament\Admin\Resources\MemberRequestResource\Pages;
 
 use App\Filament\Admin\Resources\MemberRequestResource;
-use App\Models\MemberRequest;
 use Filament\Resources\Pages\ListRecords;
+use App\Models\MemberRequest;
 use Illuminate\Database\Eloquent\Builder;
 
 class ListMemberRequests extends ListRecords

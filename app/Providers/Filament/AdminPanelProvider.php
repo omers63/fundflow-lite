@@ -3,10 +3,10 @@
 namespace App\Providers\Filament;
 
 use App\Filament\Admin\Pages\AdminProfilePage;
+use App\Filament\Admin\Pages\Auth\AdminLogin;
 use App\Filament\Admin\Pages\Dashboard;
 use App\Filament\Admin\Pages\PostedFundsPage;
 use App\Filament\Admin\Pages\ReconciliationPage;
-use App\Filament\Admin\Pages\Auth\AdminLogin;
 use App\Filament\Admin\Pages\SystemMaintenancePage;
 use App\Filament\Admin\Pages\SystemSettingsPage;
 use App\Filament\Admin\Widgets\AdminStatsOverview;
@@ -23,6 +23,7 @@ use Filament\Support\Colors\Color;
 use Filament\Support\Enums\Width;
 use Filament\View\PanelsRenderHook;
 use Filament\Widgets\AccountWidget;
+use Illuminate\Contracts\View\View;
 use Illuminate\Cookie\Middleware\AddQueuedCookiesToResponse;
 use Illuminate\Cookie\Middleware\EncryptCookies;
 use Illuminate\Foundation\Http\Middleware\PreventRequestForgery;
@@ -46,17 +47,17 @@ class AdminPanelProvider extends PanelProvider
             ->login(AdminLogin::class)
             ->renderHook(
                 PanelsRenderHook::AUTH_LOGIN_FORM_BEFORE,
-                fn(): \Illuminate\Contracts\View\View => view('filament.admin.auth.login-security-banner'),
+                fn(): View => view('filament.admin.auth.login-security-banner'),
                 scopes: AdminLogin::class,
             )
             ->renderHook(
                 PanelsRenderHook::AUTH_LOGIN_FORM_AFTER,
-                fn(): \Illuminate\Contracts\View\View => view('filament.admin.auth.login-public-links'),
+                fn(): View => view('filament.admin.auth.login-public-links'),
                 scopes: AdminLogin::class,
             )
             ->renderHook(
                 PanelsRenderHook::STYLES_AFTER,
-                fn(): \Illuminate\Contracts\View\View => view('filament.admin.auth.login-security-styles'),
+                fn(): View => view('filament.admin.auth.login-security-styles'),
                 scopes: AdminLogin::class,
             )
             ->sidebarCollapsibleOnDesktop()

@@ -3,6 +3,7 @@
 namespace App\Services;
 
 use App\Models\Account;
+use App\Models\Contribution;
 use App\Models\Loan;
 use App\Models\LoanInstallment;
 use App\Models\Member;
@@ -19,8 +20,7 @@ class LoanRepaymentService
     public function __construct(
         protected AccountingService $accounting,
         protected LateFeeService $lateFees,
-    ) {
-    }
+    ) {}
 
     // =========================================================================
     // Deadline helpers (mirrors ContributionCycleService)
@@ -58,7 +58,7 @@ class LoanRepaymentService
             ->each(function (Loan $loan) use ($month, $year, $deadline, &$notified) {
                 // Find the installment due in this period
                 $installment = $this->installmentForPeriod($loan, $month, $year);
-                if (!$installment || $installment->isPaid()) {
+                if (! $installment || $installment->isPaid()) {
                     return;
                 }
 
@@ -116,7 +116,19 @@ class LoanRepaymentService
     {
         $installment = $this->installmentForPeriod($loan, $month, $year);
 
-        if (!$installment || $installment->isPaid()) {
+        if (! $installment || $installment->isPaid()) {
+            $results['skipped'][] = $loan;
+
+            return 'skipped';
+        }
+
+        if (Contribution::activePeriodExists((int) $loan->member_id, $month, $year)) {
+            logger()->warning('LoanRepaymentService: skipping scheduled repayment — contribution row exists for same cycle', [
+                'loan_id' => $loan->id,
+                'member_id' => $loan->member_id,
+                'month' => $month,
+                'year' => $year,
+            ]);
             $results['skipped'][] = $loan;
 
             return 'skipped';
@@ -133,7 +145,7 @@ class LoanRepaymentService
             ->where('member_id', $member->id)
             ->first();
 
-        if (!$cashAccount || (float) $cashAccount->balance < $required) {
+        if (! $cashAccount || (float) $cashAccount->balance < $required) {
             $results['insufficient'][] = [
                 'loan' => $loan,
                 'balance' => (float) ($cashAccount?->balance ?? 0),
@@ -200,12 +212,12 @@ class LoanRepaymentService
     ): string {
         $installment->loadMissing('loan.member.user');
         $loan = $installment->loan;
-        if (!$loan instanceof Loan || $installment->isPaid()) {
+        if (! $loan instanceof Loan || $installment->isPaid()) {
             return 'skipped';
         }
 
         $member = $loan->member;
-        if (!$member instanceof Member) {
+        if (! $member instanceof Member) {
             return 'skipped';
         }
 
@@ -213,7 +225,7 @@ class LoanRepaymentService
             ->where('member_id', $member->id)
             ->first();
         $required = (float) $installment->amount + max(0.0, $lateFee);
-        if (!$cashAccount || (float) $cashAccount->balance + 0.00001 < $required) {
+        if (! $cashAccount || (float) $cashAccount->balance + 0.00001 < $required) {
             return 'insufficient';
         }
 
@@ -253,7 +265,7 @@ class LoanRepaymentService
         [$month, $year] = app(ContributionCycleService::class)->currentOpenPeriod();
         $installment = $this->installmentForPeriod($loan, $month, $year);
 
-        return $installment !== null && !$installment->isPaid();
+        return $installment !== null && ! $installment->isPaid();
     }
 
     public function hasInsufficientCashForOpenPeriodRepayment(Member $member): bool
@@ -305,7 +317,7 @@ class LoanRepaymentService
             ])
             : __('Fund postings match the repayment run.');
 
-        return $base . ' ' . $note;
+        return $base.' '.$note;
     }
 
     /**
@@ -363,7 +375,7 @@ class LoanRepaymentService
             ->orderByDesc('month')
             ->limit($limit)
             ->get()
-            ->map(fn($r) => [
+            ->map(fn ($r) => [
                 'period_label' => $this->periodLabel((int) $r->month, (int) $r->year),
                 'month' => (int) $r->month,
                 'year' => (int) $r->year,

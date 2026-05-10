@@ -3,8 +3,8 @@
 namespace App\Filament\Admin\Resources\BankImportTemplateResource\Pages;
 
 use App\Filament\Admin\Resources\BankImportTemplateResource;
-use Filament\Actions\CreateAction;
 use Filament\Resources\Pages\ListRecords;
+use Filament\Actions\CreateAction;
 
 class ListBankImportTemplates extends ListRecords
 {

@@ -15,9 +15,9 @@ use App\Models\Contribution;
 use App\Models\DirectMessage;
 use App\Models\Member;
 use App\Models\MembershipApplication;
-use App\Notifications\AdminBroadcastNotification;
 use App\Models\MemberSubscriptionFee;
 use App\Models\Setting;
+use App\Notifications\AdminBroadcastNotification;
 use App\Services\AccountingService;
 use App\Services\ContributionCycleService;
 use App\Services\LoanEligibilityService;
@@ -312,7 +312,7 @@ class MemberResource extends Resource
                     }),
                 Tables\Columns\TextColumn::make('user.phone')
                     ->label(__('Phone'))
-                    ->formatStateUsing(fn(?string $state): \Illuminate\Support\HtmlString => PhoneDisplay::toHtml($state))
+                    ->formatStateUsing(fn(?string $state): HtmlString => PhoneDisplay::toHtml($state))
                     ->searchable(),
                 Tables\Columns\TextColumn::make('user.email')
                     ->label(__('Email'))
@@ -336,7 +336,7 @@ class MemberResource extends Resource
                     ->label(__('Allocation Amount'))
                     ->money('SAR')
                     ->sortable()
-                    ->summarize(FilamentTableSummaries::countSumAverageMoney()),
+                    ->summarize(FilamentTableSummaries::sumMoney()),
                 Tables\Columns\TextColumn::make('parent.user.name')
                     ->label(__('Parent'))
                     ->placeholder(__('—')),
@@ -505,7 +505,7 @@ class MemberResource extends Resource
                                     ->title(__('Could not apply contribution'))
                                     ->body(match ($outcome) {
                                         'already_contributed' => Contribution::duplicateCycleMessage($month, $year),
-                                        'exempt' => __('This member is exempt from contributions while they have an approved or active loan.'),
+                                        'exempt' => __('Contributions cannot be applied while this member has pending loan repayments; funds stay on cash until installments are paid.'),
                                         'skipped' => __('This contribution could not be applied.'),
                                         default => __('Status: :status', ['status' => $outcome]),
                                     })

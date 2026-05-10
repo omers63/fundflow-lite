@@ -870,6 +870,27 @@ class AccountingService
     }
 
     /**
+     * How much of a principal repayment should increase {@see Loan::$repaid_to_master} before this payment.
+     * Uses a waterfall toward {@see Loan::$master_portion}: once the master slice is fully repaid,
+     * further principal does not bump repaid_to_master (fund/loan postings still retire full principal).
+     */
+    public static function principalAmountCreditingMasterRepaidSlice(
+        float $masterPortion,
+        float $repaidToMasterBefore,
+        float $principalAmount,
+    ): float {
+        if ($principalAmount <= 0.00001) {
+            return 0.0;
+        }
+
+        $masterSlice = max(0.0, round($masterPortion, 2));
+        $already = max(0.0, round($repaidToMasterBefore, 2));
+        $remainingMaster = round(max(0.0, $masterSlice - $already), 2);
+
+        return min(round($principalAmount, 2), $remainingMaster);
+    }
+
+    /**
      * Apply cumulative repayments already collected before go-live (import), matching {@see postLoanRepayment}
      * ledger pattern without touching individual installment rows (those are created separately as paid).
      */
@@ -898,14 +919,27 @@ class AccountingService
         $description = "Loan #{$loan->id} repayments (import, bulk) – {$member->user->name}";
 
         DB::transaction(function () use ($loan, $member, $masterFund, $memberFund, $loanAccount, $description, $totalRepaid) {
+            $locked = Loan::query()->whereKey($loan->getKey())->lockForUpdate()->firstOrFail();
+
+            $repaidSlice = self::principalAmountCreditingMasterRepaidSlice(
+                (float) $locked->master_portion,
+                (float) $locked->repaid_to_master,
+                $totalRepaid,
+            );
+
             $this->postEntry($masterFund, $totalRepaid, 'credit', $description, $loan, $member->id);
             $this->postEntry($memberFund, $totalRepaid, 'credit', $description, $loan, $member->id);
             $this->postEntry($loanAccount, $totalRepaid, 'credit', $description, $loan, $member->id);
 
-            $loan->increment('repaid_to_master', $totalRepaid);
-            $loan->refresh();
-            $loan->releaseGuarantorIfDue();
+            if ($repaidSlice > 0.00001) {
+                $locked->increment('repaid_to_master', $repaidSlice);
+            }
+
+            $locked->refresh();
+            $locked->releaseGuarantorIfDue();
         });
+
+        $loan->refresh();
     }
 
     /**
@@ -942,10 +976,20 @@ class AccountingService
 
         $at = $transactedAt ?? now();
 
+        $repaidSlice = self::principalAmountCreditingMasterRepaidSlice(
+            (float) $loan->master_portion,
+            (float) $loan->repaid_to_master,
+            $amount,
+        );
+
         $this->postEntry($masterFund, $amount, 'credit', $description, $source, $memberId, $at);
         $this->postEntry($memberFund, $amount, 'credit', $description, $source, $memberId, $at);
         $this->postEntry($loanAccount, $amount, 'credit', $description, $source, $memberId, $at);
-        $loan->increment('repaid_to_master', $amount);
+
+        if ($repaidSlice > 0.00001) {
+            $loan->increment('repaid_to_master', $repaidSlice);
+        }
+
         $loan->refresh();
         $loan->releaseGuarantorIfDue();
     }
@@ -971,6 +1015,70 @@ class AccountingService
             if ($installment->is_late && $lateFee > 0.00001) {
                 $lateDesc = "Loan repayment late fee – #{$loan->id} inst. {$installment->installment_number} – {$member->user->name}";
                 $this->postLateFeeCreditToMasterCash($lateFee, $lateDesc, $installment, $member->id);
+            }
+        });
+    }
+
+    /**
+     * Selectively reflect a manually-marked installment payment into ledgers (master fund,
+     * member fund, loan liability account). Used by admin "Mark Paid" when toggles vary.
+     */
+    public function postLoanRepaymentSelective(
+        LoanInstallment $installment,
+        bool $reflectMasterFund,
+        bool $reflectMemberFund,
+        bool $reflectLoanAccount = true,
+        ?CarbonInterface $transactedAt = null,
+    ): void {
+        if (!$reflectMasterFund && !$reflectMemberFund && !$reflectLoanAccount) {
+            return;
+        }
+
+        $loan = $installment->loan;
+        $member = $loan->member;
+        $this->ensureMemberAccounts($member);
+
+        $masterFund = Account::masterFund();
+        $memberFund = Account::where('type', Account::TYPE_MEMBER_FUND)
+            ->where('member_id', $member->id)
+            ->firstOrFail();
+
+        $loanAccount = Account::where('type', Account::TYPE_LOAN)
+            ->where('loan_id', $loan->id)
+            ->first();
+        if (!$loanAccount) {
+            $loanAccount = $this->ensureLoanAccount($loan);
+        }
+
+        $at = $transactedAt ?? now();
+        $amount = (float) $installment->amount;
+        $description = "Loan #{$loan->id} repayment (installment #{$installment->installment_number}) – {$member->user->name}";
+
+        DB::transaction(function () use ($loan, $installment, $member, $masterFund, $memberFund, $loanAccount, $reflectMasterFund, $reflectMemberFund, $reflectLoanAccount, $at, $amount, $description): void {
+            if ($reflectMasterFund) {
+                $this->postEntry($masterFund, $amount, 'credit', $description, $installment, $member->id, $at);
+
+                $repaidSlice = self::principalAmountCreditingMasterRepaidSlice(
+                    (float) $loan->master_portion,
+                    (float) $loan->repaid_to_master,
+                    $amount,
+                );
+                if ($repaidSlice > 0.00001) {
+                    $loan->increment('repaid_to_master', $repaidSlice);
+                }
+            }
+
+            if ($reflectMemberFund) {
+                $this->postEntry($memberFund, $amount, 'credit', $description, $installment, $member->id, $at);
+            }
+
+            if ($reflectLoanAccount) {
+                $this->postEntry($loanAccount, $amount, 'credit', $description, $installment, $member->id, $at);
+            }
+
+            if ($reflectMasterFund) {
+                $loan->refresh();
+                $loan->releaseGuarantorIfDue();
             }
         });
     }

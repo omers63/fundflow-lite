@@ -5,7 +5,9 @@ namespace App\Filament\Admin\Pages;
 use App\Filament\Admin\Resources\ContributionResource;
 use App\Models\Contribution;
 use App\Models\Member;
+use App\Support\FilamentTableSummaries;
 use App\Services\ContributionCycleService;
+use Carbon\Carbon;
 use Filament\Actions\Action;
 use Filament\Actions\ActionGroup;
 use Filament\Forms;
@@ -15,7 +17,6 @@ use Filament\Tables\Columns\TextColumn;
 use Filament\Tables\Concerns\InteractsWithTable;
 use Filament\Tables\Contracts\HasTable;
 use Filament\Tables\Table;
-use Carbon\Carbon;
 use Illuminate\Database\Eloquent\Builder;
 
 class ContributionCyclePage extends Page implements HasTable
@@ -108,7 +109,7 @@ class ContributionCyclePage extends Page implements HasTable
                         'skipped' => $skipped,
                     ]);
                     if ($isLate) {
-                        $body .= ' — '.__('⚠️ Contributions marked as LATE (past deadline).');
+                        $body .= ' — ' . __('⚠️ Contributions marked as LATE (past deadline).');
                     }
 
                     Notification::make()
@@ -141,7 +142,7 @@ class ContributionCyclePage extends Page implements HasTable
 
         return $table
             ->query(
-                fn (): Builder => Member::query()
+                fn(): Builder => Member::query()
                     ->where('status', 'active')
                     ->with(['user', 'accounts'])
                     ->whereNotIn('id', $applied)
@@ -152,20 +153,30 @@ class ContributionCyclePage extends Page implements HasTable
             ->emptyStateDescription(__('No pending contributions for :period', ['period' => $this->periodLbl($month, $year)]))
             ->emptyStateIcon('heroicon-o-check-circle')
             ->columns([
-                TextColumn::make('member_number')->label(__('Member #'))->sortable(),
-                TextColumn::make('user.name')->label(__('Name'))->searchable(),
+                TextColumn::make('member_number')
+                    ->label(__('Member #'))
+                    ->wrap()
+                    ->extraHeaderAttributes(['style' => FilamentTableSummaries::memberNumberCellStyle()])
+                    ->extraCellAttributes(['style' => FilamentTableSummaries::memberNumberCellStyle()])
+                    ->sortable(),
+                TextColumn::make('user.name')
+                    ->label(__('Name'))
+                    ->wrap()
+                    ->extraHeaderAttributes(['style' => FilamentTableSummaries::memberDisplayNameCellStyle()])
+                    ->extraCellAttributes(['style' => FilamentTableSummaries::memberDisplayNameCellStyle()])
+                    ->searchable(),
                 TextColumn::make('monthly_contribution_amount')
                     ->label(__('Required (SAR)'))
                     ->money('SAR'),
                 TextColumn::make('cash_balance')
                     ->label(__('Cash Balance'))
                     ->money('SAR')
-                    ->getStateUsing(fn (Member $r) => $r->cash_balance)
-                    ->color(fn (Member $r) => $r->cash_balance >= $r->monthly_contribution_amount ? 'success' : 'danger'),
+                    ->getStateUsing(fn(Member $r) => $r->cash_balance)
+                    ->color(fn(Member $r) => $r->cash_balance >= $r->monthly_contribution_amount ? 'success' : 'danger'),
                 TextColumn::make('shortfall')
                     ->label(__('Shortfall'))
                     ->money('SAR')
-                    ->getStateUsing(fn (Member $r) => max(0, $r->monthly_contribution_amount - $r->cash_balance))
+                    ->getStateUsing(fn(Member $r) => max(0, $r->monthly_contribution_amount - $r->cash_balance))
                     ->color('danger'),
                 TextColumn::make('parent.user.name')->label(__('Parent'))->placeholder('—'),
             ])
@@ -176,9 +187,9 @@ class ContributionCyclePage extends Page implements HasTable
                         ->icon('heroicon-o-check')
                         ->color('success')
                         ->requiresConfirmation()
-                        ->modalHeading(fn (Member $r) => __('Apply Contribution for :name?', ['name' => $r->user->name]))
+                        ->modalHeading(fn(Member $r) => __('Apply Contribution for :name?', ['name' => $r->user->name]))
                         ->modalDescription(
-                            fn (Member $r) => __('This will debit SAR :required from their cash account (balance: SAR :balance).', [
+                            fn(Member $r) => __('This will debit SAR :required from their cash account (balance: SAR :balance).', [
                                 'required' => number_format($r->monthly_contribution_amount),
                                 'balance' => number_format($r->cash_balance, 2),
                             ])
@@ -211,7 +222,7 @@ class ContributionCyclePage extends Page implements HasTable
                             } elseif ($outcome === 'exempt') {
                                 Notification::make()
                                     ->title(__('Member exempt'))
-                                    ->body(__('This member is exempt from contributions while they have an approved or active loan.'))
+                                    ->body(__('Contributions cannot be applied while this member has pending loan repayments; funds remain in their cash account until installments are paid.'))
                                     ->warning()
                                     ->send();
                             } else {
@@ -233,7 +244,7 @@ class ContributionCyclePage extends Page implements HasTable
     {
         return $table
             ->query(
-                fn (): Builder => Member::query()
+                fn(): Builder => Member::query()
                     ->join('contributions', function ($join) use ($month, $year) {
                         $join->on('contributions.member_id', '=', 'members.id')
                             ->where('contributions.month', $month)
@@ -249,22 +260,32 @@ class ContributionCyclePage extends Page implements HasTable
             ->emptyStateDescription(__('No members have contributed for :period yet.', ['period' => $this->periodLbl($month, $year)]))
             ->emptyStateIcon('heroicon-o-banknotes')
             ->columns([
-                TextColumn::make('member_number')->label(__('Member #'))->sortable(),
-                TextColumn::make('user.name')->label(__('Name'))->searchable(),
+                TextColumn::make('member_number')
+                    ->label(__('Member #'))
+                    ->wrap()
+                    ->extraHeaderAttributes(['style' => FilamentTableSummaries::memberNumberCellStyle()])
+                    ->extraCellAttributes(['style' => FilamentTableSummaries::memberNumberCellStyle()])
+                    ->sortable(),
+                TextColumn::make('user.name')
+                    ->label(__('Name'))
+                    ->wrap()
+                    ->extraHeaderAttributes(['style' => FilamentTableSummaries::memberDisplayNameCellStyle()])
+                    ->extraCellAttributes(['style' => FilamentTableSummaries::memberDisplayNameCellStyle()])
+                    ->searchable(),
                 TextColumn::make('contribution_amount')
                     ->label(__('Amount (SAR)'))
                     ->money('SAR'),
                 TextColumn::make('contribution_is_late')
                     ->label(__('On Time?'))
                     ->badge()
-                    ->getStateUsing(fn (Member $r) => $r->contribution_is_late ? __('Late') : __('On Time'))
-                    ->color(fn (string $state) => $state === __('Late') ? 'warning' : 'success'),
+                    ->getStateUsing(fn(Member $r) => $r->contribution_is_late ? __('Late') : __('On Time'))
+                    ->color(fn(string $state) => $state === __('Late') ? 'warning' : 'success'),
                 TextColumn::make('contribution_date')
                     ->label(__('Recorded At'))
                     ->formatStateUsing(
-                        fn ($state): string => $state
-                            ? Carbon::parse($state)->locale(app()->getLocale())->translatedFormat('d M Y, H:i')
-                            : __('—')
+                        fn($state): string => $state
+                        ? Carbon::parse($state)->locale(app()->getLocale())->translatedFormat('d M Y, H:i')
+                        : __('—')
                     )
                     ->sortable(),
             ]);
@@ -282,7 +303,7 @@ class ContributionCyclePage extends Page implements HasTable
                 ->options(array_combine(
                     range(1, 12),
                     array_map(
-                        fn ($m) => Carbon::create(null, $m, 1)->locale(app()->getLocale())->translatedFormat('F'),
+                        fn($m) => Carbon::create(null, $m, 1)->locale(app()->getLocale())->translatedFormat('F'),
                         range(1, 12)
                     )
                 ))

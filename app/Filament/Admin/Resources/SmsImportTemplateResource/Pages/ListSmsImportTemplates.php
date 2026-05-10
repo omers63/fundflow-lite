@@ -3,8 +3,8 @@
 namespace App\Filament\Admin\Resources\SmsImportTemplateResource\Pages;
 
 use App\Filament\Admin\Resources\SmsImportTemplateResource;
-use Filament\Actions\CreateAction;
 use Filament\Resources\Pages\ListRecords;
+use Filament\Actions\CreateAction;
 
 class ListSmsImportTemplates extends ListRecords
 {

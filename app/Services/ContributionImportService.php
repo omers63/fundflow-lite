@@ -2,13 +2,16 @@
 
 namespace App\Services;
 
+use App\Models\Account;
 use App\Models\Contribution;
+use App\Models\FundTier;
 use App\Models\ImportIdempotencyLedger;
 use App\Models\Loan;
 use App\Models\LoanInstallment;
 use App\Models\LoanTier;
 use App\Models\Member;
 use App\Models\Setting;
+use App\Services\LoanQueueOrderingService;
 use Carbon\Carbon;
 use Illuminate\Database\QueryException;
 use Illuminate\Support\Facades\DB;
@@ -152,6 +155,10 @@ class ContributionImportService
             );
         }
 
+        if (Contribution::hasPaidScheduledLoanInstallmentOnActiveLoan((int) $member->id, $month, $year)) {
+            throw new \InvalidArgumentException(Contribution::scheduledRepaymentPrecludesContributionMessage($month, $year));
+        }
+
         $paidAt = $this->parsePaidAt($this->cell($row, 'paid_at'));
 
         $isLate = $this->parseIsLate($this->cell($row, 'is_late'));
@@ -230,17 +237,38 @@ class ContributionImportService
 
             $threshold = Setting::loanSettlementThreshold();
             $loanTier = LoanTier::forAmount($principal);
-            $minInstall = (float) ($loanTier?->min_monthly_installment ?? 1000);
-            $fundBal = (float) ($member->fundAccount()?->balance ?? 0);
-            $memberPortionStored = round(min(max(0.0, $fundBal), $principal), 2);
-            $masterPortionStored = round($principal - $memberPortionStored, 2);
-            $installmentsCount = Loan::computeInstallmentsCount($principal, $fundBal, $minInstall, $threshold);
+            if ($loanTier === null) {
+                throw new \InvalidArgumentException(
+                    'No active loan tier covers this disbursement amount; configure loan tiers or use the dedicated loan import with loan_tier_number.'
+                );
+            }
+            $fundTier = FundTier::query()
+                ->where('loan_tier_id', $loanTier->id)
+                ->where('is_active', true)
+                ->first();
+            if ($fundTier === null) {
+                throw new \InvalidArgumentException(
+                    'No active fund tier is linked to the loan tier for this amount; link fund tiers to loan tiers in settings or use the loan CSV with fund_tier_number.'
+                );
+            }
+            $minInstall = (float) ($loanTier->min_monthly_installment ?? 1000);
+            if (Setting::importLoanBlankPortionsUseFiftyFiftySplit()) {
+                $memberPortionStored = round($principal / 2, 2);
+                $masterPortionStored = round($principal - $memberPortionStored, 2);
+                $installmentsCount = Loan::computeInstallmentsCountFromPortions($principal, $memberPortionStored, $minInstall, $threshold);
+            } else {
+                $fundBal = (float) ($member->fundAccount()?->balance ?? 0);
+                $memberPortionStored = round(min(max(0.0, $fundBal), $principal), 2);
+                $masterPortionStored = round($principal - $memberPortionStored, 2);
+                $installmentsCount = Loan::computeInstallmentsCount($principal, $fundBal, $minInstall, $threshold);
+            }
             $exemption = Loan::computeExemptionAndFirstRepayment($paidAt, true);
+            $exemption = Loan::finalizeExemptionForDisbursement($member, $exemption, $paidAt);
 
             $loan = Loan::create([
                 'member_id' => $member->id,
-                'loan_tier_id' => $loanTier?->id,
-                'fund_tier_id' => null,
+                'loan_tier_id' => $loanTier->id,
+                'fund_tier_id' => $fundTier->id,
                 'queue_position' => null,
                 'amount_requested' => $principal,
                 'amount_approved' => $principal,
@@ -255,6 +283,7 @@ class ContributionImportService
                 'settlement_threshold' => $threshold,
                 'guarantor_member_id' => $guarantor?->id,
                 'has_grace_cycle' => true,
+                'is_emergency' => false,
                 'member_portion' => $memberPortionStored,
                 'master_portion' => $masterPortionStored,
             ] + $exemption);
@@ -286,6 +315,7 @@ class ContributionImportService
                 ]);
             }
 
+            LoanQueueOrderingService::resequenceFundTier($fundTier->id);
             $memberLoanState[(int) $member->id] = $loan->fresh();
 
             return 'created';
@@ -296,8 +326,8 @@ class ContributionImportService
         if ($loan instanceof Loan) {
             $repaymentAmount = round($amount, 2);
 
-            DB::transaction(function () use ($member, $loan, $repaymentAmount, $paidAt, $checkNumber): void {
-                $this->applyMixedImportLoanRepayment($member, $loan, $repaymentAmount, $paidAt, $checkNumber);
+            DB::transaction(function () use ($member, $loan, $repaymentAmount, $paidAt, $checkNumber, $month, $year): void {
+                $this->applyMixedImportLoanRepayment($member, $loan, $repaymentAmount, $paidAt, $checkNumber, $month, $year);
             });
 
             $loan->refresh();
@@ -316,6 +346,10 @@ class ContributionImportService
 
         if (Contribution::activePeriodExists((int) $member->id, $month, $year)) {
             throw new \InvalidArgumentException(Contribution::duplicateCycleMessage($month, $year));
+        }
+
+        if (Contribution::hasPaidScheduledLoanInstallmentOnActiveLoan((int) $member->id, $month, $year)) {
+            throw new \InvalidArgumentException(Contribution::scheduledRepaymentPrecludesContributionMessage($month, $year));
         }
 
         Contribution::create([
@@ -360,16 +394,12 @@ class ContributionImportService
     }
 
     /**
-     * Record the payment on the import path (master cash → member cash), then apply principal to
-     * pending installments in due order.
-     *
-     * When {@see Setting::mixedImportAllowPartialInstallmentRepayment()} is true, payments smaller than a
-     * scheduled installment reduce the installment’s remaining amount until it clears.
-     * When false, only full installments are paid; any amount short of the next full installment stays
-     * credited to member cash only (no installment row change).
-     *
-     * Principal fund postings use {@see AccountingService::postLoanPrincipalRepayment}; completed
-     * installments are marked paid without firing the observer to avoid double-posting.
+     * Simplified mixed CSV — loan repayment rows: mirror {@see importRowWithAutoAllocation} repayment logic.
+     * Credits the full row amount once, applies **full** installments (principal + late fee at paid_at) to
+     * oldest unpaid cycles **strictly before** the CSV month/year, then to the installment due in that
+     * month/year. Residual stays on member cash. Uses {@see LoanRepaymentService::applyImportedInstallmentPayment}
+     * so ledger postings and late handling match scheduled imports (the legacy partial installment setting
+     * does not apply here).
      */
     private function applyMixedImportLoanRepayment(
         Member $member,
@@ -377,114 +407,84 @@ class ContributionImportService
         float $repaymentAmount,
         Carbon $paidAt,
         string $checkNumber,
+        int $cycleMonth,
+        int $cycleYear,
     ): void {
         if ($repaymentAmount <= 0.00001) {
             return;
         }
 
-        $loan->loadMissing('loanTier', 'member.user');
-        $scheduledInstallmentAmount = (float) ($loan->loanTier?->min_monthly_installment ?? 0);
-        $allowPartial = Setting::mixedImportAllowPartialInstallmentRepayment();
-
-        $accounting = app(AccountingService::class);
         $ref = trim($checkNumber);
         $desc = $ref === ''
             ? "Mixed import repayment – loan #{$loan->id}"
             : "Mixed import repayment – loan #{$loan->id} (check# {$ref})";
 
-        $accounting->creditMemberCashFromImportReceipt($member, $repaymentAmount, $desc, $paidAt);
+        app(AccountingService::class)->creditMemberCashFromImportReceipt($member, $repaymentAmount, $desc, $paidAt);
 
-        $remaining = round($repaymentAmount, 2);
-        $installments = $loan->installments()
-            ->whereIn('status', ['pending', 'overdue'])
-            ->orderBy('due_date')
-            ->orderBy('installment_number')
-            ->get();
+        $loanRepaymentService = app(LoanRepaymentService::class);
+        $lateFeeService = app(LateFeeService::class);
+        $usedForRepayments = 0.0;
+        $rowCycleKey = $cycleYear * 12 + $cycleMonth;
 
-        foreach ($installments as $installment) {
-            $need = round((float) $installment->amount, 2);
-            if ($need < 0.01) {
-                continue;
-            }
-
-            if (!$allowPartial && $remaining + 0.00001 < $need) {
+        while (Loan::active()->where('member_id', $member->id)->exists()) {
+            $freshLoan = Loan::active()->where('member_id', $member->id)->first();
+            if (!$freshLoan instanceof Loan) {
                 break;
             }
 
-            $take = $allowPartial
-                ? round(min($remaining, $need), 2)
-                : $need;
-
-            if ($take < 0.01) {
-                break;
-            }
-
-            $principalDesc = 'Loan #' . $loan->id . ' mixed import repayment (installment #' . $installment->installment_number . ') – ' . ($member->user->name ?? '');
-
-            $accounting->debitMemberCashForLoanRepaymentAmount(
-                $member,
-                $take,
-                $principalDesc . ' (cash)',
-                $installment,
-                $paidAt,
-            );
-            $accounting->postLoanPrincipalRepayment(
-                $loan,
-                $take,
-                $principalDesc,
-                $installment,
-                $member->id,
-                $paidAt,
-            );
-            $loan->refresh();
-
-            $remaining = round($remaining - $take, 2);
-
-            if ($allowPartial) {
-                $newNeed = round($need - $take, 2);
-
-                if ($newNeed < 0.01) {
-                    $displayAmount = $scheduledInstallmentAmount > 0.00001
-                        ? round($scheduledInstallmentAmount, 2)
-                        : round($need, 2);
-                    LoanInstallment::withoutEvents(function () use ($installment, $paidAt, $displayAmount): void {
-                        $installment->update([
-                            'status' => 'paid',
-                            'paid_at' => $paidAt,
-                            'is_late' => false,
-                            'late_fee_amount' => null,
-                            'amount' => $displayAmount,
-                        ]);
-                    });
-                } else {
-                    $installment->update(['amount' => $newNeed]);
-                }
-            } else {
-                $displayAmount = $scheduledInstallmentAmount > 0.00001
-                    ? round($scheduledInstallmentAmount, 2)
-                    : round($need, 2);
-                LoanInstallment::withoutEvents(function () use ($installment, $paidAt, $displayAmount): void {
-                    $installment->update([
-                        'status' => 'paid',
-                        'paid_at' => $paidAt,
-                        'is_late' => false,
-                        'late_fee_amount' => null,
-                        'amount' => $displayAmount,
-                    ]);
+            $nextOlder = $freshLoan->installments()
+                ->whereIn('status', ['pending', 'overdue'])
+                ->orderBy('due_date')
+                ->orderBy('installment_number')
+                ->get()
+                ->first(function (LoanInstallment $inst) use ($rowCycleKey): bool {
+                    return self::loanInstallmentCycleKeyFromDueDate($inst->due_date) < $rowCycleKey;
                 });
+
+            if ($nextOlder === null) {
+                break;
             }
 
-            if ($remaining < 0.01) {
+            if (
+                !$this->attemptAutoImportFullInstallmentRepayment(
+                    $member,
+                    $nextOlder,
+                    $paidAt,
+                    $loanRepaymentService,
+                    $lateFeeService,
+                    $usedForRepayments,
+                )
+            ) {
                 break;
+            }
+        }
+
+        $loanForCurrent = Loan::active()->where('member_id', $member->id)->first();
+        if ($loanForCurrent instanceof Loan) {
+            $current = $loanRepaymentService->installmentForPeriod($loanForCurrent, $cycleMonth, $cycleYear);
+            if ($current instanceof LoanInstallment && !$current->isPaid()) {
+                $freshCurrent = LoanInstallment::query()->whereKey($current->getKey())->first();
+                if ($freshCurrent !== null && !$freshCurrent->isPaid()) {
+                    $this->attemptAutoImportFullInstallmentRepayment(
+                        $member,
+                        $freshCurrent,
+                        $paidAt,
+                        $loanRepaymentService,
+                        $lateFeeService,
+                        $usedForRepayments,
+                    );
+                }
             }
         }
     }
 
     /**
      * Auto-allocation mode (feature flag):
-     * 1) repayment due in target cycle (including late fee at paid_at)
-     * 2) contribution for target cycle
-     * 3) optional unapplied credit to member cash
+     * Credits the full CSV amount to member cash once, then allocates repayments oldest-unpaid-cycle first,
+     * then the CSV row cycle. Late fees use the repayment cycle deadline vs imported paid_at when funding is delayed.
+     * A contribution for the CSV period is recorded only when the member has **no pending loan installments**
+     * (nothing left to repay on the schedule), using the residual of this row after debits for repayments above.
+     * Any residual while repayments remain pending stays on member cash unless strict mode forbids leftovers.
      *
      * @param  array<string, string>  $row
      * @param  array{lineNumber:int, fileFingerprint:string}  $importMeta
@@ -510,7 +510,6 @@ class ContributionImportService
             'feature.auto_allocate_loan_repayment.idempotency_scope',
             'file_line_member_paid_at_total_paid'
         );
-        $remaining = round($totalPaid, 2);
         $didPost = false;
         $ledger = null;
 
@@ -528,90 +527,125 @@ class ContributionImportService
         }
 
         try {
-            DB::transaction(function () use ($row, $member, $month, $year, $paidAt, $totalPaid, $strictMode, $allowUnappliedCredit, &$remaining, &$didPost): void {
-                $loan = Loan::active()->where('member_id', $member->id)->first();
-                if ($loan !== null) {
-                    $loanRepaymentService = app(LoanRepaymentService::class);
-                    $lateFeeService = app(LateFeeService::class);
-                    $installment = $loanRepaymentService->installmentForPeriod($loan, $month, $year);
+            DB::transaction(function () use ($row, $member, $month, $year, $paidAt, $totalPaid, $strictMode, $allowUnappliedCredit, &$didPost): void {
+                app(AccountingService::class)->creditMemberCashFromImportReceipt(
+                    $member,
+                    $totalPaid,
+                    "Contribution/repayment import — {$month}/{$year}",
+                    $paidAt,
+                );
+                $didPost = true;
 
-                    if ($installment !== null && !$installment->isPaid()) {
-                        $deadline = $loanRepaymentService->deadline($month, $year);
-                        $days = $lateFeeService->daysPastDue($deadline, Carbon::instance($paidAt));
-                        $lateFee = $lateFeeService->repaymentLateFeeForDays($days);
-                        $repaymentDue = round((float) $installment->amount + $lateFee, 2);
+                $loanRepaymentService = app(LoanRepaymentService::class);
+                $lateFeeService = app(LateFeeService::class);
+                $usedForRepayments = 0.0;
+                $postedContributionFromRow = false;
 
-                        if ($repaymentDue > 0.00001) {
-                            if ($remaining + 0.00001 < $repaymentDue) {
-                                if ($strictMode) {
-                                    throw new \InvalidArgumentException(
-                                        "Insufficient payment to cover repayment due for {$month}/{$year}. Required: {$repaymentDue}, received: {$remaining}."
-                                    );
-                                }
-                            } else {
-                                app(AccountingService::class)->creditMemberCashFromImportReceipt(
-                                    $member,
-                                    $repaymentDue,
-                                    "Repayment import receipt — {$month}/{$year}",
-                                    $paidAt
-                                );
+                $rowCycleKey = $year * 12 + $month;
 
-                                $outcome = $loanRepaymentService->applyImportedInstallmentPayment($installment, $paidAt, $lateFee);
-                                if ($outcome !== 'applied') {
-                                    throw new \RuntimeException('Repayment posting could not be completed.');
-                                }
+                while (Loan::active()->where('member_id', $member->id)->exists()) {
+                    $freshLoan = Loan::active()->where('member_id', $member->id)->first();
+                    if (!$freshLoan instanceof Loan) {
+                        break;
+                    }
 
-                                $remaining = round($remaining - $repaymentDue, 2);
-                                $didPost = true;
-                            }
+                    $nextOlder = $freshLoan->installments()
+                        ->whereIn('status', ['pending', 'overdue'])
+                        ->orderBy('due_date')
+                        ->orderBy('installment_number')
+                        ->get()
+                        ->first(function (LoanInstallment $inst) use ($rowCycleKey): bool {
+                            return self::loanInstallmentCycleKeyFromDueDate($inst->due_date) < $rowCycleKey;
+                        });
+
+                    if ($nextOlder === null) {
+                        break;
+                    }
+
+                    if (
+                        !$this->attemptAutoImportFullInstallmentRepayment(
+                            $member,
+                            $nextOlder,
+                            $paidAt,
+                            $loanRepaymentService,
+                            $lateFeeService,
+                            $usedForRepayments,
+                        )
+                    ) {
+                        break;
+                    }
+                }
+
+                $loanForCurrent = Loan::active()->where('member_id', $member->id)->first();
+                if ($loanForCurrent instanceof Loan) {
+                    $current = $loanRepaymentService->installmentForPeriod($loanForCurrent, $month, $year);
+                    if ($current instanceof LoanInstallment && !$current->isPaid()) {
+                        $freshCurrent = LoanInstallment::query()->whereKey($current->getKey())->first();
+                        if ($freshCurrent !== null && !$freshCurrent->isPaid()) {
+                            $this->attemptAutoImportFullInstallmentRepayment(
+                                $member,
+                                $freshCurrent,
+                                $paidAt,
+                                $loanRepaymentService,
+                                $lateFeeService,
+                                $usedForRepayments,
+                            );
                         }
                     }
                 }
 
-                if ($remaining > 0.00001) {
-                    if (!Contribution::activePeriodExists((int) $member->id, $month, $year)) {
-                        $isLate = $this->parseIsLate($this->cell($row, 'is_late'));
-                        $lateFeeCell = $this->cell($row, 'late_fee_amount');
-                        $lateFeeAmount = null;
-                        if ($lateFeeCell !== '') {
-                            $lateFeeAmount = $this->parseAmount($lateFeeCell);
-                        } elseif ($isLate) {
-                            $fee = app(ContributionCycleService::class)->lateFeeForContributionPeriod($month, $year, $paidAt);
-                            $lateFeeAmount = $fee > 0 ? $fee : null;
-                        }
+                $rowRemainder = round($totalPaid - $usedForRepayments, 2);
 
-                        Contribution::create([
-                            'member_id' => $member->id,
-                            'month' => $month,
-                            'year' => $year,
-                            'amount' => $remaining,
-                            'paid_at' => $paidAt,
-                            'payment_method' => Contribution::PAYMENT_METHOD_IMPORT_CSV,
-                            'reference_number' => $this->nullableString($this->cell($row, 'reference_number')),
-                            'notes' => $this->appendAutoAllocationNote($this->nullableString($this->cell($row, 'notes')), $totalPaid),
-                            'is_late' => $isLate,
-                            'late_fee_amount' => $lateFeeAmount,
-                        ]);
-                        $didPost = true;
-                        $remaining = 0.0;
+                $canAttemptContributionForRowRemainder = $rowRemainder > 0.00001
+                    && !$member->isExemptFromContributions();
+
+                if ($canAttemptContributionForRowRemainder) {
+                    if (Contribution::activePeriodExists((int) $member->id, $month, $year)) {
+                        throw new \InvalidArgumentException(Contribution::duplicateCycleMessage($month, $year));
                     }
-                }
-
-                if ($remaining > 0.00001) {
-                    if (!$allowUnappliedCredit || $strictMode) {
+                    if (Contribution::hasPaidScheduledLoanInstallmentOnActiveLoan((int) $member->id, $month, $year)) {
                         throw new \InvalidArgumentException(
-                            "Unapplied amount {$remaining} remains for {$month}/{$year} and unapplied credits are disabled."
+                            Contribution::scheduledRepaymentPrecludesContributionMessage($month, $year)
                         );
                     }
 
-                    app(AccountingService::class)->creditMemberCashFromImportReceipt(
-                        $member,
-                        $remaining,
-                        "Unapplied import credit — {$month}/{$year}",
-                        $paidAt
+                    $isLate = $this->parseIsLate($this->cell($row, 'is_late'));
+                    $lateFeeCell = $this->cell($row, 'late_fee_amount');
+                    $lateFeeAmount = null;
+                    if ($lateFeeCell !== '') {
+                        $lateFeeAmount = $this->parseAmount($lateFeeCell);
+                    } elseif ($isLate) {
+                        $fee = app(ContributionCycleService::class)->lateFeeForContributionPeriod($month, $year, $paidAt);
+                        $lateFeeAmount = $fee > 0 ? $fee : null;
+                    }
+
+                    Contribution::create([
+                        'member_id' => $member->id,
+                        'month' => $month,
+                        'year' => $year,
+                        'amount' => $rowRemainder,
+                        'paid_at' => $paidAt,
+                        'payment_method' => Contribution::PAYMENT_METHOD_IMPORT_CSV,
+                        'reference_number' => $this->nullableString($this->cell($row, 'reference_number')),
+                        'notes' => $this->appendAutoAllocationNote($this->nullableString($this->cell($row, 'notes')), $totalPaid),
+                        'is_late' => $isLate,
+                        'late_fee_amount' => $lateFeeAmount,
+                    ]);
+                    $postedContributionFromRow = true;
+                }
+
+                $leftoverOnCashFromImportRow = round($totalPaid - $usedForRepayments, 2);
+                if ($postedContributionFromRow) {
+                    $leftoverOnCashFromImportRow = 0.0;
+                }
+
+                if ($leftoverOnCashFromImportRow > 0.00001 && ($strictMode || !$allowUnappliedCredit)) {
+                    throw new \InvalidArgumentException(
+                        'After repayments from this row, SAR ' . number_format($leftoverOnCashFromImportRow, 2)
+                        . ' remains on member cash because scheduled loan installments are still pending, '
+                        . 'the member cannot take a contribution, or cycles conflict. Relax strict_mode / '
+                        . 'allow_unapplied_credit or increase the payment.'
                     );
-                    $didPost = true;
-                    $remaining = 0.0;
                 }
             });
         } catch (Throwable $e) {
@@ -626,6 +660,82 @@ class ContributionImportService
         }
 
         return $didPost ? 'created' : 'skipped';
+    }
+
+    /** Calendar period key YYYY×12+MM from an installment due date. */
+    private static function loanInstallmentCycleKeyFromDueDate(\DateTimeInterface $due): int
+    {
+        $y = (int) $due->format('Y');
+        $m = (int) $due->format('n');
+
+        return $y * 12 + $m;
+    }
+
+    /**
+     * Post one full installment repayment (principal + late fee at paid_at) if member cash suffices.
+     * Caller must already have credited bank→member cash for the import row. Increments {@see $usedForRepaymentsTotal} by the cash debited on success.
+     */
+    private function attemptAutoImportFullInstallmentRepayment(
+        Member $member,
+        LoanInstallment $installment,
+        Carbon $paidAt,
+        LoanRepaymentService $loanRepSvc,
+        LateFeeService $lateFeeSvc,
+        float &$usedForRepaymentsTotal,
+    ): bool {
+        $installment->loadMissing('loan');
+        if ($installment->isPaid()) {
+            return false;
+        }
+
+        $loan = $installment->loan;
+        if (!$loan instanceof Loan || $loan->status !== 'active') {
+            return false;
+        }
+
+        $due = $installment->due_date;
+        $dm = (int) $due->month;
+        $dy = (int) $due->year;
+
+        if (Contribution::activePeriodExists((int) $member->id, $dm, $dy)) {
+            throw new \InvalidArgumentException(
+                Contribution::contributionExistsBlocksRepaymentMessage($dm, $dy)
+            );
+        }
+
+        $deadline = $loanRepSvc->deadline($dm, $dy);
+        $days = $lateFeeSvc->daysPastDue($deadline, Carbon::instance($paidAt));
+        $lateFee = $lateFeeSvc->repaymentLateFeeForDays($days);
+        $need = round((float) $installment->amount + $lateFee, 2);
+
+        if ($need <= 0.00001) {
+            return false;
+        }
+
+        $member->unsetRelation('accounts');
+        $cashAccount = Account::where('type', Account::TYPE_MEMBER_CASH)
+            ->where('member_id', $member->id)
+            ->first();
+
+        $cashBal = (float) ($cashAccount?->balance ?? 0);
+
+        if ($cashBal + 0.00001 < $need) {
+            return false;
+        }
+
+        $freshInst = LoanInstallment::query()->whereKey($installment->getKey())->first();
+        if ($freshInst === null || $freshInst->isPaid()) {
+            return false;
+        }
+
+        $outcome = $loanRepSvc->applyImportedInstallmentPayment($freshInst, $paidAt, $lateFee);
+        if ($outcome !== 'applied') {
+            return false;
+        }
+
+        $usedForRepaymentsTotal = round($usedForRepaymentsTotal + $need, 2);
+
+        return true;
     }
 
     /**
@@ -900,7 +1010,7 @@ class ContributionImportService
     private function appendAutoAllocationNote(?string $existing, float $totalPaid): string
     {
         $base = trim((string) ($existing ?? ''));
-        $suffix = "Auto-allocated from import total payment SAR " . number_format($totalPaid, 2);
+        $suffix = 'Auto-allocated from import total payment SAR ' . number_format($totalPaid, 2);
 
         return $base === '' ? $suffix : "{$base}\n{$suffix}";
     }

@@ -5,13 +5,14 @@ namespace App\Filament\Admin\Resources;
 use App\Filament\Admin\Resources\AccountResource\Pages;
 use App\Filament\Admin\Resources\AccountResource\RelationManagers\TransactionsRelationManager;
 use App\Models\Account;
-use App\Support\FilamentTableSummaries;
 use App\Models\Member;
+use App\Support\FilamentTableSummaries;
 use Filament\Actions\ActionGroup;
 use Filament\Actions\ViewAction;
 use Filament\Forms;
 use Filament\Resources\Resource;
 use Filament\Schemas\Schema;
+use Filament\Support\Enums\Alignment;
 use Filament\Support\Enums\FontWeight;
 use Filament\Tables;
 use Filament\Tables\Filters\TrashedFilter;
@@ -51,28 +52,48 @@ class AccountResource extends Resource
                     ->searchable()
                     ->sortable()
                     ->weight(FontWeight::SemiBold)
-                    ->toggleable(),
+                    ->toggleable()
+                    ->wrap()
+                    ->tooltip(fn(Account $r): string => $r->name ?? '')
+                    ->extraCellAttributes([
+                        'style' => 'max-width: 17rem; min-width: 8rem; word-break: break-word;',
+                    ]),
                 Tables\Columns\BadgeColumn::make('type')
                     ->label(__('Account Type'))
                     ->formatStateUsing(fn(Account $r) => $r->type_label)
                     ->color(fn(Account $r) => $r->type_color)
-                    ->toggleable(),
+                    ->toggleable()
+                    ->grow(false)
+                    ->width('9rem')
+                    ->extraHeaderAttributes(['style' => FilamentTableSummaries::narrowFixedCellStyle('9rem')])
+                    ->extraCellAttributes(['style' => FilamentTableSummaries::narrowFixedCellStyle('9rem')]),
                 Tables\Columns\TextColumn::make('member.user.name')
                     ->label(__('Member'))
                     ->placeholder(__('—'))
+                    ->wrap()
+                    ->extraHeaderAttributes(['style' => FilamentTableSummaries::memberDisplayNameCellStyle()])
+                    ->extraCellAttributes(['style' => FilamentTableSummaries::memberDisplayNameCellStyle()])
                     ->searchable()
                     ->sortable()
                     ->toggleable(),
                 Tables\Columns\TextColumn::make('member.member_number')
                     ->label(__('Member #'))
                     ->placeholder(__('—'))
+                    ->wrap()
+                    ->extraHeaderAttributes(['style' => FilamentTableSummaries::memberNumberCellStyle()])
+                    ->extraCellAttributes(['style' => FilamentTableSummaries::memberNumberCellStyle()])
                     ->searchable()
                     ->sortable()
                     ->toggleable(),
                 Tables\Columns\TextColumn::make('loan_id')
                     ->label(__('Loan #'))
                     ->placeholder(__('—'))
-                    ->toggleable(),
+                    ->toggleable()
+                    ->grow(false)
+                    ->width('4.75rem')
+                    ->alignment(Alignment::Center)
+                    ->extraHeaderAttributes(['style' => FilamentTableSummaries::narrowFixedCellStyle('4.75rem')])
+                    ->extraCellAttributes(['style' => FilamentTableSummaries::narrowFixedCellStyle('4.75rem')]),
                 Tables\Columns\TextColumn::make('balance')
                     ->label(__('Balance (SAR)'))
                     ->money('SAR')
@@ -80,11 +101,20 @@ class AccountResource extends Resource
                     ->color(fn(Account $r) => (float) $r->balance >= 0 ? 'success' : 'danger')
                     ->weight(FontWeight::Bold)
                     ->toggleable()
-                    ->summarize(FilamentTableSummaries::countSumAverageMoney()),
+                    ->grow(false)
+                    ->width('9rem')
+                    ->alignment(Alignment::End)
+                    ->extraHeaderAttributes(['style' => FilamentTableSummaries::narrowFixedCellStyle('9rem')])
+                    ->extraCellAttributes(['style' => FilamentTableSummaries::narrowFixedCellStyle('9rem')]),
                 Tables\Columns\IconColumn::make('is_active')
                     ->label(__('Active'))
                     ->boolean()
-                    ->toggleable(),
+                    ->toggleable()
+                    ->grow(false)
+                    ->width('3.75rem')
+                    ->alignment(Alignment::Center)
+                    ->extraHeaderAttributes(['style' => FilamentTableSummaries::narrowFixedCellStyle('3.75rem')])
+                    ->extraCellAttributes(['style' => FilamentTableSummaries::narrowFixedCellStyle('3.75rem')]),
             ])
             ->columnManager()
             ->defaultSort('type')

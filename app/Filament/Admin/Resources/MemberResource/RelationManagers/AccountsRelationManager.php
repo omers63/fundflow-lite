@@ -4,13 +4,16 @@ namespace App\Filament\Admin\Resources\MemberResource\RelationManagers;
 
 use App\Filament\Admin\Resources\AccountResource;
 use App\Filament\Admin\Resources\MemberResource\Concerns\InteractsWithMemberCycleHeaderActions;
+use App\Support\FilamentTableSummaries;
+use Filament\Resources\RelationManagers\RelationManager;
 use App\Models\Account;
 use Filament\Forms;
-use Filament\Resources\RelationManagers\RelationManager;
 use Filament\Schemas\Schema;
+use Filament\Support\Enums\Alignment;
 use Filament\Support\Enums\FontWeight;
 use Filament\Tables;
 use Filament\Tables\Table;
+use Illuminate\Database\Eloquent\Model;
 
 class AccountsRelationManager extends RelationManager
 {
@@ -20,7 +23,7 @@ class AccountsRelationManager extends RelationManager
 
     protected static ?string $title = null;
 
-    public static function getTitle(\Illuminate\Database\Eloquent\Model $ownerRecord, string $pageClass): string
+    public static function getTitle(Model $ownerRecord, string $pageClass): string
     {
         return __('Accounts');
     }
@@ -50,19 +53,43 @@ class AccountsRelationManager extends RelationManager
                 $this->repaymentCycleHeaderAction(),
             ])
             ->columns([
-                Tables\Columns\TextColumn::make('name')->label(__('Name'))->toggleable(),
+                Tables\Columns\TextColumn::make('name')
+                    ->label(__('Name'))
+                    ->toggleable()
+                    ->wrap()
+                    ->tooltip(fn(Account $r): string => $r->name ?? '')
+                    ->extraCellAttributes([
+                        'style' => 'max-width: 15rem; min-width: 7rem; word-break: break-word;',
+                    ]),
                 Tables\Columns\BadgeColumn::make('type')
                     ->label(__('Type'))
                     ->formatStateUsing(fn(Account $r) => __($r->type_label))
                     ->color(fn(Account $r) => $r->type_color)
-                    ->toggleable(),
-                Tables\Columns\TextColumn::make('loan_id')->label(__('Loan #'))->placeholder(__('—'))->toggleable(),
+                    ->toggleable()
+                    ->grow(false)
+                    ->width('9rem')
+                    ->extraHeaderAttributes(['style' => FilamentTableSummaries::narrowFixedCellStyle('9rem')])
+                    ->extraCellAttributes(['style' => FilamentTableSummaries::narrowFixedCellStyle('9rem')]),
+                Tables\Columns\TextColumn::make('loan_id')
+                    ->label(__('Loan #'))
+                    ->placeholder(__('—'))
+                    ->toggleable()
+                    ->grow(false)
+                    ->width('4.75rem')
+                    ->alignment(Alignment::Center)
+                    ->extraHeaderAttributes(['style' => FilamentTableSummaries::narrowFixedCellStyle('4.75rem')])
+                    ->extraCellAttributes(['style' => FilamentTableSummaries::narrowFixedCellStyle('4.75rem')]),
                 Tables\Columns\TextColumn::make('balance')
                     ->label(__('Balance (SAR)'))
                     ->money('SAR')
                     ->color(fn(Account $r) => (float) $r->balance >= 0 ? 'success' : 'danger')
                     ->weight(FontWeight::Bold)
-                    ->toggleable(),
+                    ->toggleable()
+                    ->grow(false)
+                    ->width('9rem')
+                    ->alignment(Alignment::End)
+                    ->extraHeaderAttributes(['style' => FilamentTableSummaries::narrowFixedCellStyle('9rem')])
+                    ->extraCellAttributes(['style' => FilamentTableSummaries::narrowFixedCellStyle('9rem')]),
             ])
             ->filters([
                 Tables\Filters\SelectFilter::make('type')

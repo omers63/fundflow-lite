@@ -2,19 +2,20 @@
 
 namespace App\Filament\Admin\Resources\MemberResource\RelationManagers;
 
+use Filament\Resources\RelationManagers\RelationManager;
 use App\Models\DirectMessage;
 use App\Models\Member;
-use Carbon\Carbon;
 use App\Models\User;
+use Carbon\Carbon;
 use Filament\Actions\Action;
 use Filament\Actions\ActionGroup;
 use Filament\Forms;
 use Filament\Notifications\Notification;
-use Filament\Resources\RelationManagers\RelationManager;
 use Filament\Schemas\Schema;
 use Filament\Tables;
 use Filament\Tables\Table;
 use Illuminate\Database\Eloquent\Builder;
+use Illuminate\Database\Eloquent\Model;
 
 class MessagesRelationManager extends RelationManager
 {
@@ -22,7 +23,7 @@ class MessagesRelationManager extends RelationManager
 
     protected static ?string $title = null;
 
-    public static function getTitle(\Illuminate\Database\Eloquent\Model $ownerRecord, string $pageClass): string
+    public static function getTitle(Model $ownerRecord, string $pageClass): string
     {
         return __('Messages');
     }

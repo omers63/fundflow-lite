@@ -6,6 +6,7 @@ namespace App\Filament\Admin\Resources;
 
 use App\Filament\Admin\Resources\SupportRequestResource\Pages;
 use App\Models\SupportRequest;
+use App\Support\FilamentTableSummaries;
 use Filament\Actions\Action;
 use Filament\Actions\ActionGroup;
 use Filament\Actions\BulkActionGroup;
@@ -60,10 +61,10 @@ class SupportRequestResource extends Resource
     public static function table(Table $table): Table
     {
         return $table
-            ->query(static fn (): Builder => SupportRequest::query())
+            ->query(static fn(): Builder => SupportRequest::query())
             ->summaries(false, false)
             ->modifyQueryUsing(
-                fn (Builder $q): Builder => $q->with([
+                fn(Builder $q): Builder => $q->with([
                     'user',
                     'member',
                 ])
@@ -75,6 +76,9 @@ class SupportRequestResource extends Resource
                 Tables\Columns\TextColumn::make('member.member_number')
                     ->label(__('Member #'))
                     ->placeholder(__('—'))
+                    ->wrap()
+                    ->extraHeaderAttributes(['style' => FilamentTableSummaries::memberNumberCellStyle()])
+                    ->extraCellAttributes(['style' => FilamentTableSummaries::memberNumberCellStyle()])
                     ->sortable(),
                 Tables\Columns\TextColumn::make('user.name')
                     ->label(__('Submitted by'))
@@ -83,7 +87,7 @@ class SupportRequestResource extends Resource
                 Tables\Columns\TextColumn::make('category')
                     ->label(__('Category'))
                     ->badge()
-                    ->formatStateUsing(fn (string $state): string => SupportRequest::categoryLabel($state)),
+                    ->formatStateUsing(fn(string $state): string => SupportRequest::categoryLabel($state)),
                 Tables\Columns\TextColumn::make('subject')
                     ->label(__('Subject'))
                     ->searchable()
@@ -91,7 +95,7 @@ class SupportRequestResource extends Resource
                 Tables\Columns\TextColumn::make('message')
                     ->label(__('Message'))
                     ->limit(60)
-                    ->tooltip(fn (SupportRequest $record): string => $record->message)
+                    ->tooltip(fn(SupportRequest $record): string => $record->message)
                     ->wrap(),
                 Tables\Columns\TextColumn::make('created_at')
                     ->label(__('Submitted'))
@@ -109,10 +113,10 @@ class SupportRequestResource extends Resource
                         ->label(__('View'))
                         ->icon('heroicon-o-eye')
                         ->color('gray')
-                        ->modalHeading(fn (SupportRequest $record): string => __('Support request #:id', ['id' => $record->id]))
+                        ->modalHeading(fn(SupportRequest $record): string => __('Support request #:id', ['id' => $record->id]))
                         ->modalSubmitAction(false)
                         ->modalCancelActionLabel(__('Close'))
-                        ->modalContent(fn (SupportRequest $record): View => view(
+                        ->modalContent(fn(SupportRequest $record): View => view(
                             'filament.admin.components.support-request-detail',
                             ['record' => $record],
                         )),

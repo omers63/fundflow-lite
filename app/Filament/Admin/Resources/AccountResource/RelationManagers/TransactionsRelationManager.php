@@ -21,11 +21,13 @@ use Filament\Forms;
 use Filament\Notifications\Notification;
 use Filament\Resources\RelationManagers\RelationManager;
 use Filament\Schemas\Schema;
+use Filament\Support\Enums\Alignment;
 use Filament\Support\Exceptions\Halt;
 use Filament\Tables;
 use Filament\Tables\Table;
 use Illuminate\Database\Eloquent\Collection;
 use Illuminate\Database\Eloquent\Model;
+use Illuminate\Support\Carbon;
 use Illuminate\Support\HtmlString;
 
 class TransactionsRelationManager extends RelationManager
@@ -34,7 +36,7 @@ class TransactionsRelationManager extends RelationManager
 
     protected static ?string $title = null;
 
-    public static function getTitle(\Illuminate\Database\Eloquent\Model $ownerRecord, string $pageClass): string
+    public static function getTitle(Model $ownerRecord, string $pageClass): string
     {
         return __('Ledger Entries');
     }
@@ -173,7 +175,7 @@ class TransactionsRelationManager extends RelationManager
                                 (float) $data['amount'],
                                 (string) $data['description'],
                                 $account->member,
-                                $data['transacted_at'] ? \Illuminate\Support\Carbon::parse($data['transacted_at']) : null,
+                                $data['transacted_at'] ? Carbon::parse($data['transacted_at']) : null,
                             );
                         } catch (\Throwable $e) {
                             report($e);
@@ -231,7 +233,7 @@ class TransactionsRelationManager extends RelationManager
                                 $account,
                                 (float) $data['amount'],
                                 (string) $data['description'],
-                                \Illuminate\Support\Carbon::parse((string) $data['transacted_at']),
+                                Carbon::parse((string) $data['transacted_at']),
                             );
                         } catch (\Throwable $e) {
                             report($e);
@@ -281,7 +283,7 @@ class TransactionsRelationManager extends RelationManager
                                 $account,
                                 (float) $data['amount'],
                                 (string) $data['description'],
-                                \Illuminate\Support\Carbon::parse((string) $data['transacted_at']),
+                                Carbon::parse((string) $data['transacted_at']),
                             );
                         } catch (\Throwable $e) {
                             report($e);
@@ -327,7 +329,7 @@ class TransactionsRelationManager extends RelationManager
                             app(AccountingService::class)->recordInvestmentReturn(
                                 (float) $data['amount'],
                                 (string) $data['description'],
-                                \Illuminate\Support\Carbon::parse((string) $data['transacted_at']),
+                                Carbon::parse((string) $data['transacted_at']),
                             );
                         } catch (\Throwable $e) {
                             report($e);
@@ -373,7 +375,7 @@ class TransactionsRelationManager extends RelationManager
                             app(AccountingService::class)->postMasterFeesToMasterCash(
                                 (float) $data['amount'],
                                 (string) $data['description'],
-                                \Illuminate\Support\Carbon::parse((string) $data['transacted_at']),
+                                Carbon::parse((string) $data['transacted_at']),
                             );
                         } catch (\Throwable $e) {
                             report($e);
@@ -395,13 +397,27 @@ class TransactionsRelationManager extends RelationManager
                     ->label(__('Date'))
                     ->dateTime('d M Y H:i')
                     ->sortable()
-                    ->toggleable(),
+                    ->toggleable()
+                    ->grow(false)
+                    ->width('10.25rem')
+                    ->extraHeaderAttributes(['style' => FilamentTableSummaries::narrowFixedCellStyle('10.25rem')])
+                    ->extraCellAttributes(['style' => FilamentTableSummaries::narrowFixedCellStyle('10.25rem')]),
                 Tables\Columns\BadgeColumn::make('entry_type')
                     ->label(__('Type'))
                     ->colors(['success' => 'credit', 'danger' => 'debit'])
-                    ->toggleable(),
+                    ->toggleable()
+                    ->grow(false)
+                    ->width('5.25rem')
+                    ->alignment(Alignment::Center)
+                    ->extraHeaderAttributes(['style' => FilamentTableSummaries::narrowFixedCellStyle('5.25rem')])
+                    ->extraCellAttributes(['style' => FilamentTableSummaries::narrowFixedCellStyle('5.25rem')]),
                 Tables\Columns\TextColumn::make('amount')
                     ->money('SAR')
+                    ->grow(false)
+                    ->width('8.5rem')
+                    ->alignment(Alignment::End)
+                    ->extraHeaderAttributes(['style' => FilamentTableSummaries::narrowFixedCellStyle('8.5rem')])
+                    ->extraCellAttributes(['style' => FilamentTableSummaries::narrowFixedCellStyle('8.5rem')])
                     ->sortable()
                     ->color(fn(AccountTransaction $r) => $r->entry_type === 'credit' ? 'success' : 'danger')
                     ->toggleable()
@@ -409,6 +425,11 @@ class TransactionsRelationManager extends RelationManager
                 Tables\Columns\TextColumn::make('running_balance')
                     ->label(__('Balance'))
                     ->money('SAR')
+                    ->grow(false)
+                    ->width('9rem')
+                    ->alignment(Alignment::End)
+                    ->extraHeaderAttributes(['style' => FilamentTableSummaries::narrowFixedCellStyle('9rem')])
+                    ->extraCellAttributes(['style' => FilamentTableSummaries::narrowFixedCellStyle('9rem')])
                     ->color(fn($state) => (float) $state >= 0 ? 'success' : 'danger')
                     ->toggleable(),
                 Tables\Columns\TextColumn::make('description')
@@ -421,31 +442,51 @@ class TransactionsRelationManager extends RelationManager
 
                         return $desc;
                     })
-                    ->limit(65)
+                    ->wrap()
                     ->tooltip(fn(AccountTransaction $record): ?string => $record->description)
+                    ->extraCellAttributes([
+                        'style' => 'max-width: 26rem; min-width: 12rem; word-break: break-word;',
+                    ])
                     ->color(
-                        fn(AccountTransaction $record): string =>
-                        $record->source_type === (new AccountTransaction)->getMorphClass() ? 'warning' : 'gray'
+                        fn(AccountTransaction $record): string => $record->source_type === (new AccountTransaction)->getMorphClass() ? 'warning' : 'gray'
                     )
                     ->toggleable(),
                 Tables\Columns\TextColumn::make('member.user.name')
                     ->label(__('Member'))
                     ->placeholder(__('—'))
+                    ->wrap()
+                    ->extraHeaderAttributes(['style' => FilamentTableSummaries::memberDisplayNameCellStyle()])
+                    ->extraCellAttributes(['style' => FilamentTableSummaries::memberDisplayNameCellStyle()])
                     ->searchable()
                     ->toggleable(),
                 Tables\Columns\TextColumn::make('source_type')
                     ->label(__('Source'))
                     ->formatStateUsing(
-                        fn(AccountTransaction $record): string =>
-                        $record->source_type === (new AccountTransaction)->getMorphClass()
+                        fn(AccountTransaction $record): string => $record->source_type === (new AccountTransaction)->getMorphClass()
                         ? __('Reversal of #:id', ['id' => $record->source_id])
                         : ($record->source_type ? class_basename($record->source_type) : __('—'))
                     )
-                    ->toggleable(),
+                    ->toggleable()
+                    ->grow(false)
+                    ->width('8.75rem')
+                    ->limit(22)
+                    ->tooltip(
+                        fn(AccountTransaction $record): ?string => $record->source_type === (new AccountTransaction)->getMorphClass()
+                        ? __('Reversal of #:id', ['id' => $record->source_id])
+                        : ($record->source_type ? class_basename($record->source_type) : null)
+                    )
+                    ->extraHeaderAttributes(['style' => FilamentTableSummaries::narrowFixedCellStyle('8.75rem')])
+                    ->extraCellAttributes(['style' => FilamentTableSummaries::narrowFixedCellStyle('8.75rem')]),
                 Tables\Columns\TextColumn::make('postedBy.name')
                     ->label(__('Posted By'))
                     ->placeholder(__('—'))
-                    ->toggleable(),
+                    ->toggleable()
+                    ->grow(false)
+                    ->width('6.75rem')
+                    ->limit(18)
+                    ->tooltip(fn(AccountTransaction $record): ?string => $record->postedBy?->name)
+                    ->extraHeaderAttributes(['style' => FilamentTableSummaries::narrowFixedCellStyle('6.75rem')])
+                    ->extraCellAttributes(['style' => FilamentTableSummaries::narrowFixedCellStyle('6.75rem')]),
             ])
             ->filters([
                 Tables\Filters\SelectFilter::make('member_id')
@@ -506,8 +547,7 @@ class TransactionsRelationManager extends RelationManager
                         ->modalSubmitActionLabel(__('Split into parts'))
                         ->modalWidth('3xl')
                         ->visible(
-                            fn(AccountTransaction $record): bool =>
-                            $this->getOwnerRecord()->type === Account::TYPE_MASTER_CASH
+                            fn(AccountTransaction $record): bool => $this->getOwnerRecord()->type === Account::TYPE_MASTER_CASH
                             && $record->entry_type === 'credit'
                             && $record->trashed() === false
                         )
@@ -662,15 +702,14 @@ class TransactionsRelationManager extends RelationManager
                                     : __('No siblings found — single-entry reversal only.')
                                 )
                                 ->visible(
-                                    fn(): bool =>
-                                    filled($record->source_type)
+                                    fn(): bool => filled($record->source_type)
                                     && $record->source_type !== (new AccountTransaction)->getMorphClass()
                                 )
                                 ->default(false),
                         ])
                         ->action(function (AccountTransaction $record, array $data): void {
                             $reason = (string) $data['reason'];
-                            $at = \Illuminate\Support\Carbon::parse($data['transacted_at']);
+                            $at = Carbon::parse($data['transacted_at']);
                             $svc = app(AccountingService::class);
                             $reverseAll = (bool) ($data['reverse_all_related'] ?? false);
 

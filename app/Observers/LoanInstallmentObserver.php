@@ -8,7 +8,9 @@ use Throwable;
 
 class LoanInstallmentObserver
 {
-    public function __construct(protected AccountingService $accounting) {}
+    public function __construct(protected AccountingService $accounting)
+    {
+    }
 
     public function updated(LoanInstallment $installment): void
     {
@@ -23,9 +25,11 @@ class LoanInstallmentObserver
             } catch (Throwable $e) {
                 logger()->error('LoanInstallmentObserver: failed to post repayment', [
                     'installment_id' => $installment->id,
-                    'error'          => $e->getMessage(),
+                    'error' => $e->getMessage(),
                 ]);
             }
+
+            $installment->loan?->syncPaidOffStatusFromInstallments();
         }
     }
 }

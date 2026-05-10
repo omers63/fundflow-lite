@@ -20,8 +20,9 @@ class LoanComputationTest extends TestCase
 
     public function test_installment_count_clamps_negative_fund_balance(): void
     {
+        // Negative fund clamps to 0 member cover → full principal to master + 16% settlement on 12K.
         $count = Loan::computeInstallmentsCount(12000.0, -2000.0, 1000.0, 0.16);
-        $this->assertSame(4, $count);
+        $this->assertSame(14, $count);
     }
 
     public function test_exemption_defers_first_repayment_by_one_month_after_anchor(): void

@@ -78,12 +78,12 @@ class SystemSettingsPage extends Page
         }
 
         $allowedTop = ['loans', 'contribution-cycles', 'public-membership', 'statements', 'communication', 'roles'];
-        if (!in_array($this->activeTab, $allowedTop, true)) {
+        if (! in_array($this->activeTab, $allowedTop, true)) {
             $this->activeTab = 'loans';
         }
 
         $allowedLoanSub = ['loan-rules', 'loan-tiers', 'fund-tiers'];
-        if (!in_array($this->loanSubTab, $allowedLoanSub, true)) {
+        if (! in_array($this->loanSubTab, $allowedLoanSub, true)) {
             $this->loanSubTab = 'loan-rules';
         }
 
@@ -116,7 +116,7 @@ class SystemSettingsPage extends Page
                 ->label(__('Save loan settings'))
                 ->icon('heroicon-o-check')
                 ->color('primary')
-                ->visible(fn(): bool => $this->activeTab === 'loans' && $this->loanSubTab === 'loan-rules')
+                ->visible(fn (): bool => $this->activeTab === 'loans' && $this->loanSubTab === 'loan-rules')
                 ->fillForm([
                     'settlement_threshold_pct' => Setting::loanSettlementThreshold() * 100,
                     'min_fund_balance' => Setting::loanMinFundBalance(),
@@ -128,6 +128,7 @@ class SystemSettingsPage extends Page
                     'auto_allocate_loan_repayment_allow_unapplied_credit' => (bool) Setting::get('feature.auto_allocate_loan_repayment.allow_unapplied_credit', true),
                     'auto_allocate_loan_repayment_idempotency_scope' => (string) Setting::get('feature.auto_allocate_loan_repayment.idempotency_scope', 'file_line_member_paid_at_total_paid'),
                     'mixed_import_allow_partial_installment_repayment' => Setting::mixedImportAllowPartialInstallmentRepayment(),
+                    'import_loan_blank_portions_fifty_fifty' => Setting::importLoanBlankPortionsUseFiftyFiftySplit(),
                 ])
                 ->schema([
                     Section::make(__('Eligibility Rules'))->schema([
@@ -177,6 +178,10 @@ class SystemSettingsPage extends Page
                             ->label(__('Mixed CSV: allow partial installment repayment'))
                             ->helperText(__('When off, each repayment row pays only whole installments in due order; amounts smaller than the next due installment remain as member cash only.'))
                             ->default(false),
+                        Forms\Components\Toggle::make('import_loan_blank_portions_fifty_fifty')
+                            ->label(__('Blank loan portions: use 50/50 split'))
+                            ->helperText(__('When on, loan CSV or mixed negative rows with empty member/master portions split the principal equally. When off, the member portion follows current fund balance capped at principal (same as admin disbursement).'))
+                            ->default(false),
                     ])->columns(1),
                 ])
                 ->action(function (array $data): void {
@@ -185,13 +190,17 @@ class SystemSettingsPage extends Page
                     Setting::set('loan.eligibility_months', $data['eligibility_months']);
                     Setting::set('loan.max_borrow_multiplier', $data['max_borrow_multiplier']);
                     Setting::set('loan.default_grace_cycles', $data['default_grace_cycles']);
-                    Setting::set('feature.auto_allocate_loan_repayment', !empty($data['auto_allocate_loan_repayment']) ? '1' : '0');
-                    Setting::set('feature.auto_allocate_loan_repayment.strict_mode_default', !empty($data['auto_allocate_loan_repayment_strict_default']) ? '1' : '0');
-                    Setting::set('feature.auto_allocate_loan_repayment.allow_unapplied_credit', !empty($data['auto_allocate_loan_repayment_allow_unapplied_credit']) ? '1' : '0');
+                    Setting::set('feature.auto_allocate_loan_repayment', ! empty($data['auto_allocate_loan_repayment']) ? '1' : '0');
+                    Setting::set('feature.auto_allocate_loan_repayment.strict_mode_default', ! empty($data['auto_allocate_loan_repayment_strict_default']) ? '1' : '0');
+                    Setting::set('feature.auto_allocate_loan_repayment.allow_unapplied_credit', ! empty($data['auto_allocate_loan_repayment_allow_unapplied_credit']) ? '1' : '0');
                     Setting::set('feature.auto_allocate_loan_repayment.idempotency_scope', (string) ($data['auto_allocate_loan_repayment_idempotency_scope'] ?? 'file_line_member_paid_at_total_paid'));
                     Setting::set(
                         'feature.contribution_import_mixed.allow_partial_installment_repayment',
-                        !empty($data['mixed_import_allow_partial_installment_repayment']) ? '1' : '0'
+                        ! empty($data['mixed_import_allow_partial_installment_repayment']) ? '1' : '0'
+                    );
+                    Setting::set(
+                        'feature.import_loan.blank_portions_use_fifty_fifty_split',
+                        ! empty($data['import_loan_blank_portions_fifty_fifty']) ? '1' : '0'
                     );
 
                     Notification::make()->title(__('Loan settings saved.'))->success()->send();
@@ -200,13 +209,14 @@ class SystemSettingsPage extends Page
                 ->label(__('Import allocation settings'))
                 ->icon('heroicon-o-adjustments-horizontal')
                 ->color('gray')
-                ->visible(fn(): bool => $this->activeTab === 'loans' && $this->loanSubTab === 'loan-rules')
+                ->visible(fn (): bool => $this->activeTab === 'loans' && $this->loanSubTab === 'loan-rules')
                 ->fillForm([
                     'auto_allocate_loan_repayment' => Setting::autoAllocateLoanRepaymentImportEnabled(),
                     'auto_allocate_loan_repayment_strict_default' => (bool) Setting::get('feature.auto_allocate_loan_repayment.strict_mode_default', false),
                     'auto_allocate_loan_repayment_allow_unapplied_credit' => (bool) Setting::get('feature.auto_allocate_loan_repayment.allow_unapplied_credit', true),
                     'auto_allocate_loan_repayment_idempotency_scope' => (string) Setting::get('feature.auto_allocate_loan_repayment.idempotency_scope', 'file_line_member_paid_at_total_paid'),
                     'mixed_import_allow_partial_installment_repayment' => Setting::mixedImportAllowPartialInstallmentRepayment(),
+                    'import_loan_blank_portions_fifty_fifty' => Setting::importLoanBlankPortionsUseFiftyFiftySplit(),
                 ])
                 ->schema([
                     Section::make(__('Contribution import auto-allocation'))
@@ -237,16 +247,24 @@ class SystemSettingsPage extends Page
                                 ->label(__('Mixed CSV: allow partial installment repayment'))
                                 ->helperText(__('When off, each repayment row pays only whole installments in due order; amounts smaller than the next due installment remain as member cash only.'))
                                 ->default(false),
+                            Forms\Components\Toggle::make('import_loan_blank_portions_fifty_fifty')
+                                ->label(__('Blank loan portions: use 50/50 split'))
+                                ->helperText(__('Applies to loan CSV rows and mixed disbursement rows with empty portions. Off = derive member slice from fund balance (capped at principal).'))
+                                ->default(false),
                         ]),
                 ])
                 ->action(function (array $data): void {
-                    Setting::set('feature.auto_allocate_loan_repayment', !empty($data['auto_allocate_loan_repayment']) ? '1' : '0');
-                    Setting::set('feature.auto_allocate_loan_repayment.strict_mode_default', !empty($data['auto_allocate_loan_repayment_strict_default']) ? '1' : '0');
-                    Setting::set('feature.auto_allocate_loan_repayment.allow_unapplied_credit', !empty($data['auto_allocate_loan_repayment_allow_unapplied_credit']) ? '1' : '0');
+                    Setting::set('feature.auto_allocate_loan_repayment', ! empty($data['auto_allocate_loan_repayment']) ? '1' : '0');
+                    Setting::set('feature.auto_allocate_loan_repayment.strict_mode_default', ! empty($data['auto_allocate_loan_repayment_strict_default']) ? '1' : '0');
+                    Setting::set('feature.auto_allocate_loan_repayment.allow_unapplied_credit', ! empty($data['auto_allocate_loan_repayment_allow_unapplied_credit']) ? '1' : '0');
                     Setting::set('feature.auto_allocate_loan_repayment.idempotency_scope', (string) ($data['auto_allocate_loan_repayment_idempotency_scope'] ?? 'file_line_member_paid_at_total_paid'));
                     Setting::set(
                         'feature.contribution_import_mixed.allow_partial_installment_repayment',
-                        !empty($data['mixed_import_allow_partial_installment_repayment']) ? '1' : '0'
+                        ! empty($data['mixed_import_allow_partial_installment_repayment']) ? '1' : '0'
+                    );
+                    Setting::set(
+                        'feature.import_loan.blank_portions_use_fifty_fifty_split',
+                        ! empty($data['import_loan_blank_portions_fifty_fifty']) ? '1' : '0'
                     );
 
                     Notification::make()->title(__('Import allocation settings saved.'))->success()->send();
@@ -255,7 +273,7 @@ class SystemSettingsPage extends Page
                 ->label(__('Save cycle settings'))
                 ->icon('heroicon-o-check')
                 ->color('primary')
-                ->visible(fn(): bool => $this->activeTab === 'contribution-cycles')
+                ->visible(fn (): bool => $this->activeTab === 'contribution-cycles')
                 ->fillForm([
                     'cycle_start_day' => Setting::contributionCycleStartDay(),
                     'delinquency_consecutive' => Setting::delinquencyConsecutiveMissThreshold(),
@@ -288,7 +306,7 @@ class SystemSettingsPage extends Page
                         ]),
                     Section::make(__('Delinquency policy'))
                         ->description(
-                            __('Daily job `fund:check-delinquency` evaluates missed monthly contributions (when due) and unpaid loan installments for active loans. ') .
+                            __('Daily job `fund:check-delinquency` evaluates missed monthly contributions (when due) and unpaid loan installments for active loans. ').
                             __('Breaching either threshold suspends the member (member portal blocked) and shifts active loan repayment collection to the guarantor until restored.')
                         )
                         ->schema([
@@ -319,8 +337,8 @@ class SystemSettingsPage extends Page
                         ])->columns(3),
                     Section::make(__('Late fees (tiered by days after due)'))
                         ->description(
-                            __('Due is the end of the contribution/repayment cycle for that month. Calendar days after that are counted; ') .
-                            __('the highest tier reached (30+ ≥ 20+ ≥ 10+ ≥ 1+) with a non-zero SAR amount applies — if a tier is 0, the next lower tier is used. ') .
+                            __('Due is the end of the contribution/repayment cycle for that month. Calendar days after that are counted; ').
+                            __('the highest tier reached (30+ ≥ 20+ ≥ 10+ ≥ 1+) with a non-zero SAR amount applies — if a tier is 0, the next lower tier is used. ').
                             __('Cash-account debits bundle principal and late fee; late fees credit master cash only (not master fund).')
                         )
                         ->schema([
@@ -388,8 +406,8 @@ class SystemSettingsPage extends Page
                 ->label(__('Save statement settings'))
                 ->icon('heroicon-o-check')
                 ->color('primary')
-                ->visible(fn(): bool => $this->activeTab === 'statements')
-                ->fillForm(fn() => [
+                ->visible(fn (): bool => $this->activeTab === 'statements')
+                ->fillForm(fn () => [
                     'brand_name' => Setting::statementBrandName(),
                     'tagline' => Setting::statementTagline(),
                     'accent_color' => Setting::statementAccentColor(),
@@ -474,7 +492,7 @@ class SystemSettingsPage extends Page
                 ->label(__('Save public membership settings'))
                 ->icon('heroicon-o-check')
                 ->color('primary')
-                ->visible(fn(): bool => $this->activeTab === 'public-membership')
+                ->visible(fn (): bool => $this->activeTab === 'public-membership')
                 ->fillForm([
                     'max_pending_public' => Setting::maxPublicApplications(),
                     'membership_application_fee_new' => Setting::membershipApplicationFeeForType('new'),
@@ -496,7 +514,7 @@ class SystemSettingsPage extends Page
                         ]),
                     Section::make(__('Membership application fees'))
                         ->description(
-                            __('Set a separate fee for each application type. When at least one fee is greater than zero, /apply adds a final payment step (after identity, employment, and document upload): applicants transfer to your bank and submit a reference for the fee that matches their chosen type, then submit the application. ') .
+                            __('Set a separate fee for each application type. When at least one fee is greater than zero, /apply adds a final payment step (after identity, employment, and document upload): applicants transfer to your bank and submit a reference for the fee that matches their chosen type, then submit the application. ').
                             __('On successful submission, that amount is credited to the master cash account only (not the master fund). Reconcile with your bank to avoid double-counting if you also import the same deposit.')
                         )
                         ->schema([
@@ -548,8 +566,8 @@ class SystemSettingsPage extends Page
                 ->label(__('Save communication settings'))
                 ->icon('heroicon-o-check')
                 ->color('primary')
-                ->visible(fn(): bool => $this->activeTab === 'communication')
-                ->fillForm(fn() => [
+                ->visible(fn (): bool => $this->activeTab === 'communication')
+                ->fillForm(fn () => [
                     'channel_in_app' => Setting::commChannelEnabled('in_app'),
                     'channel_email' => Setting::commChannelEnabled('email'),
                     'channel_sms' => Setting::commChannelEnabled('sms'),
@@ -558,8 +576,8 @@ class SystemSettingsPage extends Page
                 ->schema([
                     Section::make(__('Communication Channels'))
                         ->description(
-                            __('Enable or disable each outbound communication channel system-wide. ') .
-                            __('When a channel is disabled, no notifications of any type will be sent through it, ') .
+                            __('Enable or disable each outbound communication channel system-wide. ').
+                            __('When a channel is disabled, no notifications of any type will be sent through it, ').
                             __('regardless of individual member preferences.')
                         )
                         ->schema([
@@ -601,7 +619,7 @@ class SystemSettingsPage extends Page
                 ->label(__('Configure member email templates'))
                 ->icon('heroicon-o-envelope')
                 ->color('gray')
-                ->visible(fn(): bool => $this->activeTab === 'communication')
+                ->visible(fn (): bool => $this->activeTab === 'communication')
                 ->fillForm([
                     'membership_approved_subject_en' => EmailTemplateService::get('membership_approved', 'subject', 'en', 'Welcome to FundFlow — Membership Approved!'),
                     'membership_approved_subject_ar' => EmailTemplateService::get('membership_approved', 'subject', 'ar', 'مرحبًا بك في FundFlow — تمت الموافقة على العضوية!'),
@@ -697,17 +715,17 @@ class SystemSettingsPage extends Page
                             Forms\Components\Placeholder::make('email_template_helper')
                                 ->label(__('Quick helper'))
                                 ->content(__(
-                                    "Common keys:\n" .
-                                    "• contribution_due.subject\n" .
-                                    "• contribution_due.body\n" .
-                                    "• loan_repayment_due.subject\n" .
-                                    "• loan_repayment_due.insufficient_line\n" .
-                                    "• loan_disbursed.subject\n" .
-                                    "• monthly_statement.closing\n" .
-                                    "• global.signature_line\n\n" .
-                                    "Common placeholders:\n" .
-                                    "• :name, :amount, :period, :date\n" .
-                                    "• :count, :balance, :number, :reason"
+                                    "Common keys:\n".
+                                    "• contribution_due.subject\n".
+                                    "• contribution_due.body\n".
+                                    "• loan_repayment_due.subject\n".
+                                    "• loan_repayment_due.insufficient_line\n".
+                                    "• loan_disbursed.subject\n".
+                                    "• monthly_statement.closing\n".
+                                    "• global.signature_line\n\n".
+                                    "Common placeholders:\n".
+                                    "• :name, :amount, :period, :date\n".
+                                    '• :count, :balance, :number, :reason'
                                 ))
                                 ->columnSpanFull(),
                             Forms\Components\KeyValue::make('email_template_overrides_en')
@@ -801,7 +819,7 @@ class SystemSettingsPage extends Page
         $svc = app(ContributionCycleService::class);
         [$month, $year] = $svc->currentOpenPeriod();
 
-        return $svc->periodLabel($month, $year) . ' — ' . $svc->cycleWindowDescription($month, $year);
+        return $svc->periodLabel($month, $year).' — '.$svc->cycleWindowDescription($month, $year);
     }
 
     public function getTotalApplicationsCount(): int
@@ -811,7 +829,7 @@ class SystemSettingsPage extends Page
 
     public function canViewRolesPage(): bool
     {
-        if (!class_exists(RoleResource::class)) {
+        if (! class_exists(RoleResource::class)) {
             return false;
         }
 
@@ -820,7 +838,7 @@ class SystemSettingsPage extends Page
 
     public function getRolesPageUrl(): ?string
     {
-        if (!$this->canViewRolesPage()) {
+        if (! $this->canViewRolesPage()) {
             return null;
         }
 
@@ -841,7 +859,7 @@ class SystemSettingsPage extends Page
             $prefix = 'email_template.';
             $suffix = ".{$locale}";
             $key = (string) $row->key;
-            if (!str_starts_with($key, $prefix) || !str_ends_with($key, $suffix)) {
+            if (! str_starts_with($key, $prefix) || ! str_ends_with($key, $suffix)) {
                 continue;
             }
 

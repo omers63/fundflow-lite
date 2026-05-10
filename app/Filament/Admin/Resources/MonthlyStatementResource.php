@@ -83,10 +83,16 @@ class MonthlyStatementResource extends Resource
             ->columns([
                 Tables\Columns\TextColumn::make('member.member_number')
                     ->label(__('app.field.member_number'))
+                    ->wrap()
+                    ->extraHeaderAttributes(['style' => FilamentTableSummaries::memberNumberCellStyle()])
+                    ->extraCellAttributes(['style' => FilamentTableSummaries::memberNumberCellStyle()])
                     ->searchable()
                     ->sortable(),
                 Tables\Columns\TextColumn::make('member.user.name')
                     ->label(__('app.field.member'))
+                    ->wrap()
+                    ->extraHeaderAttributes(['style' => FilamentTableSummaries::memberDisplayNameCellStyle()])
+                    ->extraCellAttributes(['style' => FilamentTableSummaries::memberDisplayNameCellStyle()])
                     ->searchable(),
                 Tables\Columns\TextColumn::make('period')
                     ->sortable(),

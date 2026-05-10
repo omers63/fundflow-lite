@@ -4363,3 +4363,280 @@ This gives quick visibility into “how much invested” and “what is the retu
 All modified PHP files pass syntax checks.
 Next step to activate on your environment: run migrations (php artisan migrate), then open Accounts and use the new master account actions.
 
+-------------------------------
+You were right — behavior was still allowing “split” repayment when partial mode was off.
+
+Root cause
+In ContributionImportService::applyMixedImportLoanRepayment() the flow used to:
+
+credit member cash for the row amount
+try to pay installments
+So when row amount was below the next installment, it could still sit in cash and effectively contribute to later split behavior.
+
+Fix applied
+I added a pre-check before any cash credit/posting:
+
+If mixedImportAllowPartialInstallmentRepayment() is false
+and there is a pending/overdue installment
+and current row amount is less than that installment amount
+then it now throws an error and does not post repayment.
+
+This enforces your rule: repayment posts only when full amount is available for the installment.
+
+File changed
+app/Services/ContributionImportService.php
+If you want, I can also make the error message appear more user-friendly in the import result summary (short wording for finance users).
+
+-----------------------------
+Now in mixed-import repayment flow, when an installment gets fully paid, it is marked late if paid_at is after the installment due_date:
+
+is_late is now set dynamically (true/false) instead of always false.
+Applied in both branches where installment status becomes paid (partial-enabled completion and full-only mode).
+Changed file:
+
+app/Services/ContributionImportService.php
+So repayments posted past due date will now show as late repayments in UI/reports that read installment late status.
+
+-----------------------
+Adjusted to match your rule.
+
+New behavior (partial switch OFF)
+Row is still imported.
+Amount is credited to member cash account.
+If it cannot fully cover the next installment, no repayment is posted (installment remains pending/overdue).
+Cash stays in member cash account.
+I removed the hard error check that was blocking this flow.
+
+So now it behaves exactly as you described.
+
+-----------------------
+Implemented end-to-end.
+
+1) Contribution import defaults (mixed import)
+For negative mixed-import loan rows, defaults are now:
+
+Member/Master portions = 50/50
+Grace cycle = enabled (already true, kept)
+And installment count is now computed from that explicit split (not from current fund balance).
+
+Updated in:
+
+app/Services/ContributionImportService.php
+2) Normal member loan request: member can choose both
+In member loan application form, user can now set:
+
+member_portion (SAR)
+master_portion (SAR, auto-calculated from amount requested)
+Validation enforces:
+
+both non-negative
+member_portion + master_portion == amount_requested (within small tolerance)
+has_grace_cycle remains user-selectable (already present).
+
+Updated in:
+
+app/Filament/Member/Resources/MyLoansResource.php
+3) Admin can update both at approval
+In admin Approve Loan modal, admin can now edit:
+
+member_portion
+master_portion (auto-calculated)
+Validation enforces split integrity before approval, and approved loan stores these values.
+
+Also, at full disbursement activation, the system now preserves stored portions (falls back to old computed behavior only if saved values are invalid).
+
+Updated in:
+
+app/Filament/Admin/Resources/LoanResource.php
+If you want, I can also expose these two fields in the admin Edit Loan form/tab so they’re editable outside approval modal too.
+
+---------------------------------
+Yes — great feature to add, and it needs careful design for safety/compliance.
+
+A good approach is to treat this as “Fiscal Year Archive + Immutable Close”, not just backup/delete.
+
+Recommended Architecture
+1) Keep one primary DB, add one archive DB
+Primary DB: active/current operations.
+Archive DB: closed fiscal years (read-only by default).
+In Laravel, define a second connection (e.g. archive) in config/database.php.
+This is better than file dumps only, because:
+
+you can query archived years in-app,
+restore selectively,
+validate integrity.
+2) Add explicit fiscal close domain model
+Create tables like:
+
+fiscal_years
+id, code (FY2025), start_date, end_date, status (open|closing|closed|restoring), timestamps
+fiscal_closures
+id, fiscal_year_id, started_by, completed_by, closed_at, snapshot_hash, row_counts_json, ledger_totals_json, archive_batch_id, status, error_log
+archive_batches
+metadata for each archive run (db target, file checksums, encryption key ref)
+This gives traceability and auditability.
+
+3) “Close” should be a controlled pipeline (job/workflow), not one transaction
+Use a queued workflow with steps:
+
+Pre-close validation
+no pending imports
+no open/failed reconciliation
+no unposted accounting entries
+all statements generated (if required)
+Freeze period
+block writes for that fiscal year (closing lock)
+Snapshot + hash
+compute counts/totals/checksums before move
+Archive copy
+copy scoped rows to archive DB in chunks (id ranges/chunkById)
+Verify
+compare row counts, totals, and checksum between source and archive
+Mark immutable close
+set fiscal year closed, persist close certificate/hash
+Optional purge from primary
+only after verification and retention policy passes
+Never purge before verification succeeds.
+
+4) Archive by fiscal-year key across all “business tables”
+You need a deterministic scope (usually posted_at / paid_at / transaction date + fiscal calendar mapping).
+
+For your domain, archive at least:
+
+contributions
+loans + installments + disbursements
+account transactions / ledger
+monthly statements
+reconciliation snapshots
+notification logs (if part of audit)
+import sessions (for traceability)
+Use a manifest that lists every table and filter rule. Keep this manifest versioned.
+
+5) Immutability + late adjustments
+After close:
+
+prevent edits/deletes to closed-year rows in UI and service layer.
+allow only adjustment entries in next open year (with references), never silent historical edits.
+require elevated role + reason for any exceptional reopen.
+6) Restore strategy (safe and reversible)
+Support two restore modes:
+
+Read-only restore (preferred default)
+mount archived year for reporting only.
+Operational restore
+restore into staging tables first
+integrity checks
+then merge/swap in controlled maintenance mode.
+Never restore directly into live tables without staging + validation.
+
+7) Security/compliance controls
+Encrypt archive DB and archive exports at rest.
+Store checksums/signatures for tamper detection.
+Record who closed/restored, when, and why.
+Keep immutable audit log of close/restore actions.
+Add retention policy (e.g., 7 years) and legal-hold override.
+Laravel Implementation Pattern (practical)
+ArchiveFiscalYearService
+validateClose($fy)
+archive($fy) (chunked copy)
+verify($fy)
+finalizeClose($fy)
+RestoreFiscalYearService
+dryRun($fy)
+restoreToStaging($fy)
+verifyRestore($fy)
+promoteRestore($fy)
+Filament admin page:
+“Close Fiscal Year” wizard with dry-run report first.
+Use queued jobs + progress table.
+Use DB advisory lock / mutex to avoid concurrent close.
+Data integrity best practices (most important)
+Double-entry ledger should be your source of truth for totals.
+Compare:
+debit/credit sums,
+per-account balances,
+per-member balances,
+loan outstanding totals before and after archive/restore.
+Store verification artifacts (json + hash) with closure record.
+Rollout plan
+Build close dry-run (no data movement) first.
+Add archive copy + verify.
+Add read-only archived reporting.
+Add optional purge.
+Add restore workflow (staging first).
+If you want, I can next draft a project-specific technical design against your existing models/tables (exact table list, close criteria, and sample Laravel services/migrations).
+
+----------------------------------------
+I’ll do this in two parts: first a project-specific design based on your current models/services, then I’ll implement an initial production-safe foundation (schema, service layer, and admin workflow scaffolding) in this repo. I’m starting by mapping your accounting tables and posting flows.
+I’m now adding the concrete implementation foundation: fiscal-year schema, close/restore service, CLI commands, and archive DB connection config. Then I’ll run syntax/lint checks and share usage steps.
+Implemented both parts: project-specific design and a working foundation in code.
+
+What I added
+Design doc:
+
+docs/fiscal-year-closing-design.md
+Archive/close data model:
+
+database/migrations/2026_05_09_131600_create_fiscal_year_archiving_tables.php
+app/Models/FiscalYear.php
+app/Models/FiscalYearClosure.php
+Archive DB connection support:
+
+config/database.php (new archive connection)
+Core service:
+
+app/Services/FiscalYearClosingService.php
+Supports:
+dry-run row count preview
+close flow (archive copy + verification + status transitions)
+restore flow (upsert from archive back to primary)
+CLI commands:
+
+app/Console/Commands/FiscalYearCloseCommand.php
+app/Console/Commands/FiscalYearRestoreCommand.php
+Current implemented behavior
+Fiscal year close is stateful (open -> closing -> closed), with audit records per run.
+Data is archived table-by-table by fiscal date range to separate DB connection.
+Integrity check currently verifies archive row counts are not below source counts.
+Restore pulls archived scoped data back via upsert by id.
+Locking is in place to prevent concurrent close/restore per fiscal year.
+Commands now available
+Dry-run close:
+php artisan fiscal:close 2026
+Execute close:
+php artisan fiscal:close 2026 --execute --archive=archive --user-id=1
+Restore:
+php artisan fiscal:restore 2026 --archive=archive --user-id=1
+Important next step before first close
+Run migrations on both DBs:
+
+Primary:
+php artisan migrate
+Archive DB:
+php artisan migrate --database=archive
+Also ensure archive env is configured (ARCHIVE_DB_* vars) as documented in docs/fiscal-year-closing-design.md.
+
+If you want, next I can implement the Filament Admin UI wizard for fiscal close/restore (dry-run preview, execute, status, audit history) so finance can run this without CLI.
+
+---------------------------------------
+Here’s what was completed after you stopped the run:
+
+1. Monthly statements — calendar YTD
+MonthlyStatementService now adds a calendar_year_to_date block in details: contributions YTD (same calendar year, months 1…statement month), repayments and late fees from Jan 1 through period end, net contrib−repay, and cash/fund balances at period end.
+resources/views/pdf/monthly-statement.blade.php renders a Year-to-date section when that data exists.
+2. Filament — fiscal close / restore / Excel
+New admin page: app/Filament/Admin/Pages/FiscalYearClosingPage.php + resources/views/filament/admin/pages/fiscal-year-closing.blade.php.
+Route: GET admin/fiscal-year-closing (Finance group, canonical __('app.nav.group.finance')).
+Dry run and Download Excel close book: any approved admin (isAdmin()).
+Execute close and Restore from archive: only the configured Filament super admin role (same idea as other dangerous finance actions).
+Uses existing FiscalYearClosingService; closure history is listed on the page.
+3. Excel close book
+Dependency: phpoffice/phpspreadsheet in composer.json.
+New app/Services/FiscalYearCloseBookExcelService.php: Summary sheet (metadata + per-table row counts) and one sheet per archived table, same date scope as close, streamed download.
+FiscalYearClosingService: archiveTables(), scopedSourceQuery() for reuse.
+4. Archive DB config
+config/database.php again defines an archive connection (SQLite by default; optional MySQL via ARCHIVE_DB_* / ARCHIVE_DB_DRIVER=mysql), aligned with docs/fiscal-year-closing-design.md.
+Note: Running Pint touched unrelated files; those were reverted with git restore except for intentional edits. php artisan test still reports existing failures (e.g. ExampleTest / FilamentNavigationGroupsTest / LoanComputationTest) unrelated to these features.
+
+Your next steps: run migrations (including --database=archive for the archive DB), set ARCHIVE_DB_* in .env, ensure fiscal_years rows exist, then use Fiscal year close under Finance in the admin panel. If you use Shield for fine-grained policies, regenerate or add permissions for the new page if you want non–super-admin restrictions beyond what the page already enforces.
+

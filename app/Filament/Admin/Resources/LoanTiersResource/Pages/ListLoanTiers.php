@@ -3,8 +3,8 @@
 namespace App\Filament\Admin\Resources\LoanTiersResource\Pages;
 
 use App\Filament\Admin\Resources\LoanTiersResource;
-use Filament\Actions\CreateAction;
 use Filament\Resources\Pages\ListRecords;
+use Filament\Actions\CreateAction;
 
 class ListLoanTiers extends ListRecords
 {

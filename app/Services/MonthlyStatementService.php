@@ -9,7 +9,6 @@ use App\Models\Loan;
 use App\Models\LoanInstallment;
 use App\Models\Member;
 use App\Models\MonthlyStatement;
-use App\Models\Setting;
 use App\Notifications\MonthlyStatementNotification;
 use Carbon\Carbon;
 use Illuminate\Support\Facades\DB;
@@ -20,9 +19,9 @@ class MonthlyStatementService
     /**
      * Generate (or regenerate) statements for all active members for a given period.
      *
-     * @param  string  $period   YYYY-MM
-     * @param  bool    $notify   Send email+DB notification after generation
-     * @return int  Number of statements generated
+     * @param  string  $period  YYYY-MM
+     * @param  bool  $notify  Send email+DB notification after generation
+     * @return int Number of statements generated
      */
     public function generateForAllMembers(string $period, bool $notify = false): int
     {
@@ -35,7 +34,7 @@ class MonthlyStatementService
                     $this->generateForMember($member, $period, $notify);
                     $generated++;
                 } catch (\Throwable $e) {
-                    Log::error("MonthlyStatementService: failed for member {$member->id} period {$period}: " . $e->getMessage());
+                    Log::error("MonthlyStatementService: failed for member {$member->id} period {$period}: ".$e->getMessage());
                 }
             });
 
@@ -45,7 +44,7 @@ class MonthlyStatementService
     /**
      * Generate (or regenerate) a statement for a single member and period.
      *
-     * @param  string  $period   YYYY-MM
+     * @param  string  $period  YYYY-MM
      */
     public function generateForMember(Member $member, string $period, bool $notify = false): MonthlyStatement
     {
@@ -54,13 +53,13 @@ class MonthlyStatementService
         $details = $this->buildDetails($member, $period, $month, $year);
 
         $statement = MonthlyStatement::upsertForMember($member->id, $period, [
-            'opening_balance'     => $details['opening_balance'],
+            'opening_balance' => $details['opening_balance'],
             'total_contributions' => $details['total_contributions'],
-            'total_repayments'    => $details['total_repayments'],
-            'closing_balance'     => $details['closing_balance'],
-            'generated_at'        => now(),
-            'details'             => $details,
-            'notified_at'         => null,
+            'total_repayments' => $details['total_repayments'],
+            'closing_balance' => $details['closing_balance'],
+            'generated_at' => now(),
+            'details' => $details,
+            'notified_at' => null,
         ]);
 
         if ($notify) {
@@ -78,7 +77,7 @@ class MonthlyStatementService
         $statement->load('member.user');
         $user = $statement->member?->user;
 
-        if (!$user) {
+        if (! $user) {
             return;
         }
 
@@ -86,7 +85,7 @@ class MonthlyStatementService
             $user->notify(new MonthlyStatementNotification($statement));
             $statement->update(['notified_at' => now()]);
         } catch (\Throwable $e) {
-            Log::error("MonthlyStatementService: notification failed for statement {$statement->id}: " . $e->getMessage());
+            Log::error("MonthlyStatementService: notification failed for statement {$statement->id}: ".$e->getMessage());
         }
     }
 
@@ -117,9 +116,9 @@ class MonthlyStatementService
 
         // ── Period loan installments (paid this period) ───────────────────────
         $periodStart = Carbon::create($year, $month, 1)->startOfDay();
-        $periodEnd   = (clone $periodStart)->endOfMonth();
+        $periodEnd = (clone $periodStart)->endOfMonth();
 
-        $paidInstallments = LoanInstallment::whereHas('loan', fn($q) => $q->where('member_id', $member->id))
+        $paidInstallments = LoanInstallment::whereHas('loan', fn ($q) => $q->where('member_id', $member->id))
             ->whereBetween('paid_at', [$periodStart, $periodEnd])
             ->where('status', 'paid')
             ->get();
@@ -136,11 +135,11 @@ class MonthlyStatementService
             ->with('account')
             ->orderBy('transacted_at')
             ->get()
-            ->map(fn(AccountTransaction $tx) => [
-                'date'         => $tx->transacted_at->toDateTimeString(),
-                'description'  => $tx->description,
-                'type'         => $tx->entry_type,
-                'amount'       => (float) $tx->amount,
+            ->map(fn (AccountTransaction $tx) => [
+                'date' => $tx->transacted_at->toDateTimeString(),
+                'description' => $tx->description,
+                'type' => $tx->entry_type,
+                'amount' => (float) $tx->amount,
                 'account_type' => $tx->account?->type ?? 'unknown',
             ])
             ->toArray();
@@ -160,38 +159,56 @@ class MonthlyStatementService
         $loanDetails = null;
         if ($activeLoan) {
             $allInstallments = $activeLoan->installments;
-            $paidCount       = $allInstallments->where('status', 'paid')->count();
-            $pendingCount    = $allInstallments->whereIn('status', ['pending', 'overdue'])->count();
+            $paidCount = $allInstallments->where('status', 'paid')->count();
+            $pendingCount = $allInstallments->whereIn('status', ['pending', 'overdue'])->count();
             $loanDetails = [
-                'id'                  => $activeLoan->id,
-                'status'              => $activeLoan->status,
-                'amount_approved'     => (float) $activeLoan->amount_approved,
-                'remaining_amount'    => (float) $activeLoan->remaining_amount,
-                'tier'                => $activeLoan->loanTier?->label,
-                'disbursed_at'        => $activeLoan->disbursed_at?->toDateString(),
-                'installments_total'  => $allInstallments->count(),
-                'installments_paid'   => $paidCount,
-                'installments_pending'=> $pendingCount,
-                'next_due'            => $allInstallments->where('status', 'pending')
-                                            ->sortBy('due_date')->first()?->due_date?->toDateString(),
+                'id' => $activeLoan->id,
+                'status' => $activeLoan->status,
+                'amount_approved' => (float) $activeLoan->amount_approved,
+                'remaining_amount' => (float) $activeLoan->remaining_amount,
+                'tier' => $activeLoan->loanTier?->label,
+                'disbursed_at' => $activeLoan->disbursed_at?->toDateString(),
+                'installments_total' => $allInstallments->count(),
+                'installments_paid' => $paidCount,
+                'installments_pending' => $pendingCount,
+                'next_due' => $allInstallments->where('status', 'pending')
+                    ->sortBy('due_date')->first()?->due_date?->toDateString(),
             ];
         }
 
         // ── Late fee summary ──────────────────────────────────────────────────
-        $periodLateFees = (float) LoanInstallment::whereHas('loan', fn($q) => $q->where('member_id', $member->id))
+        $periodLateFees = (float) LoanInstallment::whereHas('loan', fn ($q) => $q->where('member_id', $member->id))
             ->whereBetween('paid_at', [$periodStart, $periodEnd])
             ->where('status', 'paid')
             ->sum('late_fee_amount');
 
+        // ── Calendar year-to-date (Jan 1 → end of statement month) ────────────
+        $ytdStart = Carbon::create($year, 1, 1)->startOfDay();
+        $ytdContributions = (float) Contribution::where('member_id', $member->id)
+            ->where('year', $year)
+            ->where('month', '<=', $month)
+            ->sum('amount');
+
+        $ytdPaidInstallments = LoanInstallment::whereHas('loan', fn ($q) => $q->where('member_id', $member->id))
+            ->whereBetween('paid_at', [$ytdStart, $periodEnd])
+            ->where('status', 'paid')
+            ->get();
+
+        $ytdRepayments = (float) $ytdPaidInstallments->sum('amount');
+        $ytdLateFees = (float) $ytdPaidInstallments->sum('late_fee_amount');
+
+        $cashYtdEnd = $this->balanceAtDate($member, Account::TYPE_MEMBER_CASH, $periodEnd);
+        $fundYtdEnd = $this->balanceAtDate($member, Account::TYPE_MEMBER_FUND, $periodEnd);
+
         // ── Contribution standing ─────────────────────────────────────────────
-        $overdueInstallments = LoanInstallment::whereHas('loan', fn($q) => $q->where('member_id', $member->id))
+        $overdueInstallments = LoanInstallment::whereHas('loan', fn ($q) => $q->where('member_id', $member->id))
             ->where('status', 'overdue')
             ->get()
-            ->map(fn(LoanInstallment $i) => [
+            ->map(fn (LoanInstallment $i) => [
                 'installment_number' => $i->installment_number,
-                'due_date'           => $i->due_date?->toDateString(),
-                'amount'             => (float) $i->amount,
-                'late_fee'           => (float) $i->late_fee_amount,
+                'due_date' => $i->due_date?->toDateString(),
+                'amount' => (float) $i->amount,
+                'late_fee' => (float) $i->late_fee_amount,
             ])
             ->toArray();
 
@@ -200,52 +217,65 @@ class MonthlyStatementService
 
         return [
             // Summary (used by existing table columns)
-            'opening_balance'     => $opening,
+            'opening_balance' => $opening,
             'total_contributions' => $totalContributions,
-            'total_repayments'    => $totalRepayments,
-            'closing_balance'     => $closing,
+            'total_repayments' => $totalRepayments,
+            'closing_balance' => $closing,
 
             // Rich details
-            'period'         => $period,
-            'period_label'   => Carbon::create($year, $month, 1)->format('F Y'),
-            'generated_at'   => now()->toDateTimeString(),
+            'period' => $period,
+            'period_label' => Carbon::create($year, $month, 1)->format('F Y'),
+            'generated_at' => now()->toDateTimeString(),
 
-            'cash_opening'   => $openingCash,
-            'fund_opening'   => $openingFund,
-            'cash_closing'   => $cashAtEnd,
-            'fund_closing'   => $fundAtEnd,
+            'cash_opening' => $openingCash,
+            'fund_opening' => $openingFund,
+            'cash_closing' => $cashAtEnd,
+            'fund_closing' => $fundAtEnd,
 
-            'contributions'  => $periodContribs->map(fn(Contribution $c) => [
-                'amount'     => (float) $c->amount,
-                'paid_at'    => $c->paid_at?->toDateString(),
-                'method'     => $c->payment_method,
-                'status'     => $c->status,
-                'is_late'    => (bool) $c->is_late,
+            'contributions' => $periodContribs->map(fn (Contribution $c) => [
+                'amount' => (float) $c->amount,
+                'paid_at' => $c->paid_at?->toDateString(),
+                'method' => $c->payment_method,
+                'status' => $c->status,
+                'is_late' => (bool) $c->is_late,
             ])->toArray(),
 
-            'period_installments' => $paidInstallments->map(fn(LoanInstallment $i) => [
+            'period_installments' => $paidInstallments->map(fn (LoanInstallment $i) => [
                 'installment_number' => $i->installment_number,
-                'due_date'           => $i->due_date?->toDateString(),
-                'paid_at'            => $i->paid_at?->toDateString(),
-                'amount'             => (float) $i->amount,
-                'late_fee'           => (float) $i->late_fee_amount,
+                'due_date' => $i->due_date?->toDateString(),
+                'paid_at' => $i->paid_at?->toDateString(),
+                'amount' => (float) $i->amount,
+                'late_fee' => (float) $i->late_fee_amount,
             ])->toArray(),
 
-            'period_transactions'  => $periodTransactions,
-            'period_late_fees'     => $periodLateFees,
+            'period_transactions' => $periodTransactions,
+            'period_late_fees' => $periodLateFees,
             'overdue_installments' => $overdueInstallments,
-            'active_loan'          => $loanDetails,
+            'active_loan' => $loanDetails,
+
+            'calendar_year_to_date' => [
+                'calendar_year' => $year,
+                'range_start' => $ytdStart->toDateString(),
+                'range_end' => $periodEnd->toDateString(),
+                'range_label' => $ytdStart->format('M j, Y').' – '.$periodEnd->format('M j, Y'),
+                'total_contributions' => $ytdContributions,
+                'total_repayments' => $ytdRepayments,
+                'total_late_fees' => $ytdLateFees,
+                'net_cash_movement' => round($ytdContributions - $ytdRepayments, 2),
+                'cash_balance_at_end' => $cashYtdEnd,
+                'fund_balance_at_end' => $fundYtdEnd,
+            ],
 
             'member_snapshot' => [
-                'name'              => $member->user?->name,
-                'member_number'     => $member->member_number,
-                'email'             => $member->user?->email,
-                'phone'             => $member->user?->phone,
-                'status'            => $member->status,
-                'joined_at'         => $member->joined_at?->toDateString(),
-                'monthly_contrib'   => (float) $member->monthly_contribution_amount,
-                'late_contrib_count'=> (int) $member->late_contributions_count,
-                'late_repay_count'  => (int) $member->late_repayment_count,
+                'name' => $member->user?->name,
+                'member_number' => $member->member_number,
+                'email' => $member->user?->email,
+                'phone' => $member->user?->phone,
+                'status' => $member->status,
+                'joined_at' => $member->joined_at?->toDateString(),
+                'monthly_contrib' => (float) $member->monthly_contribution_amount,
+                'late_contrib_count' => (int) $member->late_contributions_count,
+                'late_repay_count' => (int) $member->late_repayment_count,
             ],
         ];
     }
@@ -271,7 +301,7 @@ class MonthlyStatementService
             ->where('type', $accountType)
             ->value('id');
 
-        if (!$accountId) {
+        if (! $accountId) {
             return 0.0;
         }
 

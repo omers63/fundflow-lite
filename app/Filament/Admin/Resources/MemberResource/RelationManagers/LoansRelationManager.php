@@ -4,22 +4,23 @@ namespace App\Filament\Admin\Resources\MemberResource\RelationManagers;
 
 use App\Filament\Admin\Resources\LoanResource;
 use App\Filament\Admin\Resources\MemberResource\Concerns\InteractsWithMemberCycleHeaderActions;
+use Filament\Resources\RelationManagers\RelationManager;
 use App\Models\FundTier;
 use App\Models\Loan;
 use App\Models\LoanTier;
-use App\Support\FilamentTableSummaries;
 use App\Services\AccountingService;
 use App\Services\LoanEligibilityService;
+use App\Support\FilamentTableSummaries;
 use Filament\Actions\Action;
 use Filament\Actions\ActionGroup;
 use Filament\Actions\BulkActionGroup;
 use Filament\Actions\DeleteAction;
 use Filament\Actions\DeleteBulkAction;
 use Filament\Forms;
-use Filament\Resources\RelationManagers\RelationManager;
 use Filament\Schemas\Schema;
 use Filament\Tables;
 use Filament\Tables\Table;
+use Illuminate\Database\Eloquent\Model;
 
 class LoansRelationManager extends RelationManager
 {
@@ -29,7 +30,7 @@ class LoansRelationManager extends RelationManager
 
     protected static ?string $title = null;
 
-    public static function getTitle(\Illuminate\Database\Eloquent\Model $ownerRecord, string $pageClass): string
+    public static function getTitle(Model $ownerRecord, string $pageClass): string
     {
         return __('Loans');
     }
@@ -54,8 +55,8 @@ class LoansRelationManager extends RelationManager
                 Action::make('new_loan')
                     ->label(__('New loan'))
                     ->icon('heroicon-o-plus-circle')
-                    ->url(fn(): string => LoanResource::getUrl('create') . '?member_id=' . $this->getOwnerRecord()->getKey())
-                    ->visible(fn(): bool => LoanResource::canCreate()
+                    ->url(fn (): string => LoanResource::getUrl('create').'?member_id='.$this->getOwnerRecord()->getKey())
+                    ->visible(fn (): bool => LoanResource::canCreate()
                         && app(LoanEligibilityService::class)->isEligible($this->getOwnerRecord())),
                 $this->repaymentCycleHeaderAction(),
             ])
@@ -70,7 +71,7 @@ class LoansRelationManager extends RelationManager
                 Tables\Columns\TextColumn::make('installments_count')->label(__('Months'))->toggleable(),
                 Tables\Columns\BadgeColumn::make('status')
                     ->label(__('Status'))
-                    ->formatStateUsing(fn(?string $state): string => $state ? __(ucfirst(str_replace('_', ' ', $state))) : __('—'))
+                    ->formatStateUsing(fn (?string $state): string => $state ? __(ucfirst(str_replace('_', ' ', $state))) : __('—'))
                     ->colors([
                         'warning' => 'pending',
                         'info' => 'approved',
@@ -81,12 +82,12 @@ class LoansRelationManager extends RelationManager
                     ->toggleable(),
                 Tables\Columns\TextColumn::make('paid_installments_count')
                     ->label(__('Paid / Total'))
-                    ->getStateUsing(fn(Loan $r) => $r->paid_installments_count . ' / ' . $r->installments_count)
+                    ->getStateUsing(fn (Loan $r) => $r->paid_installments_count.' / '.$r->installments_count)
                     ->toggleable(),
                 Tables\Columns\TextColumn::make('remaining_amount')
                     ->label(__('Remaining'))
                     ->money('SAR')
-                    ->getStateUsing(fn(Loan $r) => $r->remaining_amount)
+                    ->getStateUsing(fn (Loan $r) => $r->remaining_amount)
                     ->toggleable(),
                 Tables\Columns\TextColumn::make('applied_at')->label(__('Applied'))->date('d M Y')->sortable()->toggleable(),
             ])
@@ -102,18 +103,18 @@ class LoansRelationManager extends RelationManager
                 ]),
                 Tables\Filters\SelectFilter::make('loan_tier_id')
                     ->label(__('Loan tier'))
-                    ->options(fn() => LoanTier::query()->orderBy('tier_number')->pluck('label', 'id')),
+                    ->options(fn () => LoanTier::query()->orderBy('tier_number')->pluck('label', 'id')),
                 Tables\Filters\SelectFilter::make('fund_tier_id')
                     ->label(__('Fund tier'))
-                    ->options(fn() => FundTier::query()->orderBy('label')->pluck('label', 'id')),
+                    ->options(fn () => FundTier::query()->orderBy('label')->pluck('label', 'id')),
                 Tables\Filters\TernaryFilter::make('is_emergency')->label(__('Emergency')),
                 Tables\Filters\TernaryFilter::make('disbursed')
                     ->label(__('Disbursed'))
                     ->trueLabel(__('Disbursed'))
                     ->falseLabel(__('Not disbursed'))
                     ->queries(
-                        true: fn($q) => $q->whereNotNull('disbursed_at'),
-                        false: fn($q) => $q->whereNull('disbursed_at'),
+                        true: fn ($q) => $q->whereNotNull('disbursed_at'),
+                        false: fn ($q) => $q->whereNull('disbursed_at'),
                     ),
                 Tables\Filters\Filter::make('applied_at')
                     ->schema([
@@ -123,8 +124,8 @@ class LoansRelationManager extends RelationManager
                     ->columns(2)
                     ->query(function ($query, array $data) {
                         return $query
-                            ->when($data['from'] ?? null, fn($q) => $q->whereDate('applied_at', '>=', $data['from']))
-                            ->when($data['until'] ?? null, fn($q) => $q->whereDate('applied_at', '<=', $data['until']));
+                            ->when($data['from'] ?? null, fn ($q) => $q->whereDate('applied_at', '>=', $data['from']))
+                            ->when($data['until'] ?? null, fn ($q) => $q->whereDate('applied_at', '<=', $data['until']));
                     }),
                 Tables\Filters\Filter::make('amount_requested')
                     ->schema([
@@ -134,8 +135,8 @@ class LoansRelationManager extends RelationManager
                     ->columns(2)
                     ->query(function ($query, array $data) {
                         return $query
-                            ->when(filled($data['min'] ?? null), fn($q) => $q->where('amount_requested', '>=', $data['min']))
-                            ->when(filled($data['max'] ?? null), fn($q) => $q->where('amount_requested', '<=', $data['max']));
+                            ->when(filled($data['min'] ?? null), fn ($q) => $q->where('amount_requested', '>=', $data['min']))
+                            ->when(filled($data['max'] ?? null), fn ($q) => $q->where('amount_requested', '<=', $data['max']));
                     }),
                 Tables\Filters\Filter::make('amount_approved')
                     ->schema([
@@ -145,8 +146,8 @@ class LoansRelationManager extends RelationManager
                     ->columns(2)
                     ->query(function ($query, array $data) {
                         return $query
-                            ->when(filled($data['min'] ?? null), fn($q) => $q->where('amount_approved', '>=', $data['min']))
-                            ->when(filled($data['max'] ?? null), fn($q) => $q->where('amount_approved', '<=', $data['max']));
+                            ->when(filled($data['min'] ?? null), fn ($q) => $q->where('amount_approved', '>=', $data['min']))
+                            ->when(filled($data['max'] ?? null), fn ($q) => $q->where('amount_approved', '<=', $data['max']));
                     }),
             ])
             ->recordActions([

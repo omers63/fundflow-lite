@@ -4,13 +4,13 @@ namespace App\Filament\Admin\Resources\MembershipApplicationResource\Pages;
 
 use App\Filament\Admin\Resources\MembershipApplicationResource;
 use App\Filament\Admin\Widgets\ApplicationStatsWidget;
+use Filament\Resources\Pages\ListRecords;
 use App\Services\MembershipApplicationImportService;
 use App\Support\FilamentStoredUploadPath;
 use Filament\Actions\Action;
 use Filament\Actions\CreateAction;
 use Filament\Forms;
 use Filament\Notifications\Notification;
-use Filament\Resources\Pages\ListRecords;
 use Illuminate\Support\Facades\Storage;
 use Illuminate\Support\HtmlString;
 use Livewire\Component;
@@ -26,9 +26,9 @@ class ListMembershipApplications extends ListRecords
                 ->label(__('Import Applications'))
                 ->icon('heroicon-o-arrow-up-tray')
                 ->color('success')
-                ->visible(fn(): bool => MembershipApplicationResource::canCreate() || (bool) auth()->user()?->can('Update:MembershipApplication'))
+                ->visible(fn (): bool => MembershipApplicationResource::canCreate() || (bool) auth()->user()?->can('Update:MembershipApplication'))
                 ->modalHeading(__('Import applications from CSV'))
-                ->modalDescription(fn(): HtmlString => new HtmlString(
+                ->modalDescription(fn (): HtmlString => new HtmlString(
                     view('filament.admin.membership-application-import-csv-help')->render()
                 ))
                 ->modalWidth('2xl')
@@ -97,11 +97,11 @@ class ListMembershipApplications extends ListRecords
                             $previewLines = array_slice($result['errors'], 0, 6);
                             $preview = implode("\n", $previewLines);
                             if (count($result['errors']) > 6) {
-                                $preview .= "\n… " . __('and :count more (see storage/logs/laravel.log)', [
+                                $preview .= "\n… ".__('and :count more (see storage/logs/laravel.log)', [
                                     'count' => count($result['errors']) - 6,
                                 ]);
                             }
-                            $body .= "\n\n" . $preview;
+                            $body .= "\n\n".$preview;
                         }
 
                         $livewire->resetTable();
@@ -130,7 +130,7 @@ class ListMembershipApplications extends ListRecords
                 ->label(__('New Application'))
                 ->icon('heroicon-o-plus-circle')
                 ->url(MembershipApplicationResource::getUrl('create'))
-                ->visible(fn(): bool => MembershipApplicationResource::canCreate()),
+                ->visible(fn (): bool => MembershipApplicationResource::canCreate()),
         ];
     }
 

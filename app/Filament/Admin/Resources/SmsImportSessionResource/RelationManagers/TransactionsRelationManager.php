@@ -2,6 +2,7 @@
 
 namespace App\Filament\Admin\Resources\SmsImportSessionResource\RelationManagers;
 
+use Filament\Resources\RelationManagers\RelationManager;
 use App\Models\Member;
 use App\Models\SmsTransaction;
 use App\Services\AccountingService;
@@ -10,10 +11,11 @@ use Filament\Actions\Action;
 use Filament\Actions\ActionGroup;
 use Filament\Forms;
 use Filament\Notifications\Notification;
-use Filament\Resources\RelationManagers\RelationManager;
 use Filament\Schemas\Schema;
+use Filament\Support\Enums\Alignment;
 use Filament\Tables;
 use Filament\Tables\Table;
+use Illuminate\Database\Eloquent\Model;
 
 class TransactionsRelationManager extends RelationManager
 {
@@ -21,7 +23,7 @@ class TransactionsRelationManager extends RelationManager
 
     protected static ?string $title = null;
 
-    public static function getTitle(\Illuminate\Database\Eloquent\Model $ownerRecord, string $pageClass): string
+    public static function getTitle(Model $ownerRecord, string $pageClass): string
     {
         return __('Imported SMS Transactions');
     }
@@ -46,12 +48,20 @@ class TransactionsRelationManager extends RelationManager
                     ->label(__('Date'))->date('d M Y')->sortable(),
                 Tables\Columns\TextColumn::make('amount')
                     ->money('SAR')
+                    ->grow(false)
+                    ->width('8rem')
+                    ->alignment(Alignment::End)
                     ->color(fn(SmsTransaction $r) => $r->transaction_type === 'credit' ? 'success' : 'danger')
                     ->summarize(FilamentTableSummaries::countSumAverageMoney()),
                 Tables\Columns\BadgeColumn::make('transaction_type')->label(__('Type'))
                     ->colors(['success' => 'credit', 'danger' => 'debit']),
                 Tables\Columns\TextColumn::make('reference')->placeholder(__('—')),
-                Tables\Columns\TextColumn::make('member.user.name')->label(__('Member'))->placeholder(__('—')),
+                Tables\Columns\TextColumn::make('member.user.name')
+                    ->label(__('Member'))
+                    ->placeholder(__('—'))
+                    ->wrap()
+                    ->extraHeaderAttributes(['style' => FilamentTableSummaries::memberDisplayNameCellStyle()])
+                    ->extraCellAttributes(['style' => FilamentTableSummaries::memberDisplayNameCellStyle()]),
                 Tables\Columns\TextColumn::make('raw_sms')->label(__('SMS'))->limit(50)
                     ->tooltip(fn(SmsTransaction $r) => $r->raw_sms),
                 Tables\Columns\IconColumn::make('posted_at')->label(__('Posted'))

@@ -5,8 +5,8 @@ namespace App\Filament\Admin\Resources\LoanResource\Pages;
 use App\Filament\Admin\Pages\LoanQueuePage;
 use App\Filament\Admin\Resources\LoanResource;
 use App\Filament\Admin\Widgets\LoanStatsWidget;
-use Filament\Actions;
 use Filament\Resources\Pages\ListRecords;
+use Filament\Actions;
 
 class ListLoans extends ListRecords
 {

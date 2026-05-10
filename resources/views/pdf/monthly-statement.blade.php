@@ -9,6 +9,7 @@
     $lateContribCount = $m['late_contrib_count'] ?? ($statement->member->late_contributions_count ?? 0);
     $lateRepayCount = $m['late_repay_count'] ?? ($statement->member->late_repayment_count ?? 0);
     $periodLateFees = $d['period_late_fees'] ?? 0;
+    $ytd = $d['calendar_year_to_date'] ?? null;
 
     $brandName = app()->getLocale() === 'ar' ? 'فندفلو' : 'FundFlow';
 
@@ -531,6 +532,52 @@
                 </div>
             </div>
         </div>
+
+        @if ($ytd)
+            {{-- ── YEAR-TO-DATE (calendar year through statement month) ───────── --}}
+            <div class="section">
+                <div class="section-title">{{ __('Year-to-date') }} ({{ $ytd['calendar_year'] ?? '' }})</div>
+                <p style="font-size:9px;color:#64748b;margin-bottom:8px;">{{ $ytd['range_label'] ?? '' }}</p>
+                <div class="kpi-row">
+                    <div class="kpi-box">
+                        <div class="kpi-label">{{ __('Contributions (YTD)') }}</div>
+                        <div class="kpi-value" style="color:#0284c7;">{{ __('SAR') }}
+                            {{ number_format((float) ($ytd['total_contributions'] ?? 0), 2) }}</div>
+                        <div class="kpi-sub">{{ __('Through this statement period') }}</div>
+                    </div>
+                    <div class="kpi-box">
+                        <div class="kpi-label">{{ __('Repayments (YTD)') }}</div>
+                        <div class="kpi-value" style="color:#dc2626;">{{ __('SAR') }}
+                            {{ number_format((float) ($ytd['total_repayments'] ?? 0), 2) }}</div>
+                        <div class="kpi-sub">{{ __('Loan installments paid in range') }}</div>
+                    </div>
+                    <div class="kpi-box">
+                        <div class="kpi-label">{{ __('Late fees (YTD)') }}</div>
+                        <div class="kpi-value" style="color:#d97706;">{{ __('SAR') }}
+                            {{ number_format((float) ($ytd['total_late_fees'] ?? 0), 2) }}</div>
+                        <div class="kpi-sub">{{ __('On paid installments') }}</div>
+                    </div>
+                    <div class="kpi-box">
+                        <div class="kpi-label">{{ __('Net (contrib. − repay.)') }}</div>
+                        <div class="kpi-value">{{ __('SAR') }}
+                            {{ number_format((float) ($ytd['net_cash_movement'] ?? 0), 2) }}</div>
+                        <div class="kpi-sub">{{ __('Cash / fund balances at period end') }}</div>
+                    </div>
+                </div>
+                <table class="info-table" style="margin-top:10px;">
+                    <tr>
+                        <td class="lbl">{{ __('Cash balance (end of period)') }}</td>
+                        <td class="val">{{ __('SAR') }}
+                            {{ number_format((float) ($ytd['cash_balance_at_end'] ?? 0), 2) }}</td>
+                    </tr>
+                    <tr>
+                        <td class="lbl">{{ __('Fund balance (end of period)') }}</td>
+                        <td class="val">{{ __('SAR') }}
+                            {{ number_format((float) ($ytd['fund_balance_at_end'] ?? 0), 2) }}</td>
+                    </tr>
+                </table>
+            </div>
+        @endif
 
         {{-- ── MEMBER + ACCOUNT DETAILS ─────────────────────────────────────── --}}
         <div class="section">

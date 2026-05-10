@@ -15,6 +15,7 @@ use Filament\PanelProvider;
 use Filament\Support\Colors\Color;
 use Filament\View\PanelsRenderHook;
 use Filament\Widgets\AccountWidget;
+use Illuminate\Contracts\View\View;
 use Illuminate\Cookie\Middleware\AddQueuedCookiesToResponse;
 use Illuminate\Cookie\Middleware\EncryptCookies;
 use Illuminate\Foundation\Http\Middleware\PreventRequestForgery;
@@ -45,11 +46,11 @@ class MemberPanelProvider extends PanelProvider
             ->disabledErrorNotification(401)
             ->renderHook(
                 PanelsRenderHook::TOPBAR_START,
-                fn(): \Illuminate\Contracts\View\View => view('filament.member.impersonation-topbar-banner'),
+                fn(): View => view('filament.member.impersonation-topbar-banner'),
             )
             ->renderHook(
                 PanelsRenderHook::BODY_END,
-                fn(): \Illuminate\Contracts\View\View => view('filament.member.livewire-session-recovery'),
+                fn(): View => view('filament.member.livewire-session-recovery'),
             )
             ->databaseNotifications()
             ->databaseNotificationsPolling('30s')

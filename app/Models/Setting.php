@@ -18,11 +18,11 @@ class Setting extends Model
     protected static function booted(): void
     {
         static::deleted(function (Setting $setting): void {
-            Cache::forget(self::CACHE_KEY_PREFIX . $setting->key);
+            Cache::forget(self::CACHE_KEY_PREFIX.$setting->key);
         });
 
         static::restored(function (Setting $setting): void {
-            Cache::forget(self::CACHE_KEY_PREFIX . $setting->key);
+            Cache::forget(self::CACHE_KEY_PREFIX.$setting->key);
         });
     }
 
@@ -34,7 +34,7 @@ class Setting extends Model
      */
     public static function get(string $key, mixed $default = null): mixed
     {
-        $cacheKey = self::CACHE_KEY_PREFIX . $key;
+        $cacheKey = self::CACHE_KEY_PREFIX.$key;
 
         if (Cache::has($cacheKey)) {
             return Cache::get($cacheKey);
@@ -65,7 +65,7 @@ class Setting extends Model
             static::create(['key' => $key, 'value' => $value]);
         }
 
-        Cache::forget(self::CACHE_KEY_PREFIX . $key);
+        Cache::forget(self::CACHE_KEY_PREFIX.$key);
     }
 
     /** Typed helpers for loan settings. */
@@ -115,6 +115,16 @@ class Setting extends Model
     public static function mixedImportAllowPartialInstallmentRepayment(): bool
     {
         return (bool) static::get('feature.contribution_import_mixed.allow_partial_installment_repayment', false);
+    }
+
+    /**
+     * When enabled, shorthand loan imports with no portions (mixed CSV negative row, or blank member/master
+     * columns on the loan CSV) split approved principal 50/50 between member vs master ledger slices.
+     * When disabled, portions follow the member’s current fund-account balance capped at principal (mirror of admin disbursement logic).
+     */
+    public static function importLoanBlankPortionsUseFiftyFiftySplit(): bool
+    {
+        return (bool) static::get('feature.import_loan.blank_portions_use_fifty_fifty_split', false);
     }
 
     /**
@@ -325,7 +335,7 @@ class Setting extends Model
     {
         return array_values(array_filter(
             array_keys(self::COMM_CHANNELS),
-            fn(string $ch) => static::commChannelEnabled($ch),
+            fn (string $ch) => static::commChannelEnabled($ch),
         ));
     }
 

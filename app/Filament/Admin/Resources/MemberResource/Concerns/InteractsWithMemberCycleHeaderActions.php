@@ -70,7 +70,7 @@ trait InteractsWithMemberCycleHeaderActions
                 ->content(function (Get $get) use ($member) {
                     $key = $get('cycle');
                     if ($key === null || $key === '') {
-                        return new HtmlString('<p class="text-sm text-gray-500 dark:text-gray-400">'.e(__('Select a cycle to preview.')).'</p>');
+                        return new HtmlString('<p class="text-sm text-gray-500 dark:text-gray-400">' . e(__('Select a cycle to preview.')) . '</p>');
                     }
 
                     try {
@@ -306,7 +306,7 @@ trait InteractsWithMemberCycleHeaderActions
             ->title(__('Could not apply contribution'))
             ->body(match ($outcome) {
                 'already_contributed' => Contribution::duplicateCycleMessage($month, $year),
-                'exempt' => __('This member is exempt from contributions while they have an approved or active loan.'),
+                'exempt' => __('Contributions cannot be applied while this member has pending loan repayments; funds stay on cash until installments are paid.'),
                 'skipped' => __('This contribution could not be applied.'),
                 default => __('Status: :status', ['status' => $outcome]),
             })

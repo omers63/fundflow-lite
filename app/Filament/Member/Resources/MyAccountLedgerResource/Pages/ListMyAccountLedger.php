@@ -3,12 +3,12 @@
 namespace App\Filament\Member\Resources\MyAccountLedgerResource\Pages;
 
 use App\Filament\Member\Resources\MyAccountLedgerResource;
+use Filament\Resources\Pages\ListRecords;
 use App\Models\Member;
 use App\Services\AccountingService;
 use Filament\Actions\Action;
 use Filament\Forms;
 use Filament\Notifications\Notification;
-use Filament\Resources\Pages\ListRecords;
 
 class ListMyAccountLedger extends ListRecords
 {
@@ -36,17 +36,17 @@ class ListMyAccountLedger extends ListRecords
                             ->label(__('Recipient Member'))
                             ->required()
                             ->searchable()
-                            ->options(fn() => Member::query()
+                            ->options(fn () => Member::query()
                                 ->where('id', '!=', $member?->id)
-                                ->whereHas('user', fn($q) => $q
+                                ->whereHas('user', fn ($q) => $q
                                     ->where('status', 'approved')
                                     ->where('role', 'member'))
                                 ->with('user')
                                 ->orderBy('member_number')
                                 ->limit(200)
                                 ->get()
-                                ->mapWithKeys(fn(Member $m) => [
-                                    $m->id => trim(($m->member_number ? "{$m->member_number} — " : '') . ($m->user?->name ?? __('Member'))),
+                                ->mapWithKeys(fn (Member $m) => [
+                                    $m->id => trim(($m->member_number ? "{$m->member_number} — " : '').($m->user?->name ?? __('Member'))),
                                 ])
                                 ->all()),
                         Forms\Components\TextInput::make('amount')
@@ -65,7 +65,7 @@ class ListMyAccountLedger extends ListRecords
                         ->where('user_id', auth()->id())
                         ->first();
 
-                    if (!$from) {
+                    if (! $from) {
                         Notification::make()->title(__('Your member record was not found.'))->danger()->send();
 
                         return;
@@ -76,7 +76,7 @@ class ListMyAccountLedger extends ListRecords
                         ->with('user')
                         ->first();
 
-                    if (!$to) {
+                    if (! $to) {
                         Notification::make()->title(__('Recipient member was not found.'))->danger()->send();
 
                         return;

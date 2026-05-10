@@ -131,6 +131,9 @@ class SmsTransactionResource extends Resource
                 Tables\Columns\TextColumn::make('member.user.name')
                     ->label(__('Member'))
                     ->placeholder(__('—'))
+                    ->wrap()
+                    ->extraHeaderAttributes(['style' => FilamentTableSummaries::memberDisplayNameCellStyle()])
+                    ->extraCellAttributes(['style' => FilamentTableSummaries::memberDisplayNameCellStyle()])
                     ->searchable(),
                 Tables\Columns\TextColumn::make('raw_sms')
                     ->label(__('SMS'))

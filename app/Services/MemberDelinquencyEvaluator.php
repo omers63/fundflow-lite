@@ -20,7 +20,8 @@ class MemberDelinquencyEvaluator
 
     public function __construct(
         protected ContributionCycleService $cycles,
-    ) {}
+    ) {
+    }
 
     /**
      * @return array{
@@ -158,11 +159,13 @@ class MemberDelinquencyEvaluator
             return false;
         }
 
-        if (!Contribution::query()
-            ->where('member_id', $member->id)
-            ->where('month', $month)
-            ->where('year', $year)
-            ->exists()) {
+        if (
+            !Contribution::query()
+                ->where('member_id', $member->id)
+                ->where('month', $month)
+                ->where('year', $year)
+                ->exists()
+        ) {
             return true;
         }
 
@@ -197,8 +200,9 @@ class MemberDelinquencyEvaluator
 
         $v = Loan::query()
             ->where('member_id', $member->id)
-            ->whereIn('status', ['approved', 'active'])
-            ->where('approved_at', '<=', $end)
+            ->where('status', 'active')
+            ->where('disbursed_at', '<=', $end)
+            ->whereHas('installments', fn($q) => $q->whereIn('status', ['pending', 'overdue']))
             ->exists();
 
         return $this->exemptFromContributionCache[$k] = $v;

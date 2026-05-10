@@ -11,6 +11,8 @@ use Carbon\CarbonInterface;
 use Filament\Actions\Action;
 use Filament\Forms;
 use Filament\Resources\Resource;
+use Filament\Schemas\Components\Section;
+use Filament\Support\Enums\Alignment;
 use Filament\Tables;
 use Filament\Tables\Table;
 
@@ -59,11 +61,20 @@ class MyAccountLedgerResource extends Resource
                 Tables\Columns\TextColumn::make('transacted_at')
                     ->label(__('Date'))
                     ->dateTime('d M Y, H:i')
-                    ->sortable(),
+                    ->sortable()
+                    ->grow(false)
+                    ->width('10.75rem')
+                    ->extraHeaderAttributes(['style' => FilamentTableSummaries::narrowFixedCellStyle('10.75rem')])
+                    ->extraCellAttributes(['style' => FilamentTableSummaries::narrowFixedCellStyle('10.75rem')]),
                 Tables\Columns\TextColumn::make('account.type')
                     ->label(__('Account'))
                     ->visibleFrom('sm')
                     ->badge()
+                    ->grow(false)
+                    ->width('6.5rem')
+                    ->alignment(Alignment::Center)
+                    ->extraHeaderAttributes(['style' => FilamentTableSummaries::narrowFixedCellStyle('6.5rem')])
+                    ->extraCellAttributes(['style' => FilamentTableSummaries::narrowFixedCellStyle('6.5rem')])
                     ->formatStateUsing(fn(string $state) => match ($state) {
                         Account::TYPE_MEMBER_CASH => __('Cash'),
                         Account::TYPE_MEMBER_FUND => __('Fund'),
@@ -79,6 +90,11 @@ class MyAccountLedgerResource extends Resource
                 Tables\Columns\TextColumn::make('entry_type')
                     ->label(__('Type'))
                     ->badge()
+                    ->grow(false)
+                    ->width('8.75rem')
+                    ->alignment(Alignment::Center)
+                    ->extraHeaderAttributes(['style' => FilamentTableSummaries::narrowFixedCellStyle('8.75rem')])
+                    ->extraCellAttributes(['style' => FilamentTableSummaries::narrowFixedCellStyle('8.75rem')])
                     ->formatStateUsing(fn(string $state) => match ($state) {
                         'credit' => __('Credit (In)'),
                         'debit' => __('Debit (Out)'),
@@ -88,13 +104,20 @@ class MyAccountLedgerResource extends Resource
                 Tables\Columns\TextColumn::make('amount')
                     ->label(__('Amount (SAR)'))
                     ->money('SAR')
+                    ->grow(false)
+                    ->width('8.5rem')
+                    ->alignment(Alignment::End)
+                    ->extraHeaderAttributes(['style' => FilamentTableSummaries::narrowFixedCellStyle('8.5rem')])
+                    ->extraCellAttributes(['style' => FilamentTableSummaries::narrowFixedCellStyle('8.5rem')])
                     ->weight('bold')
                     ->summarize(FilamentTableSummaries::countSumAverageMoney()),
                 Tables\Columns\TextColumn::make('description')
                     ->label(__('Description'))
                     ->visibleFrom('md')
                     ->wrap()
-                    ->limit(80),
+                    ->extraCellAttributes([
+                        'style' => 'max-width: 28rem; min-width: 10rem; word-break: break-word;',
+                    ]),
             ])
             ->recordAction('view_details')
             ->recordActions([
@@ -108,7 +131,7 @@ class MyAccountLedgerResource extends Resource
                     ->modalSubmitAction(false)
                     ->modalCancelActionLabel(__('Close'))
                     ->schema([
-                        \Filament\Schemas\Components\Section::make(__('Transaction summary'))
+                        Section::make(__('Transaction summary'))
                             ->schema([
                                 Forms\Components\Placeholder::make('amount')
                                     ->label(__('Amount'))
@@ -135,13 +158,13 @@ class MyAccountLedgerResource extends Resource
                                         : __('—')),
                             ])
                             ->columns(2),
-                        \Filament\Schemas\Components\Section::make(__('Description'))
+                        Section::make(__('Description'))
                             ->schema([
                                 Forms\Components\Placeholder::make('description')
                                     ->label('')
                                     ->content(fn(AccountTransaction $record): string => (string) ($record->description ?: __('—'))),
                             ]),
-                        \Filament\Schemas\Components\Section::make(__('Technical details'))
+                        Section::make(__('Technical details'))
                             ->collapsible()
                             ->collapsed()
                             ->schema([

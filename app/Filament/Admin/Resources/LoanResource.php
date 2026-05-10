@@ -706,7 +706,7 @@ class LoanResource extends Resource
                     $count = Loan::computeInstallmentsCount($amountApproved, $memberFundBalanceBefore, $minInstall, $threshold);
 
                     $exemption = Loan::computeExemptionAndFirstRepayment($disbursedAt, (bool) $record->has_grace_cycle);
-                    $exemption = Loan::adjustFirstRepaymentIfContributionAlreadyMade($record->member, $exemption);
+                    $exemption = Loan::finalizeExemptionForDisbursement($record->member, $exemption, $disbursedAt);
 
                     DB::transaction(function () use ($record, $disbursedAt, $exemption, $count, $minInstall, $amountApproved, $memberFundBalanceBefore) {
                         $memberPortion = min(max(0.0, $memberFundBalanceBefore), $amountApproved);
@@ -804,8 +804,21 @@ class LoanResource extends Resource
                     ->tooltip(fn(Loan $r) => $r->is_emergency ? __('Emergency Loan') : null)
                     ->toggleable(),
                 Tables\Columns\TextColumn::make('loanTier.label')->label(__('Tier'))->placeholder(__('—'))->toggleable(),
-                Tables\Columns\TextColumn::make('member.member_number')->label(__('Member #'))->searchable()->sortable()->toggleable(),
-                Tables\Columns\TextColumn::make('member.user.name')->label(__('Member'))->searchable()->toggleable(),
+                Tables\Columns\TextColumn::make('member.member_number')
+                    ->label(__('Member #'))
+                    ->wrap()
+                    ->extraHeaderAttributes(['style' => FilamentTableSummaries::memberNumberCellStyle()])
+                    ->extraCellAttributes(['style' => FilamentTableSummaries::memberNumberCellStyle()])
+                    ->searchable()
+                    ->sortable()
+                    ->toggleable(),
+                Tables\Columns\TextColumn::make('member.user.name')
+                    ->label(__('Member'))
+                    ->wrap()
+                    ->extraHeaderAttributes(['style' => FilamentTableSummaries::memberDisplayNameCellStyle()])
+                    ->extraCellAttributes(['style' => FilamentTableSummaries::memberDisplayNameCellStyle()])
+                    ->searchable()
+                    ->toggleable(),
                 Tables\Columns\TextColumn::make('amount_requested')
                     ->label(__('Requested'))
                     ->money('SAR')

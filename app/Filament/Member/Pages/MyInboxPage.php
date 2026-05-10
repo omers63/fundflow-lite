@@ -38,7 +38,7 @@ class MyInboxPage extends Page implements HasTable
     public static function getNavigationBadge(): ?string
     {
         $count = DirectMessage::where('to_user_id', auth()->id())
-            ->whereHas('sender', fn (Builder $q): Builder => $q->where('role', 'admin'))
+            ->whereHas('sender', fn(Builder $q): Builder => $q->where('role', 'admin'))
             ->whereNull('read_at')
             ->count();
 
@@ -79,7 +79,7 @@ class MyInboxPage extends Page implements HasTable
                         DirectMessage::query()
                             ->whereNull('deleted_at')
                             ->whereColumn('to_user_id', 'members.user_id')
-                            ->whereHas('sender', fn (Builder $q): Builder => $q->where('role', 'admin'))
+                            ->whereHas('sender', fn(Builder $q): Builder => $q->where('role', 'admin'))
                             ->selectRaw('count(*)'),
                         'messages_received_count'
                     )
@@ -87,7 +87,7 @@ class MyInboxPage extends Page implements HasTable
                         DirectMessage::query()
                             ->whereNull('deleted_at')
                             ->whereColumn('from_user_id', 'members.user_id')
-                            ->whereHas('recipient', fn (Builder $q): Builder => $q->where('role', 'admin'))
+                            ->whereHas('recipient', fn(Builder $q): Builder => $q->where('role', 'admin'))
                             ->selectRaw('count(*)'),
                         'messages_sent_count'
                     )
@@ -95,7 +95,7 @@ class MyInboxPage extends Page implements HasTable
                         DirectMessage::query()
                             ->whereNull('deleted_at')
                             ->whereColumn('to_user_id', 'members.user_id')
-                            ->whereHas('sender', fn (Builder $q): Builder => $q->where('role', 'admin'))
+                            ->whereHas('sender', fn(Builder $q): Builder => $q->where('role', 'admin'))
                             ->whereNull('read_at')
                             ->selectRaw('count(*)'),
                         'unread_messages_count'
@@ -106,10 +106,10 @@ class MyInboxPage extends Page implements HasTable
                             ->where(function (Builder $query): void {
                                 $query->where(function (Builder $q): void {
                                     $q->whereColumn('to_user_id', 'members.user_id')
-                                        ->whereHas('sender', fn (Builder $sq): Builder => $sq->where('role', 'admin'));
+                                        ->whereHas('sender', fn(Builder $sq): Builder => $sq->where('role', 'admin'));
                                 })->orWhere(function (Builder $q): void {
                                     $q->whereColumn('from_user_id', 'members.user_id')
-                                        ->whereHas('recipient', fn (Builder $rq): Builder => $rq->where('role', 'admin'));
+                                        ->whereHas('recipient', fn(Builder $rq): Builder => $rq->where('role', 'admin'));
                                 });
                             })
                             ->selectRaw('MAX(created_at)'),
@@ -150,7 +150,7 @@ class MyInboxPage extends Page implements HasTable
                         ->modalDescription(__('Single communication thread with full history.'))
                         ->modalWidth('5xl')
                         ->modalSubmitActionLabel(__('Send Message'))
-                        ->modalContent(fn (Member $record) => view(
+                        ->modalContent(fn(Member $record) => view(
                             'filament.member.pages.partials.admin-conversation-modal',
                             [
                                 'messages' => $this->conversationMessages($record),
@@ -194,7 +194,7 @@ class MyInboxPage extends Page implements HasTable
     {
         DirectMessage::query()
             ->where('to_user_id', $member->user_id)
-            ->whereHas('sender', fn (Builder $q): Builder => $q->where('role', 'admin'))
+            ->whereHas('sender', fn(Builder $q): Builder => $q->where('role', 'admin'))
             ->whereNull('read_at')
             ->update(['read_at' => now()]);
 
@@ -203,10 +203,10 @@ class MyInboxPage extends Page implements HasTable
             ->where(function (Builder $query) use ($member): void {
                 $query->where(function (Builder $q) use ($member): void {
                     $q->where('from_user_id', $member->user_id)
-                        ->whereHas('recipient', fn (Builder $admin): Builder => $admin->where('role', 'admin'));
+                        ->whereHas('recipient', fn(Builder $admin): Builder => $admin->where('role', 'admin'));
                 })->orWhere(function (Builder $q) use ($member): void {
                     $q->where('to_user_id', $member->user_id)
-                        ->whereHas('sender', fn (Builder $admin): Builder => $admin->where('role', 'admin'));
+                        ->whereHas('sender', fn(Builder $admin): Builder => $admin->where('role', 'admin'));
                 });
             })
             ->with(['sender', 'recipient'])
@@ -227,11 +227,11 @@ class MyInboxPage extends Page implements HasTable
         }
 
         $userId = auth()->id();
-        $attachments = array_values(array_filter($attachments, fn ($file): bool => filled($file)));
+        $attachments = array_values(array_filter($attachments, fn($file): bool => filled($file)));
         $lastAdminSenderId = DirectMessage::query()
             ->whereNull('deleted_at')
             ->where('to_user_id', $member->user_id)
-            ->whereHas('sender', fn (Builder $q): Builder => $q->where('role', 'admin'))
+            ->whereHas('sender', fn(Builder $q): Builder => $q->where('role', 'admin'))
             ->latest('created_at')
             ->value('from_user_id');
 
@@ -240,7 +240,7 @@ class MyInboxPage extends Page implements HasTable
             ->orderBy('id')
             ->value('id');
 
-        if (! $toUserId) {
+        if (!$toUserId) {
             Notification::make()
                 ->title(__('No admin user is available'))
                 ->danger()
@@ -253,10 +253,10 @@ class MyInboxPage extends Page implements HasTable
             ->where(function (Builder $q) use ($member): void {
                 $q->where(function (Builder $sq) use ($member): void {
                     $sq->where('from_user_id', $member->user_id)
-                        ->whereHas('recipient', fn (Builder $admin): Builder => $admin->where('role', 'admin'));
+                        ->whereHas('recipient', fn(Builder $admin): Builder => $admin->where('role', 'admin'));
                 })->orWhere(function (Builder $sq) use ($member): void {
                     $sq->where('to_user_id', $member->user_id)
-                        ->whereHas('sender', fn (Builder $admin): Builder => $admin->where('role', 'admin'));
+                        ->whereHas('sender', fn(Builder $admin): Builder => $admin->where('role', 'admin'));
                 });
             })
             ->orderBy('created_at')
@@ -286,7 +286,7 @@ class MyInboxPage extends Page implements HasTable
         if ($recipient) {
             Notification::make()
                 ->title(__('New message from member'))
-                ->body(auth()->user()->name.': '.mb_strimwidth($body, 0, 100, '…'))
+                ->body(auth()->user()->name . ': ' . mb_strimwidth($body, 0, 100, '…'))
                 ->icon('heroicon-o-chat-bubble-left-right')
                 ->iconColor('info')
                 ->sendToDatabase($recipient);

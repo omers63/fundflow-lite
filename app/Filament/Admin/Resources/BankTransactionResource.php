@@ -140,6 +140,9 @@ class BankTransactionResource extends Resource
                 Tables\Columns\TextColumn::make('member.user.name')
                     ->label(__('Member'))
                     ->placeholder(__('—'))
+                    ->wrap()
+                    ->extraHeaderAttributes(['style' => FilamentTableSummaries::memberDisplayNameCellStyle()])
+                    ->extraCellAttributes(['style' => FilamentTableSummaries::memberDisplayNameCellStyle()])
                     ->searchable()
                     ->toggleable(),
                 Tables\Columns\TextColumn::make('loan_id')
@@ -499,7 +502,7 @@ class BankTransactionResource extends Resource
                                 );
 
                                 $exemption = Loan::computeExemptionAndFirstRepayment($disbursedAt);
-                                $exemption = Loan::adjustFirstRepaymentIfContributionAlreadyMade($loan->member, $exemption);
+                                $exemption = Loan::finalizeExemptionForDisbursement($loan->member, $exemption, $disbursedAt);
 
                                 \Illuminate\Support\Facades\DB::transaction(function () use ($loan, $disbursedAt, $count, $minInstall, $exemption, $memberFundBalanceBefore): void {
                                     $amountApproved = (float) $loan->amount_approved;
