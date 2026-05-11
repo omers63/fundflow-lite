@@ -217,6 +217,7 @@ What I changed
 Then create/update settings in Admin > System > Settings, and onboard tenants in Admin > System > Tenant 
 Onboarding.
 -------------------------------------------------------------------------------------------------------------
+Theme the look and feel and the content of the public front page for a family fund management system with advance features.
 
 
 
