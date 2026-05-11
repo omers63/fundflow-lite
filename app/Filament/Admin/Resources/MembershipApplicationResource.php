@@ -224,7 +224,7 @@ class MembershipApplicationResource extends Resource
                                         ->label(__('Current status'))
                                         ->disabled()
                                         ->dehydrated(false)
-                                        ->formatStateUsing(fn (?string $state): string => match ($state) {
+                                        ->formatStateUsing(fn(?string $state): string => match ($state) {
                                             'pending' => __('Pending'),
                                             'approved' => __('Approved'),
                                             'rejected' => __('Rejected'),
@@ -251,7 +251,7 @@ class MembershipApplicationResource extends Resource
                                         ->directory('membership-applications')
                                         ->getUploadedFileNameForStorageUsing(function (TemporaryUploadedFile $file): string {
                                             return StorageFilename::make('application-form', $file->getClientOriginalName(), [
-                                                auth()->id() ? ('admin-'.auth()->id()) : null,
+                                                auth()->id() ? ('admin-' . auth()->id()) : null,
                                             ]);
                                         })
                                         ->downloadable()
@@ -278,7 +278,7 @@ class MembershipApplicationResource extends Resource
                     ->searchable(),
                 Tables\Columns\TextColumn::make('mobile_phone')
                     ->label(__('Mobile'))
-                    ->formatStateUsing(fn (?string $state): HtmlString => PhoneDisplay::toHtml($state)),
+                    ->formatStateUsing(fn(?string $state): HtmlString => PhoneDisplay::toHtml($state)),
                 Tables\Columns\TextColumn::make('application_type')
                     ->label(__('Type'))
                     ->formatStateUsing(function (?string $state): string {
@@ -299,7 +299,7 @@ class MembershipApplicationResource extends Resource
                 Tables\Columns\TextColumn::make('membership_fee_transfer_reference')
                     ->label(__('Fee transfer ref'))
                     ->limit(24)
-                    ->tooltip(fn ($record) => $record->membership_fee_transfer_reference)
+                    ->tooltip(fn($record) => $record->membership_fee_transfer_reference)
                     ->toggleable(isToggledHiddenByDefault: true),
                 Tables\Columns\TextColumn::make('membership_fee_posted_at')
                     ->label(__('Fee posted'))
@@ -310,7 +310,7 @@ class MembershipApplicationResource extends Resource
                     ->sortable(),
                 Tables\Columns\TextColumn::make('status')
                     ->badge()
-                    ->color(fn (string $state) => match ($state) {
+                    ->color(fn(string $state) => match ($state) {
                         'pending' => 'warning',
                         'approved' => 'success',
                         'rejected' => 'danger',
@@ -337,21 +337,21 @@ class MembershipApplicationResource extends Resource
                     ->schema([
                         Forms\Components\TextInput::make('value')->label(__('City contains')),
                     ])
-                    ->query(fn (Builder $query, array $data) => $query->when(
+                    ->query(fn(Builder $query, array $data) => $query->when(
                         filled($data['value'] ?? null),
-                        fn (Builder $q) => $q->where('city', 'like', '%'.$data['value'].'%')
+                        fn(Builder $q) => $q->where('city', 'like', '%' . $data['value'] . '%')
                     )),
                 Tables\Filters\TernaryFilter::make('reviewed')
                     ->label(__('Reviewed'))
                     ->trueLabel(__('Reviewed'))
                     ->falseLabel(__('Not reviewed'))
                     ->queries(
-                        true: fn (Builder $q) => $q->whereNotNull('reviewed_at'),
-                        false: fn (Builder $q) => $q->whereNull('reviewed_at'),
+                        true: fn(Builder $q) => $q->whereNotNull('reviewed_at'),
+                        false: fn(Builder $q) => $q->whereNull('reviewed_at'),
                     ),
                 Tables\Filters\SelectFilter::make('reviewed_by')
                     ->label(__('Reviewer'))
-                    ->options(fn () => User::query()->whereIn('id', MembershipApplication::query()->whereNotNull('reviewed_by')->pluck('reviewed_by'))->orderBy('name')->pluck('name', 'id')),
+                    ->options(fn() => User::query()->whereIn('id', MembershipApplication::query()->whereNotNull('reviewed_by')->pluck('reviewed_by'))->orderBy('name')->pluck('name', 'id')),
                 Tables\Filters\Filter::make('created_at')
                     ->schema([
                         Forms\Components\DatePicker::make('from')->label(__('Applied from')),
@@ -360,8 +360,8 @@ class MembershipApplicationResource extends Resource
                     ->columns(2)
                     ->query(function (Builder $query, array $data) {
                         return $query
-                            ->when($data['from'] ?? null, fn (Builder $q) => $q->whereDate('created_at', '>=', $data['from']))
-                            ->when($data['until'] ?? null, fn (Builder $q) => $q->whereDate('created_at', '<=', $data['until']));
+                            ->when($data['from'] ?? null, fn(Builder $q) => $q->whereDate('created_at', '>=', $data['from']))
+                            ->when($data['until'] ?? null, fn(Builder $q) => $q->whereDate('created_at', '<=', $data['until']));
                     }),
                 TrashedFilter::make(),
             ])
@@ -373,7 +373,7 @@ class MembershipApplicationResource extends Resource
                         ->label(__('Approve'))
                         ->icon('heroicon-o-check-circle')
                         ->color('success')
-                        ->visible(fn (MembershipApplication $record) => $record->status === 'pending')
+                        ->visible(fn(MembershipApplication $record) => $record->status === 'pending')
                         ->requiresConfirmation()
                         ->modalHeading(__('Approve Membership Application'))
                         ->modalDescription(__('Are you sure you want to approve this application? The applicant will be notified via email, SMS, and WhatsApp.'))
@@ -403,7 +403,7 @@ class MembershipApplicationResource extends Resource
                         ->label(__('Reject'))
                         ->icon('heroicon-o-x-circle')
                         ->color('danger')
-                        ->visible(fn (MembershipApplication $record) => $record->status === 'pending')
+                        ->visible(fn(MembershipApplication $record) => $record->status === 'pending')
                         ->schema([
                             Forms\Components\Textarea::make('rejection_reason')
                                 ->label(__('Reason for Rejection'))
@@ -431,11 +431,11 @@ class MembershipApplicationResource extends Resource
                             static::dispatchApplicationStatsRefresh($livewire);
                         }),
                     DeleteAction::make()
-                        ->after(fn (Component $livewire) => static::dispatchApplicationStatsRefresh($livewire)),
+                        ->after(fn(Component $livewire) => static::dispatchApplicationStatsRefresh($livewire)),
                     RestoreAction::make()
-                        ->after(fn (Component $livewire) => static::dispatchApplicationStatsRefresh($livewire)),
+                        ->after(fn(Component $livewire) => static::dispatchApplicationStatsRefresh($livewire)),
                     ForceDeleteAction::make()
-                        ->after(fn (Component $livewire) => static::dispatchApplicationStatsRefresh($livewire)),
+                        ->after(fn(Component $livewire) => static::dispatchApplicationStatsRefresh($livewire)),
                 ])
                     ->tooltip(__('Actions')),
             ])
@@ -450,7 +450,7 @@ class MembershipApplicationResource extends Resource
                         ->modalDescription(__('Each selected row that is still pending will be approved: a member record and member number are created, the login is activated, and the applicant is notified (email, SMS, and WhatsApp where configured). Rows that are not pending are skipped.'))
                         ->authorizeIndividualRecords('update')
                         ->action(function (EloquentCollection $records, Component $livewire): void {
-                            $pending = $records->filter(fn (MembershipApplication $r) => $r->status === 'pending')->values();
+                            $pending = $records->filter(fn(MembershipApplication $r) => $r->status === 'pending')->values();
                             $ignored = $records->count() - $pending->count();
 
                             $approved = 0;
@@ -503,7 +503,7 @@ class MembershipApplicationResource extends Resource
                         ->authorizeIndividualRecords('update')
                         ->action(function (EloquentCollection $records, array $data, Component $livewire): void {
                             $reason = $data['rejection_reason'];
-                            $pending = $records->filter(fn (MembershipApplication $r) => $r->status === 'pending')->values();
+                            $pending = $records->filter(fn(MembershipApplication $r) => $r->status === 'pending')->values();
                             $ignored = $records->count() - $pending->count();
 
                             $rejected = 0;
@@ -571,7 +571,7 @@ class MembershipApplicationResource extends Resource
         );
 
         $livewire->js(
-            'setTimeout(() => window.Livewire.getByName('.$targetName.').forEach(w => w.$refresh()), 0)'
+            'setTimeout(() => window.Livewire.getByName(' . $targetName . ').forEach(w => w.$refresh()), 0)'
         );
     }
 
@@ -607,7 +607,7 @@ class MembershipApplicationResource extends Resource
      */
     public static function approvePendingApplication(MembershipApplication $record): string
     {
-        $record->loadMissing('user', 'parentMember.user', 'submittedBy.member');
+        $record->loadMissing('user', 'parentMember.user');
 
         $existingMember = Member::query()->where('user_id', $record->user_id)->first();
 
@@ -637,10 +637,16 @@ class MembershipApplicationResource extends Resource
         $memberNumber = app(MemberNumberService::class)->generate();
 
         $parent = $record->parentMember;
-        if ($parent === null && $record->submittedBy?->member !== null) {
-            // Imported duplicate-email applications use submitted_by_user_id to mark the first row as family parent.
-            $candidateParent = $record->submittedBy->member;
-            $parent = $candidateParent->parent_id === null ? $candidateParent : null;
+        if (
+            $parent === null
+            && $record->submitted_by_user_id !== null
+            && (int) $record->submitted_by_user_id !== (int) $record->user_id
+        ) {
+            // CSV/import family grouping: submitted_by_user_id is the parent applicant's user id.
+            $candidateParent = Member::query()->where('user_id', $record->submitted_by_user_id)->first();
+            $parent = ($candidateParent !== null && $candidateParent->parent_id === null)
+                ? $candidateParent
+                : null;
         }
         $householdEmail = $parent?->household_email ?: $parent?->user?->email ?: $record->user?->email;
 
@@ -655,7 +661,15 @@ class MembershipApplicationResource extends Resource
             'status' => 'active',
         ]);
 
+        if ($parent !== null) {
+            $record->forceFill(['parent_member_id' => $parent->id])->saveQuietly();
+        }
+
         app(AccountingService::class)->ensureMemberAccounts($member);
+
+        if ($member->parent_id === null) {
+            static::syncImportedDependentsForSubmitterMember($member);
+        }
 
         try {
             $record->user->notify(
@@ -667,6 +681,59 @@ class MembershipApplicationResource extends Resource
         }
 
         return $memberNumber;
+    }
+
+    /**
+     * When the household parent's member row is created after dependents were already approved,
+     * attach those dependents using import-style submitted_by_user_id (same rules as
+     * {@see \App\Console\Commands\BackfillImportedApplicationDependents}).
+     */
+    public static function syncImportedDependentsForSubmitterMember(Member $submitterMember): void
+    {
+        if ($submitterMember->parent_id !== null) {
+            return;
+        }
+
+        $householdEmail = $submitterMember->household_email ?: $submitterMember->user?->email;
+
+        /** @var EloquentCollection<int, Member> $candidates */
+        $candidates = Member::query()
+            ->whereNull('parent_id')
+            ->where('id', '!=', $submitterMember->id)
+            ->where('user_id', '!=', $submitterMember->user_id)
+            ->whereDoesntHave('dependents')
+            ->whereHas('user.membershipApplication', function (Builder $q) use ($submitterMember): void {
+                $q->where('status', 'approved')
+                    ->whereNull('parent_member_id')
+                    ->where('submitted_by_user_id', $submitterMember->user_id)
+                    ->whereColumn('submitted_by_user_id', '!=', 'user_id');
+            })
+            ->get();
+
+        foreach ($candidates as $childMember) {
+            $submitterFresh = $submitterMember->fresh();
+            if ($submitterFresh === null || $submitterFresh->parent_id !== null) {
+                continue;
+            }
+
+            if ($childMember->parent_id !== null) {
+                continue;
+            }
+
+            $resolvedHouseholdEmail = $householdEmail ?: $childMember->user?->email;
+
+            DB::transaction(function () use ($childMember, $submitterFresh, $resolvedHouseholdEmail): void {
+                $childMember->update([
+                    'parent_id' => $submitterFresh->id,
+                    'household_email' => $resolvedHouseholdEmail,
+                ]);
+
+                MembershipApplication::query()
+                    ->where('user_id', $childMember->user_id)
+                    ->where('status', 'approved')
+                    ->update(['parent_member_id' => $submitterFresh->id]);
+            });
+        }
     }
 
     public static function rejectPendingApplication(MembershipApplication $record, string $rejectionReason): void

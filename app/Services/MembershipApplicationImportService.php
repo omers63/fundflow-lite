@@ -21,8 +21,13 @@ class MembershipApplicationImportService
      * password (≥8 chars overrides default on first row only), application_type, gender, marital_status, membership_date,
      * home_phone, work_phone, work_place, residency_place, occupation, employer, monthly_income
      *
-     * Same email may appear on multiple rows (family profiles): first row is treated as the household parent and
-     * later rows with that email are tagged as dependents (submitted_by_user_id points to the first row's user).
+     * Family grouping (parent → dependents):
+     * 1) Optional column **household_email** (aliases: parent_email, family_email, guardian_email): all rows sharing
+     *    the same normalized value link to the **first** user created for that household key (submitted_by_user_id).
+     *    Use this when each applicant has a unique **email** but shares one household login email.
+     * 2) If household_email is empty on a row, the row's own **email** is the grouping key — same as before: duplicate
+     *    emails across rows mean the first row is parent and later rows are dependents.
+     * Put the parent row before dependents when they only share household_email and the parent's login email differs.
      *
      * @return array{created: int, skipped: int, failed: int, errors: array<int, string>}
      */
@@ -57,14 +62,30 @@ class MembershipApplicationImportService
 
         $lineBase = 2;
 
-        /** @var array<string, int> $familyParentUserIdByEmail */
-        $familyParentUserIdByEmail = [];
-
+        /** @var list<array{line: int, row: array<string, string>}> */
+        $rowsWithLines = [];
         foreach ($rows as $index => $row) {
-            $lineNumber = $lineBase + $index;
+            $rowsWithLines[] = ['line' => $lineBase + $index, 'row' => $row];
+        }
+
+        // Parents / standalone applicants (no household_email) import before dependents that reference it.
+        usort($rowsWithLines, function (array $a, array $b): int {
+            $aHousehold = $this->nullableCell($a['row'], 'household_email') !== null && $this->nullableCell($a['row'], 'household_email') !== '';
+            $bHousehold = $this->nullableCell($b['row'], 'household_email') !== null && $this->nullableCell($b['row'], 'household_email') !== '';
+            $c = ($aHousehold ? 1 : 0) <=> ($bHousehold ? 1 : 0);
+
+            return $c !== 0 ? $c : $a['line'] <=> $b['line'];
+        });
+
+        /** @var array<string, int> user id of the first applicant created for this household grouping key */
+        $familyParentUserIdByHouseholdKey = [];
+
+        foreach ($rowsWithLines as $item) {
+            $lineNumber = $item['line'];
+            $row = $item['row'];
 
             try {
-                $this->importRow($row, $defaultPassword, $familyParentUserIdByEmail);
+                $this->importRow($row, $defaultPassword, $familyParentUserIdByHouseholdKey);
                 $created++;
             } catch (Throwable $e) {
                 $failed++;
@@ -80,10 +101,10 @@ class MembershipApplicationImportService
         ];
     }
 
-    private function importRow(array $row, string $defaultPassword, array &$familyParentUserIdByEmail): void
+    private function importRow(array $row, string $defaultPassword, array &$familyParentUserIdByHouseholdKey): void
     {
         $name = trim((string) $this->cell($row, 'name'));
-        $email = strtolower($this->cell($row, 'email'));
+        $email = strtolower(trim($this->cell($row, 'email')));
 
         if ($email === '') {
             throw new \InvalidArgumentException('email is required.');
@@ -105,9 +126,10 @@ class MembershipApplicationImportService
 
         $mobile = (string) $attrs['mobile_phone'];
 
-        $parentUserId = $familyParentUserIdByEmail[$email] ?? null;
+        $householdKey = $this->householdGroupingKey($row, $email);
+        $parentUserId = $familyParentUserIdByHouseholdKey[$householdKey] ?? null;
 
-        DB::transaction(function () use ($name, $email, $mobile, $plain, $attrs, $parentUserId, &$familyParentUserIdByEmail): void {
+        DB::transaction(function () use ($name, $email, $mobile, $plain, $attrs, $parentUserId, &$familyParentUserIdByHouseholdKey, $householdKey, $row): void {
             $user = User::create([
                 'name' => $name,
                 'email' => $email,
@@ -122,10 +144,44 @@ class MembershipApplicationImportService
                 'submitted_by_user_id' => $parentUserId,
             ]));
 
-            if (!isset($familyParentUserIdByEmail[$email])) {
-                $familyParentUserIdByEmail[$email] = (int) $user->id;
+            $declaredHousehold = $this->optionalHouseholdEmailFromRow($row);
+            $anchorsHouseholdBucket = $declaredHousehold === null || $declaredHousehold === $email;
+            if ($anchorsHouseholdBucket && !isset($familyParentUserIdByHouseholdKey[$householdKey])) {
+                $familyParentUserIdByHouseholdKey[$householdKey] = (int) $user->id;
             }
         });
+    }
+
+    /**
+     * Key used to chain dependents to the first imported user in the same household.
+     */
+    private function householdGroupingKey(array $row, string $loginEmail): string
+    {
+        $shared = $this->optionalHouseholdEmailFromRow($row);
+        if ($shared !== null) {
+            return $shared;
+        }
+
+        return $loginEmail;
+    }
+
+    /**
+     * Optional CSV column(s) that identify the household / parent login email (normalized lowercase).
+     */
+    private function optionalHouseholdEmailFromRow(array $row): ?string
+    {
+        $raw = $this->nullableCell($row, 'household_email');
+        if ($raw === null || $raw === '') {
+            return null;
+        }
+
+        $normalized = strtolower(trim($raw));
+        $v = Validator::make(['email' => $normalized], ['email' => 'required|email']);
+        if ($v->fails()) {
+            throw new \InvalidArgumentException('household_email (or parent/family email column) must be a valid email address.');
+        }
+
+        return $normalized;
     }
 
     /**
@@ -293,6 +349,8 @@ class MembershipApplicationImportService
 
         return match ($h) {
             'e_mail', 'email_address' => 'email',
+            'household_e_mail', 'parent_email', 'parent_e_mail', 'family_email', 'family_e_mail',
+            'guardian_email', 'guardian_e_mail', 'shared_email', 'shared_login_email', 'household_login' => 'household_email',
             'full_name', 'applicant_name', 'member_name', 'display_name', 'contact_name' => 'name',
             'mobile', 'cell', 'mobile_number', 'cell_phone', 'whatsapp_number', 'gsm', 'whatsapp' => 'mobile_phone',
             'national_id_number', 'nid', 'iqama', 'iqama_number', 'national_identification' => 'national_id',

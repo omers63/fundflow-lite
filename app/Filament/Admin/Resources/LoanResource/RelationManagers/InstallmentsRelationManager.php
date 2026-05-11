@@ -20,6 +20,7 @@ use Filament\Tables\Table;
 use Illuminate\Database\Eloquent\Collection;
 use Illuminate\Database\Eloquent\Model;
 use Illuminate\Support\Facades\DB;
+use Illuminate\Support\Facades\Schema as DbSchema;
 use Livewire\Attributes\On;
 use Livewire\Component;
 
@@ -157,23 +158,35 @@ class InstallmentsRelationManager extends RelationManager
                                 ->default(false),
                             Forms\Components\Toggle::make('reflect_member_fund')
                                 ->label(__('Reflect in member fund account'))
+                                ->helperText(__('Member portal My Contributions only lists loan repayments when the member fund is credited and the visibility toggle below is on.'))
                                 ->default(false),
                             Forms\Components\Toggle::make('reflect_loan_account')
                                 ->label(__('Reflect in loan liability account'))
                                 ->default(true),
+                            Forms\Components\Toggle::make('reflect_as_loan_repayment_in_collections')
+                                ->label(__('Show as loan repayment on contributions collection'))
+                                ->helperText(__('If on (and member fund is reflected above), this installment appears on the member\'s My Contributions list. Off by default.'))
+                                ->default(false)
+                                ->visible(fn(): bool => LoanInstallment::hasCollectionsVisibilityColumn()),
                         ])
                         ->action(function (LoanInstallment $record, array $data) {
                             $postingDate = Carbon::parse((string) ($data['posting_date'] ?? now()));
                             $reflectMasterFund = (bool) ($data['reflect_master_fund'] ?? false);
                             $reflectMemberFund = (bool) ($data['reflect_member_fund'] ?? false);
                             $reflectLoanAccount = (bool) ($data['reflect_loan_account'] ?? true);
+                            $includeInCollections = (bool) ($data['reflect_as_loan_repayment_in_collections'] ?? false);
+                            $showSyntheticInCollections = $reflectMemberFund && $includeInCollections;
 
-                            DB::transaction(function () use ($record, $postingDate, $reflectMasterFund, $reflectMemberFund, $reflectLoanAccount): void {
+                            DB::transaction(function () use ($record, $postingDate, $reflectMasterFund, $reflectMemberFund, $reflectLoanAccount, $showSyntheticInCollections): void {
                                 // Skip observer auto-posting so we can apply selected ledgers only.
-                                $record->forceFill([
+                                $attrs = [
                                     'status' => 'paid',
                                     'paid_at' => $postingDate,
-                                ])->saveQuietly();
+                                ];
+                                if (DbSchema::hasColumn($record->getTable(), 'show_as_loan_repayment_in_collections')) {
+                                    $attrs['show_as_loan_repayment_in_collections'] = $showSyntheticInCollections;
+                                }
+                                $record->forceFill($attrs)->saveQuietly();
 
                                 if ($reflectMasterFund || $reflectMemberFund || $reflectLoanAccount) {
                                     app(AccountingService::class)->postLoanRepaymentSelective(
@@ -255,16 +268,24 @@ class InstallmentsRelationManager extends RelationManager
                             ->default(false),
                         Forms\Components\Toggle::make('reflect_member_fund')
                             ->label(__('Reflect in member fund account'))
+                            ->helperText(__('Member portal My Contributions only lists loan repayments when the member fund is credited and the visibility toggle below is on.'))
                             ->default(false),
                         Forms\Components\Toggle::make('reflect_loan_account')
                             ->label(__('Reflect in loan liability account'))
                             ->default(true),
+                        Forms\Components\Toggle::make('reflect_as_loan_repayment_in_collections')
+                            ->label(__('Show as loan repayment on contributions collection'))
+                            ->helperText(__('If on (and member fund is reflected above), each marked installment appears on the member\'s My Contributions list. Off by default.'))
+                            ->default(false)
+                            ->visible(fn(): bool => LoanInstallment::hasCollectionsVisibilityColumn()),
                     ])
                     ->action(function (Collection $records, array $data): void {
                         $postingDate = Carbon::parse((string) ($data['posting_date'] ?? now()));
                         $reflectMasterFund = (bool) ($data['reflect_master_fund'] ?? false);
                         $reflectMemberFund = (bool) ($data['reflect_member_fund'] ?? false);
                         $reflectLoanAccount = (bool) ($data['reflect_loan_account'] ?? true);
+                        $includeInCollections = (bool) ($data['reflect_as_loan_repayment_in_collections'] ?? false);
+                        $showSyntheticInCollections = $reflectMemberFund && $includeInCollections;
                         $processed = 0;
                         $skipped = 0;
 
@@ -275,11 +296,15 @@ class InstallmentsRelationManager extends RelationManager
                                 continue;
                             }
 
-                            DB::transaction(function () use ($record, $postingDate, $reflectMasterFund, $reflectMemberFund, $reflectLoanAccount): void {
-                                $record->forceFill([
+                            DB::transaction(function () use ($record, $postingDate, $reflectMasterFund, $reflectMemberFund, $reflectLoanAccount, $showSyntheticInCollections): void {
+                                $attrs = [
                                     'status' => 'paid',
                                     'paid_at' => $postingDate,
-                                ])->saveQuietly();
+                                ];
+                                if (DbSchema::hasColumn($record->getTable(), 'show_as_loan_repayment_in_collections')) {
+                                    $attrs['show_as_loan_repayment_in_collections'] = $showSyntheticInCollections;
+                                }
+                                $record->forceFill($attrs)->saveQuietly();
 
                                 if ($reflectMasterFund || $reflectMemberFund || $reflectLoanAccount) {
                                     app(AccountingService::class)->postLoanRepaymentSelective(

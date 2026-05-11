@@ -51,6 +51,74 @@ class DependentApplicationAndImpersonationTest extends TestCase
         $this->assertSame('family@example.com', $application->user->email);
     }
 
+    public function test_import_style_dependent_approved_before_parent_gets_parent_id_when_parent_approved(): void
+    {
+        $parentUser = User::factory()->create([
+            'email' => 'parent-only@example.com',
+            'password' => Hash::make('ParentPass123'),
+            'role' => 'member',
+            'status' => 'pending',
+        ]);
+
+        $parentApplication = MembershipApplication::create([
+            'user_id' => $parentUser->id,
+            'parent_member_id' => null,
+            'submitted_by_user_id' => null,
+            'application_type' => 'new',
+            'national_id' => '1111111111',
+            'date_of_birth' => now()->subYears(40)->toDateString(),
+            'address' => 'Parent St',
+            'city' => 'Riyadh',
+            'mobile_phone' => '+966500000010',
+            'iban' => 'SA0000000000000000000001',
+            'next_of_kin_name' => 'Kin',
+            'next_of_kin_phone' => '+966500000011',
+            'status' => 'pending',
+        ]);
+
+        $childUser = User::factory()->create([
+            'email' => 'child-only@example.com',
+            'password' => Hash::make('ChildPass123'),
+            'role' => 'member',
+            'status' => 'pending',
+        ]);
+
+        $childApplication = MembershipApplication::create([
+            'user_id' => $childUser->id,
+            'parent_member_id' => null,
+            'submitted_by_user_id' => $parentUser->id,
+            'application_type' => 'new',
+            'national_id' => '2222222222',
+            'date_of_birth' => now()->subYears(15)->toDateString(),
+            'address' => 'Child St',
+            'city' => 'Riyadh',
+            'mobile_phone' => '+966500000012',
+            'iban' => 'SA0000000000000000000002',
+            'next_of_kin_name' => 'Kin2',
+            'next_of_kin_phone' => '+966500000013',
+            'status' => 'pending',
+        ]);
+
+        $admin = User::factory()->create([
+            'role' => 'admin',
+            'status' => 'approved',
+        ]);
+        $this->actingAs($admin);
+
+        MembershipApplicationResource::approvePendingApplication($childApplication->fresh());
+        $childMember = Member::query()->where('user_id', $childUser->id)->first();
+        $this->assertNotNull($childMember);
+        $this->assertNull($childMember->parent_id);
+
+        MembershipApplicationResource::approvePendingApplication($parentApplication->fresh());
+        $parentMember = Member::query()->where('user_id', $parentUser->id)->first();
+        $this->assertNotNull($parentMember);
+
+        $childMember->refresh();
+        $this->assertSame($parentMember->id, $childMember->parent_id);
+        $this->assertSame($parentMember->id, $childApplication->fresh()->parent_member_id);
+    }
+
     public function test_approval_of_on_behalf_application_links_new_member_to_parent(): void
     {
         [$parent, $parentUser] = $this->seedParent();

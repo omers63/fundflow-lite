@@ -57,7 +57,7 @@ class MyContributionsResource extends Resource
                     ->where('user_id', auth()->id())
                     ->value('id');
 
-                if (! filled($memberId)) {
+                if (!filled($memberId)) {
                     return Contribution::query()->whereRaw('1 = 0');
                 }
 
@@ -77,6 +77,7 @@ class MyContributionsResource extends Resource
                     ->join('loans', 'loans.id', '=', 'loan_installments.loan_id')
                     ->where('loans.member_id', $memberId)
                     ->where('loan_installments.status', 'paid')
+                    ->paidVisibleInCollections()
                     ->whereNull('loan_installments.deleted_at')
                     ->selectRaw('(-loan_installments.id) as id')
                     ->selectRaw('loans.member_id as member_id')
@@ -84,7 +85,7 @@ class MyContributionsResource extends Resource
                     ->selectRaw("{$dueMonthSql} as month")
                     ->selectRaw("{$dueYearSql} as year")
                     ->selectRaw('loan_installments.paid_at as paid_at')
-                    ->selectRaw("'".Contribution::PAYMENT_METHOD_LOAN_REPAYMENT."' as payment_method")
+                    ->selectRaw("'" . Contribution::PAYMENT_METHOD_LOAN_REPAYMENT . "' as payment_method")
                     ->selectRaw('NULL as reference_number')
                     ->selectRaw("{$notesSql} as notes")
                     ->selectRaw('loan_installments.created_at as created_at')
@@ -118,7 +119,7 @@ class MyContributionsResource extends Resource
                     ->label(__('Source'))
                     ->visibleFrom('md')
                     ->badge()
-                    ->formatStateUsing(fn (?string $state): string => Contribution::paymentMethodLabel($state)),
+                    ->formatStateUsing(fn(?string $state): string => Contribution::paymentMethodLabel($state)),
                 Tables\Columns\TextColumn::make('reference_number')
                     ->label(__('app.field.reference_number'))
                     ->visibleFrom('lg')
@@ -126,7 +127,7 @@ class MyContributionsResource extends Resource
                 Tables\Columns\TextColumn::make('paid_at')
                     ->label(__('app.field.paid_at'))
                     ->visibleFrom('sm')
-                    ->formatStateUsing(fn ($state) => $state instanceof CarbonInterface
+                    ->formatStateUsing(fn($state) => $state instanceof CarbonInterface
                         ? $state->locale(app()->getLocale())->translatedFormat('d M Y')
                         : '')
                     ->sortable(),
@@ -146,8 +147,8 @@ class MyContributionsResource extends Resource
                         ->label(__('Receipt'))
                         ->icon('heroicon-o-arrow-down-tray')
                         ->color('gray')
-                        ->visible(fn (Contribution $record): bool => $record->payment_method !== Contribution::PAYMENT_METHOD_LOAN_REPAYMENT)
-                        ->url(fn (Contribution $record): string => route('member.contribution.receipt', $record))
+                        ->visible(fn(Contribution $record): bool => $record->payment_method !== Contribution::PAYMENT_METHOD_LOAN_REPAYMENT)
+                        ->url(fn(Contribution $record): string => route('member.contribution.receipt', $record))
                         ->openUrlInNewTab(),
                 ])
                     ->icon('heroicon-m-ellipsis-vertical')
@@ -156,17 +157,17 @@ class MyContributionsResource extends Resource
             ])
             ->filters([
                 Tables\Filters\SelectFilter::make('month')
-                    ->options(collect(range(1, 12))->mapWithKeys(fn (int $m): array => [
+                    ->options(collect(range(1, 12))->mapWithKeys(fn(int $m): array => [
                         $m => Carbon::createFromDate((int) now()->year, $m, 1)
                             ->locale(app()->getLocale())
                             ->translatedFormat('F'),
                     ])->all()),
                 Tables\Filters\Filter::make('year')
                     ->schema([Forms\Components\TextInput::make('year')->numeric()->default(now()->year)])
-                    ->query(fn ($query, $data) => ($data['year'] ?? null) ? $query->where('year', $data['year']) : $query),
+                    ->query(fn($query, $data) => ($data['year'] ?? null) ? $query->where('year', $data['year']) : $query),
                 Tables\Filters\SelectFilter::make('payment_method')
                     ->label(__('Source'))
-                    ->options(fn (): array => Contribution::paymentMethodOptions()),
+                    ->options(fn(): array => Contribution::paymentMethodOptions()),
                 Tables\Filters\TernaryFilter::make('is_late')
                     ->label(__('Late payment'))
                     ->trueLabel(__('Late only'))
@@ -179,8 +180,8 @@ class MyContributionsResource extends Resource
                     ->columns(2)
                     ->query(function ($query, array $data) {
                         return $query
-                            ->when($data['paid_from'] ?? null, fn ($q) => $q->whereDate('paid_at', '>=', $data['paid_from']))
-                            ->when($data['paid_until'] ?? null, fn ($q) => $q->whereDate('paid_at', '<=', $data['paid_until']));
+                            ->when($data['paid_from'] ?? null, fn($q) => $q->whereDate('paid_at', '>=', $data['paid_from']))
+                            ->when($data['paid_until'] ?? null, fn($q) => $q->whereDate('paid_at', '<=', $data['paid_until']));
                     }),
                 Tables\Filters\Filter::make('amount')
                     ->schema([
@@ -190,8 +191,8 @@ class MyContributionsResource extends Resource
                     ->columns(2)
                     ->query(function ($query, array $data) {
                         return $query
-                            ->when(filled($data['amount_min'] ?? null), fn ($q) => $q->where('amount', '>=', $data['amount_min']))
-                            ->when(filled($data['amount_max'] ?? null), fn ($q) => $q->where('amount', '<=', $data['amount_max']));
+                            ->when(filled($data['amount_min'] ?? null), fn($q) => $q->where('amount', '>=', $data['amount_min']))
+                            ->when(filled($data['amount_max'] ?? null), fn($q) => $q->where('amount', '<=', $data['amount_max']));
                     }),
             ]);
     }

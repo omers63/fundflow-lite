@@ -182,6 +182,7 @@ class ContributionResource extends Resource
                     ->withoutGlobalScope(SoftDeletingScope::class)
                     ->join('loans', 'loans.id', '=', 'loan_installments.loan_id')
                     ->where('loan_installments.status', 'paid')
+                    ->paidVisibleInCollections()
                     ->whereNull('loan_installments.deleted_at')
                     ->selectRaw('(-loan_installments.id) as id')
                     ->selectRaw('loans.member_id as member_id')
@@ -253,6 +254,10 @@ class ContributionResource extends Resource
                                 ->leftJoin('members', 'members.id', '=', 'loans.member_id')
                                 ->leftJoin('users', 'users.id', '=', 'members.user_id')
                                 ->where('loan_installments.status', 'paid')
+                                ->when(
+                                    LoanInstallment::hasCollectionsVisibilityColumn(),
+                                    fn($q) => $q->where('loan_installments.show_as_loan_repayment_in_collections', true),
+                                )
                                 ->whereNull('loan_installments.deleted_at')
                                 ->selectRaw('(-loan_installments.id) as id')
                                 ->selectRaw('members.member_number as member_number')
