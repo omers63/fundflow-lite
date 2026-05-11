@@ -4,7 +4,6 @@ namespace App\Http\Controllers;
 
 use App\Models\Enrollment;
 use App\Models\Family;
-use App\Support\SystemSettings;
 use Illuminate\Http\RedirectResponse;
 use Illuminate\Http\Request;
 use Illuminate\View\View;
@@ -13,9 +12,7 @@ class PublicPageController extends Controller
 {
     public function home(): View
     {
-        return view('public.home', [
-            'settings' => SystemSettings::all(),
-        ]);
+        return view('welcome');
     }
 
     public function switchLocale(string $locale): RedirectResponse

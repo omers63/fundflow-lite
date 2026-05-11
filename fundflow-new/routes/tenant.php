@@ -24,8 +24,6 @@ Route::middleware([
     PreventAccessFromCentralDomains::class,
 ])->group(function () {
     Route::get('/tenant', function () {
-        return view('public.home', [
-            'tenantId' => tenant('id'),
-        ]);
+        return view('welcome');
     })->name('tenant.home');
 });
