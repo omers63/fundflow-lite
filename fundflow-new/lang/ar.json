@@ -1,0 +1,20 @@
+{
+    "FundFlow Family Sponsorship SaaS": "منصة فندفلو لإدارة رعاية العائلة",
+    "Manage parents and dependents, enroll family members, and collaborate through Filament comments.": "إدارة أولياء الأمور والمعالين، وتسجيل أفراد العائلة، والتعاون عبر التعليقات في Filament.",
+    "Open a family portal by slug. Example:": "افتح بوابة العائلة عبر الرابط التعريفي. مثال:",
+    "Admins sign in at /admin and members at /member after family login.": "يسجل المشرفون الدخول عبر /admin والأعضاء عبر /member بعد تسجيل دخول العائلة.",
+    "Family code": "رمز العائلة",
+    "Member/Admin Login": "دخول العضو/المشرف",
+    "Enrollment Workflow": "سير عمل التسجيل",
+    "Applicant Name": "اسم مقدم الطلب",
+    "Phone": "الهاتف",
+    "Notes": "ملاحظات",
+    "Submit Enrollment": "إرسال طلب التسجيل",
+    "Enrollment submitted successfully.": "تم إرسال طلب التسجيل بنجاح.",
+    "Family Login": "تسجيل دخول العائلة",
+    "Login to": "تسجيل الدخول إلى",
+    "Use your family account credentials.": "استخدم بيانات حساب العائلة الخاصة بك.",
+    "Password": "كلمة المرور",
+    "Login": "تسجيل الدخول",
+    "Invalid credentials for this family.": "بيانات الدخول غير صحيحة لهذه العائلة."
+}
