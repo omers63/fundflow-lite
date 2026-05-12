@@ -18,4 +18,17 @@ class Tenant extends BaseTenant implements TenantWithDatabase
         'name',
         'slug',
     ];
+
+    /**
+     * Real table columns (everything else is stored in the JSON `data` column by VirtualColumn).
+     */
+    public static function getCustomColumns(): array
+    {
+        return [
+            'id',
+            'name',
+            'slug',
+            'tenancy_db_name',
+        ];
+    }
 }

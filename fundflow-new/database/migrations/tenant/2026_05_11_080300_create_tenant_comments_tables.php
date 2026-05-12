@@ -25,7 +25,7 @@ return new class extends Migration {
             $table->foreignId('comment_id')->constrained('comments')->cascadeOnDelete();
             $table->morphs('commenter');
             $table->timestamps();
-            $table->unique(['comment_id', 'commenter_id', 'commenter_type']);
+            $table->unique(['comment_id', 'commenter_id', 'commenter_type'], 'comment_mentions_unique');
         });
 
         Schema::create('comment_reactions', function (Blueprint $table): void {
@@ -34,7 +34,7 @@ return new class extends Migration {
             $table->morphs('commenter');
             $table->string('reaction');
             $table->timestamps();
-            $table->unique(['comment_id', 'commenter_id', 'commenter_type', 'reaction']);
+            $table->unique(['comment_id', 'commenter_id', 'commenter_type', 'reaction'], 'comment_reactions_unique');
         });
 
         Schema::create('comment_subscriptions', function (Blueprint $table): void {
@@ -44,7 +44,7 @@ return new class extends Migration {
             $table->timestamp('created_at')->nullable();
             $table->unique(
                 ['commentable_type', 'commentable_id', 'commenter_type', 'commenter_id'],
-                'comment_subscriptions_unique'
+                'comment_subscriptions_unique_tenant'
             );
         });
 

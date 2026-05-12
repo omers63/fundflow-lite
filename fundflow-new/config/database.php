@@ -76,7 +76,7 @@ return [
             'url' => env('DB_TENANT_TEMPLATE_URL'),
             'host' => env('DB_TENANT_TEMPLATE_HOST', env('DB_TENANT_HOST', '127.0.0.1')),
             'port' => env('DB_TENANT_TEMPLATE_PORT', env('DB_TENANT_PORT', '3306')),
-            'database' => env('DB_TENANT_TEMPLATE_DATABASE', 'fundflow_tenant_template'),
+            'database' => env('DB_TENANT_TEMPLATE_DATABASE', env('DB_CENTRAL_DATABASE', 'fundflow_central')),
             'username' => env('DB_TENANT_TEMPLATE_USERNAME', env('DB_TENANT_USERNAME', 'root')),
             'password' => env('DB_TENANT_TEMPLATE_PASSWORD', env('DB_TENANT_PASSWORD', '')),
             'unix_socket' => env('DB_TENANT_TEMPLATE_SOCKET', env('DB_TENANT_SOCKET', '')),
